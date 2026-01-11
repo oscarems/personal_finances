@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Presupuesto - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Presupuesto</h2>
+            <p class="text-gray-600 mt-2">Dale un propósito a cada peso (estilo YNAB)</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <select id="currencySelect" class="border border-gray-300 rounded-lg px-4 py-2">
+                <option value="COP">COP ($)</option>
+                <option value="USD">USD (US$)</option>
+            </select>
+            <input type="month" id="monthSelect" class="border border-gray-300 rounded-lg px-4 py-2">
+        </div>
+    </div>
+</div>
+
+<!-- Ready to Assign Banner -->
+<div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 mb-8 text-white">
+    <div class="flex justify-between items-center">
+        <div>
+            <p class="text-sm opacity-90">Disponible para Asignar</p>
+            <p class="text-4xl font-bold mt-2" id="readyToAssign">$0</p>
+        </div>
+        <div class="text-6xl">💰</div>
+    </div>
+</div>
+
+<!-- Budget Groups -->
+<div id="budgetGroups" class="space-y-6">
+    <!-- Budget groups will be loaded here -->
+</div>
+
+<!-- Assign Money Modal -->
+<div id="assignModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-md w-full">
+        <h3 class="text-xl font-bold mb-4">Asignar Dinero</h3>
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+            <input type="text" id="modalCategoryName" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+        </div>
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Monto a Asignar</label>
+            <input type="number" id="modalAmount" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0.00" step="0.01">
+        </div>
+        <div class="flex justify-end space-x-3">
+            <button onclick="closeAssignModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                Cancelar
+            </button>
+            <button onclick="saveAssignment()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Asignar
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentCurrency = 'COP';
+    let currentMonth = new Date();
+    let selectedCategory = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set current month
+        const monthInput = document.getElementById('monthSelect');
+        const year = currentMonth.getFullYear();
+        const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+        monthInput.value = `${year}-${month}`;
+
+        // Event listeners
+        document.getElementById('currencySelect').addEventListener('change', function(e) {
+            currentCurrency = e.target.value;
+            loadBudget();
+        });
+
+        document.getElementById('monthSelect').addEventListener('change', function(e) {
+            const [year, month] = e.target.value.split('-');
+            currentMonth = new Date(year, month - 1, 1);
+            loadBudget();
+        });
+
+        loadBudget();
+    });
+
+    async function loadBudget() {
+        try {
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth() + 1;
+
+            const res = await fetch(`/api/budgets/month/${year}/${month}?currency_code=${currentCurrency}`);
+            const data = await res.json();
+
+            displayBudget(data);
+        } catch (error) {
+            console.error('Error loading budget:', error);
+        }
+    }
+
+    function displayBudget(data) {
+        if (!data) return;
+
+        // Display Ready to Assign
+        const symbol = data.currency.symbol || '$';
+        document.getElementById('readyToAssign').textContent =
+            `${symbol}${formatAmount(data.ready_to_assign, data.currency.decimals)}`;
+
+        // Display budget groups
+        const container = document.getElementById('budgetGroups');
+        container.innerHTML = data.groups.map(group => {
+            if (group.is_income) return ''; // Skip income group
+
+            const groupTotal = group.categories.reduce((sum, cat) => sum + cat.assigned, 0);
+            const groupActivity = group.categories.reduce((sum, cat) => sum + Math.abs(cat.activity), 0);
+            const groupAvailable = group.categories.reduce((sum, cat) => sum + cat.available, 0);
+
+            return `
+                <div class="bg-white rounded-lg shadow">
+                    <!-- Group Header -->
+                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                        <div class="grid grid-cols-4 gap-4">
+                            <div class="col-span-1">
+                                <h3 class="text-lg font-semibold text-gray-800">${group.name}</h3>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-gray-500">Asignado</p>
+                                <p class="font-semibold text-gray-800">${symbol}${formatAmount(groupTotal, data.currency.decimals)}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-gray-500">Gastado</p>
+                                <p class="font-semibold text-gray-800">${symbol}${formatAmount(groupActivity, data.currency.decimals)}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-gray-500">Disponible</p>
+                                <p class="font-semibold ${groupAvailable >= 0 ? 'text-green-600' : 'text-red-600'}">${symbol}${formatAmount(groupAvailable, data.currency.decimals)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Categories -->
+                    <div class="divide-y divide-gray-200">
+                        ${group.categories.map(cat => {
+                            const percentSpent = cat.assigned > 0 ? (Math.abs(cat.activity) / cat.assigned) * 100 : 0;
+                            const isOverbudget = percentSpent > 100;
+                            const barColor = isOverbudget ? 'bg-red-500' : (percentSpent > 80 ? 'bg-yellow-500' : 'bg-green-500');
+
+                            return `
+                                <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer" onclick="openAssignModal(${cat.category_id}, '${cat.category_name}', ${cat.assigned})">
+                                    <div class="grid grid-cols-4 gap-4 items-center">
+                                        <div class="col-span-1">
+                                            <p class="font-medium text-gray-800">${cat.category_name}</p>
+                                            ${cat.target_amount ? `<p class="text-xs text-gray-500">Meta: ${symbol}${formatAmount(cat.target_amount, data.currency.decimals)}</p>` : ''}
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-gray-800">${symbol}${formatAmount(cat.assigned, data.currency.decimals)}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-gray-800">${symbol}${formatAmount(Math.abs(cat.activity), data.currency.decimals)}</p>
+                                            <!-- Progress Bar -->
+                                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                                <div class="budget-bar ${barColor} h-2 rounded-full" style="width: ${Math.min(percentSpent, 100)}%"></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="font-semibold ${cat.available >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                                ${symbol}${formatAmount(cat.available, data.currency.decimals)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function formatAmount(amount, decimals = 0) {
+        return Math.abs(amount).toLocaleString('es-CO', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+
+    function openAssignModal(categoryId, categoryName, currentAssigned) {
+        selectedCategory = categoryId;
+        document.getElementById('modalCategoryName').value = categoryName;
+        document.getElementById('modalAmount').value = currentAssigned;
+        document.getElementById('assignModal').classList.remove('hidden');
+    }
+
+    function closeAssignModal() {
+        selectedCategory = null;
+        document.getElementById('assignModal').classList.add('hidden');
+    }
+
+    async function saveAssignment() {
+        const amount = parseFloat(document.getElementById('modalAmount').value);
+        if (isNaN(amount) || amount < 0) {
+            alert('Por favor ingresa un monto válido');
+            return;
+        }
+
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth() + 1;
+        const monthDate = `${year}-${String(month).padStart(2, '0')}-01`;
+
+        try {
+            const res = await fetch('/api/budgets/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    category_id: selectedCategory,
+                    amount: amount,
+                    month: monthDate,
+                    currency_code: currentCurrency
+                })
+            });
+
+            if (res.ok) {
+                closeAssignModal();
+                loadBudget();
+            } else {
+                alert('Error al asignar presupuesto');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al asignar presupuesto');
+        }
+    }
+</script>
+{% endblock %}
