@@ -24,6 +24,7 @@ class Account(Base):
                                   lazy=True)
     transfer_transactions = relationship('Transaction',
                                           foreign_keys='Transaction.transfer_account_id',
+                                          overlaps="transfer_account",
                                           lazy=True)
 
     def __repr__(self):

@@ -22,7 +22,7 @@ class Transaction(Base):
 
     # Relationships
     account = relationship('Account', foreign_keys=[account_id], back_populates='transactions')
-    transfer_account = relationship('Account', foreign_keys=[transfer_account_id])
+    transfer_account = relationship('Account', foreign_keys=[transfer_account_id], overlaps="transfer_transactions")
     payee = relationship('Payee', back_populates='transactions')
     category = relationship('Category', back_populates='transactions')
     currency = relationship('Currency', back_populates='transactions')

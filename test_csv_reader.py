@@ -6,7 +6,23 @@ Script de prueba para leer y visualizar CSV de YNAB
 import sys
 import csv
 from pathlib import Path
-from tabulate import tabulate
+
+
+def print_table_row(cols, widths):
+    """Helper to print a table row"""
+    row = "| "
+    for col, width in zip(cols, widths):
+        row += str(col)[:width].ljust(width) + " | "
+    print(row)
+
+
+def print_separator(widths):
+    """Helper to print table separator"""
+    sep = "+"
+    for width in widths:
+        sep += "-" * (width + 2) + "+"
+    print(sep)
+
 
 def read_ynab_csv(csv_path):
     """Lee y muestra el contenido del CSV de YNAB"""
@@ -21,6 +37,7 @@ def read_ynab_csv(csv_path):
     # Leer CSV
     rows = []
     headers = []
+    widths = [20, 10, 25, 30, 20, 10, 10, 10]
 
     with open(csv_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -48,9 +65,15 @@ def read_ynab_csv(csv_path):
                 if idx == 1:
                     # Imprimir encabezados
                     table_headers = ['Account', 'Date', 'Payee', 'Category', 'Memo', 'Outflow', 'Inflow', 'Cleared']
-                    print(tabulate([display_row], headers=table_headers, tablefmt='grid'))
-                else:
-                    print(tabulate([display_row], tablefmt='grid'))
+                    print_separator(widths)
+                    print_table_row(table_headers, widths)
+                    print_separator(widths)
+
+                print_table_row(display_row, widths)
+
+            elif idx == 11:
+                # Cerrar la tabla
+                print_separator(widths)
 
     print("\n" + "=" * 120)
     print(f"\n📊 Resumen:")
