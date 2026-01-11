@@ -3,11 +3,11 @@ Transaction service for CRUD operations
 """
 from datetime import datetime, date
 from sqlalchemy import and_, or_, extract
-from backend.database import db
+from sqlalchemy.orm import Session
 from backend.models import Transaction, Account, Category, Payee, Currency
 
 
-def create_transaction(data):
+def create_transaction(db: Session, data):
     """
     Create a new transaction
     Args:
@@ -18,11 +18,11 @@ def create_transaction(data):
     # Get or create payee
     payee = None
     if data.get('payee_name'):
-        payee = Payee.query.filter_by(name=data['payee_name']).first()
+        payee = db.query(Payee).filter_by(name=data['payee_name']).first()
         if not payee:
             payee = Payee(name=data['payee_name'])
-            db.session.add(payee)
-            db.session.flush()
+            db.add(payee)
+            db.flush()
 
     # Create transaction
     transaction = Transaction(
@@ -38,23 +38,23 @@ def create_transaction(data):
         transfer_account_id=data.get('transfer_account_id')
     )
 
-    db.session.add(transaction)
+    db.add(transaction)
 
     # Update account balance
-    account = Account.query.get(data['account_id'])
+    account = db.query(Account).get(data['account_id'])
     if account:
         account.balance += data['amount']
 
-    db.session.commit()
+    db.commit()
     return transaction
 
 
-def get_transactions(account_id=None, category_id=None, start_date=None,
+def get_transactions(db: Session, account_id=None, category_id=None, start_date=None,
                      end_date=None, limit=None):
     """
     Get transactions with optional filters
     """
-    query = Transaction.query
+    query = db.query(Transaction)
 
     if account_id:
         query = query.filter(Transaction.account_id == account_id)
@@ -76,14 +76,14 @@ def get_transactions(account_id=None, category_id=None, start_date=None,
     return query.all()
 
 
-def get_transaction_by_id(transaction_id):
+def get_transaction_by_id(db: Session, transaction_id):
     """Get single transaction by ID"""
-    return Transaction.query.get(transaction_id)
+    return db.query(Transaction).get(transaction_id)
 
 
-def update_transaction(transaction_id, data):
+def update_transaction(db: Session, transaction_id, data):
     """Update existing transaction"""
-    transaction = Transaction.query.get(transaction_id)
+    transaction = db.query(Transaction).get(transaction_id)
     if not transaction:
         return None
 
@@ -93,11 +93,11 @@ def update_transaction(transaction_id, data):
 
     # Update payee if needed
     if data.get('payee_name'):
-        payee = Payee.query.filter_by(name=data['payee_name']).first()
+        payee = db.query(Payee).filter_by(name=data['payee_name']).first()
         if not payee:
             payee = Payee(name=data['payee_name'])
-            db.session.add(payee)
-            db.session.flush()
+            db.add(payee)
+            db.flush()
         transaction.payee_id = payee.id
 
     # Update fields
@@ -106,40 +106,40 @@ def update_transaction(transaction_id, data):
             setattr(transaction, key, value)
 
     # Update account balances
-    old_account = Account.query.get(old_account_id)
+    old_account = db.query(Account).get(old_account_id)
     if old_account:
         old_account.balance -= old_amount
 
-    new_account = Account.query.get(transaction.account_id)
+    new_account = db.query(Account).get(transaction.account_id)
     if new_account:
         new_account.balance += transaction.amount
 
-    db.session.commit()
+    db.commit()
     return transaction
 
 
-def delete_transaction(transaction_id):
+def delete_transaction(db: Session, transaction_id):
     """Delete transaction and update account balance"""
-    transaction = Transaction.query.get(transaction_id)
+    transaction = db.query(Transaction).get(transaction_id)
     if not transaction:
         return False
 
     # Update account balance
-    account = Account.query.get(transaction.account_id)
+    account = db.query(Account).get(transaction.account_id)
     if account:
         account.balance -= transaction.amount
 
-    db.session.delete(transaction)
-    db.session.commit()
+    db.delete(transaction)
+    db.commit()
     return True
 
 
-def get_monthly_activity(category_id, month, year, currency_id):
+def get_monthly_activity(db: Session, category_id, month, year, currency_id):
     """
     Calculate total activity (spending) for a category in a month
     Returns negative number for expenses
     """
-    transactions = Transaction.query.filter(
+    transactions = db.query(Transaction).filter(
         and_(
             Transaction.category_id == category_id,
             Transaction.currency_id == currency_id,
@@ -151,11 +151,11 @@ def get_monthly_activity(category_id, month, year, currency_id):
     return sum(t.amount for t in transactions)
 
 
-def get_account_summary():
+def get_account_summary(db: Session):
     """
     Get summary of all accounts with total balances
     """
-    accounts = Account.query.filter_by(is_closed=False).all()
+    accounts = db.query(Account).filter_by(is_closed=False).all()
 
     summary = {
         'accounts': [acc.to_dict() for acc in accounts],
@@ -165,7 +165,10 @@ def get_account_summary():
     for account in accounts:
         currency_code = account.currency.code
         if currency_code not in summary['total_by_currency']:
-            summary['total_by_currency'][currency_code] = 0
-        summary['total_by_currency'][currency_code] += account.balance
+            summary['total_by_currency'][currency_code] = {
+                'total': 0,
+                'symbol': account.currency.symbol
+            }
+        summary['total_by_currency'][currency_code]['total'] += account.balance
 
     return summary
