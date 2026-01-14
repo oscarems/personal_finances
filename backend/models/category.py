@@ -38,6 +38,9 @@ class Category(Base):
     sort_order = Column(Integer, default=0)
     is_hidden = Column(Boolean, default=False)
 
+    # Rollover behavior: 'accumulate' (dinero pasa al siguiente mes) o 'reset' (dinero vuelve a Ready to Assign)
+    rollover_type = Column(String(20), default='reset')  # 'accumulate' or 'reset'
+
     # Relationships
     category_group = relationship('CategoryGroup', back_populates='categories')
     transactions = relationship('Transaction', back_populates='category', lazy=True)
@@ -56,7 +59,8 @@ class Category(Base):
             'target_type': self.target_type,
             'target_amount': self.target_amount,
             'sort_order': self.sort_order,
-            'is_hidden': self.is_hidden
+            'is_hidden': self.is_hidden,
+            'rollover_type': self.rollover_type
         }
         if include_group and self.category_group:
             data['category_group'] = {

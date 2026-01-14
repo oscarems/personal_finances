@@ -54,7 +54,15 @@ def init_categories(db_session):
             print(f"  ✓ Created group: {group_data['name']}")
 
         # Create categories in group
-        for cat_idx, cat_name in enumerate(group_data['categories']):
+        for cat_idx, cat_data in enumerate(group_data['categories']):
+            # Handle both old format (string) and new format (dict)
+            if isinstance(cat_data, str):
+                cat_name = cat_data
+                rollover_type = group_data.get('rollover_type', 'reset')
+            else:
+                cat_name = cat_data['name']
+                rollover_type = cat_data.get('rollover_type', 'reset')
+
             category = db_session.query(Category).filter_by(
                 name=cat_name,
                 category_group_id=group.id
@@ -64,10 +72,12 @@ def init_categories(db_session):
                 category = Category(
                     category_group_id=group.id,
                     name=cat_name,
-                    sort_order=cat_idx
+                    sort_order=cat_idx,
+                    rollover_type=rollover_type
                 )
                 db_session.add(category)
-                print(f"    ✓ Created category: {cat_name}")
+                rollover_indicator = "🔄" if rollover_type == 'accumulate' else "🔁"
+                print(f"    ✓ Created category: {cat_name} {rollover_indicator}")
 
     # Create Income category group
     income_group = db_session.query(CategoryGroup).filter_by(name='Ingresos').first()

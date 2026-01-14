@@ -53,8 +53,12 @@ def assign_money_to_category(db: Session, category_id, month_date, currency_id, 
 def calculate_available(db: Session, budget_month):
     """
     Calculate available amount for a budget month
-    Available = Assigned - Activity + Previous month's available
+    For 'accumulate' categories: Available = Assigned - Activity + Previous month's available
+    For 'reset' categories: Available = Assigned - Activity (previous month ignored)
     """
+    # Get category to check rollover type
+    category = db.query(Category).get(budget_month.category_id)
+
     # Get activity from transactions
     month = budget_month.month.month
     year = budget_month.month.year
@@ -69,18 +73,23 @@ def calculate_available(db: Session, budget_month):
 
     budget_month.activity = activity
 
-    # Get previous month's available
-    prev_month_date = budget_month.month - relativedelta(months=1)
-    prev_budget = db.query(BudgetMonth).filter_by(
-        category_id=budget_month.category_id,
-        month=prev_month_date,
-        currency_id=budget_month.currency_id
-    ).first()
+    # Get previous month's available (only for 'accumulate' categories)
+    prev_available = 0.0
 
-    prev_available = prev_budget.available if prev_budget else 0.0
+    if category and category.rollover_type == 'accumulate':
+        prev_month_date = budget_month.month - relativedelta(months=1)
+        prev_budget = db.query(BudgetMonth).filter_by(
+            category_id=budget_month.category_id,
+            month=prev_month_date,
+            currency_id=budget_month.currency_id
+        ).first()
 
-    # Available = assigned - activity (negative) + previous available
-    budget_month.available = budget_month.assigned + abs(activity) + prev_available
+        if prev_budget:
+            prev_available = prev_budget.available
+
+    # Available = assigned - activity (negative for expenses) + previous available (if accumulate)
+    # activity is negative for expenses, so we add it
+    budget_month.available = budget_month.assigned + activity + prev_available
 
     return budget_month
 
@@ -133,7 +142,8 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
                 'assigned': budget.assigned,
                 'activity': budget.activity,
                 'available': budget.available,
-                'target_amount': category.target_amount
+                'target_amount': category.target_amount,
+                'rollover_type': category.rollover_type  # 'accumulate' or 'reset'
             }
 
             group_data['categories'].append(cat_data)
@@ -155,7 +165,9 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
 def calculate_ready_to_assign(db: Session, month_date, currency_id):
     """
     Calculate money available to assign
-    = Total income - Total assigned to categories
+    = Total income (this month)
+      - Total assigned to categories (this month)
+      + Money from 'reset' categories from previous month that wasn't spent
     """
     # Get all income for the month
     income_group = db.query(CategoryGroup).filter_by(is_income=True).first()
@@ -170,15 +182,30 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         activity = get_monthly_activity(db, category.id, month, year, currency_id)
         total_income += abs(activity)  # Income is positive
 
-    # Get total assigned
-    budgets = db.query(BudgetMonth).filter_by(
+    # Get total assigned this month
+    budgets_this_month = db.query(BudgetMonth).filter_by(
         month=month_date,
         currency_id=currency_id
     ).all()
 
-    total_assigned = sum(b.assigned for b in budgets)
+    total_assigned = sum(b.assigned for b in budgets_this_month)
 
-    return total_income - total_assigned
+    # Add money from 'reset' categories from previous month
+    prev_month_date = month_date - relativedelta(months=1)
+    prev_budgets = db.query(BudgetMonth).filter_by(
+        month=prev_month_date,
+        currency_id=currency_id
+    ).all()
+
+    rollover_from_reset = 0.0
+    for prev_budget in prev_budgets:
+        category = db.query(Category).get(prev_budget.category_id)
+        if category and category.rollover_type == 'reset':
+            # If there's money left over, it returns to Ready to Assign
+            if prev_budget.available > 0:
+                rollover_from_reset += prev_budget.available
+
+    return total_income - total_assigned + rollover_from_reset
 
 
 def get_budget_overview(db: Session, currency_code='COP'):
