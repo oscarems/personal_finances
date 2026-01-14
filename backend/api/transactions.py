@@ -28,6 +28,16 @@ class TransactionCreate(BaseModel):
     cleared: bool = False
 
 
+class TransactionUpdate(BaseModel):
+    account_id: Optional[int] = None
+    date: Optional[date] = None
+    payee_name: Optional[str] = None
+    category_id: Optional[int] = None
+    memo: Optional[str] = None
+    amount: Optional[float] = None
+    cleared: Optional[bool] = None
+
+
 @router.get("/")
 def list_transactions(
     account_id: Optional[int] = None,
@@ -40,12 +50,35 @@ def list_transactions(
     return [t.to_dict() for t in transactions]
 
 
+@router.get("/{transaction_id}")
+def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    """Get single transaction"""
+    transaction = get_transaction_by_id(db, transaction_id)
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return transaction.to_dict()
+
+
 @router.post("/")
 def create_new_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     """Create a new transaction"""
     data = transaction.dict()
     new_transaction = create_transaction(db, data)
     return new_transaction.to_dict()
+
+
+@router.put("/{transaction_id}")
+def update_existing_transaction(
+    transaction_id: int,
+    transaction: TransactionUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update an existing transaction"""
+    data = {k: v for k, v in transaction.dict().items() if v is not None}
+    updated_transaction = update_transaction(db, transaction_id, data)
+    if not updated_transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return updated_transaction.to_dict()
 
 
 @router.delete("/{transaction_id}")

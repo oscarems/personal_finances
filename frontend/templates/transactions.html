@@ -3,13 +3,436 @@
 {% block title %}Transacciones - Personal Finances{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <h2 class="text-3xl font-bold text-gray-800">Transacciones</h2>
-    <p class="text-gray-600 mt-2">Historial de ingresos y gastos</p>
+<div class="mb-8 flex justify-between items-center">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800">Transacciones</h2>
+        <p class="text-gray-600 mt-2">Historial de ingresos y gastos</p>
+    </div>
+    <button onclick="openCreateModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold">
+        + Nueva Transacción
+    </button>
 </div>
 
-<div class="bg-white rounded-lg shadow p-6">
-    <h3 class="text-lg font-semibold mb-4">Lista de Transacciones</h3>
-    <p class="text-gray-500">Próximamente: Formulario para agregar transacciones y filtros avanzados</p>
+<!-- Filters -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Filtros</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Cuenta</label>
+            <select id="filterAccount" onchange="loadTransactions()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="">Todas las cuentas</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+            <select id="filterCategory" onchange="loadTransactions()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="">Todas las categorías</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Límite</label>
+            <select id="filterLimit" onchange="loadTransactions()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="50">Últimas 50</option>
+                <option value="100" selected>Últimas 100</option>
+                <option value="200">Últimas 200</option>
+                <option value="500">Últimas 500</option>
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button onclick="clearFilters()" class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700">
+                Limpiar Filtros
+            </button>
+        </div>
+    </div>
 </div>
+
+<!-- Transactions Table -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuenta</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="transactionsTable" class="bg-white divide-y divide-gray-200">
+                <!-- Transactions will be loaded here -->
+            </tbody>
+        </table>
+    </div>
+    <div id="emptyState" class="hidden text-center py-12">
+        <p class="text-gray-500 text-lg">No hay transacciones</p>
+        <button onclick="openCreateModal()" class="mt-4 text-blue-600 hover:text-blue-700 font-semibold">
+            + Crear tu primera transacción
+        </button>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="transactionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-2xl w-full max-h-screen overflow-y-auto">
+        <h3 id="modalTitle" class="text-xl font-bold mb-6">Nueva Transacción</h3>
+
+        <form id="transactionForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                    <input type="date" id="txDate" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Cuenta</label>
+                    <select id="txAccount" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="">Selecciona una cuenta</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Beneficiario</label>
+                <input type="text" id="txPayee"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: Supermercado, Salario, etc.">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+                <select id="txCategory" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="">Sin categoría</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Monto</label>
+                    <input type="number" id="txAmount" step="0.01" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                           placeholder="Positivo = ingreso, Negativo = gasto">
+                    <p class="text-xs text-gray-500 mt-1">Positivo para ingresos, negativo para gastos</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+                    <select id="txCurrency" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="1">COP - Peso Colombiano</option>
+                        <option value="2">USD - Dólar Estadounidense</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Memo (opcional)</label>
+                <textarea id="txMemo" rows="2"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Notas adicionales..."></textarea>
+            </div>
+
+            <div class="flex items-center">
+                <input type="checkbox" id="txCleared"
+                       class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                <label for="txCleared" class="ml-2 text-sm text-gray-700">
+                    ✓ Transacción reconciliada
+                </label>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4 border-t">
+                <button type="button" onclick="closeTransactionModal()"
+                        class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let transactions = [];
+    let accounts = [];
+    let categories = [];
+    let editingTransactionId = null;
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadAccounts();
+        await loadCategories();
+        await loadTransactions();
+        setDefaultDate();
+    });
+
+    function setDefaultDate() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('txDate').value = today;
+    }
+
+    async function loadAccounts() {
+        try {
+            const res = await fetch('/api/accounts/');
+            accounts = await res.json();
+
+            // Populate filter dropdown
+            const filterSelect = document.getElementById('filterAccount');
+            filterSelect.innerHTML = '<option value="">Todas las cuentas</option>';
+            accounts.forEach(acc => {
+                filterSelect.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.currency.code})</option>`;
+            });
+
+            // Populate form dropdown
+            const formSelect = document.getElementById('txAccount');
+            formSelect.innerHTML = '<option value="">Selecciona una cuenta</option>';
+            accounts.forEach(acc => {
+                formSelect.innerHTML += `<option value="${acc.id}" data-currency="${acc.currency.id}">${acc.name} (${acc.currency.code})</option>`;
+            });
+        } catch (error) {
+            console.error('Error loading accounts:', error);
+        }
+    }
+
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/categories/groups');
+            const groups = await res.json();
+
+            // Flatten categories
+            categories = [];
+            groups.forEach(group => {
+                group.categories.forEach(cat => {
+                    categories.push({
+                        id: cat.id,
+                        name: cat.name,
+                        group_name: group.name
+                    });
+                });
+            });
+
+            // Populate filter dropdown
+            const filterSelect = document.getElementById('filterCategory');
+            filterSelect.innerHTML = '<option value="">Todas las categorías</option>';
+            groups.forEach(group => {
+                filterSelect.innerHTML += `<optgroup label="${group.name}">`;
+                group.categories.forEach(cat => {
+                    filterSelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                });
+                filterSelect.innerHTML += '</optgroup>';
+            });
+
+            // Populate form dropdown
+            const formSelect = document.getElementById('txCategory');
+            formSelect.innerHTML = '<option value="">Sin categoría</option>';
+            groups.forEach(group => {
+                formSelect.innerHTML += `<optgroup label="${group.name}">`;
+                group.categories.forEach(cat => {
+                    formSelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                });
+                formSelect.innerHTML += '</optgroup>';
+            });
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+
+    async function loadTransactions() {
+        try {
+            const accountId = document.getElementById('filterAccount').value;
+            const categoryId = document.getElementById('filterCategory').value;
+            const limit = document.getElementById('filterLimit').value;
+
+            let url = `/api/transactions/?limit=${limit}`;
+            if (accountId) url += `&account_id=${accountId}`;
+            if (categoryId) url += `&category_id=${categoryId}`;
+
+            const res = await fetch(url);
+            transactions = await res.json();
+            displayTransactions();
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+        }
+    }
+
+    function displayTransactions() {
+        const table = document.getElementById('transactionsTable');
+        const emptyState = document.getElementById('emptyState');
+
+        if (transactions.length === 0) {
+            table.innerHTML = '';
+            emptyState.classList.remove('hidden');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+
+        table.innerHTML = transactions.map(tx => {
+            const isInflow = tx.amount > 0;
+            const amountClass = isInflow ? 'text-green-600' : 'text-red-600';
+            const amountPrefix = isInflow ? '+' : '';
+
+            return `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${formatDate(tx.date)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${tx.account_name || '-'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${tx.payee_name || '-'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${tx.category_name || 'Sin categoría'}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                        ${tx.memo || ''}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${amountClass}">
+                        ${amountPrefix}${tx.currency.symbol}${Math.abs(tx.amount).toLocaleString('es-CO', {
+                            minimumFractionDigits: tx.currency.decimals
+                        })}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                        ${tx.cleared ? '<span class="text-green-600">✓</span>' : '<span class="text-gray-400">○</span>'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm space-x-2">
+                        <button onclick="editTransaction(${tx.id})"
+                                class="text-blue-600 hover:text-blue-700">
+                            Editar
+                        </button>
+                        <button onclick="deleteTransaction(${tx.id})"
+                                class="text-red-600 hover:text-red-700">
+                            🗑️
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString + 'T00:00:00');
+        return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function openCreateModal() {
+        editingTransactionId = null;
+        document.getElementById('modalTitle').textContent = 'Nueva Transacción';
+        document.getElementById('transactionForm').reset();
+        setDefaultDate();
+        document.getElementById('transactionModal').classList.remove('hidden');
+    }
+
+    function closeTransactionModal() {
+        document.getElementById('transactionModal').classList.add('hidden');
+        editingTransactionId = null;
+    }
+
+    async function editTransaction(transactionId) {
+        const transaction = transactions.find(t => t.id === transactionId);
+        if (!transaction) return;
+
+        editingTransactionId = transactionId;
+        document.getElementById('modalTitle').textContent = 'Editar Transacción';
+        document.getElementById('txDate').value = transaction.date;
+        document.getElementById('txAccount').value = transaction.account_id;
+        document.getElementById('txPayee').value = transaction.payee_name || '';
+        document.getElementById('txCategory').value = transaction.category_id || '';
+        document.getElementById('txAmount').value = transaction.amount;
+        document.getElementById('txCurrency').value = transaction.currency.id;
+        document.getElementById('txMemo').value = transaction.memo || '';
+        document.getElementById('txCleared').checked = transaction.cleared;
+
+        document.getElementById('transactionModal').classList.remove('hidden');
+    }
+
+    // Auto-set currency based on selected account
+    document.getElementById('txAccount').addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const currencyId = selectedOption.getAttribute('data-currency');
+        if (currencyId && !editingTransactionId) {
+            document.getElementById('txCurrency').value = currencyId;
+        }
+    });
+
+    document.getElementById('transactionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const data = {
+            account_id: parseInt(document.getElementById('txAccount').value),
+            date: document.getElementById('txDate').value,
+            payee_name: document.getElementById('txPayee').value || null,
+            category_id: parseInt(document.getElementById('txCategory').value) || null,
+            amount: parseFloat(document.getElementById('txAmount').value),
+            currency_id: parseInt(document.getElementById('txCurrency').value),
+            memo: document.getElementById('txMemo').value || null,
+            cleared: document.getElementById('txCleared').checked
+        };
+
+        try {
+            let res;
+            if (editingTransactionId) {
+                // Update
+                res = await fetch(`/api/transactions/${editingTransactionId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+            } else {
+                // Create
+                res = await fetch('/api/transactions/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+            }
+
+            if (res.ok) {
+                closeTransactionModal();
+                await loadTransactions();
+            } else {
+                const error = await res.json();
+                alert('Error: ' + (error.detail || 'Error desconocido'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al guardar la transacción');
+        }
+    });
+
+    async function deleteTransaction(transactionId) {
+        if (!confirm('¿Seguro que quieres eliminar esta transacción?')) return;
+
+        try {
+            const res = await fetch(`/api/transactions/${transactionId}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                await loadTransactions();
+            } else {
+                alert('Error al eliminar la transacción');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al eliminar la transacción');
+        }
+    }
+
+    function clearFilters() {
+        document.getElementById('filterAccount').value = '';
+        document.getElementById('filterCategory').value = '';
+        document.getElementById('filterLimit').value = '100';
+        loadTransactions();
+    }
+</script>
 {% endblock %}

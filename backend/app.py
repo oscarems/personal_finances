@@ -9,7 +9,7 @@ from pathlib import Path
 
 from backend.database import init_db
 from backend.init_db import initialize_database
-from backend.api import transactions, accounts, budgets, categories, import_routes
+from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage
 
 # Create FastAPI app
 app = FastAPI(
@@ -42,6 +42,7 @@ app.include_router(accounts.router, prefix="/api/accounts", tags=["accounts"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["budgets"])
 app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
 app.include_router(import_routes.router, prefix="/api/import", tags=["import"])
+app.include_router(mortgage.router, prefix="/api/mortgage", tags=["mortgage"])
 
 
 @app.on_event("startup")
@@ -93,6 +94,12 @@ async def accounts_page(request: Request):
 async def import_page(request: Request):
     """Import page"""
     return templates.TemplateResponse("import.html", {"request": request})
+
+
+@app.get("/mortgage")
+async def mortgage_page(request: Request):
+    """Mortgage simulator page"""
+    return templates.TemplateResponse("mortgage.html", {"request": request})
 
 
 @app.get("/health")
