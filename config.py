@@ -162,10 +162,101 @@ DEFAULT_CATEGORY_GROUPS = [
     }
 ]
 
-# Account types
-ACCOUNT_TYPES = [
-    'checking',      # Cuenta corriente
-    'savings',       # Cuenta de ahorros
-    'credit_card',   # Tarjeta de crédito
-    'cash'           # Efectivo
-]
+# Account types con configuraciones detalladas
+ACCOUNT_TYPES = {
+    'checking': {
+        'name': 'Cuenta Corriente',
+        'icon': '💳',
+        'description': 'Cuenta bancaria para uso diario',
+        'can_overdraft': True,  # Puede tener sobregiro
+        'tracks_interest': False,
+        'requires_payment': False,
+        'is_debt': False
+    },
+    'savings': {
+        'name': 'Cuenta de Ahorros',
+        'icon': '🏦',
+        'description': 'Cuenta de ahorro con intereses',
+        'can_overdraft': False,
+        'tracks_interest': True,  # Genera intereses
+        'requires_payment': False,
+        'is_debt': False,
+        'interest_rate_field': True  # Tiene campo de tasa de interés
+    },
+    'credit_card': {
+        'name': 'Tarjeta de Crédito',
+        'icon': '💳',
+        'description': 'Tarjeta de crédito con cupo',
+        'can_overdraft': False,
+        'tracks_interest': True,
+        'requires_payment': True,  # Requiere pago mensual
+        'is_debt': True,  # Es una deuda
+        'credit_limit_field': True,  # Tiene campo de cupo
+        'payment_due_field': True  # Fecha de pago
+    },
+    'credit_loan': {
+        'name': 'Crédito Libre Inversión',
+        'icon': '💰',
+        'description': 'Préstamo personal / crédito de consumo',
+        'can_overdraft': False,
+        'tracks_interest': True,
+        'requires_payment': True,
+        'is_debt': True,
+        'interest_rate_field': True,
+        'monthly_payment_field': True,  # Cuota mensual
+        'payment_due_field': True
+    },
+    'mortgage': {
+        'name': 'Hipoteca',
+        'icon': '🏠',
+        'description': 'Préstamo hipotecario',
+        'can_overdraft': False,
+        'tracks_interest': True,
+        'requires_payment': True,
+        'is_debt': True,
+        'interest_rate_field': True,
+        'monthly_payment_field': True,
+        'payment_due_field': True,
+        'original_amount_field': True  # Monto original del préstamo
+    },
+    'cdt': {
+        'name': 'CDT (Certificado Depósito)',
+        'icon': '📜',
+        'description': 'Certificado de Depósito a Término',
+        'can_overdraft': False,
+        'tracks_interest': True,
+        'requires_payment': False,
+        'is_debt': False,
+        'interest_rate_field': True,
+        'maturity_date_field': True,  # Fecha de vencimiento
+        'original_amount_field': True
+    },
+    'investment': {
+        'name': 'Inversión',
+        'icon': '📈',
+        'description': 'Cuenta de inversión (acciones, fondos, etc.)',
+        'can_overdraft': False,
+        'tracks_interest': False,
+        'requires_payment': False,
+        'is_debt': False
+    },
+    'cash': {
+        'name': 'Efectivo',
+        'icon': '💵',
+        'description': 'Dinero en efectivo',
+        'can_overdraft': False,
+        'tracks_interest': False,
+        'requires_payment': False,
+        'is_debt': False
+    }
+}
+
+# Exchange Rate API Configuration
+EXCHANGE_RATE_API = {
+    'primary': 'https://api.exchangerate-api.com/v4/latest/USD',  # API primaria
+    'fallback': 'https://api.exchangerate.host/latest?base=USD',   # API de respaldo
+    'timeout': 5,  # segundos
+    'retries': 2,  # intentos por API
+    'fallback_average_days': 5,  # Promedio de últimos 5 días
+    'default_rate': 3800  # Tasa por defecto si todo falla
+}

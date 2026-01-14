@@ -90,13 +90,25 @@
     let accounts = [];
     let editingAccountId = null;
 
-    // Exchange rates (should match config.py)
-    const EXCHANGE_RATES = {
-        'COP': 1.0,
-        'USD': 4000.0  // 1 USD = 4000 COP
-    };
+    // Exchange rates (will be loaded from API)
+    let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
 
-    document.addEventListener('DOMContentLoaded', loadAccounts);
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadExchangeRate();
+        await loadAccounts();
+    });
+
+    async function loadExchangeRate() {
+        try {
+            const res = await fetch('/api/exchange-rates/current');
+            const data = await res.json();
+            EXCHANGE_RATE_USD_TO_COP = data.rate;
+            console.log(`✓ Exchange rate loaded: 1 USD = ${EXCHANGE_RATE_USD_TO_COP} COP`);
+        } catch (error) {
+            console.error('Error loading exchange rate:', error);
+            // Keep default rate
+        }
+    }
 
     async function loadAccounts() {
         try {
@@ -111,9 +123,14 @@
     function convertBalance(amount, fromCurrency, toCurrency) {
         if (fromCurrency === toCurrency) return amount;
 
-        // Convert to base currency (COP) first, then to target
-        const amountInCOP = amount * EXCHANGE_RATES[fromCurrency];
-        return amountInCOP / EXCHANGE_RATES[toCurrency];
+        // Convert using real exchange rate
+        if (fromCurrency === 'USD' && toCurrency === 'COP') {
+            return amount * EXCHANGE_RATE_USD_TO_COP;
+        } else if (fromCurrency === 'COP' && toCurrency === 'USD') {
+            return amount / EXCHANGE_RATE_USD_TO_COP;
+        }
+
+        return amount;
     }
 
     function getConvertedBalance(acc) {
