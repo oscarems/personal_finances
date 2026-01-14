@@ -15,6 +15,7 @@ from backend.models import Account, Category, CategoryGroup, Payee, Transaction,
 def parse_ynab_date(date_str):
     """
     Parse YNAB date string (handle various formats and ######)
+    Priority order: DD/MM/YYYY (most common YNAB format)
     """
     if not date_str or date_str == '########' or pd.isna(date_str):
         return None
@@ -23,16 +24,20 @@ def parse_ynab_date(date_str):
         # Convert to string and strip whitespace
         date_str = str(date_str).strip()
 
-        # Try common date formats
+        # Remove 'nan' strings
+        if date_str.lower() == 'nan':
+            return None
+
+        # Try common date formats - DD/MM/YYYY FIRST (YNAB export format)
         formats = [
-            '%m/%d/%Y',      # 01/15/2024
-            '%Y-%m-%d',      # 2024-01-15
-            '%d/%m/%Y',      # 15/01/2024
+            '%d/%m/%Y',      # 15/01/2024 (YNAB default format)
             '%d-%m-%Y',      # 15-01-2024
-            '%Y/%m/%d',      # 2024/01/15
-            '%m-%d-%Y',      # 01-15-2024
             '%d.%m.%Y',      # 15.01.2024
             '%d/%m/%y',      # 15/01/24
+            '%m/%d/%Y',      # 01/15/2024 (US format)
+            '%Y-%m-%d',      # 2024-01-15 (ISO format)
+            '%Y/%m/%d',      # 2024/01/15
+            '%m-%d-%Y',      # 01-15-2024
             '%m/%d/%y',      # 01/15/24
         ]
 
@@ -210,11 +215,17 @@ def import_ynab_csv(db: Session, csv_file_path: str, default_currency_code: str 
         return stats
 
     try:
-        # Read CSV
-        df = pd.read_csv(csv_file_path)
+        # Read CSV - IMPORTANT: Don't let pandas parse dates automatically
+        df = pd.read_csv(csv_file_path, dtype={'Date': str})
         stats['total_rows'] = len(df)
 
         print(f"📂 Importing {stats['total_rows']} transactions from YNAB...")
+        print(f"   CSV columns: {list(df.columns)}")
+
+        # Show first date as example
+        if len(df) > 0:
+            first_date = df.iloc[0].get('Date')
+            print(f"   Example date format: '{first_date}'")
 
         for idx, row in df.iterrows():
             try:
