@@ -20,14 +20,33 @@ def parse_ynab_date(date_str):
         return None
 
     try:
+        # Convert to string and strip whitespace
+        date_str = str(date_str).strip()
+
         # Try common date formats
-        for fmt in ['%m/%d/%Y', '%Y-%m-%d', '%d/%m/%Y']:
+        formats = [
+            '%m/%d/%Y',      # 01/15/2024
+            '%Y-%m-%d',      # 2024-01-15
+            '%d/%m/%Y',      # 15/01/2024
+            '%d-%m-%Y',      # 15-01-2024
+            '%Y/%m/%d',      # 2024/01/15
+            '%m-%d-%Y',      # 01-15-2024
+            '%d.%m.%Y',      # 15.01.2024
+            '%d/%m/%y',      # 15/01/24
+            '%m/%d/%y',      # 01/15/24
+        ]
+
+        for fmt in formats:
             try:
-                return datetime.strptime(str(date_str), fmt).date()
+                return datetime.strptime(date_str, fmt).date()
             except ValueError:
                 continue
+
+        # If all formats fail, log the problematic date for debugging
+        print(f"⚠️  Could not parse date: '{date_str}'")
         return None
-    except:
+    except Exception as e:
+        print(f"⚠️  Error parsing date '{date_str}': {str(e)}")
         return None
 
 
