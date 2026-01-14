@@ -7,6 +7,7 @@ from sqlalchemy import and_, extract
 from sqlalchemy.orm import Session
 from backend.models import BudgetMonth, Category, CategoryGroup, Transaction, Account, Currency
 from backend.services.transaction_service import get_monthly_activity
+from backend.services.exchange_rate_service import get_current_exchange_rate, convert_currency
 
 
 def get_or_create_budget_month(db: Session, category_id, month_date, currency_id):
@@ -130,18 +131,60 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
             if category.is_hidden:
                 continue
 
-            budget = get_or_create_budget_month(db, category.id, month_date, currency.id)
+            # Get budgets for this category in ALL currencies
+            all_budgets = db.query(BudgetMonth).filter_by(
+                category_id=category.id,
+                month=month_date
+            ).all()
 
-            # Recalculate available
-            calculate_available(db, budget)
-            db.commit()
+            # If no budgets exist yet, create one for the selected currency
+            if not all_budgets:
+                budget = get_or_create_budget_month(db, category.id, month_date, currency.id)
+                all_budgets = [budget]
+
+            # Sum all budgets, converting to target currency
+            total_assigned = 0.0
+            total_activity = 0.0
+            total_available = 0.0
+
+            for budget in all_budgets:
+                # Recalculate available
+                calculate_available(db, budget)
+                db.commit()
+
+                # Get budget currency
+                budget_currency = db.query(Currency).get(budget.currency_id)
+
+                # Convert to target currency
+                converted_assigned = convert_currency(
+                    amount=budget.assigned,
+                    from_currency=budget_currency.code,
+                    to_currency=currency.code,
+                    db=db
+                )
+                converted_activity = convert_currency(
+                    amount=budget.activity,
+                    from_currency=budget_currency.code,
+                    to_currency=currency.code,
+                    db=db
+                )
+                converted_available = convert_currency(
+                    amount=budget.available,
+                    from_currency=budget_currency.code,
+                    to_currency=currency.code,
+                    db=db
+                )
+
+                total_assigned += converted_assigned
+                total_activity += converted_activity
+                total_available += converted_available
 
             cat_data = {
                 'category_id': category.id,
                 'category_name': category.name,
-                'assigned': budget.assigned,
-                'activity': budget.activity,
-                'available': budget.available,
+                'assigned': total_assigned,
+                'activity': total_activity,
+                'available': total_available,
                 'target_amount': category.target_amount,
                 'rollover_type': category.rollover_type  # 'accumulate' or 'reset'
             }
@@ -150,9 +193,9 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
 
             # Update totals (excluding income)
             if not group.is_income:
-                budget_data['totals']['assigned'] += budget.assigned
-                budget_data['totals']['activity'] += abs(budget.activity)
-                budget_data['totals']['available'] += budget.available
+                budget_data['totals']['assigned'] += total_assigned
+                budget_data['totals']['activity'] += abs(total_activity)
+                budget_data['totals']['available'] += total_available
 
         budget_data['groups'].append(group_data)
 
@@ -165,39 +208,56 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
 def calculate_ready_to_assign(db: Session, month_date, currency_id):
     """
     Calculate money available to assign (dinero sin objetivo)
-    = Total en cuentas (en esta moneda)
-      - Total asignado en presupuesto
-      - Total ya gastado (no asignado)
+    = Total en TODAS las cuentas (convertido a moneda seleccionada)
+      - Total asignado en TODAS las monedas (convertido a moneda seleccionada)
 
     Esto representa el dinero que tienes en tus cuentas pero que NO tiene
     una categoría/objetivo asignado todavía.
-    """
-    # Get currency
-    currency = db.query(Currency).get(currency_id)
 
-    # Get total balance in accounts for this currency
-    accounts = db.query(Account).filter_by(
-        currency_id=currency_id,
+    IMPORTANTE: Considera TODAS las monedas, convirtiendo todo a la moneda seleccionada
+    """
+    # Get target currency
+    target_currency = db.query(Currency).get(currency_id)
+
+    # Get ALL budget accounts (todas las monedas)
+    all_accounts = db.query(Account).filter_by(
         is_closed=False,
         is_budget=True  # Only budget accounts (not tracking accounts)
     ).all()
 
-    total_in_accounts = sum(acc.balance for acc in accounts)
+    # Convert all account balances to target currency
+    total_in_accounts = 0.0
+    for acc in all_accounts:
+        converted_balance = convert_currency(
+            amount=acc.balance,
+            from_currency=acc.currency.code,
+            to_currency=target_currency.code,
+            db=db
+        )
+        total_in_accounts += converted_balance
 
-    # Get total assigned this month
-    budgets_this_month = db.query(BudgetMonth).filter_by(
-        month=month_date,
-        currency_id=currency_id
+    # Get ALL budget assignments this month (todas las monedas)
+    all_budgets_this_month = db.query(BudgetMonth).filter_by(
+        month=month_date
     ).all()
 
-    total_assigned = sum(b.assigned for b in budgets_this_month)
+    # Convert all assignments to target currency
+    total_assigned = 0.0
+    for budget in all_budgets_this_month:
+        budget_currency = db.query(Currency).get(budget.currency_id)
+        converted_assigned = convert_currency(
+            amount=budget.assigned,
+            from_currency=budget_currency.code,
+            to_currency=target_currency.code,
+            db=db
+        )
+        total_assigned += converted_assigned
 
     # Add money from 'reset' categories from previous month
     # (money that was assigned but not spent returns to Ready to Assign)
     prev_month_date = month_date - relativedelta(months=1)
     prev_budgets = db.query(BudgetMonth).filter_by(
-        month=prev_month_date,
-        currency_id=currency_id
+        month=prev_month_date
     ).all()
 
     rollover_from_reset = 0.0
@@ -206,7 +266,14 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         if category and category.rollover_type == 'reset':
             # If there's money left over, it returns to Ready to Assign
             if prev_budget.available > 0:
-                rollover_from_reset += prev_budget.available
+                prev_currency = db.query(Currency).get(prev_budget.currency_id)
+                converted_available = convert_currency(
+                    amount=prev_budget.available,
+                    from_currency=prev_currency.code,
+                    to_currency=target_currency.code,
+                    db=db
+                )
+                rollover_from_reset += converted_available
 
     # Ready to Assign = Money in accounts - Money already assigned + Money from reset categories
     return total_in_accounts - total_assigned + rollover_from_reset
