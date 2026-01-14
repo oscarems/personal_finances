@@ -155,23 +155,89 @@ def delete_transaction(db: Session, transaction_id):
 
 def create_transfer(db: Session, data):
     """
-    Create a transfer between two accounts.
-    Creates two linked transactions (outflow from source, inflow to destination).
-    Supports transfers between different currencies with automatic conversion.
+    Crea una transferencia entre dos cuentas propias.
+
+    Una transferencia NO es una sola transacción, sino DOS transacciones vinculadas:
+        1. Transacción de SALIDA (negativa) en la cuenta origen
+        2. Transacción de ENTRADA (positiva) en la cuenta destino
+
+    Ambas transacciones están vinculadas mediante el campo transfer_account_id, que
+    apunta al ID de la cuenta contraria. Esto permite identificarlas como transferencias
+    y eliminarlas juntas si se borra una.
+
+    IMPORTANTE - Multi-moneda:
+        Soporta transferencias entre cuentas de diferentes monedas. Si las monedas son
+        diferentes, convierte automáticamente usando la tasa de cambio actual.
+
+        Ejemplo: Transferir $100 USD de cuenta USD a cuenta COP
+            - Salida de cuenta USD: -$100 USD
+            - Entrada a cuenta COP: +$400,000 COP (usando tasa 4000)
 
     Args:
-        data: dict with keys:
-            - from_account_id: Source account ID
-            - to_account_id: Destination account ID
-            - date: Transfer date
-            - amount: Amount in source currency
-            - from_currency_id: Source currency ID
-            - to_currency_id: Destination currency ID
-            - memo: Optional memo
-            - cleared: Whether the transfer is cleared (default False)
+        db (Session): Sesión de base de datos
+        data (dict): Datos de la transferencia con claves:
+            - from_account_id (int): ID de cuenta origen
+            - to_account_id (int): ID de cuenta destino
+            - date (date): Fecha de la transferencia
+            - amount (float): Monto en moneda origen (siempre positivo)
+            - from_currency_id (int): ID de moneda origen
+            - to_currency_id (int): ID de moneda destino
+            - memo (str, opcional): Nota o descripción
+            - cleared (bool, opcional): Si está conciliada (default: False)
 
     Returns:
-        List of two Transaction objects [from_transaction, to_transaction]
+        list[Transaction, Transaction]: Lista con [transacción_salida, transacción_entrada]
+
+    Raises:
+        ValueError: Si from_account_id o to_account_id no existen
+
+    Ejemplos:
+        # Transferencia misma moneda
+        >>> data = {
+        ...     'from_account_id': 1,
+        ...     'to_account_id': 2,
+        ...     'date': date(2025, 1, 15),
+        ...     'amount': 500000,
+        ...     'from_currency_id': 1,  # COP
+        ...     'to_currency_id': 1,    # COP
+        ...     'memo': 'Ahorro mensual',
+        ...     'cleared': True
+        ... }
+        >>> txns = create_transfer(db, data)
+        >>> print(txns[0].amount)  # -500000 (salida)
+        >>> print(txns[1].amount)  # +500000 (entrada)
+
+        # Transferencia multi-moneda
+        >>> data = {
+        ...     'from_account_id': 1,   # Cuenta en COP
+        ...     'to_account_id': 3,     # Cuenta en USD
+        ...     'date': date(2025, 1, 15),
+        ...     'amount': 4000000,      # 4 millones COP
+        ...     'from_currency_id': 1,  # COP
+        ...     'to_currency_id': 2,    # USD
+        ...     'memo': 'Cambio a dólares'
+        ... }
+        >>> txns = create_transfer(db, data)
+        >>> print(txns[0].amount)  # -4000000 COP
+        >>> print(txns[1].amount)  # +1000 USD (convertido)
+
+    Comportamiento especial:
+        - Las transferencias NO tienen categoría (category_id = None)
+        - El payee se crea automáticamente: "Transfer to: {nombre_cuenta}"
+        - Actualiza los balances de ambas cuentas automáticamente
+        - Si se elimina una transacción de transferencia, se elimina la otra también
+
+    Efectos secundarios:
+        - Crea 2 objetos Transaction en DB
+        - Crea 2 objetos Payee si no existen
+        - Actualiza balance de from_account (resta)
+        - Actualiza balance de to_account (suma)
+        - Hace commit a la base de datos
+
+    Notas:
+        - El campo amount en data siempre debe ser positivo
+        - La función se encarga de hacerlo negativo para la salida
+        - Para transferencias multi-moneda usa convert_currency() internamente
     """
     # Get accounts
     from_account = db.query(Account).get(data['from_account_id'])

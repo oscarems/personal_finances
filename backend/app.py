@@ -1,13 +1,14 @@
 """
 FastAPI Main Application
 """
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+from sqlalchemy.orm import Session
 
-from backend.database import init_db
+from backend.database import init_db, get_db
 from backend.init_db import initialize_database
 from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates
 
@@ -109,6 +110,14 @@ async def mortgage_page(request: Request):
 async def reports_page(request: Request):
     """Reports and analytics page"""
     return templates.TemplateResponse("reports.html", {"request": request})
+
+
+@app.get("/api/currencies")
+async def get_currencies(db: Session = Depends(get_db)):
+    """Get all available currencies"""
+    from backend.models import Currency
+    currencies = db.query(Currency).all()
+    return [c.to_dict() for c in currencies]
 
 
 @app.get("/health")

@@ -1,197 +1,166 @@
 """
-Mortgage Simulator API
+Mortgage Simulator API - Con tasa efectiva anual y cuota fija
+
+IMPORTANTE: Este simulador usa TASA EFECTIVA ANUAL (EA), que es el estándar en Colombia.
+La tasa efectiva anual considera la capitalización de intereses, a diferencia de la
+tasa nominal.
 """
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import date
+
+from backend.services.mortgage_service import (
+    calculate_monthly_payment,
+    generate_amortization_schedule,
+    calculate_total_interest,
+    calculate_early_payoff,
+    compare_scenarios
+)
 
 router = APIRouter()
 
 
 class MortgageRequest(BaseModel):
+    """Schema para solicitud de cálculo de hipoteca"""
     principal: float  # Monto del préstamo
-    annual_rate: float  # Tasa de interés anual (%)
-    term_months: int  # Plazo en meses
-    start_date: date  # Fecha de inicio
-    extra_payment: Optional[float] = 0  # Pago extra mensual
+    annual_rate: float  # Tasa efectiva anual como porcentaje (ej: 12.5 para 12.5% EA)
+    years: int  # Plazo en años (se convertirá a meses internamente)
+    start_date: Optional[date] = None  # Fecha de inicio (opcional, default: hoy)
+    extra_payment: Optional[float] = 0  # Pago extra mensual al capital
 
 
 class AmortizationRow(BaseModel):
+    """Fila de la tabla de amortización"""
     payment_number: int
     date: str
     payment: float
     principal: float
     interest: float
-    extra_payment: float
     balance: float
 
 
 class MortgageResponse(BaseModel):
+    """Respuesta con cálculo completo de hipoteca"""
     monthly_payment: float
-    total_payments: float
     total_interest: float
-    total_principal: float
-    total_extra: float
-    payoff_date: str
-    months_saved: int
-    interest_saved: float
+    total_paid: float
+    months: int
+    years: float
     schedule: List[AmortizationRow]
+    # Información adicional si hay abonos extra
+    with_extra: Optional[dict] = None
 
 
-def calculate_monthly_payment(principal: float, monthly_rate: float, term_months: int) -> float:
-    """Calculate fixed monthly payment (French amortization)"""
-    if monthly_rate == 0:
-        return principal / term_months
-
-    return principal * (monthly_rate * (1 + monthly_rate) ** term_months) / \
-           ((1 + monthly_rate) ** term_months - 1)
-
-
-def generate_amortization_schedule(
-    principal: float,
-    annual_rate: float,
-    term_months: int,
-    start_date: date,
-    extra_payment: float = 0
-) -> dict:
-    """
-    Generate complete amortization schedule
-    Returns dict with summary stats and schedule
-    """
-    monthly_rate = annual_rate / 100 / 12
-    monthly_payment = calculate_monthly_payment(principal, monthly_rate, term_months)
-
-    # Generate schedule with extra payments
-    balance = principal
-    schedule = []
-    current_date = start_date
-    payment_num = 0
-
-    total_interest = 0
-    total_principal = 0
-    total_extra = 0
-
-    while balance > 0 and payment_num < term_months * 2:  # Safety limit
-        payment_num += 1
-
-        # Interest for this month
-        interest = balance * monthly_rate
-
-        # Principal payment (fixed payment - interest)
-        principal_payment = monthly_payment - interest
-
-        # Extra payment (applied to principal)
-        extra = extra_payment if balance > monthly_payment else 0
-
-        # Total principal reduction
-        total_principal_reduction = principal_payment + extra
-
-        # Ensure we don't overpay
-        if total_principal_reduction > balance:
-            total_principal_reduction = balance
-            extra = balance - principal_payment
-            if extra < 0:
-                extra = 0
-
-        # New balance
-        new_balance = balance - total_principal_reduction
-
-        # Record payment
-        schedule.append({
-            'payment_number': payment_num,
-            'date': current_date.isoformat(),
-            'payment': monthly_payment,
-            'principal': principal_payment,
-            'interest': interest,
-            'extra_payment': extra,
-            'balance': new_balance
-        })
-
-        # Update totals
-        total_interest += interest
-        total_principal += principal_payment
-        total_extra += extra
-        balance = new_balance
-
-        # Move to next month
-        current_date += relativedelta(months=1)
-
-    # Calculate original schedule (no extra payments) for comparison
-    original_schedule = generate_original_schedule(principal, annual_rate, term_months, start_date)
-
-    months_saved = len(original_schedule) - len(schedule)
-    interest_saved = sum(row['interest'] for row in original_schedule) - total_interest
-
-    return {
-        'monthly_payment': monthly_payment,
-        'total_payments': monthly_payment * len(schedule) + total_extra,
-        'total_interest': total_interest,
-        'total_principal': total_principal,
-        'total_extra': total_extra,
-        'payoff_date': schedule[-1]['date'] if schedule else start_date.isoformat(),
-        'months_saved': months_saved if extra_payment > 0 else 0,
-        'interest_saved': interest_saved if extra_payment > 0 else 0,
-        'schedule': schedule
-    }
-
-
-def generate_original_schedule(
-    principal: float,
-    annual_rate: float,
-    term_months: int,
-    start_date: date
-) -> List[dict]:
-    """Generate original schedule without extra payments"""
-    monthly_rate = annual_rate / 100 / 12
-    monthly_payment = calculate_monthly_payment(principal, monthly_rate, term_months)
-
-    balance = principal
-    schedule = []
-    current_date = start_date
-
-    for payment_num in range(1, term_months + 1):
-        interest = balance * monthly_rate
-        principal_payment = monthly_payment - interest
-        balance -= principal_payment
-
-        schedule.append({
-            'payment_number': payment_num,
-            'date': current_date.isoformat(),
-            'payment': monthly_payment,
-            'principal': principal_payment,
-            'interest': interest,
-            'extra_payment': 0,
-            'balance': max(0, balance)
-        })
-
-        current_date += relativedelta(months=1)
-
-    return schedule
+class ScenarioRequest(BaseModel):
+    """Schema para comparar múltiples escenarios"""
+    principal: float
+    scenarios: List[dict]  # [{"name": "20 años 12%", "rate": 0.12, "years": 20}]
 
 
 @router.post("/calculate", response_model=MortgageResponse)
 def calculate_mortgage(request: MortgageRequest):
-    """Calculate mortgage amortization schedule"""
-    result = generate_amortization_schedule(
-        principal=request.principal,
-        annual_rate=request.annual_rate,
-        term_months=request.term_months,
-        start_date=request.start_date,
-        extra_payment=request.extra_payment or 0
+    """
+    Calcula hipoteca con cuota fija y tasa efectiva anual.
+
+    POST /api/mortgage/calculate
+    {
+        "principal": 300000000,
+        "annual_rate": 12.5,  // Tasa efectiva anual en % (12.5%)
+        "years": 20,
+        "start_date": "2025-01-15",  // Opcional
+        "extra_payment": 500000  // Opcional: abono extra mensual
+    }
+    """
+    # Convertir tasa de porcentaje a decimal
+    rate_decimal = request.annual_rate / 100
+
+    # Calcular cuota mensual
+    monthly_payment = calculate_monthly_payment(
+        request.principal,
+        rate_decimal,
+        request.years
     )
 
-    return MortgageResponse(**result)
+    # Generar tabla de amortización
+    schedule = generate_amortization_schedule(
+        request.principal,
+        rate_decimal,
+        request.years,
+        request.start_date
+    )
+
+    # Calcular total de intereses
+    total_interest = calculate_total_interest(
+        request.principal,
+        rate_decimal,
+        request.years
+    )
+
+    # Preparar respuesta base
+    response = {
+        "monthly_payment": monthly_payment,
+        "total_interest": total_interest,
+        "total_paid": monthly_payment * request.years * 12,
+        "months": request.years * 12,
+        "years": request.years,
+        "schedule": [
+            {
+                "payment_number": row["payment_number"],
+                "date": row["date"].isoformat(),
+                "payment": row["payment"],
+                "principal": row["principal"],
+                "interest": row["interest"],
+                "balance": row["balance"]
+            }
+            for row in schedule
+        ]
+    }
+
+    # Si hay abonos extra, calcular escenario con abonos
+    if request.extra_payment and request.extra_payment > 0:
+        early_payoff = calculate_early_payoff(
+            request.principal,
+            rate_decimal,
+            request.years,
+            request.extra_payment
+        )
+        response["with_extra"] = early_payoff["with_extra"]
+
+    return MortgageResponse(**response)
+
+
+@router.post("/compare")
+def compare_mortgage_scenarios(request: ScenarioRequest):
+    """
+    Compara múltiples escenarios de hipoteca.
+
+    POST /api/mortgage/compare
+    {
+        "principal": 300000000,
+        "scenarios": [
+            {"name": "20 años 12% EA", "rate": 0.12, "years": 20},
+            {"name": "30 años 10% EA", "rate": 0.10, "years": 30},
+            {"name": "15 años 14% EA", "rate": 0.14, "years": 15}
+        ]
+    }
+
+    Retorna cada escenario con:
+    - Cuota mensual
+    - Total de intereses
+    - Total a pagar
+    """
+    results = compare_scenarios(request.principal, request.scenarios)
+    return {"scenarios": results}
 
 
 @router.get("/example")
 def get_example():
-    """Get example mortgage calculation"""
+    """Obtiene un ejemplo de cálculo de hipoteca"""
     return {
-        "principal": 200000000,  # $200M COP
-        "annual_rate": 12.5,  # 12.5% annual
-        "term_months": 240,  # 20 years
-        "start_date": "2024-01-01",
+        "principal": 300000000,  # $300M COP
+        "annual_rate": 12.5,  # 12.5% EA
+        "years": 20,
+        "start_date": "2025-01-15",
         "extra_payment": 0
     }

@@ -6,26 +6,31 @@
 <div class="mb-8">
     <div class="flex justify-between items-center">
         <div>
-            <h2 class="text-3xl font-bold text-gray-800">Presupuesto</h2>
-            <p class="text-gray-600 mt-2">Dale un propósito a cada peso (estilo YNAB)</p>
+            <h2 class="text-3xl font-bold text-gray-800">Presupuesto Multi-Moneda</h2>
+            <p class="text-gray-600 mt-2">Dale un propósito a cada peso - Asigna en COP o USD</p>
         </div>
         <div class="flex items-center space-x-4">
-            <select id="currencySelect" class="border border-gray-300 rounded-lg px-4 py-2">
-                <option value="COP">COP ($)</option>
-                <option value="USD">USD (US$)</option>
-            </select>
             <input type="month" id="monthSelect" class="border border-gray-300 rounded-lg px-4 py-2">
         </div>
     </div>
 </div>
 
-<!-- Ready to Assign Banner -->
+<!-- Ready to Assign Banner (showing both currencies) -->
 <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 mb-8 text-white">
     <div class="flex justify-between items-center">
-        <div>
-            <p class="text-sm opacity-90">Disponible para Asignar</p>
-            <p class="text-4xl font-bold mt-2" id="readyToAssign">$0</p>
-            <p class="text-sm opacity-75 mt-1" id="readyToAssignConverted"></p>
+        <div class="flex-1">
+            <p class="text-sm opacity-90 mb-2">Disponible para Asignar</p>
+            <div class="flex items-baseline space-x-6">
+                <div>
+                    <p class="text-4xl font-bold" id="readyToAssignCOP">$0</p>
+                    <p class="text-xs opacity-75">COP</p>
+                </div>
+                <div class="text-2xl opacity-75">/</div>
+                <div>
+                    <p class="text-4xl font-bold" id="readyToAssignUSD">US$0.00</p>
+                    <p class="text-xs opacity-75">USD</p>
+                </div>
+            </div>
         </div>
         <div class="text-6xl">💰</div>
     </div>
@@ -36,24 +41,78 @@
     <!-- Budget groups will be loaded here -->
 </div>
 
-<!-- Assign Money Modal -->
+<!-- Assign Money Modal - NEW DESIGN WITH BOTH CURRENCIES -->
 <div id="assignModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-md w-full">
+    <div class="bg-white rounded-lg p-8 max-w-2xl w-full">
         <h3 class="text-xl font-bold mb-4">Asignar Dinero</h3>
+
+        <!-- Category Name -->
         <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
             <input type="text" id="modalCategoryName" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
         </div>
+
+        <!-- Rollover Behavior Selection -->
         <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Monto a Asignar</label>
-            <input type="number" id="modalAmount" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0.00" step="0.01">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Comportamiento</label>
+            <select id="modalRolloverType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
+                <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">
+                <strong>Gasto Mensual:</strong> El dinero no gastado vuelve a "Disponible para Asignar"<br>
+                <strong>Meta/Ahorro:</strong> El dinero no gastado se acumula para el siguiente mes
+            </p>
         </div>
+
+        <!-- BOTH CURRENCY FIELDS -->
+        <div class="grid grid-cols-2 gap-6 mb-6">
+            <!-- COP Field -->
+            <div class="border-2 border-blue-200 bg-blue-50 p-4 rounded-lg">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    💵 Presupuesto en COP
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-3 text-gray-500">$</span>
+                    <input type="number" id="modalAmountCOP"
+                           class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg"
+                           placeholder="0"
+                           step="1000"
+                           onInput="updateConversion('COP')">
+                </div>
+                <p class="text-xs text-gray-500 mt-1" id="copConversionHint"></p>
+            </div>
+
+            <!-- USD Field -->
+            <div class="border-2 border-green-200 bg-green-50 p-4 rounded-lg">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    💵 Presupuesto en USD
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-3 text-gray-500">US$</span>
+                    <input type="number" id="modalAmountUSD"
+                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+                           placeholder="0.00"
+                           step="0.01"
+                           onInput="updateConversion('USD')">
+                </div>
+                <p class="text-xs text-gray-500 mt-1" id="usdConversionHint"></p>
+            </div>
+        </div>
+
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <p class="text-sm text-yellow-700">
+                <strong>💡 Tip:</strong> Puedes asignar en ambas monedas. El total se mostrará combinado en la pantalla principal.
+            </p>
+        </div>
+
+        <!-- Buttons -->
         <div class="flex justify-end space-x-3">
             <button onclick="closeAssignModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
                 Cancelar
             </button>
             <button onclick="saveAssignment()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Asignar
+                Guardar Presupuesto
             </button>
         </div>
     </div>
@@ -63,17 +122,19 @@
 
 {% block scripts %}
 <script>
-    let currentCurrency = 'COP';
     let currentMonth = new Date();
     let selectedCategory = null;
+    let selectedCategoryData = null;
 
     // Exchange rates (will be loaded from API)
     let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
+    let currencies = {};
 
     // Initialize
     document.addEventListener('DOMContentLoaded', async function() {
         // Load exchange rate first
         await loadExchangeRate();
+        await loadCurrencies();
 
         // Set current month
         const monthInput = document.getElementById('monthSelect');
@@ -82,11 +143,6 @@
         monthInput.value = `${year}-${month}`;
 
         // Event listeners
-        document.getElementById('currencySelect').addEventListener('change', function(e) {
-            currentCurrency = e.target.value;
-            loadBudget();
-        });
-
         document.getElementById('monthSelect').addEventListener('change', function(e) {
             const [year, month] = e.target.value.split('-');
             currentMonth = new Date(year, month - 1, 1);
@@ -104,14 +160,25 @@
             console.log(`✓ Exchange rate loaded: 1 USD = ${EXCHANGE_RATE_USD_TO_COP} COP`);
         } catch (error) {
             console.error('Error loading exchange rate:', error);
-            // Keep default rate
+        }
+    }
+
+    async function loadCurrencies() {
+        try {
+            const res = await fetch('/api/currencies');
+            const data = await res.json();
+            currencies = data.reduce((acc, curr) => {
+                acc[curr.code] = curr;
+                return acc;
+            }, {});
+        } catch (error) {
+            console.error('Error loading currencies:', error);
         }
     }
 
     function convertBalance(amount, fromCurrency, toCurrency) {
         if (fromCurrency === toCurrency) return amount;
 
-        // Convert using real exchange rate
         if (fromCurrency === 'USD' && toCurrency === 'COP') {
             return amount * EXCHANGE_RATE_USD_TO_COP;
         } else if (fromCurrency === 'COP' && toCurrency === 'USD') {
@@ -121,124 +188,109 @@
         return amount;
     }
 
-    function getConvertedAmount(amount, fromCurrency) {
-        const toCurrency = fromCurrency === 'COP' ? 'USD' : 'COP';
-        const toSymbol = toCurrency === 'COP' ? '$' : 'US$';
-        const toDecimals = toCurrency === 'COP' ? 0 : 2;
-
-        const convertedAmount = convertBalance(amount, fromCurrency, toCurrency);
-
-        return {
-            amount: convertedAmount,
-            symbol: toSymbol,
-            decimals: toDecimals,
-            currency: toCurrency
-        };
-    }
-
     async function loadBudget() {
         try {
             const year = currentMonth.getFullYear();
             const month = currentMonth.getMonth() + 1;
 
-            const res = await fetch(`/api/budgets/month/${year}/${month}?currency_code=${currentCurrency}`);
-            const data = await res.json();
+            // Load budget in BOTH currencies
+            const [resCOP, resUSD] = await Promise.all([
+                fetch(`/api/budgets/month/${year}/${month}?currency_code=COP`),
+                fetch(`/api/budgets/month/${year}/${month}?currency_code=USD`)
+            ]);
 
-            displayBudget(data);
+            const dataCOP = await resCOP.json();
+            const dataUSD = await resUSD.json();
+
+            displayBudget(dataCOP, dataUSD);
         } catch (error) {
             console.error('Error loading budget:', error);
         }
     }
 
-    function displayBudget(data) {
-        if (!data) return;
+    function displayBudget(dataCOP, dataUSD) {
+        if (!dataCOP || !dataUSD) return;
 
-        // Display Ready to Assign
-        const symbol = data.currency.symbol || '$';
-        document.getElementById('readyToAssign').textContent =
-            `${symbol}${formatAmount(data.ready_to_assign, data.currency.decimals)}`;
+        // Display Ready to Assign in BOTH currencies
+        document.getElementById('readyToAssignCOP').textContent =
+            `$${formatAmount(dataCOP.ready_to_assign, 0)}`;
+        document.getElementById('readyToAssignUSD').textContent =
+            `US$${formatAmount(dataUSD.ready_to_assign, 2)}`;
 
-        // Display converted Ready to Assign
-        const converted = getConvertedAmount(data.ready_to_assign, data.currency.code);
-        document.getElementById('readyToAssignConverted').textContent =
-            `≈ ${converted.symbol}${formatAmount(converted.amount, converted.decimals)} ${converted.currency}`;
-
-        // Display budget groups
+        // Display budget groups (merge both currencies)
         const container = document.getElementById('budgetGroups');
-        container.innerHTML = data.groups.map(group => {
-            if (group.is_income) return ''; // Skip income group
-
-            const groupTotal = group.categories.reduce((sum, cat) => sum + cat.assigned, 0);
-            const groupActivity = group.categories.reduce((sum, cat) => sum + Math.abs(cat.activity), 0);
-            const groupAvailable = group.categories.reduce((sum, cat) => sum + cat.available, 0);
-
-            // Get converted amounts for group totals
-            const convertedTotal = getConvertedAmount(groupTotal, data.currency.code);
-            const convertedActivity = getConvertedAmount(groupActivity, data.currency.code);
-            const convertedAvailable = getConvertedAmount(groupAvailable, data.currency.code);
+        container.innerHTML = dataCOP.groups.map(groupCOP => {
+            if (groupCOP.is_income) return ''; // Skip income group
 
             return `
                 <div class="bg-white rounded-lg shadow">
-                    <!-- Group Header -->
-                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                        <div class="grid grid-cols-4 gap-4">
-                            <div class="col-span-1">
-                                <h3 class="text-lg font-semibold text-gray-800">${group.name}</h3>
+                    <!-- Group Header (Collapsible) -->
+                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
+                         onclick="toggleGroup(${groupCOP.id})">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <svg id="chevron-${groupCOP.id}" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                                <h3 class="text-lg font-semibold text-gray-800">${groupCOP.name}</h3>
                             </div>
-                            <div class="text-right">
-                                <p class="text-sm text-gray-500">Asignado</p>
-                                <p class="font-semibold text-gray-800">${symbol}${formatAmount(groupTotal, data.currency.decimals)}</p>
-                                <p class="text-xs text-gray-400">≈ ${convertedTotal.symbol}${formatAmount(convertedTotal.amount, convertedTotal.decimals)}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-sm text-gray-500">Gastado</p>
-                                <p class="font-semibold text-gray-800">${symbol}${formatAmount(groupActivity, data.currency.decimals)}</p>
-                                <p class="text-xs text-gray-400">≈ ${convertedActivity.symbol}${formatAmount(convertedActivity.amount, convertedActivity.decimals)}</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-sm text-gray-500">Disponible</p>
-                                <p class="font-semibold ${groupAvailable >= 0 ? 'text-green-600' : 'text-red-600'}">${symbol}${formatAmount(groupAvailable, data.currency.decimals)}</p>
-                                <p class="text-xs text-gray-400">≈ ${convertedAvailable.symbol}${formatAmount(convertedAvailable.amount, convertedAvailable.decimals)}</p>
+                            <div class="grid grid-cols-3 gap-8 text-right">
+                                <div>
+                                    <p class="text-sm text-gray-500">Asignado</p>
+                                    <p class="font-semibold text-gray-800">${formatGroupTotals(groupCOP, 'assigned')}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">Gastado</p>
+                                    <p class="font-semibold text-gray-800">${formatGroupTotals(groupCOP, 'activity')}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-500">Disponible</p>
+                                    <p class="font-semibold ${getGroupTotal(groupCOP, 'available') >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                        ${formatGroupTotals(groupCOP, 'available')}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Categories -->
-                    <div class="divide-y divide-gray-200">
-                        ${group.categories.map(cat => {
+                    <!-- Categories (collapsible content) -->
+                    <div id="group-${groupCOP.id}" class="divide-y divide-gray-200">
+                        ${groupCOP.categories.map(cat => {
                             const percentSpent = cat.assigned > 0 ? (Math.abs(cat.activity) / cat.assigned) * 100 : 0;
                             const isOverbudget = percentSpent > 100;
                             const barColor = isOverbudget ? 'bg-red-500' : (percentSpent > 80 ? 'bg-yellow-500' : 'bg-green-500');
 
-                            // Get converted amounts for this category
-                            const convertedAssigned = getConvertedAmount(cat.assigned, data.currency.code);
-                            const convertedActivity = getConvertedAmount(Math.abs(cat.activity), data.currency.code);
-                            const convertedAvailable = getConvertedAmount(cat.available, data.currency.code);
-
                             return `
-                                <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer" onclick="openAssignModal(${cat.category_id}, '${cat.category_name}', ${cat.assigned})">
+                                <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer"
+                                     onclick='openAssignModal(${JSON.stringify(cat).replace(/'/g, "&apos;")})'>
                                     <div class="grid grid-cols-4 gap-4 items-center">
                                         <div class="col-span-1">
-                                            <p class="font-medium text-gray-800">${cat.category_name}</p>
-                                            ${cat.target_amount ? `<p class="text-xs text-gray-500">Meta: ${symbol}${formatAmount(cat.target_amount, data.currency.decimals)}</p>` : ''}
+                                            <div class="flex items-center space-x-2">
+                                                <p class="font-medium text-gray-800">${cat.category_name}</p>
+                                                ${cat.rollover_type === 'accumulate' ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">🎯 Ahorro</span>' : ''}
+                                            </div>
+                                            ${cat.target_amount ? `<p class="text-xs text-gray-500">Meta: $${formatAmount(cat.target_amount, 0)}</p>` : ''}
                                         </div>
+
+                                        <!-- Assigned Column -->
                                         <div class="text-right">
-                                            <p class="text-gray-800">${symbol}${formatAmount(cat.assigned, data.currency.decimals)}</p>
-                                            <p class="text-xs text-gray-400">≈ ${convertedAssigned.symbol}${formatAmount(convertedAssigned.amount, convertedAssigned.decimals)}</p>
+                                            ${formatDualCurrency(cat.assigned, 'COP', 0)}
                                         </div>
+
+                                        <!-- Activity Column -->
                                         <div class="text-right">
-                                            <p class="text-gray-800">${symbol}${formatAmount(Math.abs(cat.activity), data.currency.decimals)}</p>
-                                            <p class="text-xs text-gray-400">≈ ${convertedActivity.symbol}${formatAmount(convertedActivity.amount, convertedActivity.decimals)}</p>
+                                            ${formatDualCurrency(Math.abs(cat.activity), 'COP', 0)}
                                             <!-- Progress Bar -->
-                                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
                                                 <div class="budget-bar ${barColor} h-2 rounded-full" style="width: ${Math.min(percentSpent, 100)}%"></div>
                                             </div>
                                         </div>
+
+                                        <!-- Available Column -->
                                         <div class="text-right">
                                             <p class="font-semibold ${cat.available >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                                ${symbol}${formatAmount(cat.available, data.currency.decimals)}
+                                                ${formatDualCurrency(cat.available, 'COP', 0)}
                                             </p>
-                                            <p class="text-xs text-gray-400">≈ ${convertedAvailable.symbol}${formatAmount(convertedAvailable.amount, convertedAvailable.decimals)}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -250,6 +302,35 @@
         }).join('');
     }
 
+    function formatDualCurrency(amountCOP, currency, decimals) {
+        const amountUSD = convertBalance(amountCOP, 'COP', 'USD');
+        return `
+            <div>
+                <p class="font-medium text-gray-800">$${formatAmount(amountCOP, 0)}</p>
+                <p class="text-xs text-gray-500">US$${formatAmount(amountUSD, 2)}</p>
+            </div>
+        `;
+    }
+
+    function getGroupTotal(group, field) {
+        return group.categories.reduce((sum, cat) => {
+            const value = cat[field];
+            return sum + (field === 'activity' ? Math.abs(value) : value);
+        }, 0);
+    }
+
+    function formatGroupTotals(group, field) {
+        const totalCOP = getGroupTotal(group, field);
+        const totalUSD = convertBalance(totalCOP, 'COP', 'USD');
+
+        return `
+            <div class="flex flex-col">
+                <span>$${formatAmount(totalCOP, 0)}</span>
+                <span class="text-xs text-gray-500">US$${formatAmount(totalUSD, 2)}</span>
+            </div>
+        `;
+    }
+
     function formatAmount(amount, decimals = 0) {
         return Math.abs(amount).toLocaleString('es-CO', {
             minimumFractionDigits: decimals,
@@ -257,22 +338,85 @@
         });
     }
 
-    function openAssignModal(categoryId, categoryName, currentAssigned) {
-        selectedCategory = categoryId;
-        document.getElementById('modalCategoryName').value = categoryName;
-        document.getElementById('modalAmount').value = currentAssigned;
+    function toggleGroup(groupId) {
+        const content = document.getElementById(`group-${groupId}`);
+        const chevron = document.getElementById(`chevron-${groupId}`);
+
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            chevron.classList.remove('rotate-[-90deg]');
+        } else {
+            content.style.display = 'none';
+            chevron.classList.add('rotate-[-90deg]');
+        }
+    }
+
+    function openAssignModal(categoryData) {
+        selectedCategory = categoryData.category_id;
+        selectedCategoryData = categoryData;
+
+        document.getElementById('modalCategoryName').value = categoryData.category_name;
+        document.getElementById('modalRolloverType').value = categoryData.rollover_type || 'reset';
+
+        // Load current budgets for this category in both currencies
+        loadCategoryBudgets(categoryData.category_id);
+
         document.getElementById('assignModal').classList.remove('hidden');
+    }
+
+    async function loadCategoryBudgets(categoryId) {
+        try {
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth() + 1;
+            const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+
+            // Get budgets for this category in both currencies
+            const res = await fetch(`/api/budgets/category/${categoryId}/${monthStr}`);
+            const budgets = await res.json();
+
+            // Set values
+            const copBudget = budgets.find(b => b.currency_code === 'COP');
+            const usdBudget = budgets.find(b => b.currency_code === 'USD');
+
+            document.getElementById('modalAmountCOP').value = copBudget ? copBudget.assigned : 0;
+            document.getElementById('modalAmountUSD').value = usdBudget ? usdBudget.assigned : 0;
+
+            // Update conversion hints
+            updateConversion('COP');
+        } catch (error) {
+            console.error('Error loading category budgets:', error);
+            document.getElementById('modalAmountCOP').value = 0;
+            document.getElementById('modalAmountUSD').value = 0;
+        }
+    }
+
+    function updateConversion(changedCurrency) {
+        if (changedCurrency === 'COP') {
+            const copAmount = parseFloat(document.getElementById('modalAmountCOP').value) || 0;
+            const usdEquivalent = convertBalance(copAmount, 'COP', 'USD');
+            document.getElementById('copConversionHint').textContent =
+                `≈ US$${formatAmount(usdEquivalent, 2)} USD`;
+        } else {
+            const usdAmount = parseFloat(document.getElementById('modalAmountUSD').value) || 0;
+            const copEquivalent = convertBalance(usdAmount, 'USD', 'COP');
+            document.getElementById('usdConversionHint').textContent =
+                `≈ $${formatAmount(copEquivalent, 0)} COP`;
+        }
     }
 
     function closeAssignModal() {
         selectedCategory = null;
+        selectedCategoryData = null;
         document.getElementById('assignModal').classList.add('hidden');
     }
 
     async function saveAssignment() {
-        const amount = parseFloat(document.getElementById('modalAmount').value);
-        if (isNaN(amount) || amount < 0) {
-            alert('Por favor ingresa un monto válido');
+        const amountCOP = parseFloat(document.getElementById('modalAmountCOP').value) || 0;
+        const amountUSD = parseFloat(document.getElementById('modalAmountUSD').value) || 0;
+        const rolloverType = document.getElementById('modalRolloverType').value;
+
+        if (amountCOP < 0 || amountUSD < 0) {
+            alert('Los montos no pueden ser negativos');
             return;
         }
 
@@ -281,18 +425,44 @@
         const monthDate = `${year}-${String(month).padStart(2, '0')}-01`;
 
         try {
-            const res = await fetch('/api/budgets/assign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    category_id: selectedCategory,
-                    amount: amount,
-                    month: monthDate,
-                    currency_code: currentCurrency
-                })
-            });
+            // Save BOTH budgets (COP and USD)
+            const requests = [];
 
-            if (res.ok) {
+            if (amountCOP > 0 || amountUSD === 0) {
+                requests.push(
+                    fetch('/api/budgets/assign', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            category_id: selectedCategory,
+                            amount: amountCOP,
+                            month: monthDate,
+                            currency_code: 'COP',
+                            rollover_type: rolloverType
+                        })
+                    })
+                );
+            }
+
+            if (amountUSD > 0 || amountCOP === 0) {
+                requests.push(
+                    fetch('/api/budgets/assign', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            category_id: selectedCategory,
+                            amount: amountUSD,
+                            month: monthDate,
+                            currency_code: 'USD',
+                            rollover_type: rolloverType
+                        })
+                    })
+                );
+            }
+
+            const results = await Promise.all(requests);
+
+            if (results.every(r => r.ok)) {
                 closeAssignModal();
                 loadBudget();
             } else {
