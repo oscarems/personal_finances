@@ -36,7 +36,11 @@
                 <select id="accountType" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
                     <option value="checking">💳 Cuenta Corriente</option>
                     <option value="savings">🏦 Cuenta de Ahorros</option>
-                    <option value="credit_card">💰 Tarjeta de Crédito</option>
+                    <option value="credit_card">💳 Tarjeta de Crédito</option>
+                    <option value="credit_loan">💰 Crédito Libre Inversión</option>
+                    <option value="mortgage">🏠 Hipoteca</option>
+                    <option value="cdt">📜 CDT</option>
+                    <option value="investment">📈 Inversión</option>
                     <option value="cash">💵 Efectivo</option>
                 </select>
             </div>
@@ -52,6 +56,48 @@
             <div id="balanceField">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Saldo Inicial</label>
                 <input type="number" id="accountBalance" step="0.01" value="0"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            </div>
+
+            <!-- Optional fields based on account type -->
+            <div id="interestRateField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tasa de Interés Anual (%)</label>
+                <input type="number" id="accountInterestRate" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 5.5">
+            </div>
+
+            <div id="creditLimitField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cupo de Crédito</label>
+                <input type="number" id="accountCreditLimit" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 10000000">
+            </div>
+
+            <div id="monthlyPaymentField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cuota Mensual</label>
+                <input type="number" id="accountMonthlyPayment" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 500000">
+            </div>
+
+            <div id="originalAmountField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Monto Original del Crédito</label>
+                <input type="number" id="accountOriginalAmount" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 50000000">
+            </div>
+
+            <div id="paymentDueDayField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Día de Pago (1-31)</label>
+                <input type="number" id="accountPaymentDueDay" min="1" max="31"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 15">
+            </div>
+
+            <div id="maturityDateField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Vencimiento</label>
+                <input type="date" id="accountMaturityDate"
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg">
             </div>
 
@@ -96,6 +142,9 @@
     document.addEventListener('DOMContentLoaded', async function() {
         await loadExchangeRate();
         await loadAccounts();
+
+        // Add event listener for account type change
+        document.getElementById('accountType').addEventListener('change', updateOptionalFields);
     });
 
     async function loadExchangeRate() {
@@ -176,7 +225,11 @@
             const typeIcons = {
                 'checking': '💳',
                 'savings': '🏦',
-                'credit_card': '💰',
+                'credit_card': '💳',
+                'credit_loan': '💰',
+                'mortgage': '🏠',
+                'cdt': '📜',
+                'investment': '📈',
                 'cash': '💵'
             };
 
@@ -184,6 +237,10 @@
                 'checking': 'Corriente',
                 'savings': 'Ahorros',
                 'credit_card': 'Tarjeta Crédito',
+                'credit_loan': 'Crédito',
+                'mortgage': 'Hipoteca',
+                'cdt': 'CDT',
+                'investment': 'Inversión',
                 'cash': 'Efectivo'
             };
 
@@ -239,6 +296,44 @@
         }).join('');
     }
 
+    function updateOptionalFields() {
+        const accountType = document.getElementById('accountType').value;
+
+        // Hide all optional fields first
+        document.getElementById('interestRateField').classList.add('hidden');
+        document.getElementById('creditLimitField').classList.add('hidden');
+        document.getElementById('monthlyPaymentField').classList.add('hidden');
+        document.getElementById('originalAmountField').classList.add('hidden');
+        document.getElementById('paymentDueDayField').classList.add('hidden');
+        document.getElementById('maturityDateField').classList.add('hidden');
+
+        // Show fields based on account type
+        switch(accountType) {
+            case 'savings':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                break;
+            case 'credit_card':
+                document.getElementById('creditLimitField').classList.remove('hidden');
+                document.getElementById('paymentDueDayField').classList.remove('hidden');
+                break;
+            case 'credit_loan':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                document.getElementById('monthlyPaymentField').classList.remove('hidden');
+                document.getElementById('originalAmountField').classList.remove('hidden');
+                break;
+            case 'mortgage':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                document.getElementById('monthlyPaymentField').classList.remove('hidden');
+                document.getElementById('originalAmountField').classList.remove('hidden');
+                break;
+            case 'cdt':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                document.getElementById('originalAmountField').classList.remove('hidden');
+                document.getElementById('maturityDateField').classList.remove('hidden');
+                break;
+        }
+    }
+
     function openCreateModal() {
         editingAccountId = null;
         document.getElementById('modalTitle').textContent = 'Nueva Cuenta';
@@ -246,6 +341,7 @@
         document.getElementById('accountModal').classList.remove('hidden');
         document.getElementById('balanceField').classList.remove('hidden');
         document.getElementById('accountCurrency').disabled = false;
+        updateOptionalFields();
     }
 
     function closeAccountModal() {
@@ -266,6 +362,17 @@
         document.getElementById('accountNotes').value = account.notes || '';
         document.getElementById('accountIsBudget').checked = account.is_budget;
 
+        // Populate optional fields
+        document.getElementById('accountInterestRate').value = account.interest_rate || '';
+        document.getElementById('accountCreditLimit').value = account.credit_limit || '';
+        document.getElementById('accountMonthlyPayment').value = account.monthly_payment || '';
+        document.getElementById('accountOriginalAmount').value = account.original_amount || '';
+        document.getElementById('accountPaymentDueDay').value = account.payment_due_day || '';
+        document.getElementById('accountMaturityDate').value = account.maturity_date || '';
+
+        // Update field visibility based on type
+        updateOptionalFields();
+
         // Hide currency and balance when editing
         document.getElementById('balanceField').classList.add('hidden');
         document.getElementById('accountCurrency').disabled = true;
@@ -285,16 +392,44 @@
             notes: document.getElementById('accountNotes').value || null
         };
 
+        // Add optional fields if they have values
+        const interestRate = document.getElementById('accountInterestRate').value;
+        if (interestRate) data.interest_rate = parseFloat(interestRate);
+
+        const creditLimit = document.getElementById('accountCreditLimit').value;
+        if (creditLimit) data.credit_limit = parseFloat(creditLimit);
+
+        const monthlyPayment = document.getElementById('accountMonthlyPayment').value;
+        if (monthlyPayment) data.monthly_payment = parseFloat(monthlyPayment);
+
+        const originalAmount = document.getElementById('accountOriginalAmount').value;
+        if (originalAmount) data.original_amount = parseFloat(originalAmount);
+
+        const paymentDueDay = document.getElementById('accountPaymentDueDay').value;
+        if (paymentDueDay) data.payment_due_day = parseInt(paymentDueDay);
+
+        const maturityDate = document.getElementById('accountMaturityDate').value;
+        if (maturityDate) data.maturity_date = maturityDate;
+
         try {
             let res;
             if (editingAccountId) {
-                // Update
+                // Update - include optional fields
                 const updateData = {
                     name: data.name,
                     type: data.type,
                     notes: data.notes,
                     is_budget: data.is_budget
                 };
+
+                // Add optional fields to update
+                if (data.interest_rate !== undefined) updateData.interest_rate = data.interest_rate;
+                if (data.credit_limit !== undefined) updateData.credit_limit = data.credit_limit;
+                if (data.monthly_payment !== undefined) updateData.monthly_payment = data.monthly_payment;
+                if (data.original_amount !== undefined) updateData.original_amount = data.original_amount;
+                if (data.payment_due_day !== undefined) updateData.payment_due_day = data.payment_due_day;
+                if (data.maturity_date !== undefined) updateData.maturity_date = data.maturity_date;
+
                 res = await fetch(`/api/accounts/${editingAccountId}`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
