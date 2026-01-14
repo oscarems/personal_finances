@@ -25,6 +25,7 @@
         <div>
             <p class="text-sm opacity-90">Disponible para Asignar</p>
             <p class="text-4xl font-bold mt-2" id="readyToAssign">$0</p>
+            <p class="text-sm opacity-75 mt-1" id="readyToAssignConverted"></p>
         </div>
         <div class="text-6xl">💰</div>
     </div>
@@ -66,8 +67,14 @@
     let currentMonth = new Date();
     let selectedCategory = null;
 
+    // Exchange rates (will be loaded from API)
+    let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
+
     // Initialize
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Load exchange rate first
+        await loadExchangeRate();
+
         // Set current month
         const monthInput = document.getElementById('monthSelect');
         const year = currentMonth.getFullYear();
@@ -88,6 +95,46 @@
 
         loadBudget();
     });
+
+    async function loadExchangeRate() {
+        try {
+            const res = await fetch('/api/exchange-rates/current');
+            const data = await res.json();
+            EXCHANGE_RATE_USD_TO_COP = data.rate;
+            console.log(`✓ Exchange rate loaded: 1 USD = ${EXCHANGE_RATE_USD_TO_COP} COP`);
+        } catch (error) {
+            console.error('Error loading exchange rate:', error);
+            // Keep default rate
+        }
+    }
+
+    function convertBalance(amount, fromCurrency, toCurrency) {
+        if (fromCurrency === toCurrency) return amount;
+
+        // Convert using real exchange rate
+        if (fromCurrency === 'USD' && toCurrency === 'COP') {
+            return amount * EXCHANGE_RATE_USD_TO_COP;
+        } else if (fromCurrency === 'COP' && toCurrency === 'USD') {
+            return amount / EXCHANGE_RATE_USD_TO_COP;
+        }
+
+        return amount;
+    }
+
+    function getConvertedAmount(amount, fromCurrency) {
+        const toCurrency = fromCurrency === 'COP' ? 'USD' : 'COP';
+        const toSymbol = toCurrency === 'COP' ? '$' : 'US$';
+        const toDecimals = toCurrency === 'COP' ? 0 : 2;
+
+        const convertedAmount = convertBalance(amount, fromCurrency, toCurrency);
+
+        return {
+            amount: convertedAmount,
+            symbol: toSymbol,
+            decimals: toDecimals,
+            currency: toCurrency
+        };
+    }
 
     async function loadBudget() {
         try {
@@ -111,6 +158,11 @@
         document.getElementById('readyToAssign').textContent =
             `${symbol}${formatAmount(data.ready_to_assign, data.currency.decimals)}`;
 
+        // Display converted Ready to Assign
+        const converted = getConvertedAmount(data.ready_to_assign, data.currency.code);
+        document.getElementById('readyToAssignConverted').textContent =
+            `≈ ${converted.symbol}${formatAmount(converted.amount, converted.decimals)} ${converted.currency}`;
+
         // Display budget groups
         const container = document.getElementById('budgetGroups');
         container.innerHTML = data.groups.map(group => {
@@ -119,6 +171,11 @@
             const groupTotal = group.categories.reduce((sum, cat) => sum + cat.assigned, 0);
             const groupActivity = group.categories.reduce((sum, cat) => sum + Math.abs(cat.activity), 0);
             const groupAvailable = group.categories.reduce((sum, cat) => sum + cat.available, 0);
+
+            // Get converted amounts for group totals
+            const convertedTotal = getConvertedAmount(groupTotal, data.currency.code);
+            const convertedActivity = getConvertedAmount(groupActivity, data.currency.code);
+            const convertedAvailable = getConvertedAmount(groupAvailable, data.currency.code);
 
             return `
                 <div class="bg-white rounded-lg shadow">
@@ -131,14 +188,17 @@
                             <div class="text-right">
                                 <p class="text-sm text-gray-500">Asignado</p>
                                 <p class="font-semibold text-gray-800">${symbol}${formatAmount(groupTotal, data.currency.decimals)}</p>
+                                <p class="text-xs text-gray-400">≈ ${convertedTotal.symbol}${formatAmount(convertedTotal.amount, convertedTotal.decimals)}</p>
                             </div>
                             <div class="text-right">
                                 <p class="text-sm text-gray-500">Gastado</p>
                                 <p class="font-semibold text-gray-800">${symbol}${formatAmount(groupActivity, data.currency.decimals)}</p>
+                                <p class="text-xs text-gray-400">≈ ${convertedActivity.symbol}${formatAmount(convertedActivity.amount, convertedActivity.decimals)}</p>
                             </div>
                             <div class="text-right">
                                 <p class="text-sm text-gray-500">Disponible</p>
                                 <p class="font-semibold ${groupAvailable >= 0 ? 'text-green-600' : 'text-red-600'}">${symbol}${formatAmount(groupAvailable, data.currency.decimals)}</p>
+                                <p class="text-xs text-gray-400">≈ ${convertedAvailable.symbol}${formatAmount(convertedAvailable.amount, convertedAvailable.decimals)}</p>
                             </div>
                         </div>
                     </div>
@@ -150,6 +210,11 @@
                             const isOverbudget = percentSpent > 100;
                             const barColor = isOverbudget ? 'bg-red-500' : (percentSpent > 80 ? 'bg-yellow-500' : 'bg-green-500');
 
+                            // Get converted amounts for this category
+                            const convertedAssigned = getConvertedAmount(cat.assigned, data.currency.code);
+                            const convertedActivity = getConvertedAmount(Math.abs(cat.activity), data.currency.code);
+                            const convertedAvailable = getConvertedAmount(cat.available, data.currency.code);
+
                             return `
                                 <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer" onclick="openAssignModal(${cat.category_id}, '${cat.category_name}', ${cat.assigned})">
                                     <div class="grid grid-cols-4 gap-4 items-center">
@@ -159,9 +224,11 @@
                                         </div>
                                         <div class="text-right">
                                             <p class="text-gray-800">${symbol}${formatAmount(cat.assigned, data.currency.decimals)}</p>
+                                            <p class="text-xs text-gray-400">≈ ${convertedAssigned.symbol}${formatAmount(convertedAssigned.amount, convertedAssigned.decimals)}</p>
                                         </div>
                                         <div class="text-right">
                                             <p class="text-gray-800">${symbol}${formatAmount(Math.abs(cat.activity), data.currency.decimals)}</p>
+                                            <p class="text-xs text-gray-400">≈ ${convertedActivity.symbol}${formatAmount(convertedActivity.amount, convertedActivity.decimals)}</p>
                                             <!-- Progress Bar -->
                                             <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
                                                 <div class="budget-bar ${barColor} h-2 rounded-full" style="width: ${Math.min(percentSpent, 100)}%"></div>
@@ -171,6 +238,7 @@
                                             <p class="font-semibold ${cat.available >= 0 ? 'text-green-600' : 'text-red-600'}">
                                                 ${symbol}${formatAmount(cat.available, data.currency.decimals)}
                                             </p>
+                                            <p class="text-xs text-gray-400">≈ ${convertedAvailable.symbol}${formatAmount(convertedAvailable.amount, convertedAvailable.decimals)}</p>
                                         </div>
                                     </div>
                                 </div>
