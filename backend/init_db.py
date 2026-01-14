@@ -5,7 +5,7 @@ from datetime import datetime, date
 from backend.database import SessionLocal, init_db as create_tables
 from backend.models import (
     Currency, Account, CategoryGroup, Category,
-    Payee, Transaction, BudgetMonth
+    Payee, Transaction, BudgetMonth, ExchangeRate
 )
 from config import (
     DEFAULT_EXCHANGE_RATES,
