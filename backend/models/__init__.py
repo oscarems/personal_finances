@@ -4,6 +4,7 @@ from backend.models.category import CategoryGroup, Category
 from backend.models.payee import Payee
 from backend.models.transaction import Transaction
 from backend.models.budget import BudgetMonth
+from backend.models.recurring_transaction import RecurringTransaction
 
 __all__ = [
     'Currency',
@@ -12,5 +13,6 @@ __all__ = [
     'Category',
     'Payee',
     'Transaction',
-    'BudgetMonth'
+    'BudgetMonth',
+    'RecurringTransaction'
 ]
