@@ -90,6 +90,12 @@
     let accounts = [];
     let editingAccountId = null;
 
+    // Exchange rates (should match config.py)
+    const EXCHANGE_RATES = {
+        'COP': 1.0,
+        'USD': 4000.0  // 1 USD = 4000 COP
+    };
+
     document.addEventListener('DOMContentLoaded', loadAccounts);
 
     async function loadAccounts() {
@@ -100,6 +106,37 @@
         } catch (error) {
             console.error('Error loading accounts:', error);
         }
+    }
+
+    function convertBalance(amount, fromCurrency, toCurrency) {
+        if (fromCurrency === toCurrency) return amount;
+
+        // Convert to base currency (COP) first, then to target
+        const amountInCOP = amount * EXCHANGE_RATES[fromCurrency];
+        return amountInCOP / EXCHANGE_RATES[toCurrency];
+    }
+
+    function getConvertedBalance(acc) {
+        // Show converted balance in the other currency
+        const otherCurrency = acc.currency.code === 'COP' ? 'USD' : 'COP';
+        const otherSymbol = otherCurrency === 'COP' ? '$' : 'US$';
+        const otherDecimals = otherCurrency === 'COP' ? 0 : 2;
+
+        const convertedAmount = convertBalance(acc.balance, acc.currency.code, otherCurrency);
+        const isPositive = convertedAmount >= 0;
+        const balanceClass = isPositive ? 'text-green-600' : 'text-red-600';
+
+        return `
+            <div class="mt-2 pt-2 border-t border-gray-100">
+                <p class="text-xs text-gray-500">Equivalente en ${otherCurrency}</p>
+                <p class="text-sm font-semibold ${balanceClass}">
+                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('es-CO', {
+                        minimumFractionDigits: otherDecimals,
+                        maximumFractionDigits: otherDecimals
+                    })}
+                </p>
+            </div>
+        `;
     }
 
     function displayAccounts() {
@@ -160,6 +197,8 @@
                             })}
                         </p>
                         <p class="text-xs text-gray-500 mt-1">${acc.currency.code}</p>
+
+                        ${getConvertedBalance(acc)}
                     </div>
 
                     ${acc.notes ? `
