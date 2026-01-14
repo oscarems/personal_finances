@@ -5,6 +5,7 @@ from datetime import datetime, date
 from sqlalchemy import and_, or_, extract
 from sqlalchemy.orm import Session
 from backend.models import Transaction, Account, Category, Payee, Currency
+from backend.services.exchange_rate_service import convert_currency
 
 
 def create_transaction(db: Session, data):
@@ -124,6 +125,24 @@ def delete_transaction(db: Session, transaction_id):
     if not transaction:
         return False
 
+    # If this is a transfer, also delete the linked transaction
+    if transaction.transfer_account_id:
+        # Find the linked transaction
+        linked_transaction = db.query(Transaction).filter(
+            and_(
+                Transaction.account_id == transaction.transfer_account_id,
+                Transaction.transfer_account_id == transaction.account_id,
+                Transaction.date == transaction.date
+            )
+        ).first()
+
+        if linked_transaction:
+            # Update linked account balance
+            linked_account = db.query(Account).get(linked_transaction.account_id)
+            if linked_account:
+                linked_account.balance -= linked_transaction.amount
+            db.delete(linked_transaction)
+
     # Update account balance
     account = db.query(Account).get(transaction.account_id)
     if account:
@@ -132,6 +151,109 @@ def delete_transaction(db: Session, transaction_id):
     db.delete(transaction)
     db.commit()
     return True
+
+
+def create_transfer(db: Session, data):
+    """
+    Create a transfer between two accounts.
+    Creates two linked transactions (outflow from source, inflow to destination).
+    Supports transfers between different currencies with automatic conversion.
+
+    Args:
+        data: dict with keys:
+            - from_account_id: Source account ID
+            - to_account_id: Destination account ID
+            - date: Transfer date
+            - amount: Amount in source currency
+            - from_currency_id: Source currency ID
+            - to_currency_id: Destination currency ID
+            - memo: Optional memo
+            - cleared: Whether the transfer is cleared (default False)
+
+    Returns:
+        List of two Transaction objects [from_transaction, to_transaction]
+    """
+    # Get accounts
+    from_account = db.query(Account).get(data['from_account_id'])
+    to_account = db.query(Account).get(data['to_account_id'])
+
+    if not from_account or not to_account:
+        raise ValueError("Invalid account IDs")
+
+    # Get currencies
+    from_currency = db.query(Currency).get(data['from_currency_id'])
+    to_currency = db.query(Currency).get(data['to_currency_id'])
+
+    # Calculate amounts
+    from_amount = -abs(data['amount'])  # Negative (outflow)
+
+    # If different currencies, convert
+    if from_currency.code != to_currency.code:
+        to_amount = convert_currency(
+            amount=abs(data['amount']),
+            from_currency=from_currency.code,
+            to_currency=to_currency.code,
+            db=db
+        )
+    else:
+        to_amount = abs(data['amount'])  # Positive (inflow)
+
+    # Create payee for transfer
+    transfer_payee_from = f"Transfer to: {to_account.name}"
+    transfer_payee_to = f"Transfer from: {from_account.name}"
+
+    payee_from = db.query(Payee).filter_by(name=transfer_payee_from).first()
+    if not payee_from:
+        payee_from = Payee(name=transfer_payee_from)
+        db.add(payee_from)
+        db.flush()
+
+    payee_to = db.query(Payee).filter_by(name=transfer_payee_to).first()
+    if not payee_to:
+        payee_to = Payee(name=transfer_payee_to)
+        db.add(payee_to)
+        db.flush()
+
+    # Create outflow transaction (from account)
+    from_transaction = Transaction(
+        account_id=data['from_account_id'],
+        date=data.get('date', date.today()),
+        payee_id=payee_from.id,
+        category_id=None,  # Transfers don't have categories
+        memo=data.get('memo', ''),
+        amount=from_amount,
+        currency_id=data['from_currency_id'],
+        cleared=data.get('cleared', False),
+        approved=True,
+        transfer_account_id=data['to_account_id']
+    )
+
+    # Create inflow transaction (to account)
+    to_transaction = Transaction(
+        account_id=data['to_account_id'],
+        date=data.get('date', date.today()),
+        payee_id=payee_to.id,
+        category_id=None,  # Transfers don't have categories
+        memo=data.get('memo', ''),
+        amount=to_amount,
+        currency_id=data['to_currency_id'],
+        cleared=data.get('cleared', False),
+        approved=True,
+        transfer_account_id=data['from_account_id']
+    )
+
+    db.add(from_transaction)
+    db.add(to_transaction)
+
+    # Update account balances
+    from_account.balance += from_amount  # Subtract from source
+    to_account.balance += to_amount      # Add to destination
+
+    db.commit()
+    db.refresh(from_transaction)
+    db.refresh(to_transaction)
+
+    return [from_transaction, to_transaction]
 
 
 def get_monthly_activity(db: Session, category_id, month, year, currency_id):

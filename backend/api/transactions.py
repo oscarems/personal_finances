@@ -10,7 +10,7 @@ from datetime import date
 from backend.database import get_db
 from backend.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
-    update_transaction, delete_transaction
+    update_transaction, delete_transaction, create_transfer
 )
 
 router = APIRouter()
@@ -25,6 +25,17 @@ class TransactionCreate(BaseModel):
     memo: Optional[str] = None
     amount: float
     currency_id: int
+    cleared: bool = False
+
+
+class TransferCreate(BaseModel):
+    from_account_id: int
+    to_account_id: int
+    date: date
+    amount: float
+    from_currency_id: int
+    to_currency_id: int
+    memo: Optional[str] = None
     cleared: bool = False
 
 
@@ -88,3 +99,24 @@ def remove_transaction(transaction_id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return {"success": True}
+
+
+@router.post("/transfer")
+def create_account_transfer(transfer: TransferCreate, db: Session = Depends(get_db)):
+    """
+    Create a transfer between two accounts.
+    This creates two linked transactions (outflow from source, inflow to destination).
+    Supports transfers between different currencies.
+    """
+    if transfer.from_account_id == transfer.to_account_id:
+        raise HTTPException(status_code=400, detail="Cannot transfer to the same account")
+
+    if transfer.amount <= 0:
+        raise HTTPException(status_code=400, detail="Transfer amount must be positive")
+
+    transactions = create_transfer(db, transfer.dict())
+    return {
+        "success": True,
+        "from_transaction": transactions[0].to_dict(),
+        "to_transaction": transactions[1].to_dict()
+    }
