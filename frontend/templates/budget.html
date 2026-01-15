@@ -39,6 +39,23 @@
     </div>
 </div>
 
+<!-- Overallocated Alert -->
+<div id="budgetOverallocatedAlert" class="hidden bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg mb-8">
+    <div class="flex items-start space-x-3">
+        <div class="text-xl">⚠️</div>
+        <div>
+            <p class="font-semibold">Tu presupuesto disponible supera el dinero en tus cuentas.</p>
+            <p class="text-sm">
+                Ajusta las asignaciones o los saldos de tus cuentas (excluyendo deudas) para corregirlo.
+            </p>
+            <p class="text-sm mt-2">
+                Exceso: <span id="overallocatedCOP" class="font-medium">$0</span> /
+                <span id="overallocatedUSD" class="font-medium">US$0.00</span>
+            </p>
+        </div>
+    </div>
+</div>
+
 <!-- Budget Groups -->
 <div id="budgetGroups" class="space-y-6">
     <!-- Budget groups will be loaded here -->
@@ -377,6 +394,8 @@
         document.getElementById('readyToAssignUSD').textContent =
             `US$${formatAmount(dataUSD.ready_to_assign, 2)}`;
 
+        updateOverallocatedAlert(dataCOP.ready_to_assign, dataUSD.ready_to_assign);
+
         // Display budget groups (merge both currencies)
         const container = document.getElementById('budgetGroups');
         container.innerHTML = dataCOP.groups.map(groupCOP => {
@@ -449,6 +468,13 @@
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1-1v2m-7 7l7-7m0 0l3 3m-3-3v8m9 4H3"></path>
                                                         </svg>
                                                     </button>
+                                                    <button onclick="event.stopPropagation(); deleteCategory(${cat.category_id}, '${cat.category_name.replace(/'/g, "&apos;")}')"
+                                                            class="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                                                            title="Eliminar categoría">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                                 ${cat.rollover_type === 'accumulate' ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">🎯 Ahorro</span>' : ''}
                                             </div>
@@ -491,6 +517,23 @@
                 </div>
             `;
         }).join('');
+    }
+
+    function updateOverallocatedAlert(readyToAssignCOP, readyToAssignUSD) {
+        const alertElement = document.getElementById('budgetOverallocatedAlert');
+        const isOverallocated = readyToAssignCOP < 0 || readyToAssignUSD < 0;
+
+        if (!isOverallocated) {
+            alertElement.classList.add('hidden');
+            return;
+        }
+
+        const overallocatedCOP = Math.abs(readyToAssignCOP);
+        const overallocatedUSD = Math.abs(readyToAssignUSD);
+
+        document.getElementById('overallocatedCOP').textContent = `$${formatAmount(overallocatedCOP, 0)}`;
+        document.getElementById('overallocatedUSD').textContent = `US$${formatAmount(overallocatedUSD, 2)}`;
+        alertElement.classList.remove('hidden');
     }
 
     function formatDualCurrency(amountCOP, currency, decimals) {
@@ -791,6 +834,31 @@
         } catch (error) {
             console.error('Error updating category:', error);
             alert('Error al actualizar la categoría');
+        }
+    }
+
+    async function deleteCategory(categoryId, categoryName) {
+        const confirmMessage = `¿Estás seguro de eliminar la categoría "${categoryName}"?\n\n⚠️ ADVERTENCIA: Esto eliminará sus presupuestos y dejará sus transacciones sin categoría.`;
+
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/categories/${categoryId}?force=true`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadBudget();
+                alert('Categoría eliminada exitosamente');
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.detail || 'No se pudo eliminar la categoría'));
+            }
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            alert('Error al eliminar la categoría');
         }
     }
 
