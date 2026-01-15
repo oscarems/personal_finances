@@ -10,6 +10,9 @@
             <p class="text-gray-600 mt-2">Dale un propósito a cada peso - Asigna en COP o USD</p>
         </div>
         <div class="flex items-center space-x-4">
+            <button onclick="openNewGroupModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
+                <span class="mr-2">+</span> Nuevo Grupo
+            </button>
             <input type="month" id="monthSelect" class="border border-gray-300 rounded-lg px-4 py-2">
         </div>
     </div>
@@ -151,6 +154,35 @@
     </div>
 </div>
 
+<!-- New Group Modal -->
+<div id="newGroupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-md w-full">
+        <h3 class="text-xl font-bold mb-4">Nuevo Grupo de Presupuesto</h3>
+        <form id="newGroupForm">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Grupo</label>
+                <input type="text" id="newGroupName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Entretenimiento, Transporte, etc.">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                <select id="newGroupIsIncome" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="false">💰 Gastos (default)</option>
+                    <option value="true">💵 Ingresos</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Los grupos de gastos aparecen en el presupuesto principal</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeNewGroupModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Cancelar
+                </button>
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    Crear Grupo
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -217,6 +249,42 @@
             } catch (error) {
                 console.error('Error creating category:', error);
                 alert('Error al crear la categoría');
+            }
+        });
+
+        // Event listener for new group form
+        document.getElementById('newGroupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('newGroupName').value.trim();
+            const isIncome = document.getElementById('newGroupIsIncome').value === 'true';
+
+            if (!name) {
+                alert('El nombre del grupo es requerido');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/categories/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        is_income: isIncome
+                    })
+                });
+
+                if (response.ok) {
+                    closeNewGroupModal();
+                    loadBudget(); // Reload budget to show new group
+                    alert('Grupo creado exitosamente');
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.detail || 'No se pudo crear el grupo'));
+                }
+            } catch (error) {
+                console.error('Error creating group:', error);
+                alert('Error al crear el grupo');
             }
         });
 
@@ -304,6 +372,13 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
                                 <h3 class="text-lg font-semibold text-gray-800">${groupCOP.name}</h3>
+                                <button onclick="event.stopPropagation(); deleteGroup(${groupCOP.id}, '${groupCOP.name.replace(/'/g, "&apos;")}')"
+                                        class="ml-3 text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                                        title="Eliminar grupo">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
                             </div>
                             <div class="grid grid-cols-3 gap-8 text-right">
                                 <div>
@@ -564,6 +639,42 @@
 
     function closeNewCategoryModal() {
         document.getElementById('newCategoryModal').classList.add('hidden');
+    }
+
+    // Group Management Functions
+    function openNewGroupModal() {
+        document.getElementById('newGroupName').value = '';
+        document.getElementById('newGroupIsIncome').value = 'false';
+        document.getElementById('newGroupModal').classList.remove('hidden');
+    }
+
+    function closeNewGroupModal() {
+        document.getElementById('newGroupModal').classList.add('hidden');
+    }
+
+    async function deleteGroup(groupId, groupName) {
+        const confirmMessage = `¿Estás seguro de eliminar el grupo "${groupName}"?\n\n⚠️ ADVERTENCIA: Esto eliminará también todas las categorías dentro de este grupo y sus presupuestos asignados.`;
+
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/categories/groups/${groupId}?force=true`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadBudget(); // Reload budget to reflect changes
+                alert('Grupo eliminado exitosamente');
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.detail || 'No se pudo eliminar el grupo'));
+            }
+        } catch (error) {
+            console.error('Error deleting group:', error);
+            alert('Error al eliminar el grupo');
+        }
     }
 </script>
 {% endblock %}
