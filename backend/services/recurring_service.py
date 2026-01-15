@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 from typing import List
 
-from backend.models import RecurringTransaction, Transaction, Account, Payee
+from backend.models import RecurringTransaction, Transaction, Account, Payee, Debt, DebtPayment
 
 
 def get_next_occurrence_date(recurring: RecurringTransaction, from_date: date) -> date:
@@ -101,6 +101,11 @@ def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
             # Generate all transactions up to today
             while check_date <= up_to_date:
                 if should_generate_transaction(recurring, check_date):
+                    signed_amount = recurring.amount
+                    if recurring.transaction_type:
+                        base_amount = abs(recurring.amount)
+                        signed_amount = base_amount if recurring.transaction_type == 'income' else -base_amount
+
                     # Create the transaction
                     transaction = Transaction(
                         account_id=recurring.account_id,
@@ -108,18 +113,42 @@ def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
                         payee_id=recurring.payee_id,
                         category_id=recurring.category_id,
                         memo=f"Auto: {recurring.description}" if recurring.description else "Transacción automática",
-                        amount=recurring.amount,
+                        amount=signed_amount,
                         currency_id=recurring.currency_id,
                         cleared=False,
                         approved=True
                     )
 
                     db.add(transaction)
+                    db.flush()
 
                     # Update account balance
                     account = db.query(Account).get(recurring.account_id)
                     if account:
-                        account.balance += recurring.amount
+                        account.balance += signed_amount
+                        if account.type in {'credit_card', 'credit_loan', 'mortgage'}:
+                            debt = db.query(Debt).filter_by(account_id=account.id).first()
+                            if debt:
+                                payment_amount = abs(signed_amount)
+                                if signed_amount < 0:
+                                    debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+                                    if debt.current_balance <= 0:
+                                        debt.is_active = False
+                                    payment = DebtPayment(
+                                        debt_id=debt.id,
+                                        transaction_id=transaction.id,
+                                        payment_date=check_date,
+                                        amount=payment_amount,
+                                        principal=payment_amount,
+                                        interest=0.0,
+                                        fees=0.0,
+                                        balance_after=debt.current_balance,
+                                        notes="Pago automático"
+                                    )
+                                    db.add(payment)
+                                else:
+                                    debt.current_balance += payment_amount
+                                    debt.is_active = True
 
                     # Update last generated date
                     recurring.last_generated_date = check_date
