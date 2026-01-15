@@ -41,6 +41,8 @@ class Account(Base):
                                           foreign_keys='Transaction.transfer_account_id',
                                           overlaps="transfer_account",
                                           lazy=True)
+    debts = relationship('Debt', back_populates='account', lazy=True,
+                        cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Account {self.name}>'

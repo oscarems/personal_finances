@@ -7,7 +7,8 @@ Elimina todas las transacciones, categorías, presupuestos y resetea los balance
 from backend.database import SessionLocal, engine, Base
 from backend.models import (
     Transaction, Category, CategoryGroup, BudgetMonth,
-    RecurringTransaction, Account, Payee, ExchangeRate
+    RecurringTransaction, Account, Payee, ExchangeRate,
+    Debt, DebtPayment
 )
 from sqlalchemy import text
 import sys
@@ -50,7 +51,18 @@ def reset_database(keep_accounts=True, keep_categories=True):
         db.commit()
         print(f"    ✓ {deleted_payees} payees eliminados")
 
-        # 5. Resetear balances de cuentas o eliminarlas
+        # 5. Eliminar pagos de deudas y deudas
+        print("  → Eliminando pagos de deudas...")
+        deleted_debt_payments = db.query(DebtPayment).delete()
+        db.commit()
+        print(f"    ✓ {deleted_debt_payments} pagos de deudas eliminados")
+
+        print("  → Eliminando deudas...")
+        deleted_debts = db.query(Debt).delete()
+        db.commit()
+        print(f"    ✓ {deleted_debts} deudas eliminadas")
+
+        # 6. Resetear balances de cuentas o eliminarlas
         if keep_accounts:
             print("  → Reseteando balances de cuentas a 0...")
             accounts = db.query(Account).all()
@@ -64,7 +76,7 @@ def reset_database(keep_accounts=True, keep_categories=True):
             db.commit()
             print(f"    ✓ {deleted_accounts} cuentas eliminadas")
 
-        # 6. Eliminar categorías y grupos si se solicita
+        # 7. Eliminar categorías y grupos si se solicita
         if not keep_categories:
             print("  → Eliminando categorías...")
             deleted_categories = db.query(Category).delete()
@@ -78,7 +90,7 @@ def reset_database(keep_accounts=True, keep_categories=True):
         else:
             print("  → Manteniendo categorías y grupos de categorías")
 
-        # 7. Opcional: Limpiar tasas de cambio antiguas (mantener solo las más recientes)
+        # 8. Opcional: Limpiar tasas de cambio antiguas (mantener solo las más recientes)
         print("  → Limpiando tasas de cambio antiguas...")
         # Mantener solo las tasas de cambio de los últimos 30 días
         db.execute(text("""
@@ -88,12 +100,14 @@ def reset_database(keep_accounts=True, keep_categories=True):
         db.commit()
         print("    ✓ Tasas de cambio antiguas eliminadas")
 
-        # 8. Resetear secuencias de IDs de SQLite
+        # 9. Resetear secuencias de IDs de SQLite
         print("  → Reseteando secuencias de IDs...")
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='transactions'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='recurring_transactions'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='budget_months'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='payees'"))
+        db.execute(text("DELETE FROM sqlite_sequence WHERE name='debts'"))
+        db.execute(text("DELETE FROM sqlite_sequence WHERE name='debt_payments'"))
         if not keep_accounts:
             db.execute(text("DELETE FROM sqlite_sequence WHERE name='accounts'"))
         if not keep_categories:
@@ -108,6 +122,8 @@ def reset_database(keep_accounts=True, keep_categories=True):
         print(f"  • Transacciones recurrentes eliminadas: {deleted_recurring}")
         print(f"  • Presupuestos eliminados: {deleted_budgets}")
         print(f"  • Payees eliminados: {deleted_payees}")
+        print(f"  • Deudas eliminadas: {deleted_debts}")
+        print(f"  • Pagos de deudas eliminados: {deleted_debt_payments}")
         if keep_accounts:
             print(f"  • Cuentas reseteadas: {len(accounts)}")
         else:

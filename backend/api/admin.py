@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import (
     Transaction, Category, CategoryGroup, BudgetMonth,
-    RecurringTransaction, Account, Payee, ExchangeRate
+    RecurringTransaction, Account, Payee, ExchangeRate,
+    Debt, DebtPayment
 )
 from sqlalchemy import text
 from pydantic import BaseModel
@@ -66,7 +67,14 @@ def reset_database(options: ResetOptions, db: Session = Depends(get_db)):
         deleted_counts['payees'] = db.query(Payee).delete()
         db.commit()
 
-        # 5. Reset account balances or delete them
+        # 5. Delete debt payments and debts
+        deleted_counts['debt_payments'] = db.query(DebtPayment).delete()
+        db.commit()
+
+        deleted_counts['debts'] = db.query(Debt).delete()
+        db.commit()
+
+        # 6. Reset account balances or delete them
         if options.keep_accounts:
             accounts = db.query(Account).all()
             for account in accounts:
@@ -77,24 +85,26 @@ def reset_database(options: ResetOptions, db: Session = Depends(get_db)):
             deleted_counts['accounts'] = db.query(Account).delete()
             db.commit()
 
-        # 6. Delete categories and groups if requested
+        # 7. Delete categories and groups if requested
         if not options.keep_categories:
             deleted_counts['categories'] = db.query(Category).delete()
             deleted_counts['category_groups'] = db.query(CategoryGroup).delete()
             db.commit()
 
-        # 7. Clean old exchange rates (keep only last 30 days)
+        # 8. Clean old exchange rates (keep only last 30 days)
         db.execute(text("""
             DELETE FROM exchange_rates
             WHERE date < date('now', '-30 days')
         """))
         db.commit()
 
-        # 8. Reset ID sequences
+        # 9. Reset ID sequences
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='transactions'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='recurring_transactions'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='budget_months'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='payees'"))
+        db.execute(text("DELETE FROM sqlite_sequence WHERE name='debts'"))
+        db.execute(text("DELETE FROM sqlite_sequence WHERE name='debt_payments'"))
         if not options.keep_accounts:
             db.execute(text("DELETE FROM sqlite_sequence WHERE name='accounts'"))
         if not options.keep_categories:
@@ -139,6 +149,8 @@ def get_database_stats(db: Session = Depends(get_db)):
             'budgets': db.query(BudgetMonth).count(),
             'payees': db.query(Payee).count(),
             'exchange_rates': db.query(ExchangeRate).count(),
+            'debts': db.query(Debt).count(),
+            'debt_payments': db.query(DebtPayment).count(),
         }
 
         # Calculate total balance across all accounts
