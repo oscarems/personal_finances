@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from config import SQLALCHEMY_DATABASE_URI
@@ -45,4 +45,24 @@ def init_db():
     )
 
     Base.metadata.create_all(bind=engine)
+    ensure_sqlite_column(
+        table_name="recurring_transactions",
+        column_name="transaction_type",
+        column_definition="transaction_type VARCHAR(20) DEFAULT 'expense'"
+    )
     print("✓ Database tables created")
+
+
+def ensure_sqlite_column(table_name: str, column_name: str, column_definition: str) -> None:
+    if engine.url.drivername != "sqlite":
+        return
+
+    with engine.connect() as connection:
+        columns = connection.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+        if not columns:
+            return
+        column_names = {row[1] for row in columns}
+        if column_name in column_names:
+            return
+        connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}"))
+        connection.commit()
