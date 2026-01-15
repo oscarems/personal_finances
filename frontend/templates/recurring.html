@@ -288,20 +288,22 @@
 
     async function loadCategories() {
         try {
-            const res = await fetch('/api/categories');
+            const res = await fetch('/api/categories/groups');
             const groups = await res.json();
 
             const select = document.getElementById('categoryId');
             select.innerHTML = '<option value="">Sin categoría</option>';
 
             groups.forEach(group => {
-                if (!group.is_income) {
-                    select.innerHTML += `<optgroup label="${group.name}">`;
-                    group.categories.forEach(cat => {
-                        select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
-                    });
-                    select.innerHTML += `</optgroup>`;
+                if (!group.categories || group.categories.length === 0) {
+                    return;
                 }
+
+                select.innerHTML += `<optgroup label="${group.name}">`;
+                group.categories.forEach(cat => {
+                    select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                });
+                select.innerHTML += `</optgroup>`;
             });
         } catch (error) {
             console.error('Error loading categories:', error);
