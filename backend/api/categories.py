@@ -78,6 +78,76 @@ def get_category_groups(db: Session = Depends(get_db)):
     ]
 
 
+class CategoryGroupCreate(BaseModel):
+    """Schema for creating a category group"""
+    name: str
+    is_income: bool = False
+
+
+@router.post("/groups")
+def create_category_group(group_data: CategoryGroupCreate, db: Session = Depends(get_db)):
+    """Create a new category group"""
+    # Check if group with same name exists
+    existing = db.query(CategoryGroup).filter_by(name=group_data.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Group with this name already exists")
+
+    # Get max sort_order
+    max_sort = db.query(CategoryGroup).count()
+
+    new_group = CategoryGroup(
+        name=group_data.name,
+        is_income=group_data.is_income,
+        sort_order=max_sort + 1
+    )
+    db.add(new_group)
+    db.commit()
+    db.refresh(new_group)
+
+    return {
+        "success": True,
+        "message": "Group created successfully",
+        "group": {
+            "id": new_group.id,
+            "name": new_group.name,
+            "is_income": new_group.is_income
+        }
+    }
+
+
+@router.delete("/groups/{group_id}")
+def delete_category_group(group_id: int, force: bool = False, db: Session = Depends(get_db)):
+    """Delete a category group"""
+    group = db.query(CategoryGroup).filter_by(id=group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Check if group has categories
+    category_count = len(group.categories)
+    if category_count > 0 and not force:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Group has categories",
+                "categories": category_count,
+                "message": "Use force=true to delete anyway (categories will be deleted)"
+            }
+        )
+
+    # Delete all categories in group
+    for category in group.categories:
+        db.delete(category)
+
+    db.delete(group)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Group deleted",
+        "deleted_categories": category_count
+    }
+
+
 class CategoryCreate(BaseModel):
     """Schema for creating a category"""
     name: str
