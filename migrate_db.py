@@ -60,6 +60,17 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        cursor.execute("PRAGMA table_info(recurring_transactions)")
+        recurring_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'transaction_type' in recurring_columns:
+            print("✓ La columna 'transaction_type' ya existe")
+        else:
+            print("🔧 Agregando columna 'transaction_type' a la tabla recurring_transactions...")
+            cursor.execute("ALTER TABLE recurring_transactions ADD COLUMN transaction_type VARCHAR(20) DEFAULT 'expense'")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
         conn.close()
         print("\n✓ Migración completada. Ahora puedes ejecutar 'python init_db.py'")
 
@@ -71,7 +82,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("MIGRACIÓN DE BASE DE DATOS")
     print("=" * 60)
-    print("\nEsta migración agregará columnas nuevas a categories y accounts")
+    print("\nEsta migración agregará columnas nuevas a categories, accounts y recurring_transactions")
 
     response = input("\n¿Continuar? (s/n): ")
     if response.lower() == 's':

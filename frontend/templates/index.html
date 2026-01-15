@@ -70,6 +70,13 @@
 
 {% block scripts %}
 <script>
+    const dashboardState = {
+        exchangeRate: null,
+        selectedCurrency: 'ALL',
+        lastAccountsData: null,
+        lastAssignedData: null
+    };
+
     // Load dashboard data
     async function loadDashboard() {
         try {
@@ -82,6 +89,18 @@
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
             const assignedData = await assignedRes.json();
+
+            try {
+                const rateRes = await fetch('/api/exchange_rates/current');
+                if (rateRes.ok) {
+                    dashboardState.exchangeRate = await rateRes.json();
+                }
+            } catch (rateError) {
+                console.warn('No se pudo obtener la tasa de cambio:', rateError);
+            }
+
+            dashboardState.lastAccountsData = accountsData;
+            dashboardState.lastAssignedData = assignedData;
 
             displaySummaryCards(accountsData, debtsData);
             displayTotalAccountsSummary(accountsData, assignedData);
@@ -122,36 +141,207 @@
         return totals;
     }
 
+    function getCurrencySymbol(currencyCode, accountTotals) {
+        if (accountTotals && accountTotals[currencyCode] && accountTotals[currencyCode].symbol) {
+            return accountTotals[currencyCode].symbol;
+        }
+        return currencyCode === 'USD' ? 'US$' : '$';
+    }
+
+    function getCurrencyDecimals(currencyCode) {
+        return currencyCode === 'USD' ? 2 : 0;
+    }
+
+    function formatCurrency(amount, currencyCode, symbol) {
+        const decimals = getCurrencyDecimals(currencyCode);
+        return `${symbol}${Math.abs(amount).toLocaleString('es-CO', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        })}`;
+    }
+
+    function convertAmount(amount, fromCurrency, toCurrency, rate) {
+        if (fromCurrency === toCurrency) {
+            return amount;
+        }
+        if (!rate) {
+            return null;
+        }
+        if (fromCurrency === 'USD' && toCurrency === 'COP') {
+            return amount * rate;
+        }
+        if (fromCurrency === 'COP' && toCurrency === 'USD') {
+            return amount / rate;
+        }
+        return null;
+    }
+
+    function sumConvertedTotals(totals, targetCurrency, rate) {
+        let sum = 0;
+        let missing = false;
+
+        for (const [currencyCode, value] of Object.entries(totals)) {
+            const amount = typeof value === 'number' ? value : value.total || 0;
+            const converted = convertAmount(amount, currencyCode, targetCurrency, rate);
+            if (converted === null) {
+                missing = true;
+                continue;
+            }
+            sum += converted;
+        }
+
+        return { sum, missing };
+    }
+
+    function getCurrencyOptions(accountTotals, assignedTotals) {
+        const currencySet = new Set([
+            ...Object.keys(accountTotals || {}),
+            ...Object.keys(assignedTotals || {})
+        ]);
+        return Array.from(currencySet);
+    }
+
     function displayTotalAccountsSummary(accountsData, assignedData) {
         const container = document.getElementById('totalAccountsSummary');
         const accountTotals = buildAccountTotals(accountsData.accounts || []);
-        const totalAccounts = Object.values(accountTotals).reduce((sum, info) => sum + (info.total || 0), 0);
-        const totalAssigned = Object.values(assignedData.totals || {}).reduce((sum, amount) => sum + (amount || 0), 0);
-        const netWorth = totalAccounts - totalAssigned;
+        const assignedTotals = assignedData.totals || {};
+        const availableCurrencies = getCurrencyOptions(accountTotals, assignedTotals);
+        const selectedCurrency = availableCurrencies.includes(dashboardState.selectedCurrency)
+            ? dashboardState.selectedCurrency
+            : 'ALL';
+        dashboardState.selectedCurrency = selectedCurrency;
 
-        const formatTotal = (value) => `$${Math.abs(value).toLocaleString('es-CO', {minimumFractionDigits: 0})}`;
+        const rateInfo = dashboardState.exchangeRate;
+        const rateValue = rateInfo ? rateInfo.rate : null;
+        const rateText = rateInfo
+            ? `Tasa USD/COP ${rateInfo.rate.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+            : 'Tasa de cambio no disponible';
 
-        container.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <p class="text-gray-500 text-sm">Total dinero en cuentas</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1">${formatTotal(totalAccounts)}</p>
-                    <p class="text-xs text-gray-400 mt-1">Todas las monedas</p>
+        let totalAccounts = 0;
+        let totalAssigned = 0;
+        let netWorth = 0;
+        let missingRate = false;
+
+        if (selectedCurrency === 'ALL') {
+            const currencyList = availableCurrencies.length ? availableCurrencies : ['COP'];
+            const accountRows = currencyList.map(code => {
+                const amount = accountTotals[code]?.total || 0;
+                const symbol = getCurrencySymbol(code, accountTotals);
+                return `<div class="flex justify-between text-sm text-gray-600">
+                        <span>${code}</span>
+                        <span class="font-medium text-gray-900">${formatCurrency(amount, code, symbol)}</span>
+                    </div>`;
+            }).join('');
+
+            const assignedRows = currencyList.map(code => {
+                const amount = assignedTotals[code] || 0;
+                const symbol = getCurrencySymbol(code, accountTotals);
+                return `<div class="flex justify-between text-sm text-gray-600">
+                        <span>${code}</span>
+                        <span class="font-medium text-gray-900">${formatCurrency(amount, code, symbol)}</span>
+                    </div>`;
+            }).join('');
+
+            const netWorthRows = currencyList.map(code => {
+                const amount = (accountTotals[code]?.total || 0) - (assignedTotals[code] || 0);
+                const symbol = getCurrencySymbol(code, accountTotals);
+                const colorClass = amount >= 0 ? 'text-green-600' : 'text-red-600';
+                return `<div class="flex justify-between text-sm text-gray-600">
+                        <span>${code}</span>
+                        <span class="font-medium ${colorClass}">${formatCurrency(amount, code, symbol)}</span>
+                    </div>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Total general</h3>
+                        <p class="text-xs text-gray-500">Vista por moneda</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="totalCurrencySelect" class="text-sm text-gray-600">Mostrar en</label>
+                        <select id="totalCurrencySelect" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+                            <option value="ALL">Todas</option>
+                            ${availableCurrencies.map(code => `<option value="${code}">${code}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <p class="text-gray-500 text-sm">Total asignado</p>
-                    <p class="text-2xl font-bold text-blue-600 mt-1">${formatTotal(totalAssigned)}</p>
-                    <p class="text-xs text-gray-400 mt-1">Todas las monedas</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2">
+                        <p class="text-gray-500 text-sm">Total dinero en cuentas</p>
+                        <div class="space-y-1">${accountRows || '<p class="text-sm text-gray-400">Sin datos</p>'}</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2">
+                        <p class="text-gray-500 text-sm">Total asignado</p>
+                        <div class="space-y-1">${assignedRows || '<p class="text-sm text-gray-400">Sin datos</p>'}</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2">
+                        <p class="text-gray-500 text-sm">Total disponible</p>
+                        <div class="space-y-1">${netWorthRows || '<p class="text-sm text-gray-400">Sin datos</p>'}</div>
+                    </div>
                 </div>
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                    <p class="text-gray-500 text-sm">Total disponible</p>
-                    <p class="text-2xl font-bold ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">
-                        ${formatTotal(netWorth)}
-                    </p>
-                    <p class="text-xs text-gray-400 mt-1">Todas las monedas</p>
+            `;
+        } else {
+            const convertedAccounts = sumConvertedTotals(accountTotals, selectedCurrency, rateValue);
+            const convertedAssigned = sumConvertedTotals(assignedTotals, selectedCurrency, rateValue);
+            totalAccounts = convertedAccounts.sum;
+            totalAssigned = convertedAssigned.sum;
+            netWorth = totalAccounts - totalAssigned;
+            missingRate = convertedAccounts.missing || convertedAssigned.missing;
+
+            const symbol = getCurrencySymbol(selectedCurrency, accountTotals);
+            const totalAccountsFormatted = formatCurrency(totalAccounts, selectedCurrency, symbol);
+            const totalAssignedFormatted = formatCurrency(totalAssigned, selectedCurrency, symbol);
+            const netWorthFormatted = formatCurrency(netWorth, selectedCurrency, symbol);
+
+            container.innerHTML = `
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Total general</h3>
+                        <p class="text-xs text-gray-500">${missingRate ? 'Tasa de cambio no disponible para algunas monedas' : rateText}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="totalCurrencySelect" class="text-sm text-gray-600">Mostrar en</label>
+                        <select id="totalCurrencySelect" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+                            <option value="ALL">Todas</option>
+                            ${availableCurrencies.map(code => `<option value="${code}">${code}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
-            </div>
-        `;
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                        <p class="text-gray-500 text-sm">Total dinero en cuentas</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1">${totalAccountsFormatted}</p>
+                        <p class="text-xs text-gray-400 mt-1">Convertido a ${selectedCurrency}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                        <p class="text-gray-500 text-sm">Total asignado</p>
+                        <p class="text-2xl font-bold text-blue-600 mt-1">${totalAssignedFormatted}</p>
+                        <p class="text-xs text-gray-400 mt-1">Convertido a ${selectedCurrency}</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                        <p class="text-gray-500 text-sm">Total disponible</p>
+                        <p class="text-2xl font-bold ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">
+                            ${netWorthFormatted}
+                        </p>
+                        <p class="text-xs text-gray-400 mt-1">Convertido a ${selectedCurrency}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        const selectElement = document.getElementById('totalCurrencySelect');
+        if (selectElement) {
+            selectElement.value = selectedCurrency;
+            selectElement.addEventListener('change', (event) => {
+                dashboardState.selectedCurrency = event.target.value;
+                displayTotalAccountsSummary(
+                    dashboardState.lastAccountsData || accountsData,
+                    dashboardState.lastAssignedData || assignedData
+                );
+            });
+        }
+
     }
 
     function displaySummaryCards(data, debtsData) {
