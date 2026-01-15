@@ -393,8 +393,15 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
                                 <h3 class="text-lg font-semibold text-gray-800">${groupCOP.name}</h3>
+                                <button onclick="event.stopPropagation(); editGroupName(${groupCOP.id}, '${groupCOP.name.replace(/'/g, "&apos;")}')"
+                                        class="ml-3 text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                                        title="Renombrar grupo">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1-1v2m-7 7l7-7m0 0l3 3m-3-3v8m9 4H3"></path>
+                                    </svg>
+                                </button>
                                 <button onclick="event.stopPropagation(); deleteGroup(${groupCOP.id}, '${groupCOP.name.replace(/'/g, "&apos;")}')"
-                                        class="ml-3 text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                                        class="ml-1 text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
                                         title="Eliminar grupo">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -433,7 +440,16 @@
                                     <div class="grid grid-cols-4 gap-4 items-center">
                                         <div class="col-span-1">
                                             <div class="flex items-center space-x-2">
-                                                <p class="font-medium text-gray-800">${cat.category_name}</p>
+                                                <div class="flex items-center space-x-2">
+                                                    <p class="font-medium text-gray-800">${cat.category_name}</p>
+                                                    <button onclick="event.stopPropagation(); editCategoryName(${cat.category_id}, '${cat.category_name.replace(/'/g, "&apos;")}')"
+                                                            class="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                                                            title="Renombrar categoría">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1-1v2m-7 7l7-7m0 0l3 3m-3-3v8m9 4H3"></path>
+                                                        </svg>
+                                                    </button>
+                                                </div>
                                                 ${cat.rollover_type === 'accumulate' ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">🎯 Ahorro</span>' : ''}
                                             </div>
                                             ${cat.target_amount ? `<p class="text-xs text-gray-500">Meta: $${formatAmount(cat.target_amount, 0)}</p>` : ''}
@@ -718,6 +734,64 @@
 
     function closeNewGroupModal() {
         document.getElementById('newGroupModal').classList.add('hidden');
+    }
+
+    async function editGroupName(groupId, currentName) {
+        const newName = prompt('Nuevo nombre del grupo:', currentName);
+        if (newName === null) {
+            return;
+        }
+        const trimmedName = newName.trim();
+        if (!trimmedName || trimmedName === currentName) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/categories/groups/${groupId}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: trimmedName})
+            });
+
+            if (response.ok) {
+                loadBudget();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.detail || 'No se pudo actualizar el grupo'));
+            }
+        } catch (error) {
+            console.error('Error updating group:', error);
+            alert('Error al actualizar el grupo');
+        }
+    }
+
+    async function editCategoryName(categoryId, currentName) {
+        const newName = prompt('Nuevo nombre de la categoría:', currentName);
+        if (newName === null) {
+            return;
+        }
+        const trimmedName = newName.trim();
+        if (!trimmedName || trimmedName === currentName) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/categories/${categoryId}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: trimmedName})
+            });
+
+            if (response.ok) {
+                loadBudget();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.detail || 'No se pudo actualizar la categoría'));
+            }
+        } catch (error) {
+            console.error('Error updating category:', error);
+            alert('Error al actualizar la categoría');
+        }
     }
 
     async function deleteGroup(groupId, groupName) {

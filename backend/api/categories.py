@@ -73,6 +73,11 @@ class CategoryGroupCreate(BaseModel):
     is_income: bool = False
 
 
+class CategoryGroupUpdate(BaseModel):
+    """Schema for updating a category group"""
+    name: Optional[str] = None
+
+
 @router.post("/groups")
 def create_category_group(group_data: CategoryGroupCreate, db: Session = Depends(get_db)):
     """Create a new category group"""
@@ -100,6 +105,37 @@ def create_category_group(group_data: CategoryGroupCreate, db: Session = Depends
             "id": new_group.id,
             "name": new_group.name,
             "is_income": new_group.is_income
+        }
+    }
+
+
+@router.patch("/groups/{group_id}")
+def update_category_group(
+    group_id: int,
+    group_update: CategoryGroupUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update a category group"""
+    group = db.query(CategoryGroup).filter_by(id=group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group_update.name is not None:
+        existing = db.query(CategoryGroup).filter_by(name=group_update.name).first()
+        if existing and existing.id != group_id:
+            raise HTTPException(status_code=400, detail="Group with this name already exists")
+        group.name = group_update.name
+
+    db.commit()
+    db.refresh(group)
+
+    return {
+        "success": True,
+        "message": "Group updated successfully",
+        "group": {
+            "id": group.id,
+            "name": group.name,
+            "is_income": group.is_income
         }
     }
 
