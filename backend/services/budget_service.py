@@ -432,6 +432,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
     Notas:
         - Solo considera cuentas presupuestarias (is_budget=True)
         - Solo considera cuentas abiertas (is_closed=False)
+        - Excluye cuentas de deuda (credit_card, credit_loan, mortgage)
         - Las cuentas de seguimiento (tracking) NO se incluyen
         - El dinero no disponible (sin asignar) aparece automáticamente en Ready to Assign
     """
@@ -452,7 +453,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         return amount
 
     # Get ALL budget accounts (todas las monedas) with eager loading
-    excluded_account_types = ['credit_card', 'credit_loan', 'mortgage']
+    excluded_account_types = {'credit_card', 'credit_loan', 'mortgage'}
 
     all_accounts = db.query(Account).options(
         joinedload(Account.currency)
@@ -465,6 +466,8 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
     # Convert all account balances to target currency
     total_in_accounts = 0.0
     for acc in all_accounts:
+        if acc.type in excluded_account_types or not acc.is_budget:
+            continue
         converted_balance = convert_with_cache(acc.balance, acc.currency.code)
         total_in_accounts += converted_balance
 

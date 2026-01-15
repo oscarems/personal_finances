@@ -99,12 +99,33 @@
         }
     }
 
+    function buildAccountTotals(accounts) {
+        const excludedTypes = new Set(['credit_card', 'credit_loan', 'mortgage']);
+        const totals = {};
+
+        accounts.forEach(account => {
+            if (!account.is_budget || excludedTypes.has(account.type)) {
+                return;
+            }
+            const currency = account.currency || {};
+            const code = currency.code || 'COP';
+            const symbol = currency.symbol || '$';
+            if (!totals[code]) {
+                totals[code] = { total: 0, symbol };
+            }
+            totals[code].total += account.balance || 0;
+        });
+
+        return totals;
+    }
+
     function displaySummaryCards(data, debtsData) {
         const container = document.getElementById('summaryCards');
         let html = '';
         const debtsTotals = debtsData.total_current || {};
+        const accountTotals = buildAccountTotals(data.accounts || []);
 
-        for (const [currency, info] of Object.entries(data.total_by_currency)) {
+        for (const [currency, info] of Object.entries(accountTotals)) {
             const accountTotal = info.total || 0;
             const debtTotal = debtsTotals[currency] || 0;
             const netWorth = accountTotal - debtTotal;
