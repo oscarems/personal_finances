@@ -344,6 +344,7 @@ def get_account_summary(db: Session):
     Get summary of all accounts with total balances
     """
     accounts = db.query(Account).filter_by(is_closed=False).all()
+    excluded_account_types = {'credit_card', 'credit_loan', 'mortgage'}
 
     summary = {
         'accounts': [acc.to_dict() for acc in accounts],
@@ -351,6 +352,8 @@ def get_account_summary(db: Session):
     }
 
     for account in accounts:
+        if account.type in excluded_account_types or not account.is_budget:
+            continue
         currency_code = account.currency.code
         if currency_code not in summary['total_by_currency']:
             summary['total_by_currency'][currency_code] = {

@@ -169,10 +169,59 @@ def generate_amortization_schedule(
             'payment': monthly_payment,
             'principal': principal_payment,
             'interest': interest,
+            'extra_payment': 0.0,
             'balance': max(0, balance)  # Evitar negativos por redondeo
         })
 
         # Avanzar al siguiente mes
+        payment_date = payment_date + relativedelta(months=1)
+
+    return schedule
+
+
+def generate_amortization_schedule_with_extra(
+    principal: float,
+    annual_rate: float,
+    years: int,
+    extra_monthly_payment: float,
+    start_date: date = None
+) -> List[Dict]:
+    """
+    Genera la tabla de amortización aplicando abonos extra mensuales al capital.
+
+    Cada mes se paga la cuota fija + el abono extra, reduciendo el plazo total.
+    """
+    if start_date is None:
+        start_date = date.today()
+
+    base_payment = calculate_monthly_payment(principal, annual_rate, years)
+    monthly_rate = (1 + annual_rate) ** (1/12) - 1 if annual_rate > 0 else 0
+
+    schedule = []
+    balance = principal
+    payment_date = start_date
+    payment_num = 0
+
+    while balance > 0 and payment_num < years * 12 * 2:
+        payment_num += 1
+        interest = balance * monthly_rate
+        max_payment = base_payment + extra_monthly_payment
+        applied_payment = min(balance + interest, max_payment)
+        principal_payment = applied_payment - interest
+        balance -= principal_payment
+
+        extra_payment_applied = max(0.0, applied_payment - base_payment)
+
+        schedule.append({
+            'payment_number': payment_num,
+            'date': payment_date,
+            'payment': applied_payment,
+            'principal': principal_payment,
+            'interest': interest,
+            'extra_payment': extra_payment_applied,
+            'balance': max(0, balance)
+        })
+
         payment_date = payment_date + relativedelta(months=1)
 
     return schedule
