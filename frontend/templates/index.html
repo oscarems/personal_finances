@@ -8,9 +8,9 @@
     <p class="text-gray-600 mt-2">Resumen de tus finanzas personales</p>
 </div>
 
-<!-- Top Totals -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" id="topTotals">
-    <!-- Top totals will be loaded here -->
+<!-- Total Accounts Summary -->
+<div class="bg-white rounded-lg shadow p-6 mb-6" id="totalAccountsSummary">
+    <!-- Total accounts summary will be loaded here -->
 </div>
 
 <!-- Summary Cards -->
@@ -74,20 +74,13 @@
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const [accountsRes, debtsRes, exchangeRes, budgetCopRes, budgetUsdRes] = await Promise.all([
+            const [accountsRes, debtsRes] = await Promise.all([
                 fetch('/api/accounts/summary'),
-                fetch('/api/debts/summary'),
-                fetch('/api/exchange-rates/current'),
-                fetch('/api/budgets/current?currency_code=COP'),
-                fetch('/api/budgets/current?currency_code=USD')
+                fetch('/api/debts/summary')
             ]);
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
-            const exchangeData = await exchangeRes.json();
-            const budgetCop = await budgetCopRes.json();
-            const budgetUsd = await budgetUsdRes.json();
 
-            displayTopTotals(accountsData, debtsData, budgetCop, budgetUsd);
             displaySummaryCards(accountsData, debtsData);
             displayDebtsSummary(debtsData);
 
@@ -106,87 +99,34 @@
         }
     }
 
-    function displayTopTotals(accountsData, debtsData, budgetCop, budgetUsd) {
-        const container = document.getElementById('topTotals');
-        const debtTypes = ['credit_card', 'credit_loan', 'mortgage'];
-        const accountsTotals = { COP: 0, USD: 0 };
-        const debtsTotals = debtsData.total_current || {};
-
-        (accountsData.accounts || []).forEach(account => {
-            if (debtTypes.includes(account.type)) {
-                return;
-            }
-            const currency = account.currency.code;
-            if (currency in accountsTotals) {
-                accountsTotals[currency] += account.balance || 0;
-            } else {
-                accountsTotals[currency] = account.balance || 0;
-            }
-        });
-
-        const formatCurrency = (amount, currency) => {
-            const decimals = currency === 'USD' ? 2 : 0;
-            const symbol = currency === 'USD' ? 'US$' : '$';
-            return `${symbol}${Math.abs(amount).toLocaleString('es-CO', {minimumFractionDigits: decimals})} ${currency}`;
-        };
-
-        container.innerHTML = `
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-500">Total en Cuentas</p>
-                <p class="text-xl font-semibold text-gray-800 mt-2">${formatCurrency(accountsTotals.COP || 0, 'COP')}</p>
-                <p class="text-lg font-semibold text-gray-800">${formatCurrency(accountsTotals.USD || 0, 'USD')}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-500">Total en Deudas</p>
-                <p class="text-xl font-semibold text-red-600 mt-2">${formatCurrency(debtsTotals.COP || 0, 'COP')}</p>
-                <p class="text-lg font-semibold text-red-600">${formatCurrency(debtsTotals.USD || 0, 'USD')}</p>
-            </div>
-            <div class="bg-white rounded-lg shadow p-6">
-                <p class="text-sm text-gray-500">Presupuesto Total</p>
-                <p class="text-xl font-semibold text-blue-600 mt-2">${formatCurrency(budgetCop.totals?.assigned || 0, 'COP')}</p>
-                <p class="text-lg font-semibold text-blue-600">${formatCurrency(budgetUsd.totals?.assigned || 0, 'USD')}</p>
-            </div>
-        `;
-    }
-
     function displaySummaryCards(data, debtsData) {
         const container = document.getElementById('summaryCards');
         let html = '';
         const debtsTotals = debtsData.total_current || {};
-        const debtTypes = ['credit_card', 'credit_loan', 'mortgage'];
-        const accountsTotals = {};
 
-        (data.accounts || []).forEach(account => {
-            if (debtTypes.includes(account.type)) {
-                return;
-            }
-            const currency = account.currency.code;
-            accountsTotals[currency] = (accountsTotals[currency] || 0) + (account.balance || 0);
-        });
-
-        for (const [currency, accountTotal] of Object.entries(accountsTotals)) {
+        for (const [currency, info] of Object.entries(data.total_by_currency)) {
+            const accountTotal = info.total || 0;
             const debtTotal = debtsTotals[currency] || 0;
             const netWorth = accountTotal - debtTotal;
             const decimals = currency === 'USD' ? 2 : 0;
-            const symbol = currency === 'USD' ? 'US$' : '$';
 
             html += `
                 <div class="bg-white rounded-lg shadow p-6">
                     <p class="text-gray-500 text-sm">Dinero en Cuentas ${currency}</p>
                     <p class="text-2xl font-bold text-gray-800 mt-1">
-                        ${symbol}${Math.abs(accountTotal).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
+                        ${info.symbol}${Math.abs(accountTotal).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
                     </p>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
                     <p class="text-gray-500 text-sm">Dinero en Deudas ${currency}</p>
                     <p class="text-2xl font-bold text-red-600 mt-1">
-                        ${symbol}${Math.abs(debtTotal).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
+                        ${info.symbol}${Math.abs(debtTotal).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
                     </p>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
                     <p class="text-gray-500 text-sm">Patrimonio Total ${currency}</p>
                     <p class="text-2xl font-bold ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">
-                        ${symbol}${Math.abs(netWorth).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
+                        ${info.symbol}${Math.abs(netWorth).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
                     </p>
                 </div>
             `;
