@@ -13,6 +13,7 @@ class RecurringTransaction(Base):
     description = Column(String(200))  # User-friendly name for this recurring transaction
     amount = Column(Float, nullable=False)
     currency_id = Column(Integer, ForeignKey('currencies.id'), nullable=False)
+    transaction_type = Column(String(20), default='expense')  # expense or income
 
     # Recurrence settings
     frequency = Column(String(20), nullable=False)  # daily, weekly, monthly, yearly
@@ -40,6 +41,7 @@ class RecurringTransaction(Base):
         return f'<RecurringTransaction {self.description} {self.frequency}>'
 
     def to_dict(self):
+        inferred_type = self.transaction_type or ('income' if self.amount > 0 else 'expense')
         return {
             'id': self.id,
             'account_id': self.account_id,
@@ -51,6 +53,7 @@ class RecurringTransaction(Base):
             'description': self.description,
             'amount': self.amount,
             'currency': self.currency.to_dict() if self.currency else None,
+            'transaction_type': inferred_type,
             'frequency': self.frequency,
             'interval': self.interval,
             'start_date': self.start_date.isoformat() if self.start_date else None,
