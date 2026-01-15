@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block title %}Cuentas - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-center">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800">Cuentas</h2>
+        <p class="text-gray-600 mt-2">Gestiona tus cuentas bancarias y tarjetas</p>
+    </div>
+    <button onclick="openCreateModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold">
+        + Nueva Cuenta
+    </button>
+</div>
+
+<!-- Accounts Grid -->
+<div id="accountsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Accounts will be loaded here -->
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="accountModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-md w-full max-h-screen overflow-y-auto">
+        <h3 id="modalTitle" class="text-xl font-bold mb-6">Nueva Cuenta</h3>
+
+        <form id="accountForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre de la Cuenta</label>
+                <input type="text" id="accountName" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: Davivienda Corriente">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                <select id="accountType" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="checking">💳 Cuenta Corriente</option>
+                    <option value="savings">🏦 Cuenta de Ahorros</option>
+                    <option value="credit_card">💳 Tarjeta de Crédito</option>
+                    <option value="credit_loan">💰 Crédito Libre Inversión</option>
+                    <option value="mortgage">🏠 Hipoteca</option>
+                    <option value="cdt">📜 CDT</option>
+                    <option value="investment">📈 Inversión</option>
+                    <option value="cash">💵 Efectivo</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+                <select id="accountCurrency" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="1">COP - Peso Colombiano</option>
+                    <option value="2">USD - Dólar Estadounidense</option>
+                </select>
+            </div>
+
+            <div id="balanceField">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Saldo Inicial</label>
+                <input type="number" id="accountBalance" step="0.01" value="0"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            </div>
+
+            <!-- Optional fields based on account type -->
+            <div id="interestRateField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tasa de Interés Anual (%)</label>
+                <input type="number" id="accountInterestRate" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 5.5">
+            </div>
+
+            <div id="creditLimitField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cupo de Crédito</label>
+                <input type="number" id="accountCreditLimit" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 10000000">
+            </div>
+
+            <div id="monthlyPaymentField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cuota Mensual</label>
+                <input type="number" id="accountMonthlyPayment" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 500000">
+            </div>
+
+            <div id="originalAmountField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Monto Original del Crédito</label>
+                <input type="number" id="accountOriginalAmount" step="0.01"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 50000000">
+            </div>
+
+            <div id="paymentDueDayField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Día de Pago (1-31)</label>
+                <input type="number" id="accountPaymentDueDay" min="1" max="31"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 15">
+            </div>
+
+            <div id="maturityDateField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Vencimiento</label>
+                <input type="date" id="accountMaturityDate"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Notas (opcional)</label>
+                <textarea id="accountNotes" rows="2"
+                          class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Número de cuenta, etc."></textarea>
+            </div>
+
+            <div class="flex items-center">
+                <input type="checkbox" id="accountIsBudget" checked
+                       class="w-4 h-4 text-blue-600 border-gray-300 rounded">
+                <label for="accountIsBudget" class="ml-2 text-sm text-gray-700">
+                    Incluir en presupuesto
+                </label>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" onclick="closeAccountModal()"
+                        class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let accounts = [];
+    let editingAccountId = null;
+
+    // Exchange rates (will be loaded from API)
+    let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadExchangeRate();
+        await loadAccounts();
+
+        // Add event listener for account type change
+        document.getElementById('accountType').addEventListener('change', updateOptionalFields);
+    });
+
+    async function loadExchangeRate() {
+        try {
+            const res = await fetch('/api/exchange-rates/current');
+            const data = await res.json();
+            EXCHANGE_RATE_USD_TO_COP = data.rate;
+            console.log(`✓ Exchange rate loaded: 1 USD = ${EXCHANGE_RATE_USD_TO_COP} COP`);
+        } catch (error) {
+            console.error('Error loading exchange rate:', error);
+            // Keep default rate
+        }
+    }
+
+    async function loadAccounts() {
+        try {
+            const res = await fetch('/api/accounts/');
+            accounts = await res.json();
+            displayAccounts();
+        } catch (error) {
+            console.error('Error loading accounts:', error);
+        }
+    }
+
+    function convertBalance(amount, fromCurrency, toCurrency) {
+        if (fromCurrency === toCurrency) return amount;
+
+        // Convert using real exchange rate
+        if (fromCurrency === 'USD' && toCurrency === 'COP') {
+            return amount * EXCHANGE_RATE_USD_TO_COP;
+        } else if (fromCurrency === 'COP' && toCurrency === 'USD') {
+            return amount / EXCHANGE_RATE_USD_TO_COP;
+        }
+
+        return amount;
+    }
+
+    function getConvertedBalance(acc) {
+        // Show converted balance in the other currency
+        const otherCurrency = acc.currency.code === 'COP' ? 'USD' : 'COP';
+        const otherSymbol = otherCurrency === 'COP' ? '$' : 'US$';
+        const otherDecimals = otherCurrency === 'COP' ? 0 : 2;
+
+        const convertedAmount = convertBalance(acc.balance, acc.currency.code, otherCurrency);
+        const isPositive = convertedAmount >= 0;
+        const balanceClass = isPositive ? 'text-green-600' : 'text-red-600';
+
+        return `
+            <div class="mt-2 pt-2 border-t border-gray-100">
+                <p class="text-xs text-gray-500">Equivalente en ${otherCurrency}</p>
+                <p class="text-sm font-semibold ${balanceClass}">
+                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('es-CO', {
+                        minimumFractionDigits: otherDecimals,
+                        maximumFractionDigits: otherDecimals
+                    })}
+                </p>
+            </div>
+        `;
+    }
+
+    function displayAccounts() {
+        const grid = document.getElementById('accountsGrid');
+
+        if (accounts.length === 0) {
+            grid.innerHTML = `
+                <div class="col-span-full text-center py-12">
+                    <p class="text-gray-500 text-lg">No tienes cuentas aún</p>
+                    <button onclick="openCreateModal()"
+                            class="mt-4 text-blue-600 hover:text-blue-700 font-semibold">
+                        + Crear tu primera cuenta
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        grid.innerHTML = accounts.map(acc => {
+            const typeIcons = {
+                'checking': '💳',
+                'savings': '🏦',
+                'credit_card': '💳',
+                'credit_loan': '💰',
+                'mortgage': '🏠',
+                'cdt': '📜',
+                'investment': '📈',
+                'cash': '💵'
+            };
+
+            const typeNames = {
+                'checking': 'Corriente',
+                'savings': 'Ahorros',
+                'credit_card': 'Tarjeta Crédito',
+                'credit_loan': 'Crédito',
+                'mortgage': 'Hipoteca',
+                'cdt': 'CDT',
+                'investment': 'Inversión',
+                'cash': 'Efectivo'
+            };
+
+            const isPositive = acc.balance >= 0;
+            const balanceClass = isPositive ? 'text-green-600' : 'text-red-600';
+
+            return `
+                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <div class="text-3xl mb-2">${typeIcons[acc.type] || '🏦'}</div>
+                            <h3 class="font-bold text-lg text-gray-800">${acc.name}</h3>
+                            <p class="text-sm text-gray-500">${typeNames[acc.type]}</p>
+                        </div>
+                        <div class="text-right">
+                            <button onclick="editAccount(${acc.id})"
+                                    class="text-blue-600 hover:text-blue-700 text-sm">
+                                Editar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <p class="text-sm text-gray-600 mb-1">Saldo</p>
+                        <p class="text-2xl font-bold ${balanceClass}">
+                            ${acc.currency.symbol}${Math.abs(acc.balance).toLocaleString('es-CO', {
+                                minimumFractionDigits: acc.currency.decimals
+                            })}
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">${acc.currency.code}</p>
+
+                        ${getConvertedBalance(acc)}
+                    </div>
+
+                    ${acc.notes ? `
+                        <div class="mt-4 text-sm text-gray-600">
+                            <p class="italic">${acc.notes}</p>
+                        </div>
+                    ` : ''}
+
+                    <div class="mt-4 flex gap-2">
+                        <button onclick="viewTransactions(${acc.id})"
+                                class="flex-1 text-sm bg-gray-100 hover:bg-gray-200 py-2 rounded">
+                            Ver Transacciones
+                        </button>
+                        <button onclick="deleteAccount(${acc.id})"
+                                class="text-sm text-red-600 hover:bg-red-50 px-3 py-2 rounded">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function updateOptionalFields() {
+        const accountType = document.getElementById('accountType').value;
+
+        // Hide all optional fields first
+        document.getElementById('interestRateField').classList.add('hidden');
+        document.getElementById('creditLimitField').classList.add('hidden');
+        document.getElementById('monthlyPaymentField').classList.add('hidden');
+        document.getElementById('originalAmountField').classList.add('hidden');
+        document.getElementById('paymentDueDayField').classList.add('hidden');
+        document.getElementById('maturityDateField').classList.add('hidden');
+
+        // Show fields based on account type
+        switch(accountType) {
+            case 'savings':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                break;
+            case 'credit_card':
+                document.getElementById('creditLimitField').classList.remove('hidden');
+                document.getElementById('paymentDueDayField').classList.remove('hidden');
+                break;
+            case 'credit_loan':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                document.getElementById('monthlyPaymentField').classList.remove('hidden');
+                document.getElementById('originalAmountField').classList.remove('hidden');
+                break;
+            case 'mortgage':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                document.getElementById('monthlyPaymentField').classList.remove('hidden');
+                document.getElementById('originalAmountField').classList.remove('hidden');
+                break;
+            case 'cdt':
+                document.getElementById('interestRateField').classList.remove('hidden');
+                document.getElementById('originalAmountField').classList.remove('hidden');
+                document.getElementById('maturityDateField').classList.remove('hidden');
+                break;
+        }
+    }
+
+    function openCreateModal() {
+        editingAccountId = null;
+        document.getElementById('modalTitle').textContent = 'Nueva Cuenta';
+        document.getElementById('accountForm').reset();
+        document.getElementById('accountModal').classList.remove('hidden');
+        document.getElementById('balanceField').classList.remove('hidden');
+        document.getElementById('accountCurrency').disabled = false;
+        updateOptionalFields();
+    }
+
+    function closeAccountModal() {
+        document.getElementById('accountModal').classList.add('hidden');
+        editingAccountId = null;
+    }
+
+    async function editAccount(accountId) {
+        const account = accounts.find(a => a.id === accountId);
+        if (!account) return;
+
+        editingAccountId = accountId;
+        document.getElementById('modalTitle').textContent = 'Editar Cuenta';
+        document.getElementById('accountName').value = account.name;
+        document.getElementById('accountType').value = account.type;
+        document.getElementById('accountCurrency').value = account.currency.id;
+        document.getElementById('accountBalance').value = account.balance;
+        document.getElementById('accountNotes').value = account.notes || '';
+        document.getElementById('accountIsBudget').checked = account.is_budget;
+
+        // Populate optional fields
+        document.getElementById('accountInterestRate').value = account.interest_rate || '';
+        document.getElementById('accountCreditLimit').value = account.credit_limit || '';
+        document.getElementById('accountMonthlyPayment').value = account.monthly_payment || '';
+        document.getElementById('accountOriginalAmount').value = account.original_amount || '';
+        document.getElementById('accountPaymentDueDay').value = account.payment_due_day || '';
+        document.getElementById('accountMaturityDate').value = account.maturity_date || '';
+
+        // Update field visibility based on type
+        updateOptionalFields();
+
+        // Hide currency and balance when editing
+        document.getElementById('balanceField').classList.add('hidden');
+        document.getElementById('accountCurrency').disabled = true;
+
+        document.getElementById('accountModal').classList.remove('hidden');
+    }
+
+    document.getElementById('accountForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const data = {
+            name: document.getElementById('accountName').value,
+            type: document.getElementById('accountType').value,
+            currency_id: parseInt(document.getElementById('accountCurrency').value),
+            balance: parseFloat(document.getElementById('accountBalance').value),
+            is_budget: document.getElementById('accountIsBudget').checked,
+            notes: document.getElementById('accountNotes').value || null
+        };
+
+        // Add optional fields if they have values
+        const interestRate = document.getElementById('accountInterestRate').value;
+        if (interestRate) data.interest_rate = parseFloat(interestRate);
+
+        const creditLimit = document.getElementById('accountCreditLimit').value;
+        if (creditLimit) data.credit_limit = parseFloat(creditLimit);
+
+        const monthlyPayment = document.getElementById('accountMonthlyPayment').value;
+        if (monthlyPayment) data.monthly_payment = parseFloat(monthlyPayment);
+
+        const originalAmount = document.getElementById('accountOriginalAmount').value;
+        if (originalAmount) data.original_amount = parseFloat(originalAmount);
+
+        const paymentDueDay = document.getElementById('accountPaymentDueDay').value;
+        if (paymentDueDay) data.payment_due_day = parseInt(paymentDueDay);
+
+        const maturityDate = document.getElementById('accountMaturityDate').value;
+        if (maturityDate) data.maturity_date = maturityDate;
+
+        try {
+            let res;
+            if (editingAccountId) {
+                // Update - include optional fields
+                const updateData = {
+                    name: data.name,
+                    type: data.type,
+                    notes: data.notes,
+                    is_budget: data.is_budget
+                };
+
+                // Add optional fields to update
+                if (data.interest_rate !== undefined) updateData.interest_rate = data.interest_rate;
+                if (data.credit_limit !== undefined) updateData.credit_limit = data.credit_limit;
+                if (data.monthly_payment !== undefined) updateData.monthly_payment = data.monthly_payment;
+                if (data.original_amount !== undefined) updateData.original_amount = data.original_amount;
+                if (data.payment_due_day !== undefined) updateData.payment_due_day = data.payment_due_day;
+                if (data.maturity_date !== undefined) updateData.maturity_date = data.maturity_date;
+
+                res = await fetch(`/api/accounts/${editingAccountId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(updateData)
+                });
+            } else {
+                // Create
+                res = await fetch('/api/accounts/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+            }
+
+            if (res.ok) {
+                closeAccountModal();
+                await loadAccounts();
+            } else {
+                const error = await res.json();
+                alert('Error: ' + (error.detail || 'Error desconocido'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al guardar la cuenta');
+        }
+    });
+
+    async function deleteAccount(accountId) {
+        if (!confirm('¿Seguro que quieres cerrar esta cuenta?')) return;
+
+        try {
+            const res = await fetch(`/api/accounts/${accountId}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                await loadAccounts();
+            } else {
+                alert('Error al cerrar la cuenta');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al cerrar la cuenta');
+        }
+    }
+
+    function viewTransactions(accountId) {
+        window.location.href = `/transactions?account_id=${accountId}`;
+    }
+</script>
+{% endblock %}

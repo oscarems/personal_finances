@@ -1,0 +1,88 @@
+"""
+Exchange Rates API
+"""
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import desc
+from typing import Optional
+from datetime import date, timedelta
+
+from backend.database import get_db
+from backend.models import ExchangeRate
+from backend.services.exchange_rate_service import (
+    get_current_exchange_rate,
+    convert_currency
+)
+
+router = APIRouter()
+
+
+@router.get("/current")
+def get_current_rate(
+    force_fetch: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtiene la tasa de cambio actual USD->COP
+    force_fetch: forzar consulta a APIs aunque ya exista tasa de hoy
+    """
+    rate = get_current_exchange_rate(db, force_fetch=force_fetch)
+
+    return {
+        "from_currency": "USD",
+        "to_currency": "COP",
+        "rate": rate,
+        "date": date.today().isoformat()
+    }
+
+
+@router.get("/history")
+def get_rate_history(
+    days: int = Query(default=30, le=365),
+    db: Session = Depends(get_db)
+):
+    """
+    Obtiene el historial de tasas de cambio
+    """
+    start_date = date.today() - timedelta(days=days)
+
+    rates = db.query(ExchangeRate).filter(
+        ExchangeRate.date >= start_date,
+        ExchangeRate.from_currency == 'USD',
+        ExchangeRate.to_currency == 'COP'
+    ).order_by(desc(ExchangeRate.date)).all()
+
+    return {
+        "rates": [r.to_dict() for r in rates],
+        "count": len(rates)
+    }
+
+
+@router.get("/convert")
+def convert(
+    amount: float,
+    from_currency: str,
+    to_currency: str,
+    rate_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Convierte un monto de una moneda a otra
+    """
+    target_date = date.fromisoformat(rate_date) if rate_date else None
+
+    converted = convert_currency(
+        amount=amount,
+        from_currency=from_currency,
+        to_currency=to_currency,
+        db=db,
+        rate_date=target_date
+    )
+
+    return {
+        "amount": amount,
+        "from_currency": from_currency,
+        "to_currency": to_currency,
+        "converted_amount": converted,
+        "date": target_date.isoformat() if target_date else date.today().isoformat()
+    }

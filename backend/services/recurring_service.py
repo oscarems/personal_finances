@@ -1,0 +1,165 @@
+"""
+Recurring Transaction Service
+Handles generation of transactions from recurring rules
+"""
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
+from sqlalchemy.orm import Session
+from typing import List
+
+from backend.models import RecurringTransaction, Transaction, Account, Payee
+
+
+def get_next_occurrence_date(recurring: RecurringTransaction, from_date: date) -> date:
+    """
+    Calculate the next occurrence date for a recurring transaction
+    """
+    if recurring.frequency == 'daily':
+        return from_date + timedelta(days=recurring.interval)
+
+    elif recurring.frequency == 'weekly':
+        # Move to next interval week
+        next_date = from_date + timedelta(weeks=recurring.interval)
+        # Adjust to correct day of week if specified
+        if recurring.day_of_week is not None:
+            days_ahead = recurring.day_of_week - next_date.weekday()
+            if days_ahead < 0:
+                days_ahead += 7
+            next_date = next_date + timedelta(days=days_ahead)
+        return next_date
+
+    elif recurring.frequency == 'monthly':
+        next_date = from_date + relativedelta(months=recurring.interval)
+        # Adjust to correct day of month if specified
+        if recurring.day_of_month is not None:
+            try:
+                next_date = next_date.replace(day=recurring.day_of_month)
+            except ValueError:
+                # Day doesn't exist in this month (e.g., Feb 30), use last day
+                next_date = next_date.replace(day=1) + relativedelta(months=1) - timedelta(days=1)
+        return next_date
+
+    elif recurring.frequency == 'yearly':
+        return from_date + relativedelta(years=recurring.interval)
+
+    return from_date
+
+
+def should_generate_transaction(recurring: RecurringTransaction, check_date: date) -> bool:
+    """
+    Check if a transaction should be generated for the given date
+    """
+    # Not active
+    if not recurring.is_active:
+        return False
+
+    # Haven't started yet
+    if check_date < recurring.start_date:
+        return False
+
+    # Past end date
+    if recurring.end_date and check_date > recurring.end_date:
+        return False
+
+    # Already generated for this date or later
+    if recurring.last_generated_date and check_date <= recurring.last_generated_date:
+        return False
+
+    return True
+
+
+def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
+    """
+    Generate all due recurring transactions up to the specified date
+    Returns statistics about generated transactions
+    """
+    if up_to_date is None:
+        up_to_date = date.today()
+
+    stats = {
+        'checked': 0,
+        'generated': 0,
+        'skipped': 0,
+        'errors': []
+    }
+
+    # Get all active recurring transactions
+    recurring_txs = db.query(RecurringTransaction).filter(
+        RecurringTransaction.is_active == True
+    ).all()
+
+    stats['checked'] = len(recurring_txs)
+
+    for recurring in recurring_txs:
+        try:
+            # Determine the date to start checking from
+            if recurring.last_generated_date:
+                check_date = get_next_occurrence_date(recurring, recurring.last_generated_date)
+            else:
+                check_date = recurring.start_date
+
+            # Generate all transactions up to today
+            while check_date <= up_to_date:
+                if should_generate_transaction(recurring, check_date):
+                    # Create the transaction
+                    transaction = Transaction(
+                        account_id=recurring.account_id,
+                        date=check_date,
+                        payee_id=recurring.payee_id,
+                        category_id=recurring.category_id,
+                        memo=f"Auto: {recurring.description}" if recurring.description else "Transacción automática",
+                        amount=recurring.amount,
+                        currency_id=recurring.currency_id,
+                        cleared=False,
+                        approved=True
+                    )
+
+                    db.add(transaction)
+
+                    # Update account balance
+                    account = db.query(Account).get(recurring.account_id)
+                    if account:
+                        account.balance += recurring.amount
+
+                    # Update last generated date
+                    recurring.last_generated_date = check_date
+
+                    stats['generated'] += 1
+                else:
+                    stats['skipped'] += 1
+
+                # Move to next occurrence
+                check_date = get_next_occurrence_date(recurring, check_date)
+
+                # Safety check to avoid infinite loops
+                if check_date > up_to_date + relativedelta(years=10):
+                    break
+
+        except Exception as e:
+            stats['errors'].append(f"Error processing recurring ID {recurring.id}: {str(e)}")
+            continue
+
+    db.commit()
+
+    return stats
+
+
+def preview_next_occurrences(recurring: RecurringTransaction, count: int = 5) -> List[date]:
+    """
+    Preview the next N occurrences of a recurring transaction
+    """
+    occurrences = []
+
+    if recurring.last_generated_date:
+        current_date = get_next_occurrence_date(recurring, recurring.last_generated_date)
+    else:
+        current_date = recurring.start_date
+
+    for _ in range(count):
+        if recurring.end_date and current_date > recurring.end_date:
+            break
+
+        occurrences.append(current_date)
+        current_date = get_next_occurrence_date(recurring, current_date)
+
+    return occurrences
