@@ -8,6 +8,11 @@
     <p class="text-gray-600 mt-2">Resumen de tus finanzas personales</p>
 </div>
 
+<!-- Total Accounts Summary -->
+<div class="bg-white rounded-lg shadow p-6 mb-6" id="totalAccountsSummary">
+    <!-- Total accounts summary will be loaded here -->
+</div>
+
 <!-- Summary Cards -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="summaryCards">
     <!-- Cards will be loaded here -->
@@ -69,13 +74,17 @@
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const accountsRes = await fetch('/api/accounts/summary');
+            const [accountsRes, debtsRes, exchangeRes] = await Promise.all([
+                fetch('/api/accounts/summary'),
+                fetch('/api/debts/summary'),
+                fetch('/api/exchange-rates/current')
+            ]);
             const accountsData = await accountsRes.json();
-            displaySummaryCards(accountsData);
-
-            // Load debts summary
-            const debtsRes = await fetch('/api/debts/summary');
             const debtsData = await debtsRes.json();
+            const exchangeData = await exchangeRes.json();
+
+            displayTotalAccountsSummary(accountsData, exchangeData);
+            displaySummaryCards(accountsData, debtsData);
             displayDebtsSummary(debtsData);
 
             // Load recent transactions
@@ -93,40 +102,74 @@
         }
     }
 
-    function displaySummaryCards(data) {
-        const container = document.getElementById('summaryCards');
-        let html = '';
+    function displayTotalAccountsSummary(accountsData, exchangeData) {
+        const container = document.getElementById('totalAccountsSummary');
+        const totals = accountsData.total_by_currency || {};
+        const rate = exchangeData.rate || 0;
 
-        // Total by currency
-        for (const [currency, info] of Object.entries(data.total_by_currency)) {
-            const isPositive = info.total >= 0;
-            html += `
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-gray-500 text-sm">Total ${currency}</p>
-                            <p class="text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'} mt-1">
-                                ${info.symbol}${Math.abs(info.total).toLocaleString('es-CO', {minimumFractionDigits: currency === 'USD' ? 2 : 0})}
-                            </p>
-                        </div>
-                        <div class="text-4xl">${isPositive ? '📈' : '📉'}</div>
-                    </div>
-                </div>
-            `;
+        let totalCOP = 0;
+        let totalUSD = 0;
+
+        for (const [currency, info] of Object.entries(totals)) {
+            const amount = info.total || 0;
+            if (currency === 'COP') {
+                totalCOP += amount;
+                if (rate) {
+                    totalUSD += amount / rate;
+                }
+            } else if (currency === 'USD') {
+                totalUSD += amount;
+                if (rate) {
+                    totalCOP += amount * rate;
+                }
+            }
         }
 
-        // Accounts count
-        html += `
-            <div class="bg-white rounded-lg shadow p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Cuentas Activas</p>
-                        <p class="text-2xl font-bold text-gray-800 mt-1">${data.accounts.length}</p>
-                    </div>
-                    <div class="text-4xl">🏦</div>
+        container.innerHTML = `
+            <p class="text-sm text-gray-500">Total en Cuentas (todas las monedas)</p>
+            <div class="flex flex-wrap gap-6 mt-2">
+                <div>
+                    <p class="text-xl font-semibold text-gray-800">$${Math.abs(totalCOP).toLocaleString('es-CO', {minimumFractionDigits: 0})} COP</p>
+                </div>
+                <div>
+                    <p class="text-xl font-semibold text-gray-800">US$${Math.abs(totalUSD).toLocaleString('es-CO', {minimumFractionDigits: 2})} USD</p>
                 </div>
             </div>
         `;
+    }
+
+    function displaySummaryCards(data, debtsData) {
+        const container = document.getElementById('summaryCards');
+        let html = '';
+        const debtsTotals = debtsData.total_current || {};
+
+        for (const [currency, info] of Object.entries(data.total_by_currency)) {
+            const accountTotal = info.total || 0;
+            const debtTotal = debtsTotals[currency] || 0;
+            const netWorth = accountTotal - debtTotal;
+            const decimals = currency === 'USD' ? 2 : 0;
+
+            html += `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <p class="text-gray-500 text-sm">Dinero en Cuentas ${currency}</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1">
+                        ${info.symbol}${Math.abs(accountTotal).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
+                    </p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <p class="text-gray-500 text-sm">Dinero en Deudas ${currency}</p>
+                    <p class="text-2xl font-bold text-red-600 mt-1">
+                        ${info.symbol}${Math.abs(debtTotal).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
+                    </p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <p class="text-gray-500 text-sm">Patrimonio Total ${currency}</p>
+                    <p class="text-2xl font-bold ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">
+                        ${info.symbol}${Math.abs(netWorth).toLocaleString('es-CO', {minimumFractionDigits: decimals})}
+                    </p>
+                </div>
+            `;
+        }
 
         container.innerHTML = html;
     }

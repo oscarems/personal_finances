@@ -26,6 +26,8 @@ class Account(Base):
     # Para créditos e hipotecas
     monthly_payment = Column(Float)  # Cuota mensual
     original_amount = Column(Float)  # Monto original del préstamo
+    loan_years = Column(Integer)  # Plazo en años
+    loan_start_date = Column(Date)  # Fecha de inicio del préstamo
 
     # Para fechas de pago o vencimiento
     payment_due_day = Column(Integer)  # Día del mes de pago (1-31)
@@ -69,6 +71,10 @@ class Account(Base):
             result['monthly_payment'] = self.monthly_payment
         if self.original_amount is not None:
             result['original_amount'] = self.original_amount
+        if self.loan_years is not None:
+            result['loan_years'] = self.loan_years
+        if self.loan_start_date is not None:
+            result['loan_start_date'] = self.loan_start_date.isoformat()
         if self.payment_due_day is not None:
             result['payment_due_day'] = self.payment_due_day
         if self.maturity_date is not None:
