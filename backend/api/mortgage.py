@@ -13,6 +13,7 @@ from datetime import date
 from backend.services.mortgage_service import (
     calculate_monthly_payment,
     generate_amortization_schedule,
+    generate_amortization_schedule_with_extra,
     calculate_total_interest,
     calculate_early_payoff,
     compare_scenarios
@@ -37,6 +38,7 @@ class AmortizationRow(BaseModel):
     payment: float
     principal: float
     interest: float
+    extra_payment: float = 0.0
     balance: float
 
 
@@ -47,6 +49,9 @@ class MortgageResponse(BaseModel):
     total_paid: float
     months: int
     years: float
+    payoff_date: str
+    months_saved: int = 0
+    interest_saved: float = 0.0
     schedule: List[AmortizationRow]
     # Información adicional si hay abonos extra
     with_extra: Optional[dict] = None
@@ -84,35 +89,65 @@ def calculate_mortgage(request: MortgageRequest):
         else:
             start_date_obj = request.start_date
 
-    # Calcular cuota mensual
-    monthly_payment = calculate_monthly_payment(
+    base_payment = calculate_monthly_payment(
         request.principal,
         rate_decimal,
         request.years
     )
 
-    # Generar tabla de amortización
-    schedule = generate_amortization_schedule(
-        request.principal,
-        rate_decimal,
-        request.years,
-        start_date_obj
-    )
+    if request.extra_payment is not None and request.extra_payment > 0:
+        schedule = generate_amortization_schedule_with_extra(
+            request.principal,
+            rate_decimal,
+            request.years,
+            request.extra_payment,
+            start_date_obj
+        )
+        monthly_payment = schedule[0]["payment"] if schedule else base_payment
+        total_interest = sum(row["interest"] for row in schedule)
+        total_paid = sum(row["payment"] for row in schedule)
+        months = len(schedule)
+        years = months / 12
+        payoff_date = schedule[-1]["date"].isoformat() if schedule else date.today().isoformat()
+        early_payoff = calculate_early_payoff(
+            request.principal,
+            rate_decimal,
+            request.years,
+            request.extra_payment
+        )
+        months_saved = early_payoff["with_extra"]["months_saved"]
+        interest_saved = early_payoff["with_extra"]["interest_saved"]
+        with_extra = early_payoff["with_extra"]
+    else:
+        schedule = generate_amortization_schedule(
+            request.principal,
+            rate_decimal,
+            request.years,
+            start_date_obj
+        )
+        monthly_payment = base_payment
+        total_interest = calculate_total_interest(
+            request.principal,
+            rate_decimal,
+            request.years
+        )
+        total_paid = monthly_payment * request.years * 12
+        months = request.years * 12
+        years = request.years
+        payoff_date = schedule[-1]["date"].isoformat() if schedule else date.today().isoformat()
+        months_saved = 0
+        interest_saved = 0.0
+        with_extra = None
 
-    # Calcular total de intereses
-    total_interest = calculate_total_interest(
-        request.principal,
-        rate_decimal,
-        request.years
-    )
-
-    # Preparar respuesta base
     response = {
         "monthly_payment": monthly_payment,
         "total_interest": total_interest,
-        "total_paid": monthly_payment * request.years * 12,
-        "months": request.years * 12,
-        "years": request.years,
+        "total_paid": total_paid,
+        "months": months,
+        "years": years,
+        "payoff_date": payoff_date,
+        "months_saved": months_saved,
+        "interest_saved": interest_saved,
         "schedule": [
             {
                 "payment_number": row["payment_number"],
@@ -120,21 +155,13 @@ def calculate_mortgage(request: MortgageRequest):
                 "payment": row["payment"],
                 "principal": row["principal"],
                 "interest": row["interest"],
+                "extra_payment": row.get("extra_payment", 0.0),
                 "balance": row["balance"]
             }
             for row in schedule
-        ]
+        ],
+        "with_extra": with_extra
     }
-
-    # Si hay abonos extra, calcular escenario con abonos
-    if request.extra_payment is not None and request.extra_payment > 0:
-        early_payoff = calculate_early_payoff(
-            request.principal,
-            rate_decimal,
-            request.years,
-            request.extra_payment
-        )
-        response["with_extra"] = early_payoff["with_extra"]
 
     return MortgageResponse(**response)
 

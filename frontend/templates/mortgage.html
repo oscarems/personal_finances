@@ -279,7 +279,7 @@
         document.getElementById('payoffDate').textContent =
             formatDate(mortgageData.payoff_date);
         document.getElementById('totalPayments').textContent =
-            formatCurrency(mortgageData.total_payments);
+            formatCurrency(mortgageData.total_paid);
         document.getElementById('totalInterest').textContent =
             formatCurrency(mortgageData.total_interest);
 
@@ -417,7 +417,13 @@
     }
 
     function formatDate(dateString) {
+        if (!dateString) {
+            return '-';
+        }
         const date = new Date(dateString);
+        if (Number.isNaN(date.getTime())) {
+            return '-';
+        }
         return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short' });
     }
 </script>
