@@ -10,6 +10,9 @@
             <p class="text-gray-600 mt-2">Dale un propósito a cada peso - Asigna en COP o USD</p>
         </div>
         <div class="flex items-center space-x-4">
+            <button onclick="openNewGroupModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
+                <span class="mr-2">+</span> Nuevo Grupo
+            </button>
             <input type="month" id="monthSelect" class="border border-gray-300 rounded-lg px-4 py-2">
         </div>
     </div>
@@ -55,13 +58,28 @@
         <!-- Rollover Behavior Selection -->
         <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">Comportamiento</label>
-            <select id="modalRolloverType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <select id="modalRolloverType" onchange="toggleInitialAmountField()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
                 <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
                 <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
             </select>
             <p class="text-xs text-gray-500 mt-1">
                 <strong>Gasto Mensual:</strong> El dinero no gastado vuelve a "Disponible para Asignar"<br>
                 <strong>Meta/Ahorro:</strong> El dinero no gastado se acumula para el siguiente mes
+            </p>
+        </div>
+
+        <!-- Initial Amount Field (only for savings/accumulate categories) -->
+        <div id="initialAmountSection" class="mb-6 hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">💎 Dinero que Tengo Hoy (Inicial)</label>
+            <div class="relative">
+                <span class="absolute left-3 top-3 text-gray-500">$</span>
+                <input type="number" id="modalInitialAmount"
+                       class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="0"
+                       step="1000">
+            </div>
+            <p class="text-xs text-gray-500 mt-1">
+                Este es el monto que ya tienes ahorrado para esta categoría. Solo aplica para categorías de tipo Meta/Ahorro.
             </p>
         </div>
 
@@ -118,6 +136,68 @@
     </div>
 </div>
 
+<!-- New Category Modal -->
+<div id="newCategoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-md w-full">
+        <h3 class="text-xl font-bold mb-4">Nueva Categoría</h3>
+        <form id="newCategoryForm">
+            <input type="hidden" id="newCategoryGroupId">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Grupo</label>
+                <input type="text" id="newCategoryGroupName" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre de la Categoría</label>
+                <input type="text" id="newCategoryName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Netflix, Gasolina, etc.">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Comportamiento</label>
+                <select id="newCategoryRollover" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
+                    <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeNewCategoryModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Cancelar
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Crear Categoría
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- New Group Modal -->
+<div id="newGroupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-md w-full">
+        <h3 class="text-xl font-bold mb-4">Nuevo Grupo de Presupuesto</h3>
+        <form id="newGroupForm">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Grupo</label>
+                <input type="text" id="newGroupName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Entretenimiento, Transporte, etc.">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                <select id="newGroupIsIncome" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="false">💰 Gastos (default)</option>
+                    <option value="true">💵 Ingresos</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Los grupos de gastos aparecen en el presupuesto principal</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeNewGroupModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Cancelar
+                </button>
+                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                    Crear Grupo
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -147,6 +227,80 @@
             const [year, month] = e.target.value.split('-');
             currentMonth = new Date(year, month - 1, 1);
             loadBudget();
+        });
+
+        // Event listener for new category form
+        document.getElementById('newCategoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const groupId = parseInt(document.getElementById('newCategoryGroupId').value);
+            const name = document.getElementById('newCategoryName').value.trim();
+            const rolloverType = document.getElementById('newCategoryRollover').value;
+
+            if (!name) {
+                alert('El nombre de la categoría es requerido');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/categories/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        category_group_id: groupId,
+                        rollover_type: rolloverType
+                    })
+                });
+
+                if (response.ok) {
+                    closeNewCategoryModal();
+                    loadBudget(); // Reload budget to show new category
+                    alert('Categoría creada exitosamente');
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.detail || 'No se pudo crear la categoría'));
+                }
+            } catch (error) {
+                console.error('Error creating category:', error);
+                alert('Error al crear la categoría');
+            }
+        });
+
+        // Event listener for new group form
+        document.getElementById('newGroupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('newGroupName').value.trim();
+            const isIncome = document.getElementById('newGroupIsIncome').value === 'true';
+
+            if (!name) {
+                alert('El nombre del grupo es requerido');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/categories/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        is_income: isIncome
+                    })
+                });
+
+                if (response.ok) {
+                    closeNewGroupModal();
+                    loadBudget(); // Reload budget to show new group
+                    alert('Grupo creado exitosamente');
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.detail || 'No se pudo crear el grupo'));
+                }
+            } catch (error) {
+                console.error('Error creating group:', error);
+                alert('Error al crear el grupo');
+            }
         });
 
         loadBudget();
@@ -233,6 +387,13 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
                                 <h3 class="text-lg font-semibold text-gray-800">${groupCOP.name}</h3>
+                                <button onclick="event.stopPropagation(); deleteGroup(${groupCOP.id}, '${groupCOP.name.replace(/'/g, "&apos;")}')"
+                                        class="ml-3 text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                                        title="Eliminar grupo">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
                             </div>
                             <div class="grid grid-cols-3 gap-8 text-right">
                                 <div>
@@ -296,6 +457,14 @@
                                 </div>
                             `;
                         }).join('')}
+                        <!-- Add Category Button -->
+                        <div class="px-6 py-3 bg-gray-50">
+                            <button data-group-id="${groupCOP.id}" data-group-name="${groupCOP.name}"
+                                    onclick="openNewCategoryModal(this.dataset.groupId, this.dataset.groupName)"
+                                    class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                                <span class="mr-1">+</span> Agregar Categoría
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -361,7 +530,37 @@
         // Load current budgets for this category in both currencies
         loadCategoryBudgets(categoryData.category_id);
 
+        // Load category details including initial_amount
+        loadCategoryDetails(categoryData.category_id);
+
+        // Show/hide initial amount field based on rollover type
+        toggleInitialAmountField();
+
         document.getElementById('assignModal').classList.remove('hidden');
+    }
+
+    async function loadCategoryDetails(categoryId) {
+        try {
+            const res = await fetch(`/api/categories/${categoryId}`);
+            const category = await res.json();
+
+            // Set initial_amount if it exists
+            document.getElementById('modalInitialAmount').value = category.initial_amount || 0;
+        } catch (error) {
+            console.error('Error loading category details:', error);
+            document.getElementById('modalInitialAmount').value = 0;
+        }
+    }
+
+    function toggleInitialAmountField() {
+        const rolloverType = document.getElementById('modalRolloverType').value;
+        const initialAmountSection = document.getElementById('initialAmountSection');
+
+        if (rolloverType === 'accumulate') {
+            initialAmountSection.classList.remove('hidden');
+        } else {
+            initialAmountSection.classList.add('hidden');
+        }
     }
 
     async function loadCategoryBudgets(categoryId) {
@@ -414,8 +613,9 @@
         const amountCOP = parseFloat(document.getElementById('modalAmountCOP').value) || 0;
         const amountUSD = parseFloat(document.getElementById('modalAmountUSD').value) || 0;
         const rolloverType = document.getElementById('modalRolloverType').value;
+        const initialAmount = parseFloat(document.getElementById('modalInitialAmount').value) || 0;
 
-        if (amountCOP < 0 || amountUSD < 0) {
+        if (amountCOP < 0 || amountUSD < 0 || initialAmount < 0) {
             alert('Los montos no pueden ser negativos');
             return;
         }
@@ -460,6 +660,18 @@
                 );
             }
 
+            // Update category with rollover_type and initial_amount
+            requests.push(
+                fetch(`/api/categories/${selectedCategory}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rollover_type: rolloverType,
+                        initial_amount: rolloverType === 'accumulate' ? initialAmount : 0
+                    })
+                })
+            );
+
             const results = await Promise.all(requests);
 
             if (results.every(r => r.ok)) {
@@ -471,6 +683,55 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error al asignar presupuesto');
+        }
+    }
+
+    // New Category Modal Functions
+    function openNewCategoryModal(groupId, groupName) {
+        document.getElementById('newCategoryGroupId').value = groupId;
+        document.getElementById('newCategoryGroupName').value = groupName;
+        document.getElementById('newCategoryName').value = '';
+        document.getElementById('newCategoryRollover').value = 'reset';
+        document.getElementById('newCategoryModal').classList.remove('hidden');
+    }
+
+    function closeNewCategoryModal() {
+        document.getElementById('newCategoryModal').classList.add('hidden');
+    }
+
+    // Group Management Functions
+    function openNewGroupModal() {
+        document.getElementById('newGroupName').value = '';
+        document.getElementById('newGroupIsIncome').value = 'false';
+        document.getElementById('newGroupModal').classList.remove('hidden');
+    }
+
+    function closeNewGroupModal() {
+        document.getElementById('newGroupModal').classList.add('hidden');
+    }
+
+    async function deleteGroup(groupId, groupName) {
+        const confirmMessage = `¿Estás seguro de eliminar el grupo "${groupName}"?\n\n⚠️ ADVERTENCIA: Esto eliminará también todas las categorías dentro de este grupo y sus presupuestos asignados.`;
+
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/categories/groups/${groupId}?force=true`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadBudget(); // Reload budget to reflect changes
+                alert('Grupo eliminado exitosamente');
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.detail || 'No se pudo eliminar el grupo'));
+            }
+        } catch (error) {
+            console.error('Error deleting group:', error);
+            alert('Error al eliminar el grupo');
         }
     }
 </script>

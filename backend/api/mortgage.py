@@ -26,8 +26,8 @@ class MortgageRequest(BaseModel):
     principal: float  # Monto del préstamo
     annual_rate: float  # Tasa efectiva anual como porcentaje (ej: 12.5 para 12.5% EA)
     years: int  # Plazo en años (se convertirá a meses internamente)
-    start_date: Optional[date] = None  # Fecha de inicio (opcional, default: hoy)
-    extra_payment: Optional[float] = 0  # Pago extra mensual al capital
+    start_date: Optional[str] = None  # Fecha de inicio (opcional, default: hoy)
+    extra_payment: Optional[float] = None  # Pago extra mensual al capital
 
 
 class AmortizationRow(BaseModel):
@@ -75,6 +75,15 @@ def calculate_mortgage(request: MortgageRequest):
     # Convertir tasa de porcentaje a decimal
     rate_decimal = request.annual_rate / 100
 
+    # Convertir start_date de string a date si es necesario
+    start_date_obj = None
+    if request.start_date:
+        if isinstance(request.start_date, str):
+            from datetime import datetime
+            start_date_obj = datetime.fromisoformat(request.start_date).date()
+        else:
+            start_date_obj = request.start_date
+
     # Calcular cuota mensual
     monthly_payment = calculate_monthly_payment(
         request.principal,
@@ -87,7 +96,7 @@ def calculate_mortgage(request: MortgageRequest):
         request.principal,
         rate_decimal,
         request.years,
-        request.start_date
+        start_date_obj
     )
 
     # Calcular total de intereses
@@ -118,7 +127,7 @@ def calculate_mortgage(request: MortgageRequest):
     }
 
     # Si hay abonos extra, calcular escenario con abonos
-    if request.extra_payment and request.extra_payment > 0:
+    if request.extra_payment is not None and request.extra_payment > 0:
         early_payoff = calculate_early_payoff(
             request.principal,
             rate_decimal,

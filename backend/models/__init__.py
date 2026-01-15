@@ -6,6 +6,7 @@ from backend.models.transaction import Transaction
 from backend.models.budget import BudgetMonth
 from backend.models.recurring_transaction import RecurringTransaction
 from backend.models.exchange_rate import ExchangeRate
+from backend.models.debt import Debt, DebtPayment
 
 __all__ = [
     'Currency',
@@ -16,5 +17,7 @@ __all__ = [
     'Transaction',
     'BudgetMonth',
     'RecurringTransaction',
-    'ExchangeRate'
+    'ExchangeRate',
+    'Debt',
+    'DebtPayment'
 ]

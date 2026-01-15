@@ -34,7 +34,8 @@ class Category(Base):
     category_group_id = Column(Integer, ForeignKey('category_groups.id'), nullable=False)
     name = Column(String(100), nullable=False)
     target_type = Column(String(20))  # 'monthly', 'target_balance', 'debt'
-    target_amount = Column(Float)
+    target_amount = Column(Float)  # Meta de ahorro (cuánto quiero ahorrar)
+    initial_amount = Column(Float, default=0.0)  # Monto inicial actual
     sort_order = Column(Integer, default=0)
     is_hidden = Column(Boolean, default=False)
 
@@ -58,6 +59,7 @@ class Category(Base):
             'name': self.name,
             'target_type': self.target_type,
             'target_amount': self.target_amount,
+            'initial_amount': self.initial_amount,
             'sort_order': self.sort_order,
             'is_hidden': self.is_hidden,
             'rollover_type': self.rollover_type

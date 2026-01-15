@@ -130,8 +130,6 @@ DEFAULT_CATEGORY_GROUPS = [
         'name': 'Otros',
         'rollover_type': 'reset',
         'categories': [
-            {'name': 'Otros', 'rollover_type': 'reset'},
-            {'name': 'Ropa', 'rollover_type': 'reset'},
             {'name': 'Crunchy', 'rollover_type': 'reset'},
             {'name': 'Claude', 'rollover_type': 'reset'}
         ]
@@ -142,7 +140,6 @@ DEFAULT_CATEGORY_GROUPS = [
         'categories': [
             {'name': 'Concierto', 'rollover_type': 'accumulate'},
             {'name': 'Juegos', 'rollover_type': 'accumulate'},
-            {'name': 'Big Plans', 'rollover_type': 'accumulate'},
             {'name': 'cafe', 'rollover_type': 'accumulate'}
         ]
     },

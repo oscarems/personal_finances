@@ -18,6 +18,36 @@
     </div>
 </div>
 
+<!-- No Categories Warning -->
+<div id="noCategoriesWarning" class="hidden bg-yellow-50 border-l-4 border-yellow-400 p-6 mb-6 rounded-lg">
+    <div class="flex items-start">
+        <div class="flex-shrink-0">
+            <svg class="h-6 w-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <div class="ml-3 flex-1">
+            <h3 class="text-lg font-medium text-yellow-800">No hay categorías disponibles</h3>
+            <div class="mt-2 text-sm text-yellow-700">
+                <p>Para poder crear transacciones necesitas tener categorías en tu presupuesto.</p>
+                <p class="mt-2"><strong>Opciones:</strong></p>
+                <ul class="list-disc list-inside mt-1">
+                    <li>Crear categorías predeterminadas (recomendado para empezar)</li>
+                    <li>Ir a Presupuesto y crear tus propias categorías manualmente</li>
+                </ul>
+            </div>
+            <div class="mt-4">
+                <button onclick="seedCategories()" class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg mr-2">
+                    📦 Crear Categorías Predeterminadas
+                </button>
+                <a href="/budget" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg">
+                    Ir a Presupuesto
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Filters -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Filtros</h3>
@@ -296,6 +326,14 @@
                     });
                 });
             });
+
+            // Show warning if no categories exist
+            const noCategoriesWarning = document.getElementById('noCategoriesWarning');
+            if (categories.length === 0) {
+                noCategoriesWarning.classList.remove('hidden');
+            } else {
+                noCategoriesWarning.classList.add('hidden');
+            }
 
             // Populate filter dropdown
             const filterSelect = document.getElementById('filterCategory');
@@ -584,5 +622,35 @@
             alert('Error al crear la transferencia');
         }
     });
+
+    async function seedCategories() {
+        if (!confirm('¿Deseas crear las categorías predeterminadas?\n\nEsto agregará categorías comunes como Alimentación, Transporte, Entretenimiento, etc.')) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/categories/seed', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                alert(`✅ Categorías creadas exitosamente!\n\n` +
+                      `Grupos agregados: ${data.added.groups}\n` +
+                      `Categorías agregadas: ${data.added.categories}\n\n` +
+                      `Total de categorías disponibles: ${data.total.categories}`);
+
+                // Reload categories
+                await loadCategories();
+            } else {
+                const error = await res.json();
+                alert('Error: ' + (error.detail || 'Error desconocido'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al crear las categorías');
+        }
+    }
 </script>
 {% endblock %}
