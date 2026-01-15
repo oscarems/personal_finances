@@ -129,11 +129,11 @@ def calculate_available(db: Session, budget_month):
     Esta es una función crítica que implementa el comportamiento de rollover de YNAB.
     Hay dos tipos de comportamiento según la categoría:
 
-    1. ACCUMULATE (ahorro/saving): El dinero se acumula mes a mes
-       Fórmula: Disponible = Asignado + Actividad + Disponible del mes anterior
-       Ejemplo: Si asigné $100, gasté $30, y sobraron $50 del mes pasado:
-                Disponible = $100 + (-$30) + $50 = $120
-       Si no hay mes anterior, se usa el monto inicial de la categoría (si existe)
+    1. ACCUMULATE (ahorro/saving): El disponible se calcula con el dinero inicial
+       más lo asignado del mes menos lo gastado.
+       Fórmula: Disponible = Monto Inicial + Asignado + Actividad
+       Ejemplo: Si tengo $200 iniciales, asigné $100 y gasté $30:
+                Disponible = $200 + $100 + (-$30) = $270
 
     2. RESET (gasto mensual): El dinero se resetea cada mes
        Fórmula: Disponible = Asignado + Actividad
@@ -174,40 +174,30 @@ def calculate_available(db: Session, budget_month):
 
     budget_month.activity = activity
 
-    # Get previous month's available (only for 'accumulate' categories)
-    prev_available = 0.0
+    # Get initial amount (only for 'accumulate' categories)
+    initial_available = 0.0
 
     if category and category.rollover_type == 'accumulate':
-        prev_budget = get_previous_budget(
-            db,
-            budget_month.category_id,
-            budget_month.month,
-            budget_month.currency_id
-        )
+        initial_amount = category.initial_amount or 0.0
+        if initial_amount > 0:
+            budget_currency = db.query(Currency).get(budget_month.currency_id)
+            initial_currency = None
+            if category.initial_currency_id:
+                initial_currency = db.query(Currency).get(category.initial_currency_id)
 
-        if prev_budget:
-            prev_available = prev_budget.available
-        else:
-            initial_amount = category.initial_amount or 0.0
-            if initial_amount > 0:
-                budget_currency = db.query(Currency).get(budget_month.currency_id)
-                initial_currency = None
-                if category.initial_currency_id:
-                    initial_currency = db.query(Currency).get(category.initial_currency_id)
+            if initial_currency and budget_currency:
+                initial_available = convert_currency(
+                    initial_amount,
+                    initial_currency.code,
+                    budget_currency.code,
+                    db
+                )
+            else:
+                initial_available = initial_amount
 
-                if initial_currency and budget_currency:
-                    prev_available = convert_currency(
-                        initial_amount,
-                        initial_currency.code,
-                        budget_currency.code,
-                        db
-                    )
-                else:
-                    prev_available = initial_amount
-
-    # Available = assigned - activity (negative for expenses) + previous available (if accumulate)
+    # Available = assigned - activity (negative for expenses) + initial amount (if accumulate)
     # activity is negative for expenses, so we add it
-    budget_month.available = budget_month.assigned + activity + prev_available
+    budget_month.available = budget_month.assigned + activity + initial_available
 
     return budget_month
 
