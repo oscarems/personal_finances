@@ -27,6 +27,8 @@ class AccountCreate(BaseModel):
     credit_limit: Optional[float] = None
     monthly_payment: Optional[float] = None
     original_amount: Optional[float] = None
+    loan_years: Optional[int] = None
+    loan_start_date: Optional[date] = None
     payment_due_day: Optional[int] = None
     maturity_date: Optional[date] = None
 
@@ -36,11 +38,14 @@ class AccountUpdate(BaseModel):
     type: Optional[str] = None
     notes: Optional[str] = None
     is_budget: Optional[bool] = None
+    balance: Optional[float] = None
     # Optional fields based on account type
     interest_rate: Optional[float] = None
     credit_limit: Optional[float] = None
     monthly_payment: Optional[float] = None
     original_amount: Optional[float] = None
+    loan_years: Optional[int] = None
+    loan_start_date: Optional[date] = None
     payment_due_day: Optional[int] = None
     maturity_date: Optional[date] = None
 
@@ -90,6 +95,8 @@ def create_account(account_data: AccountCreate, db: Session = Depends(get_db)):
         credit_limit=account_data.credit_limit,
         monthly_payment=account_data.monthly_payment,
         original_amount=account_data.original_amount,
+        loan_years=account_data.loan_years,
+        loan_start_date=account_data.loan_start_date,
         payment_due_day=account_data.payment_due_day,
         maturity_date=account_data.maturity_date
     )
@@ -140,6 +147,8 @@ def update_account(account_id: int, account_data: AccountUpdate, db: Session = D
         account.notes = account_data.notes
     if account_data.is_budget is not None:
         account.is_budget = account_data.is_budget
+    if account_data.balance is not None:
+        account.balance = account_data.balance
 
     # Update optional fields
     if account_data.interest_rate is not None:
@@ -150,6 +159,10 @@ def update_account(account_id: int, account_data: AccountUpdate, db: Session = D
         account.monthly_payment = account_data.monthly_payment
     if account_data.original_amount is not None:
         account.original_amount = account_data.original_amount
+    if account_data.loan_years is not None:
+        account.loan_years = account_data.loan_years
+    if account_data.loan_start_date is not None:
+        account.loan_start_date = account_data.loan_start_date
     if account_data.payment_due_day is not None:
         account.payment_due_day = account_data.payment_due_day
     if account_data.maturity_date is not None:

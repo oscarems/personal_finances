@@ -88,6 +88,19 @@
                        placeholder="Ej: 50000000">
             </div>
 
+            <div id="loanYearsField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Plazo (años)</label>
+                <input type="number" id="accountLoanYears" min="1"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="Ej: 20">
+            </div>
+
+            <div id="loanStartDateField" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de Inicio</label>
+                <input type="date" id="accountLoanStartDate"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            </div>
+
             <div id="paymentDueDayField" class="hidden">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Día de Pago (1-31)</label>
                 <input type="number" id="accountPaymentDueDay" min="1" max="31"
@@ -189,8 +202,9 @@
         const otherDecimals = otherCurrency === 'COP' ? 0 : 2;
 
         const convertedAmount = convertBalance(acc.balance, acc.currency.code, otherCurrency);
+        const isDebtAccount = ['credit_card', 'credit_loan', 'mortgage'].includes(acc.type);
         const isPositive = convertedAmount >= 0;
-        const balanceClass = isPositive ? 'text-green-600' : 'text-red-600';
+        const balanceClass = isDebtAccount ? 'text-red-600' : (isPositive ? 'text-green-600' : 'text-red-600');
 
         return `
             <div class="mt-2 pt-2 border-t border-gray-100">
@@ -244,8 +258,9 @@
                 'cash': 'Efectivo'
             };
 
+            const isDebtAccount = ['credit_card', 'credit_loan', 'mortgage'].includes(acc.type);
             const isPositive = acc.balance >= 0;
-            const balanceClass = isPositive ? 'text-green-600' : 'text-red-600';
+            const balanceClass = isDebtAccount ? 'text-red-600' : (isPositive ? 'text-green-600' : 'text-red-600');
 
             return `
                 <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
@@ -304,6 +319,8 @@
         document.getElementById('creditLimitField').classList.add('hidden');
         document.getElementById('monthlyPaymentField').classList.add('hidden');
         document.getElementById('originalAmountField').classList.add('hidden');
+        document.getElementById('loanYearsField').classList.add('hidden');
+        document.getElementById('loanStartDateField').classList.add('hidden');
         document.getElementById('paymentDueDayField').classList.add('hidden');
         document.getElementById('maturityDateField').classList.add('hidden');
 
@@ -320,11 +337,15 @@
                 document.getElementById('interestRateField').classList.remove('hidden');
                 document.getElementById('monthlyPaymentField').classList.remove('hidden');
                 document.getElementById('originalAmountField').classList.remove('hidden');
+                document.getElementById('loanYearsField').classList.remove('hidden');
+                document.getElementById('loanStartDateField').classList.remove('hidden');
                 break;
             case 'mortgage':
                 document.getElementById('interestRateField').classList.remove('hidden');
                 document.getElementById('monthlyPaymentField').classList.remove('hidden');
                 document.getElementById('originalAmountField').classList.remove('hidden');
+                document.getElementById('loanYearsField').classList.remove('hidden');
+                document.getElementById('loanStartDateField').classList.remove('hidden');
                 break;
             case 'cdt':
                 document.getElementById('interestRateField').classList.remove('hidden');
@@ -367,14 +388,19 @@
         document.getElementById('accountCreditLimit').value = account.credit_limit || '';
         document.getElementById('accountMonthlyPayment').value = account.monthly_payment || '';
         document.getElementById('accountOriginalAmount').value = account.original_amount || '';
+        document.getElementById('accountLoanYears').value = account.loan_years || '';
+        document.getElementById('accountLoanStartDate').value = account.loan_start_date || '';
         document.getElementById('accountPaymentDueDay').value = account.payment_due_day || '';
         document.getElementById('accountMaturityDate').value = account.maturity_date || '';
 
         // Update field visibility based on type
         updateOptionalFields();
 
-        // Hide currency and balance when editing
-        document.getElementById('balanceField').classList.add('hidden');
+        // Hide currency when editing
+        document.getElementById('balanceField').classList.toggle(
+            'hidden',
+            !['credit_card', 'credit_loan', 'mortgage'].includes(account.type)
+        );
         document.getElementById('accountCurrency').disabled = true;
 
         document.getElementById('accountModal').classList.remove('hidden');
@@ -405,6 +431,12 @@
         const originalAmount = document.getElementById('accountOriginalAmount').value;
         if (originalAmount) data.original_amount = parseFloat(originalAmount);
 
+        const loanYears = document.getElementById('accountLoanYears').value;
+        if (loanYears) data.loan_years = parseInt(loanYears);
+
+        const loanStartDate = document.getElementById('accountLoanStartDate').value;
+        if (loanStartDate) data.loan_start_date = loanStartDate;
+
         const paymentDueDay = document.getElementById('accountPaymentDueDay').value;
         if (paymentDueDay) data.payment_due_day = parseInt(paymentDueDay);
 
@@ -427,8 +459,13 @@
                 if (data.credit_limit !== undefined) updateData.credit_limit = data.credit_limit;
                 if (data.monthly_payment !== undefined) updateData.monthly_payment = data.monthly_payment;
                 if (data.original_amount !== undefined) updateData.original_amount = data.original_amount;
+                if (data.loan_years !== undefined) updateData.loan_years = data.loan_years;
+                if (data.loan_start_date !== undefined) updateData.loan_start_date = data.loan_start_date;
                 if (data.payment_due_day !== undefined) updateData.payment_due_day = data.payment_due_day;
                 if (data.maturity_date !== undefined) updateData.maturity_date = data.maturity_date;
+                if (['credit_card', 'credit_loan', 'mortgage'].includes(data.type)) {
+                    updateData.balance = data.balance;
+                }
 
                 res = await fetch(`/api/accounts/${editingAccountId}`, {
                     method: 'PUT',
