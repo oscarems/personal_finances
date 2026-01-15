@@ -46,9 +46,12 @@ class AccountUpdate(BaseModel):
 
 
 @router.get("/")
-def list_accounts(db: Session = Depends(get_db)):
+def list_accounts(type: Optional[str] = None, db: Session = Depends(get_db)):
     """Get all accounts"""
-    accounts = db.query(Account).filter_by(is_closed=False).all()
+    query = db.query(Account).filter_by(is_closed=False)
+    if type:
+        query = query.filter(Account.type == type)
+    accounts = query.all()
     return [acc.to_dict() for acc in accounts]
 
 
@@ -94,6 +97,29 @@ def create_account(account_data: AccountCreate, db: Session = Depends(get_db)):
     db.add(account)
     db.commit()
     db.refresh(account)
+
+    if account.type in {'credit_card', 'credit_loan', 'mortgage'}:
+        from backend.models import Debt
+
+        existing_debt = db.query(Debt).filter_by(account_id=account.id).first()
+        if not existing_debt:
+            current_balance = abs(account.balance or 0.0)
+            original_amount = account.original_amount or current_balance
+
+            debt = Debt(
+                account_id=account.id,
+                name=account.name,
+                debt_type=account.type,
+                currency_code=account.currency.code,
+                original_amount=original_amount,
+                current_balance=current_balance,
+                credit_limit=account.credit_limit,
+                interest_rate=account.interest_rate,
+                monthly_payment=account.monthly_payment,
+                start_date=date.today()
+            )
+            db.add(debt)
+            db.commit()
 
     return account.to_dict()
 

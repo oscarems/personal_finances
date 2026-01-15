@@ -7,7 +7,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from backend.database import get_db
-from backend.models import Category, CategoryGroup, Transaction, BudgetMonth
+from backend.models import Category, CategoryGroup, Transaction, BudgetMonth, Currency
 
 router = APIRouter()
 
@@ -254,6 +254,7 @@ class CategoryUpdate(BaseModel):
     target_type: Optional[str] = None
     target_amount: Optional[float] = None
     initial_amount: Optional[float] = None
+    initial_currency_code: Optional[str] = None
 
 
 @router.post("/", response_model=CategoryResponse)
@@ -346,6 +347,15 @@ def update_category(category_id: int, category_update: CategoryUpdate, db: Sessi
     if category_update.initial_amount is not None:
         category.initial_amount = category_update.initial_amount
 
+    if category_update.initial_currency_code is not None:
+        if category_update.initial_currency_code == '':
+            category.initial_currency_id = None
+        else:
+            currency = db.query(Currency).filter_by(code=category_update.initial_currency_code).first()
+            if not currency:
+                raise HTTPException(status_code=400, detail="Invalid initial currency code")
+            category.initial_currency_id = currency.id
+
     db.commit()
     db.refresh(category)
 
@@ -424,4 +434,3 @@ def delete_category(category_id: int, force: bool = False, db: Session = Depends
             "message": "Category hidden",
             "category": category.name
         }
-
