@@ -160,6 +160,8 @@ def initialize_database(create_samples=True):
     db_session = SessionLocal()
 
     try:
+        db_session.query(BudgetMonth).delete()
+        db_session.commit()
         # Initialize data
         init_currencies(db_session)
         init_categories(db_session)

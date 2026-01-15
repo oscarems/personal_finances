@@ -36,6 +36,7 @@ class Category(Base):
     target_type = Column(String(20))  # 'monthly', 'target_balance', 'debt'
     target_amount = Column(Float)  # Meta de ahorro (cuánto quiero ahorrar)
     initial_amount = Column(Float, default=0.0)  # Monto inicial actual
+    initial_currency_id = Column(Integer, ForeignKey('currencies.id'))  # Moneda del monto inicial
     sort_order = Column(Integer, default=0)
     is_hidden = Column(Boolean, default=False)
 
@@ -48,6 +49,7 @@ class Category(Base):
     budget_months = relationship('BudgetMonth', back_populates='category',
                                    lazy=True, cascade='all, delete-orphan')
     payees = relationship('Payee', back_populates='default_category', lazy=True)
+    initial_currency = relationship('Currency', lazy=True)
 
     def __repr__(self):
         return f'<Category {self.name}>'
@@ -62,7 +64,9 @@ class Category(Base):
             'initial_amount': self.initial_amount,
             'sort_order': self.sort_order,
             'is_hidden': self.is_hidden,
-            'rollover_type': self.rollover_type
+            'rollover_type': self.rollover_type,
+            'initial_currency_id': self.initial_currency_id,
+            'initial_currency_code': self.initial_currency.code if self.initial_currency else None
         }
         if include_group and self.category_group:
             data['category_group'] = {

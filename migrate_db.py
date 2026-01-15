@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script para migrar la base de datos agregando la columna initial_amount
+Script para migrar la base de datos agregando columnas nuevas.
 """
 import sqlite3
 import sys
@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).parent
 DATABASE_PATH = BASE_DIR / 'data' / 'finances.db'
 
 def migrate_database():
-    """Add initial_amount column to categories table"""
+    """Add missing columns to categories/accounts tables"""
 
     if not DATABASE_PATH.exists():
         print("❌ Base de datos no encontrada. Ejecuta 'python init_db.py' primero.")
@@ -33,6 +33,33 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        if 'initial_currency_id' in columns:
+            print("✓ La columna 'initial_currency_id' ya existe")
+        else:
+            print("🔧 Agregando columna 'initial_currency_id' a la tabla categories...")
+            cursor.execute("ALTER TABLE categories ADD COLUMN initial_currency_id INTEGER")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
+        cursor.execute("PRAGMA table_info(accounts)")
+        account_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'loan_years' in account_columns:
+            print("✓ La columna 'loan_years' ya existe")
+        else:
+            print("🔧 Agregando columna 'loan_years' a la tabla accounts...")
+            cursor.execute("ALTER TABLE accounts ADD COLUMN loan_years INTEGER")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
+        if 'loan_start_date' in account_columns:
+            print("✓ La columna 'loan_start_date' ya existe")
+        else:
+            print("🔧 Agregando columna 'loan_start_date' a la tabla accounts...")
+            cursor.execute("ALTER TABLE accounts ADD COLUMN loan_start_date DATE")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
         conn.close()
         print("\n✓ Migración completada. Ahora puedes ejecutar 'python init_db.py'")
 
@@ -44,7 +71,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("MIGRACIÓN DE BASE DE DATOS")
     print("=" * 60)
-    print("\nEsta migración agregará la columna 'initial_amount' a categories")
+    print("\nEsta migración agregará columnas nuevas a categories y accounts")
 
     response = input("\n¿Continuar? (s/n): ")
     if response.lower() == 's':

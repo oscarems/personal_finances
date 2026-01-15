@@ -10,6 +10,14 @@ from backend.services.transaction_service import get_monthly_activity
 from backend.services.exchange_rate_service import get_current_exchange_rate, convert_currency
 
 
+def get_previous_budget(db: Session, category_id, month_date, currency_id):
+    return db.query(BudgetMonth).filter(
+        BudgetMonth.category_id == category_id,
+        BudgetMonth.currency_id == currency_id,
+        BudgetMonth.month < month_date
+    ).order_by(BudgetMonth.month.desc()).first()
+
+
 def get_or_create_budget_month(db: Session, category_id, month_date, currency_id):
     """
     Obtiene o crea una entrada de presupuesto para un mes y categoría específicos.
@@ -40,11 +48,14 @@ def get_or_create_budget_month(db: Session, category_id, month_date, currency_id
     ).first()
 
     if not budget:
+        prev_budget = get_previous_budget(db, category_id, month_date, currency_id)
+        assigned_amount = prev_budget.assigned if prev_budget else 0.0
+
         budget = BudgetMonth(
             category_id=category_id,
             month=month_date,
             currency_id=currency_id,
-            assigned=0.0,
+            assigned=assigned_amount,
             activity=0.0,
             available=0.0
         )
@@ -93,6 +104,7 @@ def calculate_available(db: Session, budget_month):
        Fórmula: Disponible = Asignado + Actividad + Disponible del mes anterior
        Ejemplo: Si asigné $100, gasté $30, y sobraron $50 del mes pasado:
                 Disponible = $100 + (-$30) + $50 = $120
+       Si no hay mes anterior, se usa el monto inicial de la categoría (si existe)
 
     2. RESET (gasto mensual): El dinero se resetea cada mes
        Fórmula: Disponible = Asignado + Actividad
@@ -137,15 +149,32 @@ def calculate_available(db: Session, budget_month):
     prev_available = 0.0
 
     if category and category.rollover_type == 'accumulate':
-        prev_month_date = budget_month.month - relativedelta(months=1)
-        prev_budget = db.query(BudgetMonth).filter_by(
-            category_id=budget_month.category_id,
-            month=prev_month_date,
-            currency_id=budget_month.currency_id
-        ).first()
+        prev_budget = get_previous_budget(
+            db,
+            budget_month.category_id,
+            budget_month.month,
+            budget_month.currency_id
+        )
 
         if prev_budget:
             prev_available = prev_budget.available
+        else:
+            initial_amount = category.initial_amount or 0.0
+            if initial_amount > 0:
+                budget_currency = db.query(Currency).get(budget_month.currency_id)
+                initial_currency = None
+                if category.initial_currency_id:
+                    initial_currency = db.query(Currency).get(category.initial_currency_id)
+
+                if initial_currency and budget_currency:
+                    prev_available = convert_currency(
+                        initial_amount,
+                        initial_currency.code,
+                        budget_currency.code,
+                        db
+                    )
+                else:
+                    prev_available = initial_amount
 
     # Available = assigned - activity (negative for expenses) + previous available (if accumulate)
     # activity is negative for expenses, so we add it
@@ -367,8 +396,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
 
     FÓRMULA:
         Ready to Assign = Total en cuentas presupuestarias
-                        - Total asignado a categorías este mes
-                        + Dinero sobrante de categorías "reset" del mes anterior
+                        - Total disponible en categorías este mes
 
     EJEMPLO:
         Cuentas presupuestarias:
@@ -376,15 +404,12 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
             - Cuenta Ahorros USD: $1,000 (= $4,000,000 COP a tasa 4000)
             Total en cuentas: $9,000,000 COP
 
-        Presupuesto asignado enero:
-            - Comida (COP): $800,000
-            - Transporte (USD): $200 (= $800,000 COP)
-            Total asignado: $1,600,000 COP
+        Disponible en categorías enero:
+            - Comida (COP): $700,000
+            - Transporte (USD): $100 (= $400,000 COP)
+            Total disponible: $1,100,000 COP
 
-        Categorías "reset" de diciembre:
-            - Entretenimiento tenía $100,000 sobrantes (vuelve a Ready to Assign)
-
-        Ready to Assign = $9,000,000 - $1,600,000 + $100,000 = $7,500,000 COP
+        Ready to Assign = $9,000,000 - $1,100,000 = $7,900,000 COP
 
     IMPORTANTE - Multi-moneda:
         Esta función considera TODAS las cuentas y presupuestos en TODAS las monedas,
@@ -408,8 +433,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         - Solo considera cuentas presupuestarias (is_budget=True)
         - Solo considera cuentas abiertas (is_closed=False)
         - Las cuentas de seguimiento (tracking) NO se incluyen
-        - El dinero de categorías "accumulate" NO vuelve a Ready to Assign
-        - El dinero de categorías "reset" SÍ vuelve a Ready to Assign
+        - El dinero no disponible (sin asignar) aparece automáticamente en Ready to Assign
     """
     # Get target currency
     target_currency = db.query(Currency).get(currency_id)
@@ -428,11 +452,14 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         return amount
 
     # Get ALL budget accounts (todas las monedas) with eager loading
+    excluded_account_types = ['credit_card', 'credit_loan', 'mortgage']
+
     all_accounts = db.query(Account).options(
         joinedload(Account.currency)
-    ).filter_by(
-        is_closed=False,
-        is_budget=True  # Only budget accounts (not tracking accounts)
+    ).filter(
+        Account.is_closed == False,
+        Account.is_budget == True,
+        ~Account.type.in_(excluded_account_types)
     ).all()
 
     # Convert all account balances to target currency
@@ -441,7 +468,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         converted_balance = convert_with_cache(acc.balance, acc.currency.code)
         total_in_accounts += converted_balance
 
-    # Get ALL budget assignments this month (todas las monedas) with eager loading
+    # Get ALL budgets this month (todas las monedas) with eager loading
     all_budgets_this_month = db.query(BudgetMonth).options(
         joinedload(BudgetMonth.category)
     ).filter_by(
@@ -451,35 +478,17 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
     # Create currency cache
     currency_cache = {c.id: c for c in db.query(Currency).all()}
 
-    # Convert all assignments to target currency
-    total_assigned = 0.0
+    # Convert all available amounts to target currency
+    total_available = 0.0
     for budget in all_budgets_this_month:
+        calculate_available(db, budget)
         budget_currency = currency_cache.get(budget.currency_id)
         if budget_currency:
-            converted_assigned = convert_with_cache(budget.assigned, budget_currency.code)
-            total_assigned += converted_assigned
+            converted_available = convert_with_cache(budget.available, budget_currency.code)
+            total_available += converted_available
 
-    # Add money from 'reset' categories from previous month
-    # (money that was assigned but not spent returns to Ready to Assign)
-    prev_month_date = month_date - relativedelta(months=1)
-    prev_budgets = db.query(BudgetMonth).options(
-        joinedload(BudgetMonth.category)
-    ).filter_by(
-        month=prev_month_date
-    ).all()
-
-    rollover_from_reset = 0.0
-    for prev_budget in prev_budgets:
-        if prev_budget.category and prev_budget.category.rollover_type == 'reset':
-            # If there's money left over, it returns to Ready to Assign
-            if prev_budget.available > 0:
-                prev_currency = currency_cache.get(prev_budget.currency_id)
-                if prev_currency:
-                    converted_available = convert_with_cache(prev_budget.available, prev_currency.code)
-                    rollover_from_reset += converted_available
-
-    # Ready to Assign = Money in accounts - Money already assigned + Money from reset categories
-    return total_in_accounts - total_assigned + rollover_from_reset
+    # Ready to Assign = Money in accounts - Money available in categories
+    return total_in_accounts - total_available
 
 
 def get_budget_overview(db: Session, currency_code='COP'):
