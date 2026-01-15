@@ -49,16 +49,6 @@ def get_categories(db: Session = Depends(get_db)):
     ]
 
 
-@router.get("/{category_id}")
-def get_category(category_id: int, db: Session = Depends(get_db)):
-    """Get a single category with all its details including savings goals"""
-    category = db.query(Category).filter_by(id=category_id).first()
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
-
-    return category.to_dict(include_group=True)
-
-
 @router.get("/groups", response_model=List[CategoryGroupResponse])
 def get_category_groups(db: Session = Depends(get_db)):
     """Get all category groups with their categories"""
@@ -76,7 +66,6 @@ def get_category_groups(db: Session = Depends(get_db)):
         )
         for group in groups
     ]
-
 
 class CategoryGroupCreate(BaseModel):
     """Schema for creating a category group"""
@@ -148,6 +137,109 @@ def delete_category_group(group_id: int, force: bool = False, db: Session = Depe
     }
 
 
+@router.post("/seed")
+def seed_default_categories(db: Session = Depends(get_db)):
+    """
+    Create default categories if they don't exist
+
+    This endpoint is useful when the database is empty and needs
+    to be populated with default categories for basic usage.
+
+    Returns:
+        Summary of categories and groups created
+    """
+    from config import DEFAULT_CATEGORY_GROUPS
+
+    categories_added = 0
+    groups_added = 0
+
+    # Create expense category groups
+    for idx, group_data in enumerate(DEFAULT_CATEGORY_GROUPS):
+        group = db.query(CategoryGroup).filter_by(name=group_data['name']).first()
+        if not group:
+            group = CategoryGroup(
+                name=group_data['name'],
+                sort_order=idx,
+                is_income=False
+            )
+            db.add(group)
+            db.flush()  # Get the ID
+            groups_added += 1
+
+        # Create categories in this group
+        for cat_idx, cat_data in enumerate(group_data['categories']):
+            if isinstance(cat_data, str):
+                cat_name = cat_data
+                rollover_type = 'reset'
+            else:
+                cat_name = cat_data['name']
+                rollover_type = cat_data.get('rollover_type', 'reset')
+
+            category = db.query(Category).filter_by(
+                category_group_id=group.id,
+                name=cat_name
+            ).first()
+
+            if not category:
+                category = Category(
+                    category_group_id=group.id,
+                    name=cat_name,
+                    sort_order=cat_idx,
+                    rollover_type=rollover_type
+                )
+                db.add(category)
+                categories_added += 1
+
+    # Create Income category group
+    income_group = db.query(CategoryGroup).filter_by(name='Ingresos').first()
+    if not income_group:
+        income_group = CategoryGroup(
+            name='Ingresos',
+            sort_order=999,
+            is_income=True
+        )
+        db.add(income_group)
+        db.flush()
+        groups_added += 1
+
+    # Income categories
+    income_categories = ['Salario', 'Freelance', 'Inversiones', 'Otros']
+    for cat_idx, cat_name in enumerate(income_categories):
+        category = db.query(Category).filter_by(
+            category_group_id=income_group.id,
+            name=cat_name
+        ).first()
+
+        if not category:
+            category = Category(
+                category_group_id=income_group.id,
+                name=cat_name,
+                sort_order=cat_idx
+            )
+            db.add(category)
+            categories_added += 1
+
+    db.commit()
+
+    # Get total counts after seeding
+    total_groups = db.query(CategoryGroup).count()
+    total_categories = db.query(Category).filter_by(is_hidden=False).count()
+
+    return {
+        "success": True,
+        "message": "Default categories seeded successfully",
+        "added": {
+            "groups": groups_added,
+            "categories": categories_added
+        },
+        "total": {
+            "groups": total_groups,
+            "categories": total_categories
+        }
+    }
+
+
+
 class CategoryCreate(BaseModel):
     """Schema for creating a category"""
     name: str
@@ -198,6 +290,16 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
         category_group_id=new_category.category_group_id,
         category_group_name=new_category.category_group.name
     )
+
+
+@router.get("/{category_id}")
+def get_category(category_id: int, db: Session = Depends(get_db)):
+    """Get a single category with all its details including savings goals"""
+    category = db.query(Category).filter_by(id=category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    return category.to_dict(include_group=True)
 
 
 @router.patch("/{category_id}", response_model=CategoryResponse)
@@ -323,104 +425,3 @@ def delete_category(category_id: int, force: bool = False, db: Session = Depends
             "category": category.name
         }
 
-
-@router.post("/seed")
-def seed_default_categories(db: Session = Depends(get_db)):
-    """
-    Create default categories if they don't exist
-
-    This endpoint is useful when the database is empty and needs
-    to be populated with default categories for basic usage.
-
-    Returns:
-        Summary of categories and groups created
-    """
-    from config import DEFAULT_CATEGORY_GROUPS
-
-    categories_added = 0
-    groups_added = 0
-
-    # Create expense category groups
-    for idx, group_data in enumerate(DEFAULT_CATEGORY_GROUPS):
-        group = db.query(CategoryGroup).filter_by(name=group_data['name']).first()
-        if not group:
-            group = CategoryGroup(
-                name=group_data['name'],
-                sort_order=idx,
-                is_income=False
-            )
-            db.add(group)
-            db.flush()  # Get the ID
-            groups_added += 1
-
-        # Create categories in this group
-        for cat_idx, cat_data in enumerate(group_data['categories']):
-            if isinstance(cat_data, str):
-                cat_name = cat_data
-                rollover_type = 'reset'
-            else:
-                cat_name = cat_data['name']
-                rollover_type = cat_data.get('rollover_type', 'reset')
-
-            category = db.query(Category).filter_by(
-                category_group_id=group.id,
-                name=cat_name
-            ).first()
-
-            if not category:
-                category = Category(
-                    category_group_id=group.id,
-                    name=cat_name,
-                    sort_order=cat_idx,
-                    rollover_type=rollover_type
-                )
-                db.add(category)
-                categories_added += 1
-
-    # Create Income category group
-    income_group = db.query(CategoryGroup).filter_by(name='Ingresos').first()
-    if not income_group:
-        income_group = CategoryGroup(
-            name='Ingresos',
-            sort_order=999,
-            is_income=True
-        )
-        db.add(income_group)
-        db.flush()
-        groups_added += 1
-
-    # Income categories
-    income_categories = ['Salario', 'Freelance', 'Inversiones', 'Otros']
-    for cat_idx, cat_name in enumerate(income_categories):
-        category = db.query(Category).filter_by(
-            category_group_id=income_group.id,
-            name=cat_name
-        ).first()
-
-        if not category:
-            category = Category(
-                category_group_id=income_group.id,
-                name=cat_name,
-                sort_order=cat_idx
-            )
-            db.add(category)
-            categories_added += 1
-
-    db.commit()
-
-    # Get total counts after seeding
-    total_groups = db.query(CategoryGroup).count()
-    total_categories = db.query(Category).filter_by(is_hidden=False).count()
-
-    return {
-        "success": True,
-        "message": "Default categories seeded successfully",
-        "added": {
-            "groups": groups_added,
-            "categories": categories_added
-        },
-        "total": {
-            "groups": total_groups,
-            "categories": total_categories
-        }
-    }
