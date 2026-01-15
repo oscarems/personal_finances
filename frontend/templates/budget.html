@@ -182,6 +182,44 @@
             loadBudget();
         });
 
+        // Event listener for new category form
+        document.getElementById('newCategoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const groupId = parseInt(document.getElementById('newCategoryGroupId').value);
+            const name = document.getElementById('newCategoryName').value.trim();
+            const rolloverType = document.getElementById('newCategoryRollover').value;
+
+            if (!name) {
+                alert('El nombre de la categoría es requerido');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/categories/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        category_group_id: groupId,
+                        rollover_type: rolloverType
+                    })
+                });
+
+                if (response.ok) {
+                    closeNewCategoryModal();
+                    loadBudget(); // Reload budget to show new category
+                    alert('Categoría creada exitosamente');
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + (error.detail || 'No se pudo crear la categoría'));
+                }
+            } catch (error) {
+                console.error('Error creating category:', error);
+                alert('Error al crear la categoría');
+            }
+        });
+
         loadBudget();
     });
 
@@ -331,7 +369,8 @@
                         }).join('')}
                         <!-- Add Category Button -->
                         <div class="px-6 py-3 bg-gray-50">
-                            <button onclick="openNewCategoryModal(${groupCOP.id}, '${groupCOP.name}')"
+                            <button data-group-id="${groupCOP.id}" data-group-name="${groupCOP.name}"
+                                    onclick="openNewCategoryModal(this.dataset.groupId, this.dataset.groupName)"
                                     class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
                                 <span class="mr-1">+</span> Agregar Categoría
                             </button>
@@ -526,42 +565,5 @@
     function closeNewCategoryModal() {
         document.getElementById('newCategoryModal').classList.add('hidden');
     }
-
-    document.getElementById('newCategoryForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const groupId = parseInt(document.getElementById('newCategoryGroupId').value);
-        const name = document.getElementById('newCategoryName').value.trim();
-        const rolloverType = document.getElementById('newCategoryRollover').value;
-
-        if (!name) {
-            alert('El nombre de la categoría es requerido');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/categories/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name,
-                    category_group_id: groupId,
-                    rollover_type: rolloverType
-                })
-            });
-
-            if (response.ok) {
-                closeNewCategoryModal();
-                loadBudget(); // Reload budget to show new category
-                alert('Categoría creada exitosamente');
-            } else {
-                const error = await response.json();
-                alert('Error: ' + (error.detail || 'No se pudo crear la categoría'));
-            }
-        } catch (error) {
-            console.error('Error creating category:', error);
-            alert('Error al crear la categoría');
-        }
-    });
 </script>
 {% endblock %}
