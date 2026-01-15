@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}Deudas - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex justify-between items-center">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800">Gestión de Deudas</h2>
+        <p class="text-gray-600 mt-2">Administra tus tarjetas de crédito, préstamos e hipotecas</p>
+    </div>
+    <button onclick="openNewDebtModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center">
+        <span class="mr-2">+</span> Nueva Deuda
+    </button>
+</div>
+
+<!-- Summary Cards -->
+<div id="summaryCards" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <!-- Cards will be loaded here -->
+</div>
+
+<!-- Debts List -->
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-gray-800">Tus Deudas</h3>
+        <div class="flex space-x-2">
+            <button onclick="filterDebts('all')" class="filter-btn active px-4 py-2 rounded text-sm" data-filter="all">Todas</button>
+            <button onclick="filterDebts('credit_card')" class="filter-btn px-4 py-2 rounded text-sm" data-filter="credit_card">Tarjetas</button>
+            <button onclick="filterDebts('credit_loan')" class="filter-btn px-4 py-2 rounded text-sm" data-filter="credit_loan">Préstamos</button>
+            <button onclick="filterDebts('mortgage')" class="filter-btn px-4 py-2 rounded text-sm" data-filter="mortgage">Hipotecas</button>
+        </div>
+    </div>
+    <div id="debtsContainer" class="p-6">
+        <!-- Debts will be loaded here -->
+    </div>
+</div>
+
+<!-- New Debt Modal -->
+<div id="debtModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Nueva Deuda</h3>
+            <button onclick="closeDebtModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <form id="debtForm" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Nombre</label>
+                    <input type="text" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tipo</label>
+                    <select name="debt_type" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="credit_card">Tarjeta de Crédito</option>
+                        <option value="credit_loan">Préstamo Personal</option>
+                        <option value="mortgage">Hipoteca</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Cuenta</label>
+                    <select name="account_id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <!-- Accounts will be loaded here -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Moneda</label>
+                    <select name="currency_code" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="COP">COP</option>
+                        <option value="USD">USD</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Monto Original</label>
+                    <input type="number" name="original_amount" required step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Saldo Actual</label>
+                    <input type="number" name="current_balance" required step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tasa de Interés (% anual)</label>
+                    <input type="number" name="interest_rate" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Cuota Mensual</label>
+                    <input type="number" name="monthly_payment" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Fecha de Inicio</label>
+                    <input type="date" name="start_date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Institución Financiera</label>
+                    <input type="text" name="institution" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4">
+                <button type="button" onclick="closeDebtModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .filter-btn {
+        background-color: #f3f4f6;
+        color: #4b5563;
+    }
+    .filter-btn.active {
+        background-color: #3b82f6;
+        color: white;
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allDebts = [];
+    let currentFilter = 'all';
+
+    async function loadDebts() {
+        try {
+            // Load summary
+            const summaryRes = await fetch('/api/debts/summary');
+            const summary = await summaryRes.json();
+            displaySummary(summary);
+
+            // Load all debts
+            const debtsRes = await fetch('/api/debts/');
+            allDebts = await debtsRes.json();
+            displayDebts(allDebts);
+
+            // Load accounts for form
+            const accountsRes = await fetch('/api/accounts/');
+            const accounts = await accountsRes.json();
+            loadAccountsIntoForm(accounts);
+
+        } catch (error) {
+            console.error('Error loading debts:', error);
+        }
+    }
+
+    function displaySummary(data) {
+        const container = document.getElementById('summaryCards');
+        let html = '';
+
+        // Total debts
+        html += `
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Deudas</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1">${data.total_debts}</p>
+                    </div>
+                    <div class="text-4xl">💳</div>
+                </div>
+            </div>
+        `;
+
+        // Total current by currency
+        for (const [currency, amount] of Object.entries(data.total_current || {})) {
+            html += `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Deuda ${currency}</p>
+                            <p class="text-2xl font-bold text-red-600 mt-1">
+                                ${currency === 'USD' ? '$' : '$'}${amount.toLocaleString('es-CO', {minimumFractionDigits: currency === 'USD' ? 2 : 0})}
+                            </p>
+                        </div>
+                        <div class="text-4xl">📉</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Average interest
+        if (data.average_interest_rate > 0) {
+            html += `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-500 text-sm">Interés Promedio</p>
+                            <p class="text-2xl font-bold text-yellow-600 mt-1">${data.average_interest_rate.toFixed(2)}%</p>
+                        </div>
+                        <div class="text-4xl">📊</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+    }
+
+    function displayDebts(debts) {
+        const container = document.getElementById('debtsContainer');
+
+        const filteredDebts = currentFilter === 'all'
+            ? debts
+            : debts.filter(d => d.debt_type === currentFilter);
+
+        if (filteredDebts.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-8">No hay deudas para mostrar</p>';
+            return;
+        }
+
+        const html = filteredDebts.map(debt => {
+            const typeLabels = {
+                'credit_card': '💳 Tarjeta de Crédito',
+                'credit_loan': '💰 Préstamo Personal',
+                'mortgage': '🏠 Hipoteca'
+            };
+
+            const progressPercent = debt.paid_percentage || 0;
+
+            return `
+                <div class="border border-gray-200 rounded-lg p-6 mb-4 hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800">${debt.name}</h4>
+                            <p class="text-sm text-gray-600">${typeLabels[debt.debt_type] || debt.debt_type}</p>
+                            ${debt.institution ? `<p class="text-sm text-gray-500">${debt.institution}</p>` : ''}
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold text-red-600">
+                                ${debt.currency_code === 'USD' ? '$' : '$'}${debt.current_balance.toLocaleString('es-CO', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}
+                            </p>
+                            <p class="text-sm text-gray-500">de ${debt.currency_code === 'USD' ? '$' : '$'}${debt.original_amount.toLocaleString('es-CO', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}</p>
+                        </div>
+                    </div>
+
+                    <!-- Progress bar -->
+                    <div class="mb-4">
+                        <div class="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>${progressPercent.toFixed(1)}% pagado</span>
+                            <span>${(100 - progressPercent).toFixed(1)}% restante</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full" style="width: ${progressPercent}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        ${debt.interest_rate ? `
+                            <div>
+                                <p class="text-gray-600">Interés</p>
+                                <p class="font-semibold">${debt.interest_rate}%</p>
+                            </div>
+                        ` : ''}
+                        ${debt.monthly_payment ? `
+                            <div>
+                                <p class="text-gray-600">Cuota Mensual</p>
+                                <p class="font-semibold">${debt.currency_code === 'USD' ? '$' : '$'}${debt.monthly_payment.toLocaleString('es-CO')}</p>
+                            </div>
+                        ` : ''}
+                        ${debt.credit_limit ? `
+                            <div>
+                                <p class="text-gray-600">Utilización</p>
+                                <p class="font-semibold">${(debt.utilization_percentage || 0).toFixed(1)}%</p>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <p class="text-gray-600">Estado</p>
+                            <p class="font-semibold ${debt.is_active ? 'text-green-600' : 'text-gray-400'}">
+                                ${debt.is_active ? 'Activa' : 'Inactiva'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex justify-end space-x-2">
+                        <button onclick="viewDebtDetails(${debt.id})" class="text-blue-600 hover:text-blue-800 text-sm">Ver detalles</button>
+                        <button onclick="deleteDebt(${debt.id}, '${debt.name}')" class="text-red-600 hover:text-red-800 text-sm">Eliminar</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = html;
+    }
+
+    function filterDebts(type) {
+        currentFilter = type;
+
+        // Update active button
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-filter="${type}"]`).classList.add('active');
+
+        displayDebts(allDebts);
+    }
+
+    function openNewDebtModal() {
+        document.getElementById('debtModal').classList.remove('hidden');
+        // Set default start date to today
+        document.querySelector('[name="start_date"]').value = new Date().toISOString().split('T')[0];
+    }
+
+    function closeDebtModal() {
+        document.getElementById('debtModal').classList.add('hidden');
+        document.getElementById('debtForm').reset();
+    }
+
+    function loadAccountsIntoForm(accounts) {
+        const select = document.querySelector('[name="account_id"]');
+        select.innerHTML = accounts.map(acc =>
+            `<option value="${acc.id}">${acc.name} (${acc.currency.code})</option>`
+        ).join('');
+    }
+
+    document.getElementById('debtForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+
+        // Convert numbers
+        data.account_id = parseInt(data.account_id);
+        data.original_amount = parseFloat(data.original_amount);
+        data.current_balance = parseFloat(data.current_balance);
+        if (data.interest_rate) data.interest_rate = parseFloat(data.interest_rate);
+        if (data.monthly_payment) data.monthly_payment = parseFloat(data.monthly_payment);
+
+        try {
+            const response = await fetch('/api/debts/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                closeDebtModal();
+                loadDebts();
+                alert('Deuda creada exitosamente');
+            } else {
+                const error = await response.json();
+                alert('Error: ' + JSON.stringify(error.detail));
+            }
+        } catch (error) {
+            alert('Error al crear deuda: ' + error.message);
+        }
+    });
+
+    async function deleteDebt(id, name) {
+        if (!confirm(`¿Estás seguro de eliminar la deuda "${name}"?`)) return;
+
+        try {
+            const response = await fetch(`/api/debts/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                loadDebts();
+                alert('Deuda eliminada');
+            } else {
+                alert('Error al eliminar deuda');
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
+
+    function viewDebtDetails(id) {
+        // TODO: Implement details modal with payment history
+        alert('Ver detalles - Por implementar');
+    }
+
+    // Load debts on page load
+    document.addEventListener('DOMContentLoaded', loadDebts);
+</script>
+{% endblock %}

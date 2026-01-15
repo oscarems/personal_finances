@@ -120,6 +120,12 @@ async def recurring_page(request: Request):
     return templates.TemplateResponse("recurring.html", {"request": request})
 
 
+@app.get("/debts")
+async def debts_page(request: Request):
+    """Debts management page"""
+    return templates.TemplateResponse("debts.html", {"request": request})
+
+
 @app.get("/api/currencies")
 async def get_currencies(db: Session = Depends(get_db)):
     """Get all available currencies"""
