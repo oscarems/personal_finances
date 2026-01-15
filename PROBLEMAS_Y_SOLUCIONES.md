@@ -19,23 +19,31 @@ python init_db.py
 
 ## 2. ✅ RESUELTO: Agregar/Eliminar Grupos de Presupuesto
 
-### API Endpoints disponibles:
+### Solución Implementada:
 
-**Crear grupo:**
-```bash
-POST /api/categories/groups
-{
-  "name": "Mi Nuevo Grupo",
-  "is_income": false
-}
-```
+Ya puedes gestionar grupos desde la interfaz de presupuesto:
 
-**Eliminar grupo:**
-```bash
-DELETE /api/categories/groups/{id}?force=true
-```
+**Cómo crear grupo:**
+1. Ir a Presupuesto
+2. Click en botón **"+ Nuevo Grupo"** (esquina superior derecha)
+3. Ingresar nombre del grupo
+4. Seleccionar tipo: Gastos o Ingresos
+5. Click "Crear Grupo"
 
-**Frontend**: Pendiente agregar UI (botones en budget.html)
+**Cómo eliminar grupo:**
+1. Click en el icono de **basura** (🗑️) junto al nombre del grupo
+2. Confirmar la eliminación
+3. **ADVERTENCIA:** Esto eliminará también todas las categorías del grupo
+
+**Ubicación en código:**
+- Frontend: `frontend/templates/budget.html`
+  - Botón "Nuevo Grupo": líneas 13-15
+  - Modal de creación: líneas 157-184
+  - Botón eliminar: líneas 339-345
+  - Funciones JS: líneas 255-289, 644-678
+- Backend: `backend/api/categories.py`
+  - POST `/api/categories/groups`: líneas 87-115
+  - DELETE `/api/categories/groups/{id}`: líneas 118-148
 
 ---
 
@@ -91,32 +99,48 @@ Necesito agregar:
 
 ---
 
-## 6. ⚠️ No puedo modificar "dinero que tengo hoy" en Savings
+## 6. ✅ RESUELTO: No puedo modificar "dinero que tengo hoy" en Savings
 
-### Estado: **NECESITA CLARIFICACIÓN**
+### Solución Implementada:
 
-**Pregunta:** ¿Te refieres a:
-- A) El monto inicial (`initial_amount`) de una categoría de ahorro?
-- B) El balance actual de una cuenta?
+Se agregó un campo **"Dinero que Tengo Hoy (Inicial)"** en el modal de asignación de presupuesto:
 
-**Si es A (categoría de ahorro):**
-Necesito agregar un endpoint PATCH para actualizar `initial_amount`.
+**Cómo usar:**
+1. Ir a Presupuesto
+2. Click en una categoría de tipo "Meta/Ahorro" (accumulate)
+3. El campo "💎 Dinero que Tengo Hoy (Inicial)" aparecerá automáticamente
+4. Ingresar el monto que ya tienes ahorrado para esa categoría
+5. Click "Guardar Presupuesto"
 
-**Si es B (cuenta):**
-Ya existe: Ir a "Cuentas" → Editar cuenta → Cambiar balance
+**Ubicación en código:**
+- Frontend: `frontend/templates/budget.html` líneas 71-84
+- Backend: Usa endpoint PATCH `/api/categories/{id}` (líneas 203-255 en `backend/api/categories.py`)
 
 ---
 
-## 7. ⚠️ Reportes: USD no aparece en gastos COP
+## 7. ✅ RESUELTO: Reportes: USD no aparece en gastos COP
 
-### Estado: **POR CORREGIR**
+### Solución Implementada:
 
-El problema es que los reportes filtran por moneda exacta.
+Los reportes ahora **incluyen TODAS las monedas** con conversión automática:
 
-### Necesito agregar:
-- Conversión automática a la moneda seleccionada
-- Usar exchange rates para convertir
-- Mostrar total combinado
+**Qué cambió:**
+- Todos los reportes ahora muestran transacciones en COP y USD combinadas
+- Se usa el exchange rate actual para convertir a la moneda seleccionada
+- Aplica a todos los endpoints de reportes:
+  - `/api/reports/spending-by-category`
+  - `/api/reports/spending-by-group`
+  - `/api/reports/income-vs-expenses`
+  - `/api/reports/spending-trends`
+  - `/api/reports/summary`
+
+**Ejemplo:**
+- Si seleccionas "Ver en COP", verás gastos en COP + gastos en USD convertidos a COP
+- Si seleccionas "Ver en USD", verás gastos en USD + gastos en COP convertidos a USD
+
+**Ubicación en código:**
+- Backend: `backend/api/reports.py` - Funciones helper `get_exchange_rate()` y `convert_to_currency()` (líneas 17-46)
+- Todas las funciones de reporte modificadas para incluir conversión
 
 ---
 
@@ -133,12 +157,12 @@ Solución: Ejecutar `python init_db.py` para crear categorías.
 | Problema | Estado | Acción Requerida |
 |----------|--------|------------------|
 | Error BD initial_amount | ✅ Resuelto | `python migrate_db.py` |
-| Agregar/Eliminar grupos | ✅ API lista | Agregar UI frontend |
+| Agregar/Eliminar grupos | ✅ Resuelto | Botón "Nuevo Grupo" en presupuesto |
 | Selector de categorías | ⚠️ Datos | `python init_db.py` |
 | Hipoteca pago extra | 🔧 Por corregir | - |
 | Hipoteca fecha/total | 🔧 Por corregir | - |
-| Editar monto inicial savings | ❓ Clarificar | ¿Qué quieres editar? |
-| Reportes multi-moneda | 🔧 Por corregir | - |
+| Editar monto inicial savings | ✅ Resuelto | Ver campo en modal presupuesto |
+| Reportes multi-moneda | ✅ Resuelto | Conversión automática implementada |
 | Categorías en recurrentes | ⚠️ Datos | `python init_db.py` |
 
 ---
