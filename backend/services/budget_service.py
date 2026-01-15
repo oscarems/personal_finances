@@ -441,8 +441,8 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         Ready to Assign = $9,000,000 - $1,100,000 = $7,900,000 COP
 
     IMPORTANTE - Multi-moneda:
-        Esta función calcula el Ready to Assign por moneda. Solo considera cuentas y
-        presupuestos en la moneda objetivo, sin conversiones.
+        Esta función considera TODAS las cuentas y presupuestos en TODAS las monedas,
+        convirtiendo todo a la moneda objetivo antes de hacer la resta.
 
     Args:
         db (Session): Sesión de base de datos
@@ -466,7 +466,20 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
     """
     target_currency = db.query(Currency).get(currency_id)
 
-    # Get budget accounts in the target currency
+    # Get current exchange rate and cache it
+    exchange_rate_usd_cop = get_current_exchange_rate(db)
+
+    # Helper function to convert using cached rate
+    def convert_with_cache(amount, from_currency_code):
+        if from_currency_code == target_currency.code:
+            return amount
+        if from_currency_code == 'USD' and target_currency.code == 'COP':
+            return amount * exchange_rate_usd_cop
+        elif from_currency_code == 'COP' and target_currency.code == 'USD':
+            return amount / exchange_rate_usd_cop
+        return amount
+
+    # Get ALL budget accounts (todas las monedas) with eager loading
     excluded_account_types = {'credit_card', 'credit_loan', 'mortgage'}
 
     all_accounts = db.query(Account).options(
@@ -474,30 +487,35 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
     ).filter(
         Account.is_closed == False,
         Account.is_budget == True,
-        ~Account.type.in_(excluded_account_types),
-        Account.currency_id == currency_id
+        ~Account.type.in_(excluded_account_types)
     ).all()
 
-    # Sum account balances in the target currency
+    # Sum account balances converted to the target currency
     total_in_accounts = 0.0
     for acc in all_accounts:
         if acc.type in excluded_account_types or not acc.is_budget:
             continue
-        total_in_accounts += acc.balance
+        converted_balance = convert_with_cache(acc.balance, acc.currency.code)
+        total_in_accounts += converted_balance
 
-    # Get budgets for this month in the target currency
+    # Get ALL budgets this month (todas las monedas) with eager loading
     all_budgets_this_month = db.query(BudgetMonth).options(
         joinedload(BudgetMonth.category)
     ).filter_by(
-        month=month_date,
-        currency_id=currency_id
+        month=month_date
     ).all()
 
-    # Sum available amounts in the target currency
+    # Create currency cache
+    currency_cache = {c.id: c for c in db.query(Currency).all()}
+
+    # Sum available amounts converted to the target currency
     total_available = 0.0
     for budget in all_budgets_this_month:
         calculate_available(db, budget)
-        total_available += budget.available
+        budget_currency = currency_cache.get(budget.currency_id)
+        if budget_currency:
+            converted_available = convert_with_cache(budget.available, budget_currency.code)
+            total_available += converted_available
 
     # Ready to Assign = Money in accounts - Money available in categories
     return total_in_accounts - total_available
