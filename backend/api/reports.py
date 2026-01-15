@@ -9,9 +9,41 @@ from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
-from backend.models import Transaction, Category, CategoryGroup, Account, Currency
+from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate
 
 router = APIRouter()
+
+
+def get_exchange_rate(db: Session) -> float:
+    """Get current USD to COP exchange rate"""
+    rate = db.query(ExchangeRate).order_by(ExchangeRate.date.desc()).first()
+    return rate.rate if rate else 4000.0  # Default fallback
+
+
+def convert_to_currency(amount: float, from_currency_id: int, to_currency_id: int, exchange_rate: float) -> float:
+    """Convert amount from one currency to another
+
+    Args:
+        amount: Amount to convert
+        from_currency_id: Source currency ID (1=COP, 2=USD)
+        to_currency_id: Target currency ID (1=COP, 2=USD)
+        exchange_rate: USD to COP exchange rate
+
+    Returns:
+        Converted amount
+    """
+    if from_currency_id == to_currency_id:
+        return amount
+
+    # Convert USD to COP
+    if from_currency_id == 2 and to_currency_id == 1:
+        return amount * exchange_rate
+
+    # Convert COP to USD
+    if from_currency_id == 1 and to_currency_id == 2:
+        return amount / exchange_rate
+
+    return amount
 
 
 @router.get("/spending-by-category")
@@ -23,6 +55,7 @@ def get_spending_by_category(
 ):
     """
     Get spending grouped by category for a date range
+    Now includes ALL currencies, converted to the selected one
     """
     # Default to current month if no dates provided
     if not start_date:
@@ -30,11 +63,15 @@ def get_spending_by_category(
     if not end_date:
         end_date = date.today().isoformat()
 
-    # Query transactions
+    # Get exchange rate for conversion
+    exchange_rate = get_exchange_rate(db)
+
+    # Query ALL transactions (not filtered by currency)
     query = db.query(
         Category.name.label('category_name'),
         CategoryGroup.name.label('group_name'),
-        func.sum(Transaction.amount).label('total')
+        Transaction.amount,
+        Transaction.currency_id
     ).join(
         Category, Transaction.category_id == Category.id
     ).join(
@@ -43,23 +80,36 @@ def get_spending_by_category(
         and_(
             Transaction.date >= start_date,
             Transaction.date <= end_date,
-            Transaction.currency_id == currency_id,
             Transaction.amount < 0  # Only expenses (negative amounts)
         )
-    ).group_by(
-        Category.name, CategoryGroup.name
-    ).order_by(
-        func.sum(Transaction.amount).asc()
     ).all()
+
+    # Group by category and convert amounts
+    category_totals = {}
+    for row in query:
+        key = (row.category_name, row.group_name)
+        converted_amount = convert_to_currency(
+            abs(row.amount),
+            row.currency_id,
+            currency_id,
+            exchange_rate
+        )
+
+        if key not in category_totals:
+            category_totals[key] = 0
+        category_totals[key] += converted_amount
 
     # Format results
     results = []
-    for row in query:
+    for (category_name, group_name), total in category_totals.items():
         results.append({
-            'category': row.category_name,
-            'group': row.group_name,
-            'amount': abs(row.total)  # Convert to positive for display
+            'category': category_name,
+            'group': group_name,
+            'amount': total
         })
+
+    # Sort by amount descending (highest expenses first)
+    results.sort(key=lambda x: x['amount'], reverse=True)
 
     # Calculate total
     total_expenses = sum(r['amount'] for r in results)
@@ -81,6 +131,7 @@ def get_spending_by_group(
 ):
     """
     Get spending grouped by category group
+    Now includes ALL currencies, converted to the selected one
     """
     # Default to current month if no dates provided
     if not start_date:
@@ -88,10 +139,14 @@ def get_spending_by_group(
     if not end_date:
         end_date = date.today().isoformat()
 
-    # Query transactions
+    # Get exchange rate for conversion
+    exchange_rate = get_exchange_rate(db)
+
+    # Query ALL transactions (not filtered by currency)
     query = db.query(
         CategoryGroup.name.label('group_name'),
-        func.sum(Transaction.amount).label('total')
+        Transaction.amount,
+        Transaction.currency_id
     ).join(
         Category, Transaction.category_id == Category.id
     ).join(
@@ -100,22 +155,35 @@ def get_spending_by_group(
         and_(
             Transaction.date >= start_date,
             Transaction.date <= end_date,
-            Transaction.currency_id == currency_id,
             Transaction.amount < 0  # Only expenses
         )
-    ).group_by(
-        CategoryGroup.name
-    ).order_by(
-        func.sum(Transaction.amount).asc()
     ).all()
+
+    # Group by group and convert amounts
+    group_totals = {}
+    for row in query:
+        group_name = row.group_name
+        converted_amount = convert_to_currency(
+            abs(row.amount),
+            row.currency_id,
+            currency_id,
+            exchange_rate
+        )
+
+        if group_name not in group_totals:
+            group_totals[group_name] = 0
+        group_totals[group_name] += converted_amount
 
     # Format results
     results = []
-    for row in query:
+    for group_name, total in group_totals.items():
         results.append({
-            'group': row.group_name,
-            'amount': abs(row.total)
+            'group': group_name,
+            'amount': total
         })
+
+    # Sort by amount descending
+    results.sort(key=lambda x: x['amount'], reverse=True)
 
     total_expenses = sum(r['amount'] for r in results)
 
@@ -135,10 +203,14 @@ def get_income_vs_expenses(
 ):
     """
     Get income vs expenses for the last N months
+    Now includes ALL currencies, converted to the selected one
     """
     # Calculate start date (N months ago)
     end_date = date.today()
     start_date = end_date - relativedelta(months=months)
+
+    # Get exchange rate for conversion
+    exchange_rate = get_exchange_rate(db)
 
     # Query for monthly totals
     results = []
@@ -148,26 +220,39 @@ def get_income_vs_expenses(
         month_start = current_date
         month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
 
-        # Income (positive amounts)
-        income = db.query(func.sum(Transaction.amount)).filter(
+        # Income (positive amounts) - ALL currencies
+        income_transactions = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
             and_(
                 Transaction.date >= month_start,
                 Transaction.date <= month_end,
-                Transaction.currency_id == currency_id,
                 Transaction.amount > 0
             )
-        ).scalar() or 0
+        ).all()
 
-        # Expenses (negative amounts, convert to positive)
-        expenses_raw = db.query(func.sum(Transaction.amount)).filter(
+        income = sum(
+            convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+            for t in income_transactions
+        )
+
+        # Expenses (negative amounts) - ALL currencies
+        expense_transactions = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
             and_(
                 Transaction.date >= month_start,
                 Transaction.date <= month_end,
-                Transaction.currency_id == currency_id,
                 Transaction.amount < 0
             )
-        ).scalar() or 0
-        expenses = abs(expenses_raw)
+        ).all()
+
+        expenses = sum(
+            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+            for t in expense_transactions
+        )
 
         results.append({
             'month': current_date.strftime('%Y-%m'),
@@ -194,9 +279,13 @@ def get_spending_trends(
 ):
     """
     Get spending trends over time for a specific category or all categories
+    Now includes ALL currencies, converted to the selected one
     """
     end_date = date.today()
     start_date = end_date - relativedelta(months=months)
+
+    # Get exchange rate for conversion
+    exchange_rate = get_exchange_rate(db)
 
     results = []
     current_date = start_date.replace(day=1)
@@ -205,12 +294,14 @@ def get_spending_trends(
         month_start = current_date
         month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
 
-        # Build query
-        query = db.query(func.sum(Transaction.amount)).filter(
+        # Build query for ALL currencies
+        query = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
             and_(
                 Transaction.date >= month_start,
                 Transaction.date <= month_end,
-                Transaction.currency_id == currency_id,
                 Transaction.amount < 0  # Only expenses
             )
         )
@@ -218,7 +309,11 @@ def get_spending_trends(
         if category_id:
             query = query.filter(Transaction.category_id == category_id)
 
-        total = abs(query.scalar() or 0)
+        transactions = query.all()
+        total = sum(
+            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+            for t in transactions
+        )
 
         results.append({
             'month': current_date.strftime('%Y-%m'),
@@ -249,40 +344,57 @@ def get_summary(
 ):
     """
     Get overall financial summary
+    Now includes ALL currencies, converted to the selected one
     """
     today = date.today()
     month_start = today.replace(day=1)
 
-    # Current month income
-    month_income = db.query(func.sum(Transaction.amount)).filter(
+    # Get exchange rate for conversion
+    exchange_rate = get_exchange_rate(db)
+
+    # Current month income - ALL currencies
+    income_transactions = db.query(
+        Transaction.amount,
+        Transaction.currency_id
+    ).filter(
         and_(
             Transaction.date >= month_start,
             Transaction.date <= today,
-            Transaction.currency_id == currency_id,
             Transaction.amount > 0
-        )
-    ).scalar() or 0
-
-    # Current month expenses
-    month_expenses_raw = db.query(func.sum(Transaction.amount)).filter(
-        and_(
-            Transaction.date >= month_start,
-            Transaction.date <= today,
-            Transaction.currency_id == currency_id,
-            Transaction.amount < 0
-        )
-    ).scalar() or 0
-    month_expenses = abs(month_expenses_raw)
-
-    # Account balances
-    accounts = db.query(Account).filter(
-        and_(
-            Account.is_closed == False,
-            Account.currency_id == currency_id
         )
     ).all()
 
-    total_balance = sum(acc.balance for acc in accounts)
+    month_income = sum(
+        convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+        for t in income_transactions
+    )
+
+    # Current month expenses - ALL currencies
+    expense_transactions = db.query(
+        Transaction.amount,
+        Transaction.currency_id
+    ).filter(
+        and_(
+            Transaction.date >= month_start,
+            Transaction.date <= today,
+            Transaction.amount < 0
+        )
+    ).all()
+
+    month_expenses = sum(
+        convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+        for t in expense_transactions
+    )
+
+    # Account balances - ALL currencies
+    accounts = db.query(Account).filter(
+        Account.is_closed == False
+    ).all()
+
+    total_balance = sum(
+        convert_to_currency(acc.balance, acc.currency_id, currency_id, exchange_rate)
+        for acc in accounts
+    )
 
     # Get currency
     currency = db.query(Currency).get(currency_id)
