@@ -47,26 +47,35 @@ Ya puedes gestionar grupos desde la interfaz de presupuesto:
 
 ---
 
-## 3. ⚠️ No puedo seleccionar categoría en transacciones
+## 3. ✅ RESUELTO: No puedo seleccionar categoría en transacciones
 
-### Diagnóstico:
-El código JavaScript está correcto. El problema puede ser:
+### Solución Implementada:
 
-1. **No hay categorías en la base de datos**
-   ```bash
-   # Verificar
-   curl http://localhost:8000/api/categories/groups
-   ```
+Ahora hay **múltiples formas** de resolver este problema:
 
-2. **Todas las categorías están ocultas (`is_hidden=true`)**
+#### Opción 1: Desde la Interfaz (Recomendado)
+1. Ir a **Transacciones**
+2. Si no hay categorías, verás un banner amarillo con advertencia
+3. Click en **"📦 Crear Categorías Predeterminadas"**
+4. Confirmar y listo!
 
-### Solución:
+#### Opción 2: Desde Terminal
 ```bash
-# Reinicializar con datos de ejemplo
+# Script específico para categorías (seguro, no afecta otros datos)
+python seed_categories.py
+
+# O usando init_db (también seguro, solo agrega si no existen)
 python init_db.py
 ```
 
-Esto creará categorías predeterminadas.
+#### Opción 3: Crear Manualmente
+- Ir a **Presupuesto** → Click "**+ Nuevo Grupo**" → Agregar categorías
+
+**Ubicación en código:**
+- Script: `seed_categories.py`
+- Endpoint API: POST `/api/categories/seed` (líneas 327-426 en `backend/api/categories.py`)
+- Banner UI: `frontend/templates/transactions.html` (líneas 21-49)
+- Función JS: `seedCategories()` (líneas 626-654)
 
 ---
 
@@ -144,11 +153,14 @@ Los reportes ahora **incluyen TODAS las monedas** con conversión automática:
 
 ---
 
-## 8. ⚠️ No puedo seleccionar categoría en transacciones recurrentes
+## 8. ✅ RESUELTO: No puedo seleccionar categoría en transacciones recurrentes
 
 ### Mismo problema que #3
 
-Solución: Ejecutar `python init_db.py` para crear categorías.
+**Solución:** Ver solución del problema #3 arriba. Las tres opciones funcionan igual:
+1. Desde la UI en Transacciones (botón "Crear Categorías Predeterminadas")
+2. Desde terminal con `python seed_categories.py` o `python init_db.py`
+3. Crear manualmente desde Presupuesto
 
 ---
 
@@ -158,12 +170,12 @@ Solución: Ejecutar `python init_db.py` para crear categorías.
 |----------|--------|------------------|
 | Error BD initial_amount | ✅ Resuelto | `python migrate_db.py` |
 | Agregar/Eliminar grupos | ✅ Resuelto | Botón "Nuevo Grupo" en presupuesto |
-| Selector de categorías | ⚠️ Datos | `python init_db.py` |
+| Selector de categorías | ✅ Resuelto | Banner + botón en Transacciones |
 | Hipoteca pago extra | 🔧 Por corregir | - |
 | Hipoteca fecha/total | 🔧 Por corregir | - |
 | Editar monto inicial savings | ✅ Resuelto | Ver campo en modal presupuesto |
 | Reportes multi-moneda | ✅ Resuelto | Conversión automática implementada |
-| Categorías en recurrentes | ⚠️ Datos | `python init_db.py` |
+| Categorías en recurrentes | ✅ Resuelto | Mismo que selector de categorías |
 
 ---
 
