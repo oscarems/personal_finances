@@ -1,6 +1,9 @@
 # 🔄 Actualizar Base de Datos
 
-Si ves el error: `no such column: categories.initial_amount`
+Si ves alguno de estos errores:
+
+- `no such column: categories.initial_amount`
+- `no such column: recurring_transactions.transaction_type`
 
 ## Solución
 
@@ -10,7 +13,7 @@ Ejecuta este comando para migrar la base de datos:
 python migrate_db.py
 ```
 
-El script agregará la columna `initial_amount` a la tabla `categories` sin perder tus datos existentes.
+El script agregará las columnas faltantes a las tablas `categories`, `accounts` y `recurring_transactions` sin perder tus datos existentes.
 
 ## Alternativa: Reiniciar Base de Datos
 
