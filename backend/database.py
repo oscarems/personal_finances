@@ -40,7 +40,7 @@ def init_db():
     # Import all models here to ensure they're registered
     from backend.models import (
         Currency, Account, CategoryGroup, Category,
-        Payee, Transaction, BudgetMonth
+        Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate
     )
 
     Base.metadata.create_all(bind=engine)
