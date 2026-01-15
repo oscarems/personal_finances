@@ -74,16 +74,13 @@
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const [accountsRes, debtsRes, exchangeRes] = await Promise.all([
+            const [accountsRes, debtsRes] = await Promise.all([
                 fetch('/api/accounts/summary'),
-                fetch('/api/debts/summary'),
-                fetch('/api/exchange-rates/current')
+                fetch('/api/debts/summary')
             ]);
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
-            const exchangeData = await exchangeRes.json();
 
-            displayTotalAccountsSummary(accountsData, exchangeData);
             displaySummaryCards(accountsData, debtsData);
             displayDebtsSummary(debtsData);
 
@@ -100,42 +97,6 @@
         } catch (error) {
             console.error('Error loading dashboard:', error);
         }
-    }
-
-    function displayTotalAccountsSummary(accountsData, exchangeData) {
-        const container = document.getElementById('totalAccountsSummary');
-        const totals = accountsData.total_by_currency || {};
-        const rate = exchangeData.rate || 0;
-
-        let totalCOP = 0;
-        let totalUSD = 0;
-
-        for (const [currency, info] of Object.entries(totals)) {
-            const amount = info.total || 0;
-            if (currency === 'COP') {
-                totalCOP += amount;
-                if (rate) {
-                    totalUSD += amount / rate;
-                }
-            } else if (currency === 'USD') {
-                totalUSD += amount;
-                if (rate) {
-                    totalCOP += amount * rate;
-                }
-            }
-        }
-
-        container.innerHTML = `
-            <p class="text-sm text-gray-500">Total en Cuentas (todas las monedas)</p>
-            <div class="flex flex-wrap gap-6 mt-2">
-                <div>
-                    <p class="text-xl font-semibold text-gray-800">$${Math.abs(totalCOP).toLocaleString('es-CO', {minimumFractionDigits: 0})} COP</p>
-                </div>
-                <div>
-                    <p class="text-xl font-semibold text-gray-800">US$${Math.abs(totalUSD).toLocaleString('es-CO', {minimumFractionDigits: 2})} USD</p>
-                </div>
-            </div>
-        `;
     }
 
     function displaySummaryCards(data, debtsData) {
