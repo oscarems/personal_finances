@@ -9,7 +9,10 @@ from typing import Optional
 
 from backend.database import get_db
 from backend.services.budget_service import (
-    get_month_budget, assign_money_to_category, get_budget_overview
+    get_month_budget,
+    assign_money_to_category,
+    get_budget_overview,
+    get_assigned_totals_by_currency
 )
 from backend.models import BudgetMonth, Currency, Category
 
@@ -29,6 +32,21 @@ class BudgetAssignment(BaseModel):
 def current_budget(currency_code: str = 'COP', db: Session = Depends(get_db)):
     """Get current month budget"""
     return get_budget_overview(db, currency_code)
+
+
+@router.get("/assigned-totals")
+def assigned_totals(year: Optional[int] = None, month: Optional[int] = None, db: Session = Depends(get_db)):
+    """Get total assigned by currency for a month"""
+    if year and month:
+        month_date = date(year, month, 1)
+    else:
+        today = date.today()
+        month_date = date(today.year, today.month, 1)
+
+    return {
+        "month": month_date.isoformat(),
+        "totals": get_assigned_totals_by_currency(db, month_date)
+    }
 
 
 @router.get("/month/{year}/{month}")

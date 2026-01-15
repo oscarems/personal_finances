@@ -24,6 +24,7 @@ class RecurringTransactionCreate(BaseModel):
     category_id: Optional[int] = None
     description: str
     amount: float
+    transaction_type: str = 'expense'  # expense or income
     currency_id: int
     frequency: str  # daily, weekly, monthly, yearly
     interval: int = 1
@@ -39,6 +40,7 @@ class RecurringTransactionUpdate(BaseModel):
     category_id: Optional[int] = None
     description: Optional[str] = None
     amount: Optional[float] = None
+    transaction_type: Optional[str] = None
     frequency: Optional[str] = None
     interval: Optional[int] = None
     start_date: Optional[date] = None
@@ -95,6 +97,7 @@ def create_recurring_transaction(
         category_id=data.category_id,
         description=data.description,
         amount=data.amount,
+        transaction_type=data.transaction_type,
         currency_id=data.currency_id,
         frequency=data.frequency,
         interval=data.interval,
@@ -134,7 +137,7 @@ def update_recurring_transaction(
 
     # Update fields
     update_fields = {
-        'account_id', 'category_id', 'description', 'amount',
+        'account_id', 'category_id', 'description', 'amount', 'transaction_type',
         'frequency', 'interval', 'start_date', 'end_date',
         'day_of_week', 'day_of_month', 'is_active'
     }

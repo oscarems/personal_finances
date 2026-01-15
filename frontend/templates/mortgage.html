@@ -113,10 +113,16 @@
                 </div>
             </div>
 
-            <!-- Chart -->
-            <div class="bg-white rounded-lg shadow p-6 mb-6">
-                <h4 class="font-semibold mb-4">Distribución de Pagos</h4>
-                <canvas id="mortgageChart" height="80"></canvas>
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h4 class="font-semibold mb-4">Pagos: Capital vs Interés</h4>
+                    <canvas id="mortgagePaymentsChart" height="80"></canvas>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h4 class="font-semibold mb-4">Saldo Pendiente</h4>
+                    <canvas id="mortgageBalanceChart" height="80"></canvas>
+                </div>
             </div>
 
             <!-- Amortization Schedule -->
@@ -180,7 +186,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     let mortgageData = null;
-    let mortgageChart = null;
+    let paymentsChart = null;
+    let balanceChart = null;
 
     document.addEventListener('DOMContentLoaded', function() {
         // Set today as default start date
@@ -302,7 +309,8 @@
     }
 
     function updateChart() {
-        const ctx = document.getElementById('mortgageChart').getContext('2d');
+        const paymentsCtx = document.getElementById('mortgagePaymentsChart').getContext('2d');
+        const balanceCtx = document.getElementById('mortgageBalanceChart').getContext('2d');
 
         // Sample every Nth payment for readability (every year = 12 months)
         const sampleRate = Math.max(1, Math.floor(mortgageData.schedule.length / 24));
@@ -313,11 +321,14 @@
         const interestData = sampledData.map(row => row.interest);
         const balanceData = sampledData.map(row => row.balance);
 
-        if (mortgageChart) {
-            mortgageChart.destroy();
+        if (paymentsChart) {
+            paymentsChart.destroy();
+        }
+        if (balanceChart) {
+            balanceChart.destroy();
         }
 
-        mortgageChart = new Chart(ctx, {
+        paymentsChart = new Chart(paymentsCtx, {
             type: 'line',
             data: {
                 labels: labels,
@@ -335,15 +346,6 @@
                         borderColor: 'rgb(251, 146, 60)',
                         backgroundColor: 'rgba(251, 146, 60, 0.1)',
                         fill: true
-                    },
-                    {
-                        label: 'Saldo Pendiente',
-                        data: balanceData,
-                        borderColor: 'rgb(139, 92, 246)',
-                        backgroundColor: 'rgba(139, 92, 246, 0.05)',
-                        borderDash: [5, 5],
-                        fill: false,
-                        yAxisID: 'y1'
                     }
                 ]
             },
@@ -357,22 +359,42 @@
                     y: {
                         type: 'linear',
                         display: true,
-                        position: 'left',
                         title: {
                             display: true,
                             text: 'Pago Mensual (COP)'
                         }
-                    },
-                    y1: {
+                    }
+                }
+            }
+        });
+
+        balanceChart = new Chart(balanceCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Saldo Pendiente',
+                        data: balanceData,
+                        borderColor: 'rgb(139, 92, 246)',
+                        backgroundColor: 'rgba(139, 92, 246, 0.05)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
                         type: 'linear',
                         display: true,
-                        position: 'right',
                         title: {
                             display: true,
                             text: 'Saldo (COP)'
-                        },
-                        grid: {
-                            drawOnChartArea: false,
                         }
                     }
                 }

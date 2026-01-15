@@ -10,6 +10,35 @@ from backend.services.transaction_service import get_monthly_activity
 from backend.services.exchange_rate_service import get_current_exchange_rate, convert_currency
 
 
+def get_assigned_totals_by_currency(db: Session, month_date):
+    """
+    Obtiene el total asignado por moneda para un mes específico.
+
+    Solo incluye categorías de gasto (excluye grupos de ingreso) y suma el
+    valor asignado del mes, sin considerar acumulados previos.
+    """
+    totals = {}
+    budgets = db.query(BudgetMonth).options(
+        joinedload(BudgetMonth.category).joinedload(Category.category_group),
+        joinedload(BudgetMonth.currency)
+    ).filter_by(month=month_date).all()
+
+    for budget in budgets:
+        category = budget.category
+        if not category or not category.category_group:
+            continue
+        if category.category_group.is_income:
+            continue
+
+        currency_code = budget.currency.code if budget.currency else None
+        if not currency_code:
+            continue
+
+        totals[currency_code] = totals.get(currency_code, 0.0) + (budget.assigned or 0.0)
+
+    return totals
+
+
 def get_previous_budget(db: Session, category_id, month_date, currency_id):
     return db.query(BudgetMonth).filter(
         BudgetMonth.category_id == category_id,

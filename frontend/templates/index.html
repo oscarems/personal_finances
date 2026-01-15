@@ -74,14 +74,17 @@
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const [accountsRes, debtsRes] = await Promise.all([
+            const [accountsRes, debtsRes, assignedRes] = await Promise.all([
                 fetch('/api/accounts/summary'),
-                fetch('/api/debts/summary')
+                fetch('/api/debts/summary'),
+                fetch('/api/budgets/assigned-totals')
             ]);
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
+            const assignedData = await assignedRes.json();
 
             displaySummaryCards(accountsData, debtsData);
+            displayTotalAccountsSummary(accountsData, assignedData);
             displayDebtsSummary(debtsData);
 
             // Load recent transactions
@@ -117,6 +120,38 @@
         });
 
         return totals;
+    }
+
+    function displayTotalAccountsSummary(accountsData, assignedData) {
+        const container = document.getElementById('totalAccountsSummary');
+        const accountTotals = buildAccountTotals(accountsData.accounts || []);
+        const totalAccounts = Object.values(accountTotals).reduce((sum, info) => sum + (info.total || 0), 0);
+        const totalAssigned = Object.values(assignedData.totals || {}).reduce((sum, amount) => sum + (amount || 0), 0);
+        const netWorth = totalAccounts - totalAssigned;
+
+        const formatTotal = (value) => `$${Math.abs(value).toLocaleString('es-CO', {minimumFractionDigits: 0})}`;
+
+        container.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                    <p class="text-gray-500 text-sm">Total dinero en cuentas</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1">${formatTotal(totalAccounts)}</p>
+                    <p class="text-xs text-gray-400 mt-1">Todas las monedas</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                    <p class="text-gray-500 text-sm">Total asignado</p>
+                    <p class="text-2xl font-bold text-blue-600 mt-1">${formatTotal(totalAssigned)}</p>
+                    <p class="text-xs text-gray-400 mt-1">Todas las monedas</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                    <p class="text-gray-500 text-sm">Total disponible</p>
+                    <p class="text-2xl font-bold ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">
+                        ${formatTotal(netWorth)}
+                    </p>
+                    <p class="text-xs text-gray-400 mt-1">Todas las monedas</p>
+                </div>
+            </div>
+        `;
     }
 
     function displaySummaryCards(data, debtsData) {
