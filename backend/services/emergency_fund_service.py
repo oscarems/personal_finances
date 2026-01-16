@@ -64,11 +64,14 @@ def get_essential_expenses(db: Session, month_date: date, target_currency_id: in
         for budget in budgets:
             if budget.assigned and budget.assigned > 0:
                 # Convertir a moneda objetivo
+                budget_currency_code = budget.currency.code if budget.currency else 'COP'
+                target_currency_code = target_currency.code if target_currency else 'COP'
+
                 converted = convert_currency(
-                    db,
                     budget.assigned,
-                    budget.currency_id,
-                    target_currency_id,
+                    budget_currency_code,
+                    target_currency_code,
+                    db,
                     month_date
                 )
                 category_total += converted
@@ -78,7 +81,7 @@ def get_essential_expenses(db: Session, month_date: date, target_currency_id: in
                     'name': category.name,
                     'assigned': budget.assigned,
                     'assigned_converted': converted,
-                    'currency_code': budget.currency.code if budget.currency else 'COP'
+                    'currency_code': budget_currency_code
                 })
 
         total += category_total
@@ -163,11 +166,14 @@ def get_emergency_funds(db: Session, target_currency_id: int = 1):
         for currency_id, data in currency_balances.items():
             balance = data['balance']
             if balance > 0:
+                source_currency_code = data['currency'].code if data['currency'] else 'COP'
+                target_currency_code = target_currency.code if target_currency else 'COP'
+
                 converted = convert_currency(
-                    db,
                     balance,
-                    currency_id,
-                    target_currency_id,
+                    source_currency_code,
+                    target_currency_code,
+                    db,
                     today
                 )
                 total += converted
@@ -177,7 +183,7 @@ def get_emergency_funds(db: Session, target_currency_id: int = 1):
                     'name': category.name,
                     'balance': balance,
                     'balance_converted': converted,
-                    'currency_code': data['currency'].code if data['currency'] else 'COP'
+                    'currency_code': source_currency_code
                 })
 
     return {
