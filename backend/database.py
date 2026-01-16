@@ -60,6 +60,11 @@ def init_db():
         column_name="is_emergency_fund",
         column_definition="is_emergency_fund BOOLEAN DEFAULT 0"
     )
+    ensure_sqlite_column(
+        table_name="transactions",
+        column_name="is_adjustment",
+        column_definition="is_adjustment BOOLEAN DEFAULT 0"
+    )
     print("✓ Database tables created")
 
 
