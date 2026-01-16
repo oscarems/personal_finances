@@ -46,6 +46,7 @@ class TransactionUpdate(BaseModel):
     category_id: Optional[int] = None
     memo: Optional[str] = None
     amount: Optional[float] = None
+    currency_id: Optional[int] = None
     cleared: Optional[bool] = None
 
 
