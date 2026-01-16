@@ -47,6 +47,31 @@ def get_previous_budget(db: Session, category_id, month_date, currency_id):
     ).order_by(BudgetMonth.month.desc()).first()
 
 
+def has_any_previous_budget(db: Session, category_id, currency_id, exclude_month=None):
+    """
+    Verifica si existe ALGÚN presupuesto previo para esta categoría en esta moneda.
+
+    Esta función es importante para evitar usar el initial_amount múltiples veces.
+    Solo debemos usar initial_amount si esta es verdaderamente la PRIMERA VEZ
+    que se presupuesta para esta categoría en esta moneda.
+
+    Args:
+        exclude_month: Mes a excluir de la búsqueda (para evitar contar el mes actual)
+
+    Returns:
+        bool: True si existe al menos un budget previo, False si es la primera vez
+    """
+    query = db.query(BudgetMonth).filter(
+        BudgetMonth.category_id == category_id,
+        BudgetMonth.currency_id == currency_id
+    )
+
+    if exclude_month:
+        query = query.filter(BudgetMonth.month != exclude_month)
+
+    return query.first() is not None
+
+
 def get_or_create_budget_month(db: Session, category_id, month_date, currency_id):
     """
     Obtiene o crea una entrada de presupuesto para un mes y categoría específicos.
@@ -185,23 +210,38 @@ def calculate_available(db: Session, budget_month):
             # Use previous month's available amount (rollover from last month)
             initial_available = prev_budget.available
         else:
-            # First month: use initial_amount from category
-            initial_amount = category.initial_amount or 0.0
-            if initial_amount > 0:
-                budget_currency = db.query(Currency).get(budget_month.currency_id)
-                initial_currency = None
-                if category.initial_currency_id:
-                    initial_currency = db.query(Currency).get(category.initial_currency_id)
+            # No previous month budget found
+            # Only use initial_amount if this is truly the FIRST budget ever for this category
+            # This prevents the initial_amount from being counted multiple times
+            has_any_budget = has_any_previous_budget(
+                db,
+                budget_month.category_id,
+                budget_month.currency_id,
+                exclude_month=budget_month.month
+            )
 
-                if initial_currency and budget_currency:
-                    initial_available = convert_currency(
-                        initial_amount,
-                        initial_currency.code,
-                        budget_currency.code,
-                        db
-                    )
-                else:
-                    initial_available = initial_amount
+            if not has_any_budget:
+                # Truly first budget for this category in this currency: use initial_amount
+                initial_amount = category.initial_amount or 0.0
+                if initial_amount > 0:
+                    budget_currency = db.query(Currency).get(budget_month.currency_id)
+                    initial_currency = None
+                    if category.initial_currency_id:
+                        initial_currency = db.query(Currency).get(category.initial_currency_id)
+
+                    if initial_currency and budget_currency:
+                        initial_available = convert_currency(
+                            initial_amount,
+                            initial_currency.code,
+                            budget_currency.code,
+                            db
+                        )
+                    else:
+                        initial_available = initial_amount
+            else:
+                # There are budgets in the past, but not in the previous month
+                # This means months were skipped, so we don't carry over money (money not budgeted)
+                initial_available = 0.0
 
     # Available = assigned - activity (negative for expenses) + initial amount (if accumulate)
     # activity is negative for expenses, so we add it
