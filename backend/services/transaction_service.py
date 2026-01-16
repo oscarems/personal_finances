@@ -80,7 +80,7 @@ def get_transactions(db: Session, account_id=None, category_id=None, start_date=
 
     query = query.order_by(Transaction.date.desc(), Transaction.id.desc())
 
-    if limit:
+    if limit is not None and limit > 0:
         query = query.limit(limit)
 
     return query.all()
