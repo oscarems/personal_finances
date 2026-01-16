@@ -183,7 +183,7 @@
                         class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
                     Cancelar
                 </button>
-                <button type="submit"
+                <button type="submit" id="submitTransactionBtn"
                         class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Guardar
                 </button>
@@ -258,7 +258,7 @@
                         class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
                     Cancelar
                 </button>
-                <button type="submit"
+                <button type="submit" id="submitTransferBtn"
                         class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
                     Crear Transferencia
                 </button>
@@ -485,6 +485,13 @@
     document.getElementById('transactionForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
+        const submitBtn = document.getElementById('submitTransactionBtn');
+        const originalText = submitBtn.textContent;
+
+        // Deshabilitar botón para prevenir doble clic
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando...';
+
         const data = {
             account_id: parseInt(document.getElementById('txAccount').value),
             date: document.getElementById('txDate').value,
@@ -524,6 +531,10 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error al guardar la transacción');
+        } finally {
+            // Rehabilitar botón
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
         }
     });
 
@@ -583,6 +594,9 @@
     document.getElementById('transferForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
+        const submitBtn = document.getElementById('submitTransferBtn');
+        const originalText = submitBtn.textContent;
+
         const fromAccountId = parseInt(document.getElementById('transferFromAccount').value);
         const toAccountId = parseInt(document.getElementById('transferToAccount').value);
 
@@ -590,6 +604,10 @@
             alert('No puedes transferir a la misma cuenta');
             return;
         }
+
+        // Deshabilitar botón para prevenir doble clic
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creando...';
 
         const data = {
             from_account_id: fromAccountId,
@@ -620,6 +638,10 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error al crear la transferencia');
+        } finally {
+            // Rehabilitar botón
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
         }
     });
 
