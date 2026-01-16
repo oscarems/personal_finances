@@ -194,7 +194,7 @@ Al ver en COP verás: **$800,000 COP** (suma convertida)
 1. Ve a **"Transacciones"**
 2. Click **"+ Nueva Transacción"**
 3. Completa:
-   - **Fecha**: Fecha de la transacción
+   - **Fecha**: Fecha de la transacción (si es anterior a la fecha de creación de la cuenta, no afecta el saldo actual)
    - **Cuenta**: De qué cuenta sale/entra
    - **Beneficiario**: Ej. "Éxito", "Mi Empleador"
    - **Categoría**: A qué categoría pertenece
@@ -252,7 +252,7 @@ Cuando mueves dinero **entre tus propias cuentas**:
 1. Ve a **"Transacciones"**
 2. Click **"⇄ Nueva Transferencia"**
 3. Completa:
-   - **Fecha**: Fecha de la transferencia
+   - **Fecha**: Fecha de la transferencia (si es anterior a la fecha de creación de una cuenta, no afecta su saldo actual)
    - **Desde**: Cuenta origen (fondo rojo)
    - **Moneda origen**: COP o USD
    - **Hacia**: Cuenta destino (fondo verde)
