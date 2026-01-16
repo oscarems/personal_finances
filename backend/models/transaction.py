@@ -17,6 +17,7 @@ class Transaction(Base):
     cleared = Column(Boolean, default=False)  # Reconciliation
     approved = Column(Boolean, default=True)
     transfer_account_id = Column(Integer, ForeignKey('accounts.id'))  # If transfer
+    is_adjustment = Column(Boolean, default=False)  # Balance adjustment transaction
     import_id = Column(String(100))  # YNAB import ID to avoid duplicates
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -46,6 +47,7 @@ class Transaction(Base):
             'cleared': self.cleared,
             'approved': self.approved,
             'transfer_account_id': self.transfer_account_id,
+            'is_adjustment': self.is_adjustment,
             'import_id': self.import_id,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
