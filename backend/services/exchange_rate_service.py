@@ -11,6 +11,15 @@ from typing import Optional
 from backend.models import ExchangeRate
 from config import EXCHANGE_RATE_API
 
+MIN_USD_COP_RATE = 100.0
+MAX_USD_COP_RATE = 100000.0
+
+
+def is_rate_plausible(rate: Optional[float]) -> bool:
+    if rate is None:
+        return False
+    return MIN_USD_COP_RATE <= rate <= MAX_USD_COP_RATE
+
 
 def fetch_rate_from_api(api_url: str, timeout: int = 5) -> Optional[float]:
     """
@@ -70,8 +79,10 @@ def get_average_recent_rates(db: Session, days: int = 5) -> Optional[float]:
         ExchangeRate.to_currency == 'COP'
     ).order_by(desc(ExchangeRate.date)).limit(days).all()
 
-    if recent_rates:
-        avg = sum(r.rate for r in recent_rates) / len(recent_rates)
+    valid_rates = [r.rate for r in recent_rates if is_rate_plausible(r.rate)]
+
+    if valid_rates:
+        avg = sum(valid_rates) / len(valid_rates)
         print(f"📊 Using average of last {len(recent_rates)} rates: {avg:.2f}")
         return avg
 
@@ -162,15 +173,17 @@ def get_current_exchange_rate(db: Session, force_fetch: bool = False) -> float:
             ExchangeRate.to_currency == 'COP'
         ).first()
 
-        if existing_rate:
+        if existing_rate and is_rate_plausible(existing_rate.rate):
             print(f"✓ Using today's rate from database: {existing_rate.rate}")
             return existing_rate.rate
+        elif existing_rate:
+            print(f"⚠️  Ignoring implausible rate stored for today: {existing_rate.rate}")
 
     # 2. Intentar API primaria
     print(f"🔄 Fetching rate from primary API...")
     for attempt in range(config['retries']):
         rate = fetch_rate_from_api(config['primary'], config['timeout'])
-        if rate:
+        if rate and is_rate_plausible(rate):
             # Guardar en base de datos
             exchange_rate = ExchangeRate(
                 from_currency='USD',
@@ -183,13 +196,15 @@ def get_current_exchange_rate(db: Session, force_fetch: bool = False) -> float:
             db.commit()
             print(f"✓ Got rate from primary API: {rate}")
             return rate
+        if rate:
+            print(f"⚠️  Ignoring implausible rate from primary API: {rate}")
         print(f"  Attempt {attempt + 1} failed")
 
     # 3. Intentar API de respaldo
     print(f"🔄 Fetching rate from fallback API...")
     for attempt in range(config['retries']):
         rate = fetch_rate_from_api(config['fallback'], config['timeout'])
-        if rate:
+        if rate and is_rate_plausible(rate):
             exchange_rate = ExchangeRate(
                 from_currency='USD',
                 to_currency='COP',
@@ -201,12 +216,14 @@ def get_current_exchange_rate(db: Session, force_fetch: bool = False) -> float:
             db.commit()
             print(f"✓ Got rate from fallback API: {rate}")
             return rate
+        if rate:
+            print(f"⚠️  Ignoring implausible rate from fallback API: {rate}")
         print(f"  Attempt {attempt + 1} failed")
 
     # 4. Usar promedio de últimos días
     print(f"⚠️  All APIs failed. Trying average of recent rates...")
     avg_rate = get_average_recent_rates(db, config['fallback_average_days'])
-    if avg_rate:
+    if avg_rate and is_rate_plausible(avg_rate):
         # Guardar el promedio como tasa del día
         exchange_rate = ExchangeRate(
             from_currency='USD',
@@ -245,8 +262,10 @@ def get_rate_for_date(db: Session, target_date: date) -> float:
         ExchangeRate.to_currency == 'COP'
     ).first()
 
-    if rate:
+    if rate and is_rate_plausible(rate.rate):
         return rate.rate
+    elif rate:
+        print(f"⚠️  Ignoring implausible historical rate for {target_date}: {rate.rate}")
 
     # Buscar la tasa más cercana anterior
     rate = db.query(ExchangeRate).filter(
@@ -255,8 +274,10 @@ def get_rate_for_date(db: Session, target_date: date) -> float:
         ExchangeRate.to_currency == 'COP'
     ).order_by(desc(ExchangeRate.date)).first()
 
-    if rate:
+    if rate and is_rate_plausible(rate.rate):
         return rate.rate
+    elif rate:
+        print(f"⚠️  Ignoring implausible historical rate before {target_date}: {rate.rate}")
 
     # Si no hay ninguna tasa histórica, obtener la actual
     return get_current_exchange_rate(db)
