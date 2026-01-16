@@ -163,6 +163,83 @@ def delete_transaction(db: Session, transaction_id):
     return True
 
 
+def create_adjustment(db: Session, data):
+    """
+    Create a balance adjustment transaction to reconcile account balance with real bank balance.
+
+    When your bank balance differs from the app balance, use this to create an adjustment
+    transaction that brings them into sync.
+
+    Args:
+        db (Session): Database session
+        data (dict): Adjustment data with keys:
+            - account_id (int): ID of the account to adjust
+            - date (date): Date of the adjustment
+            - actual_balance (float): Real balance from your bank
+            - memo (str, optional): Note explaining the adjustment
+
+    Returns:
+        Transaction: The adjustment transaction created
+
+    Example:
+        >>> # App shows 1,000,000 but bank shows 1,050,000
+        >>> data = {
+        ...     'account_id': 1,
+        ...     'date': date(2026, 1, 16),
+        ...     'actual_balance': 1050000,
+        ...     'memo': 'Reconciliation adjustment - missing income'
+        ... }
+        >>> adjustment = create_adjustment(db, data)
+        >>> print(adjustment.amount)  # 50000 (difference)
+    """
+    # Get the account
+    account = db.query(Account).get(data['account_id'])
+    if not account:
+        raise ValueError("Invalid account ID")
+
+    # Calculate the difference between app balance and real balance
+    difference = data['actual_balance'] - account.balance
+
+    # If no difference, no adjustment needed
+    if difference == 0:
+        raise ValueError("No adjustment needed - balances match")
+
+    # Create or get the "Balance Adjustment" payee
+    adjustment_payee_name = "Balance Adjustment"
+    payee = db.query(Payee).filter_by(name=adjustment_payee_name).first()
+    if not payee:
+        payee = Payee(name=adjustment_payee_name)
+        db.add(payee)
+        db.flush()
+
+    adjustment_date = data.get('date', date.today())
+
+    # Create the adjustment transaction
+    adjustment = Transaction(
+        account_id=data['account_id'],
+        date=adjustment_date,
+        payee_id=payee.id,
+        category_id=None,  # Adjustments don't have categories
+        memo=data.get('memo', f'Balance adjustment: {difference:+.2f}'),
+        amount=difference,
+        currency_id=account.currency_id,
+        cleared=True,  # Adjustments are always cleared
+        approved=True,
+        is_adjustment=True
+    )
+
+    db.add(adjustment)
+
+    # Update account balance
+    if transaction_affects_balance(account, adjustment_date):
+        account.balance += difference
+
+    db.commit()
+    db.refresh(adjustment)
+
+    return adjustment
+
+
 def create_transfer(db: Session, data):
     """
     Crea una transferencia entre dos cuentas propias.

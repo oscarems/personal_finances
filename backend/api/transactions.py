@@ -10,7 +10,7 @@ from datetime import date
 from backend.database import get_db
 from backend.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
-    update_transaction, delete_transaction, create_transfer
+    update_transaction, delete_transaction, create_transfer, create_adjustment
 )
 
 router = APIRouter()
@@ -39,6 +39,13 @@ class TransferCreate(BaseModel):
     cleared: bool = False
 
 
+class AdjustmentCreate(BaseModel):
+    account_id: int
+    date: date
+    actual_balance: float  # Real balance from bank
+    memo: Optional[str] = None
+
+
 class TransactionUpdate(BaseModel):
     account_id: Optional[int] = None
     date: Optional[date] = None
@@ -46,6 +53,7 @@ class TransactionUpdate(BaseModel):
     category_id: Optional[int] = None
     memo: Optional[str] = None
     amount: Optional[float] = None
+    currency_id: Optional[int] = None
     cleared: Optional[bool] = None
 
 
@@ -120,3 +128,28 @@ def create_account_transfer(transfer: TransferCreate, db: Session = Depends(get_
         "from_transaction": transactions[0].to_dict(),
         "to_transaction": transactions[1].to_dict()
     }
+
+
+@router.post("/adjustment")
+def create_balance_adjustment(adjustment: AdjustmentCreate, db: Session = Depends(get_db)):
+    """
+    Create a balance adjustment transaction to reconcile app balance with real bank balance.
+
+    Use this when your bank account balance differs from the balance shown in the app.
+    This will create an adjustment transaction that brings the app balance in sync with
+    your real bank balance.
+
+    Example:
+    - App shows: 1,000,000
+    - Bank shows: 1,050,000
+    - This creates a +50,000 adjustment transaction
+    """
+    try:
+        adjustment_transaction = create_adjustment(db, adjustment.dict())
+        return {
+            "success": True,
+            "adjustment": adjustment_transaction.to_dict(),
+            "message": f"Balance adjusted by {adjustment_transaction.amount:+.2f}"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
