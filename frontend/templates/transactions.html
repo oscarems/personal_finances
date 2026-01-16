@@ -92,6 +92,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipo</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -116,7 +117,7 @@
         <h3 id="modalTitle" class="text-xl font-bold mb-6">Nueva Transacción</h3>
 
         <form id="transactionForm" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
                     <input type="date" id="txDate" required
@@ -145,13 +146,21 @@
                 </select>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                    <select id="txType" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="expense">Gasto</option>
+                        <option value="income">Ingreso</option>
+                    </select>
+                </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Monto</label>
                     <input type="number" id="txAmount" step="0.01" required
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                           placeholder="Positivo = ingreso, Negativo = gasto">
-                    <p class="text-xs text-gray-500 mt-1">Positivo para ingresos, negativo para gastos</p>
+                           placeholder="Monto sin signo">
+                    <p class="text-xs text-gray-500 mt-1">El sistema aplicará el signo según el tipo.</p>
                 </div>
 
                 <div>
@@ -392,9 +401,13 @@
         emptyState.classList.add('hidden');
 
         table.innerHTML = transactions.map(tx => {
-            const isInflow = tx.amount > 0;
+            const isInflow = tx.amount >= 0;
             const amountClass = isInflow ? 'text-green-600' : 'text-red-600';
             const amountPrefix = isInflow ? '+' : '';
+            const typeLabel = isInflow ? 'Ingreso' : 'Gasto';
+            const typeBadgeClass = isInflow
+                ? 'bg-green-100 text-green-700'
+                : 'bg-red-100 text-red-700';
 
             return `
                 <tr class="hover:bg-gray-50">
@@ -412,6 +425,11 @@
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                         ${tx.memo || ''}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-xs">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full font-semibold ${typeBadgeClass}">
+                            ${typeLabel}
+                        </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${amountClass}">
                         ${amountPrefix}${tx.currency.symbol}${Math.abs(tx.amount).toLocaleString('es-CO', {
@@ -447,6 +465,7 @@
         document.getElementById('modalTitle').textContent = 'Nueva Transacción';
         document.getElementById('transactionForm').reset();
         setDefaultDate();
+        document.getElementById('txType').value = 'expense';
         document.getElementById('transactionModal').classList.remove('hidden');
     }
 
@@ -465,7 +484,8 @@
         document.getElementById('txAccount').value = transaction.account_id;
         document.getElementById('txPayee').value = transaction.payee_name || '';
         document.getElementById('txCategory').value = transaction.category_id || '';
-        document.getElementById('txAmount').value = transaction.amount;
+        document.getElementById('txType').value = transaction.amount >= 0 ? 'income' : 'expense';
+        document.getElementById('txAmount').value = Math.abs(transaction.amount);
         document.getElementById('txCurrency').value = transaction.currency.id;
         document.getElementById('txMemo').value = transaction.memo || '';
         document.getElementById('txCleared').checked = transaction.cleared;
@@ -492,12 +512,16 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'Guardando...';
 
+        const txType = document.getElementById('txType').value;
+        const rawAmount = parseFloat(document.getElementById('txAmount').value);
+        const signedAmount = txType === 'income' ? Math.abs(rawAmount) : -Math.abs(rawAmount);
+
         const data = {
             account_id: parseInt(document.getElementById('txAccount').value),
             date: document.getElementById('txDate').value,
             payee_name: document.getElementById('txPayee').value || null,
             category_id: parseInt(document.getElementById('txCategory').value) || null,
-            amount: parseFloat(document.getElementById('txAmount').value),
+            amount: signedAmount,
             currency_id: parseInt(document.getElementById('txCurrency').value),
             memo: document.getElementById('txMemo').value || null,
             cleared: document.getElementById('txCleared').checked
