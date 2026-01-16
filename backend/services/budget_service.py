@@ -16,6 +16,11 @@ def get_assigned_totals_by_currency(db: Session, month_date):
 
     Solo incluye categorías de gasto (excluye grupos de ingreso) y suma el
     valor asignado del mes, sin considerar acumulados previos.
+
+    Returns:
+        dict: Dictionary with currency codes as keys and dicts containing
+              'total' and 'symbol' as values, e.g.:
+              {"COP": {"total": 5000000, "symbol": "$"}, "USD": {"total": 100, "symbol": "US$"}}
     """
     totals = {}
     budgets = db.query(BudgetMonth).options(
@@ -30,11 +35,17 @@ def get_assigned_totals_by_currency(db: Session, month_date):
         if category.category_group.is_income:
             continue
 
-        currency_code = budget.currency.code if budget.currency else None
-        if not currency_code:
+        currency = budget.currency
+        if not currency or not currency.code:
             continue
 
-        totals[currency_code] = totals.get(currency_code, 0.0) + (budget.assigned or 0.0)
+        currency_code = currency.code
+        currency_symbol = currency.symbol if hasattr(currency, 'symbol') and currency.symbol else ('US$' if currency_code == 'USD' else '$')
+
+        if currency_code not in totals:
+            totals[currency_code] = {"total": 0.0, "symbol": currency_symbol}
+
+        totals[currency_code]["total"] += (budget.assigned or 0.0)
 
     return totals
 

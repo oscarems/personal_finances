@@ -141,10 +141,16 @@
         return totals;
     }
 
-    function getCurrencySymbol(currencyCode, accountTotals) {
+    function getCurrencySymbol(currencyCode, accountTotals, assignedTotals) {
+        // Try to get symbol from accountTotals first
         if (accountTotals && accountTotals[currencyCode] && accountTotals[currencyCode].symbol) {
             return accountTotals[currencyCode].symbol;
         }
+        // Try to get symbol from assignedTotals as fallback
+        if (assignedTotals && assignedTotals[currencyCode] && assignedTotals[currencyCode].symbol) {
+            return assignedTotals[currencyCode].symbol;
+        }
+        // Default to standard symbols
         return currencyCode === 'USD' ? 'US$' : '$';
     }
 
@@ -226,7 +232,7 @@
             const currencyList = availableCurrencies.length ? availableCurrencies : ['COP'];
             const accountRows = currencyList.map(code => {
                 const amount = accountTotals[code]?.total || 0;
-                const symbol = getCurrencySymbol(code, accountTotals);
+                const symbol = getCurrencySymbol(code, accountTotals, assignedTotals);
                 return `<div class="flex justify-between text-sm text-gray-600">
                         <span>${code}</span>
                         <span class="font-medium text-gray-900">${formatCurrency(amount, code, symbol)}</span>
@@ -234,8 +240,9 @@
             }).join('');
 
             const assignedRows = currencyList.map(code => {
-                const amount = assignedTotals[code] || 0;
-                const symbol = getCurrencySymbol(code, accountTotals);
+                const assignedData = assignedTotals[code];
+                const amount = typeof assignedData === 'number' ? assignedData : (assignedData?.total || 0);
+                const symbol = getCurrencySymbol(code, accountTotals, assignedTotals);
                 return `<div class="flex justify-between text-sm text-gray-600">
                         <span>${code}</span>
                         <span class="font-medium text-gray-900">${formatCurrency(amount, code, symbol)}</span>
@@ -243,8 +250,10 @@
             }).join('');
 
             const netWorthRows = currencyList.map(code => {
-                const amount = (accountTotals[code]?.total || 0) - (assignedTotals[code] || 0);
-                const symbol = getCurrencySymbol(code, accountTotals);
+                const assignedData = assignedTotals[code];
+                const assignedAmount = typeof assignedData === 'number' ? assignedData : (assignedData?.total || 0);
+                const amount = (accountTotals[code]?.total || 0) - assignedAmount;
+                const symbol = getCurrencySymbol(code, accountTotals, assignedTotals);
                 const colorClass = amount >= 0 ? 'text-green-600' : 'text-red-600';
                 return `<div class="flex justify-between text-sm text-gray-600">
                         <span>${code}</span>
@@ -289,7 +298,7 @@
             netWorth = totalAccounts - totalAssigned;
             missingRate = convertedAccounts.missing || convertedAssigned.missing;
 
-            const symbol = getCurrencySymbol(selectedCurrency, accountTotals);
+            const symbol = getCurrencySymbol(selectedCurrency, accountTotals, assignedTotals);
             const totalAccountsFormatted = formatCurrency(totalAccounts, selectedCurrency, symbol);
             const totalAssignedFormatted = formatCurrency(totalAssigned, selectedCurrency, symbol);
             const netWorthFormatted = formatCurrency(netWorth, selectedCurrency, symbol);
