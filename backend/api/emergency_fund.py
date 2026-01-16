@@ -170,3 +170,67 @@ def update_category_flags(
         'is_emergency_fund': category.is_emergency_fund,
         'message': 'Category updated successfully'
     }
+
+
+@router.get("/debug")
+def debug_emergency_fund(db: Session = Depends(get_db)):
+    """
+    Endpoint de debug para diagnosticar problemas con el cálculo.
+
+    Returns información detallada sobre:
+    - Categorías marcadas como esenciales
+    - Categorías marcadas como fondos de emergencia
+    - Presupuestos disponibles para cada una
+    """
+    from backend.models import BudgetMonth
+
+    # Categorías esenciales
+    essential_cats = db.query(Category).filter(Category.is_essential == True).all()
+    essential_data = []
+    for cat in essential_cats:
+        budgets = db.query(BudgetMonth).filter(
+            BudgetMonth.category_id == cat.id
+        ).order_by(BudgetMonth.month.desc()).limit(3).all()
+
+        essential_data.append({
+            'id': cat.id,
+            'name': cat.name,
+            'is_essential': cat.is_essential,
+            'recent_budgets': [
+                {
+                    'month': str(b.month),
+                    'assigned': b.assigned,
+                    'currency_id': b.currency_id
+                } for b in budgets
+            ]
+        })
+
+    # Categorías fondos de emergencia
+    emergency_cats = db.query(Category).filter(Category.is_emergency_fund == True).all()
+    emergency_data = []
+    for cat in emergency_cats:
+        budgets = db.query(BudgetMonth).filter(
+            BudgetMonth.category_id == cat.id
+        ).order_by(BudgetMonth.month.desc()).limit(3).all()
+
+        emergency_data.append({
+            'id': cat.id,
+            'name': cat.name,
+            'is_emergency_fund': cat.is_emergency_fund,
+            'rollover_type': cat.rollover_type,
+            'recent_budgets': [
+                {
+                    'month': str(b.month),
+                    'available': b.available,
+                    'assigned': b.assigned,
+                    'currency_id': b.currency_id
+                } for b in budgets
+            ]
+        })
+
+    return {
+        'essential_categories': essential_data,
+        'emergency_fund_categories': emergency_data,
+        'total_essential_marked': len(essential_cats),
+        'total_emergency_marked': len(emergency_cats)
+    }

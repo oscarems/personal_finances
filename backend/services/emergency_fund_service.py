@@ -13,6 +13,9 @@ def get_essential_expenses(db: Session, month_date: date, target_currency_id: in
     """
     Calcula el total de gastos esenciales mensuales para un mes dado.
 
+    Si no hay presupuesto para el mes especificado, busca el mes más reciente
+    con presupuesto asignado para obtener un estimado.
+
     Args:
         db: Sesión de base de datos
         month_date: Mes a calcular (primer día del mes)
@@ -51,13 +54,22 @@ def get_essential_expenses(db: Session, month_date: date, target_currency_id: in
     categories_data = []
 
     for category in essential_categories:
-        # Obtener todos los presupuestos de esta categoría para el mes dado
+        # Primero intentar obtener presupuesto del mes solicitado
         budgets = db.query(BudgetMonth).options(
             joinedload(BudgetMonth.currency)
         ).filter(
             BudgetMonth.category_id == category.id,
             BudgetMonth.month == month_date
         ).all()
+
+        # Si no hay presupuesto para el mes actual, buscar el mes más reciente
+        if not budgets or all(not b.assigned or b.assigned <= 0 for b in budgets):
+            budgets = db.query(BudgetMonth).options(
+                joinedload(BudgetMonth.currency)
+            ).filter(
+                BudgetMonth.category_id == category.id,
+                BudgetMonth.assigned > 0
+            ).order_by(BudgetMonth.month.desc()).limit(10).all()
 
         category_total = 0.0
 
@@ -83,6 +95,8 @@ def get_essential_expenses(db: Session, month_date: date, target_currency_id: in
                     'assigned_converted': converted,
                     'currency_code': budget_currency_code
                 })
+                # Solo tomar el primer presupuesto encontrado (el más reciente)
+                break
 
         total += category_total
 
