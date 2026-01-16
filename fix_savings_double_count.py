@@ -2,8 +2,19 @@
 """
 Script para corregir el problema de doble conteo en categorías de savings (accumulate).
 
-Este script recalcula todos los presupuestos de categorías tipo 'accumulate' usando
-la lógica corregida para evitar que el initial_amount se cuente múltiples veces.
+PROBLEMA CORREGIDO:
+Cuando una categoría de savings tiene presupuestos en múltiples monedas (COP y USD),
+el initial_amount se estaba aplicando a CADA moneda, causando duplicación.
+
+Ejemplo del bug:
+- Categoría "Ahorros" con initial_amount = $1,000,000 COP
+- Presupuesto enero COP: available incluía $1,000,000
+- Presupuesto enero USD: available incluía $1,000,000 convertido ($250 USD)
+- Total contado: $2,000,000 COP (¡duplicado!)
+
+SOLUCIÓN:
+Ahora el initial_amount solo se aplica al presupuesto de la moneda original
+(initial_currency_id). Este script recalcula todos los presupuestos existentes.
 """
 
 from datetime import date

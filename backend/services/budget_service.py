@@ -212,7 +212,8 @@ def calculate_available(db: Session, budget_month):
         else:
             # No previous month budget found
             # Only use initial_amount if this is truly the FIRST budget ever for this category
-            # This prevents the initial_amount from being counted multiple times
+            # AND if the budget currency matches the initial_amount currency
+            # This prevents the initial_amount from being counted multiple times across different currencies
             has_any_budget = has_any_previous_budget(
                 db,
                 budget_month.category_id,
@@ -221,23 +222,32 @@ def calculate_available(db: Session, budget_month):
             )
 
             if not has_any_budget:
-                # Truly first budget for this category in this currency: use initial_amount
+                # Truly first budget for this category in this currency
                 initial_amount = category.initial_amount or 0.0
+
+                # CRITICAL FIX: Only apply initial_amount if budget currency matches initial currency
+                # This prevents double-counting when you have budgets in multiple currencies
                 if initial_amount > 0:
                     budget_currency = db.query(Currency).get(budget_month.currency_id)
                     initial_currency = None
                     if category.initial_currency_id:
                         initial_currency = db.query(Currency).get(category.initial_currency_id)
 
-                    if initial_currency and budget_currency:
-                        initial_available = convert_currency(
-                            initial_amount,
-                            initial_currency.code,
-                            budget_currency.code,
-                            db
-                        )
+                    # Only apply initial_amount if currencies match (or no initial_currency set)
+                    if not initial_currency or (budget_currency and initial_currency and budget_currency.id == initial_currency.id):
+                        if initial_currency and budget_currency:
+                            initial_available = convert_currency(
+                                initial_amount,
+                                initial_currency.code,
+                                budget_currency.code,
+                                db
+                            )
+                        else:
+                            initial_available = initial_amount
                     else:
-                        initial_available = initial_amount
+                        # Budget currency doesn't match initial currency: don't apply initial_amount
+                        # This prevents the same initial_amount from being applied to multiple currencies
+                        initial_available = 0.0
             else:
                 # There are budgets in the past, but not in the previous month
                 # This means months were skipped, so we don't carry over money (money not budgeted)
