@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Fondo de Emergencia - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800">🆘 Fondo de Emergencia</h2>
+        <p class="text-gray-600 mt-2">Calcula cuántos meses puedes sobrevivir con tus gastos esenciales</p>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div id="summaryCards" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Cards will be loaded here -->
+</div>
+
+<!-- Coverage Status -->
+<div id="coverageStatus" class="bg-white rounded-lg shadow p-6 mb-8">
+    <!-- Status will be loaded here -->
+</div>
+
+<!-- Configuration Sections -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Essential Expenses Section -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">💰 Gastos Esenciales</h3>
+            <p class="text-sm text-gray-600 mt-1">Marca las categorías de gastos fundamentales que necesitas cubrir en una emergencia</p>
+        </div>
+        <div id="essentialCategories" class="p-6 space-y-3 max-h-96 overflow-y-auto">
+            <!-- Categories will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Emergency Funds Section -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">🏦 Fondos de Emergencia</h3>
+            <p class="text-sm text-gray-600 mt-1">Marca las categorías de ahorros destinadas a emergencias</p>
+        </div>
+        <div id="emergencyFundCategories" class="p-6 space-y-3 max-h-96 overflow-y-auto">
+            <!-- Categories will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<style>
+    .status-excellent { background-color: #10b981; }
+    .status-good { background-color: #3b82f6; }
+    .status-fair { background-color: #f59e0b; }
+    .status-poor { background-color: #ef4444; }
+    .status-critical { background-color: #dc2626; }
+
+    .category-checkbox {
+        cursor: pointer;
+        padding: 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+
+    .category-checkbox:hover {
+        border-color: #3b82f6;
+        background-color: #f9fafb;
+    }
+
+    .category-checkbox.selected {
+        border-color: #3b82f6;
+        background-color: #eff6ff;
+    }
+
+    .category-checkbox input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allCategories = [];
+    let currentCoverageData = null;
+
+    async function loadEmergencyFundData() {
+        try {
+            // Load categories with flags
+            const categoriesRes = await fetch('/api/emergency-fund/categories');
+            allCategories = await categoriesRes.json();
+
+            // Load coverage data
+            await loadCoverageData();
+
+            // Display categories
+            displayEssentialCategories();
+            displayEmergencyFundCategories();
+
+        } catch (error) {
+            console.error('Error loading emergency fund data:', error);
+            alert('Error al cargar los datos del fondo de emergencia');
+        }
+    }
+
+    async function loadCoverageData() {
+        try {
+            const today = new Date();
+            const monthStr = today.toISOString().split('T')[0];
+
+            const coverageRes = await fetch(`/api/emergency-fund/coverage?month=${monthStr}&currency_id=1`);
+            currentCoverageData = await coverageRes.json();
+
+            displaySummaryCards();
+            displayCoverageStatus();
+
+        } catch (error) {
+            console.error('Error loading coverage data:', error);
+        }
+    }
+
+    function displaySummaryCards() {
+        if (!currentCoverageData) return;
+
+        const container = document.getElementById('summaryCards');
+        const data = currentCoverageData;
+
+        const formatCurrency = (amount) => {
+            return `$${amount.toLocaleString('es-CO', {minimumFractionDigits: 0})}`;
+        };
+
+        let html = `
+            <!-- Essential Expenses Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Gastos Esenciales Mensuales</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1">${formatCurrency(data.essential_expenses_total)}</p>
+                        <p class="text-xs text-gray-500 mt-1">${data.currency_code}</p>
+                    </div>
+                    <div class="text-4xl">💰</div>
+                </div>
+            </div>
+
+            <!-- Emergency Funds Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Fondos de Emergencia</p>
+                        <p class="text-2xl font-bold text-green-600 mt-1">${formatCurrency(data.emergency_funds_total)}</p>
+                        <p class="text-xs text-gray-500 mt-1">${data.currency_code}</p>
+                    </div>
+                    <div class="text-4xl">🏦</div>
+                </div>
+            </div>
+
+            <!-- Coverage Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Cobertura</p>
+                        <p class="text-2xl font-bold text-blue-600 mt-1">
+                            ${data.months_coverage >= 999 ? '∞' : data.months_coverage.toFixed(1)}
+                            ${data.months_coverage === 1 ? 'mes' : 'meses'}
+                        </p>
+                        <p class="text-xs text-gray-500 mt-1">${getStatusLabel(data.status)}</p>
+                    </div>
+                    <div class="text-4xl">📊</div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+    }
+
+    function getStatusLabel(status) {
+        const labels = {
+            'excellent': '🟢 Excelente',
+            'good': '🔵 Bueno',
+            'fair': '🟡 Aceptable',
+            'poor': '🟠 Crítico',
+            'critical': '🔴 Sin fondos'
+        };
+        return labels[status] || status;
+    }
+
+    function displayCoverageStatus() {
+        if (!currentCoverageData) return;
+
+        const container = document.getElementById('coverageStatus');
+        const data = currentCoverageData;
+
+        const statusColors = {
+            'excellent': 'bg-green-100 border-green-500 text-green-800',
+            'good': 'bg-blue-100 border-blue-500 text-blue-800',
+            'fair': 'bg-yellow-100 border-yellow-500 text-yellow-800',
+            'poor': 'bg-orange-100 border-orange-500 text-orange-800',
+            'critical': 'bg-red-100 border-red-500 text-red-800'
+        };
+
+        const colorClass = statusColors[data.status] || 'bg-gray-100 border-gray-500 text-gray-800';
+
+        let html = `
+            <div class="border-l-4 ${colorClass} p-4 rounded">
+                <div class="flex items-start">
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-lg mb-2">Estado de tu Fondo de Emergencia</h4>
+                        <p class="text-sm">${data.recommendation}</p>
+
+                        ${data.months_coverage > 0 && data.months_coverage < 999 ? `
+                            <div class="mt-4">
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Progreso hacia 6 meses</span>
+                                    <span>${Math.min(100, (data.months_coverage / 6 * 100).toFixed(0))}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div class="status-${data.status} h-3 rounded-full transition-all"
+                                         style="width: ${Math.min(100, data.months_coverage / 6 * 100)}%"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+    }
+
+    function displayEssentialCategories() {
+        const container = document.getElementById('essentialCategories');
+
+        // Filter expense categories (not income, not savings)
+        const expenseCategories = allCategories.filter(cat =>
+            !cat.is_income && cat.rollover_type === 'reset'
+        );
+
+        if (expenseCategories.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-4">No hay categorías de gastos</p>';
+            return;
+        }
+
+        const html = expenseCategories.map(cat => `
+            <div class="category-checkbox ${cat.is_essential ? 'selected' : ''}"
+                 onclick="toggleEssential(${cat.id})">
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox"
+                           ${cat.is_essential ? 'checked' : ''}
+                           onclick="event.stopPropagation(); toggleEssential(${cat.id})"
+                           class="mr-3">
+                    <div class="flex-1">
+                        <div class="font-medium text-gray-800">${cat.name}</div>
+                        <div class="text-xs text-gray-500">${cat.category_group_name}</div>
+                    </div>
+                </label>
+            </div>
+        `).join('');
+
+        container.innerHTML = html;
+    }
+
+    function displayEmergencyFundCategories() {
+        const container = document.getElementById('emergencyFundCategories');
+
+        // Filter savings categories (accumulate type)
+        const savingsCategories = allCategories.filter(cat =>
+            !cat.is_income && cat.rollover_type === 'accumulate'
+        );
+
+        if (savingsCategories.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-4">No hay categorías de ahorros</p>';
+            return;
+        }
+
+        const html = savingsCategories.map(cat => `
+            <div class="category-checkbox ${cat.is_emergency_fund ? 'selected' : ''}"
+                 onclick="toggleEmergencyFund(${cat.id})">
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox"
+                           ${cat.is_emergency_fund ? 'checked' : ''}
+                           onclick="event.stopPropagation(); toggleEmergencyFund(${cat.id})"
+                           class="mr-3">
+                    <div class="flex-1">
+                        <div class="font-medium text-gray-800">${cat.name}</div>
+                        <div class="text-xs text-gray-500">${cat.category_group_name}</div>
+                    </div>
+                </label>
+            </div>
+        `).join('');
+
+        container.innerHTML = html;
+    }
+
+    async function toggleEssential(categoryId) {
+        const category = allCategories.find(c => c.id === categoryId);
+        if (!category) return;
+
+        const newValue = !category.is_essential;
+
+        try {
+            const response = await fetch(`/api/emergency-fund/categories/${categoryId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_essential: newValue })
+            });
+
+            if (response.ok) {
+                category.is_essential = newValue;
+                displayEssentialCategories();
+                await loadCoverageData();
+            } else {
+                alert('Error al actualizar categoría');
+            }
+        } catch (error) {
+            console.error('Error toggling essential:', error);
+            alert('Error: ' + error.message);
+        }
+    }
+
+    async function toggleEmergencyFund(categoryId) {
+        const category = allCategories.find(c => c.id === categoryId);
+        if (!category) return;
+
+        const newValue = !category.is_emergency_fund;
+
+        try {
+            const response = await fetch(`/api/emergency-fund/categories/${categoryId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_emergency_fund: newValue })
+            });
+
+            if (response.ok) {
+                category.is_emergency_fund = newValue;
+                displayEmergencyFundCategories();
+                await loadCoverageData();
+            } else {
+                alert('Error al actualizar categoría');
+            }
+        } catch (error) {
+            console.error('Error toggling emergency fund:', error);
+            alert('Error: ' + error.message);
+        }
+    }
+
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', loadEmergencyFundData);
+</script>
+{% endblock %}

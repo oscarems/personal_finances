@@ -50,6 +50,16 @@ def init_db():
         column_name="transaction_type",
         column_definition="transaction_type VARCHAR(20) DEFAULT 'expense'"
     )
+    ensure_sqlite_column(
+        table_name="categories",
+        column_name="is_essential",
+        column_definition="is_essential BOOLEAN DEFAULT 0"
+    )
+    ensure_sqlite_column(
+        table_name="categories",
+        column_name="is_emergency_fund",
+        column_definition="is_emergency_fund BOOLEAN DEFAULT 0"
+    )
     print("✓ Database tables created")
 
 

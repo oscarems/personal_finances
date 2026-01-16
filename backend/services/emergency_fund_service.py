@@ -1,0 +1,259 @@
+"""
+Emergency Fund Service - Calcula cobertura de gastos esenciales
+"""
+from datetime import date
+from dateutil.relativedelta import relativedelta
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
+from backend.models import Category, BudgetMonth, Currency
+from backend.services.exchange_rate_service import convert_currency
+
+
+def get_essential_expenses(db: Session, month_date: date, target_currency_id: int = 1):
+    """
+    Calcula el total de gastos esenciales mensuales para un mes dado.
+
+    Args:
+        db: Sesión de base de datos
+        month_date: Mes a calcular (primer día del mes)
+        target_currency_id: Moneda objetivo para la conversión (default: COP=1)
+
+    Returns:
+        dict: {
+            'total': float,  # Total en moneda objetivo
+            'currency_code': str,  # Código de moneda
+            'categories': [  # Lista de categorías esenciales
+                {
+                    'id': int,
+                    'name': str,
+                    'assigned': float,  # Asignado en moneda original
+                    'assigned_converted': float,  # Asignado convertido
+                    'currency_code': str
+                }
+            ]
+        }
+    """
+    # Obtener todas las categorías marcadas como esenciales
+    essential_categories = db.query(Category).filter(
+        Category.is_essential == True
+    ).all()
+
+    if not essential_categories:
+        return {
+            'total': 0.0,
+            'currency_code': 'COP',
+            'categories': []
+        }
+
+    target_currency = db.query(Currency).get(target_currency_id)
+
+    total = 0.0
+    categories_data = []
+
+    for category in essential_categories:
+        # Obtener todos los presupuestos de esta categoría para el mes dado
+        budgets = db.query(BudgetMonth).options(
+            joinedload(BudgetMonth.currency)
+        ).filter(
+            BudgetMonth.category_id == category.id,
+            BudgetMonth.month == month_date
+        ).all()
+
+        category_total = 0.0
+
+        for budget in budgets:
+            if budget.assigned and budget.assigned > 0:
+                # Convertir a moneda objetivo
+                converted = convert_currency(
+                    db,
+                    budget.assigned,
+                    budget.currency_id,
+                    target_currency_id,
+                    month_date
+                )
+                category_total += converted
+
+                categories_data.append({
+                    'id': category.id,
+                    'name': category.name,
+                    'assigned': budget.assigned,
+                    'assigned_converted': converted,
+                    'currency_code': budget.currency.code if budget.currency else 'COP'
+                })
+
+        total += category_total
+
+    return {
+        'total': round(total, 2),
+        'currency_code': target_currency.code if target_currency else 'COP',
+        'categories': categories_data
+    }
+
+
+def get_emergency_funds(db: Session, target_currency_id: int = 1):
+    """
+    Calcula el total de fondos de emergencia disponibles.
+
+    Los fondos de emergencia son categorías marcadas con is_emergency_fund=True
+    que tienen rollover_type='accumulate' (savings).
+
+    Args:
+        db: Sesión de base de datos
+        target_currency_id: Moneda objetivo para la conversión (default: COP=1)
+
+    Returns:
+        dict: {
+            'total': float,  # Total en moneda objetivo
+            'currency_code': str,  # Código de moneda
+            'funds': [  # Lista de fondos
+                {
+                    'id': int,
+                    'name': str,
+                    'balance': float,  # Balance en moneda original
+                    'balance_converted': float,  # Balance convertido
+                    'currency_code': str
+                }
+            ]
+        }
+    """
+    # Obtener todas las categorías marcadas como fondos de emergencia
+    emergency_categories = db.query(Category).filter(
+        Category.is_emergency_fund == True
+    ).all()
+
+    if not emergency_categories:
+        return {
+            'total': 0.0,
+            'currency_code': 'COP',
+            'funds': []
+        }
+
+    target_currency = db.query(Currency).get(target_currency_id)
+    today = date.today()
+
+    total = 0.0
+    funds_data = []
+
+    for category in emergency_categories:
+        # Obtener el balance actual de cada fondo (último mes con presupuesto)
+        latest_budgets = db.query(BudgetMonth).options(
+            joinedload(BudgetMonth.currency)
+        ).filter(
+            BudgetMonth.category_id == category.id
+        ).order_by(BudgetMonth.month.desc()).all()
+
+        # Agrupar por moneda y obtener el balance más reciente
+        currency_balances = {}
+        for budget in latest_budgets:
+            currency_id = budget.currency_id
+            if currency_id not in currency_balances:
+                # Usar available del budget más reciente
+                balance = budget.available or 0.0
+
+                # Si es negativo, usar 0
+                if balance < 0:
+                    balance = 0.0
+
+                currency_balances[currency_id] = {
+                    'balance': balance,
+                    'currency': budget.currency
+                }
+
+        # Convertir y sumar todos los balances
+        for currency_id, data in currency_balances.items():
+            balance = data['balance']
+            if balance > 0:
+                converted = convert_currency(
+                    db,
+                    balance,
+                    currency_id,
+                    target_currency_id,
+                    today
+                )
+                total += converted
+
+                funds_data.append({
+                    'id': category.id,
+                    'name': category.name,
+                    'balance': balance,
+                    'balance_converted': converted,
+                    'currency_code': data['currency'].code if data['currency'] else 'COP'
+                })
+
+    return {
+        'total': round(total, 2),
+        'currency_code': target_currency.code if target_currency else 'COP',
+        'funds': funds_data
+    }
+
+
+def calculate_emergency_coverage(db: Session, month_date: date = None, target_currency_id: int = 1):
+    """
+    Calcula cuántos meses de cobertura tiene el usuario con sus fondos de emergencia.
+
+    Fórmula: Meses = Total Fondos de Emergencia / Gastos Esenciales Mensuales
+
+    Args:
+        db: Sesión de base de datos
+        month_date: Mes a usar para calcular gastos (default: mes actual)
+        target_currency_id: Moneda objetivo (default: COP=1)
+
+    Returns:
+        dict: {
+            'months_coverage': float,  # Número de meses de cobertura
+            'emergency_funds_total': float,  # Total de fondos
+            'essential_expenses_total': float,  # Total de gastos esenciales
+            'currency_code': str,  # Código de moneda
+            'status': str,  # 'excellent', 'good', 'fair', 'poor', 'critical'
+            'recommendation': str  # Recomendación basada en cobertura
+        }
+    """
+    if month_date is None:
+        month_date = date.today().replace(day=1)
+
+    # Obtener fondos de emergencia
+    funds = get_emergency_funds(db, target_currency_id)
+    funds_total = funds['total']
+
+    # Obtener gastos esenciales
+    expenses = get_essential_expenses(db, month_date, target_currency_id)
+    expenses_total = expenses['total']
+
+    # Calcular meses de cobertura
+    if expenses_total > 0:
+        months_coverage = funds_total / expenses_total
+    else:
+        months_coverage = 0.0 if funds_total == 0 else float('inf')
+
+    # Determinar estado y recomendación
+    if months_coverage >= 6:
+        status = 'excellent'
+        recommendation = '¡Excelente! Tienes 6+ meses de cobertura. Tu fondo de emergencia está bien establecido.'
+    elif months_coverage >= 3:
+        status = 'good'
+        recommendation = 'Bien. Tienes 3-6 meses de cobertura. Considera aumentarlo a 6 meses para mayor seguridad.'
+    elif months_coverage >= 1:
+        status = 'fair'
+        recommendation = 'Aceptable. Tienes 1-3 meses. Se recomienda tener al menos 3-6 meses de gastos esenciales.'
+    elif months_coverage > 0:
+        status = 'poor'
+        recommendation = 'Crítico. Tienes menos de 1 mes de cobertura. Prioriza construir tu fondo de emergencia.'
+    else:
+        status = 'critical'
+        if expenses_total == 0:
+            recommendation = 'Marca tus gastos esenciales para calcular la cobertura necesaria.'
+        else:
+            recommendation = 'Sin fondos. Necesitas empezar a construir tu fondo de emergencia urgentemente.'
+
+    target_currency = db.query(Currency).get(target_currency_id)
+
+    return {
+        'months_coverage': round(months_coverage, 2) if months_coverage != float('inf') else 999.99,
+        'emergency_funds_total': funds_total,
+        'essential_expenses_total': expenses_total,
+        'currency_code': target_currency.code if target_currency else 'COP',
+        'status': status,
+        'recommendation': recommendation,
+        'funds_detail': funds,
+        'expenses_detail': expenses
+    }
