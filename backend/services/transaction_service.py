@@ -8,6 +8,14 @@ from backend.models import Transaction, Account, Category, Payee, Currency
 from backend.services.exchange_rate_service import convert_currency
 
 
+def transaction_affects_balance(account: Account, transaction_date: date) -> bool:
+    if not account or not transaction_date:
+        return True
+    if not account.created_at:
+        return True
+    return transaction_date >= account.created_at.date()
+
+
 def create_transaction(db: Session, data):
     """
     Create a new transaction
@@ -25,10 +33,11 @@ def create_transaction(db: Session, data):
             db.add(payee)
             db.flush()
 
+    transaction_date = data.get('date', date.today())
     # Create transaction
     transaction = Transaction(
         account_id=data['account_id'],
-        date=data.get('date', date.today()),
+        date=transaction_date,
         payee_id=payee.id if payee else None,
         category_id=data.get('category_id'),
         memo=data.get('memo', ''),
@@ -43,7 +52,7 @@ def create_transaction(db: Session, data):
 
     # Update account balance
     account = db.query(Account).get(data['account_id'])
-    if account:
+    if account and transaction_affects_balance(account, transaction_date):
         account.balance += data['amount']
 
     db.commit()
@@ -91,6 +100,7 @@ def update_transaction(db: Session, transaction_id, data):
     # Store old amount to update balance
     old_amount = transaction.amount
     old_account_id = transaction.account_id
+    old_date = transaction.date
 
     # Update payee if needed
     if data.get('payee_name'):
@@ -108,11 +118,11 @@ def update_transaction(db: Session, transaction_id, data):
 
     # Update account balances
     old_account = db.query(Account).get(old_account_id)
-    if old_account:
+    if old_account and transaction_affects_balance(old_account, old_date):
         old_account.balance -= old_amount
 
     new_account = db.query(Account).get(transaction.account_id)
-    if new_account:
+    if new_account and transaction_affects_balance(new_account, transaction.date):
         new_account.balance += transaction.amount
 
     db.commit()
@@ -139,13 +149,13 @@ def delete_transaction(db: Session, transaction_id):
         if linked_transaction:
             # Update linked account balance
             linked_account = db.query(Account).get(linked_transaction.account_id)
-            if linked_account:
+            if linked_account and transaction_affects_balance(linked_account, linked_transaction.date):
                 linked_account.balance -= linked_transaction.amount
             db.delete(linked_transaction)
 
     # Update account balance
     account = db.query(Account).get(transaction.account_id)
-    if account:
+    if account and transaction_affects_balance(account, transaction.date):
         account.balance -= transaction.amount
 
     db.delete(transaction)
@@ -280,10 +290,12 @@ def create_transfer(db: Session, data):
         db.add(payee_to)
         db.flush()
 
+    transfer_date = data.get('date', date.today())
+
     # Create outflow transaction (from account)
     from_transaction = Transaction(
         account_id=data['from_account_id'],
-        date=data.get('date', date.today()),
+        date=transfer_date,
         payee_id=payee_from.id,
         category_id=None,  # Transfers don't have categories
         memo=data.get('memo', ''),
@@ -297,7 +309,7 @@ def create_transfer(db: Session, data):
     # Create inflow transaction (to account)
     to_transaction = Transaction(
         account_id=data['to_account_id'],
-        date=data.get('date', date.today()),
+        date=transfer_date,
         payee_id=payee_to.id,
         category_id=None,  # Transfers don't have categories
         memo=data.get('memo', ''),
@@ -312,8 +324,10 @@ def create_transfer(db: Session, data):
     db.add(to_transaction)
 
     # Update account balances
-    from_account.balance += from_amount  # Subtract from source
-    to_account.balance += to_amount      # Add to destination
+    if transaction_affects_balance(from_account, transfer_date):
+        from_account.balance += from_amount  # Subtract from source
+    if transaction_affects_balance(to_account, transfer_date):
+        to_account.balance += to_amount      # Add to destination
 
     db.commit()
     db.refresh(from_transaction)
