@@ -178,22 +178,30 @@ def calculate_available(db: Session, budget_month):
     initial_available = 0.0
 
     if category and category.rollover_type == 'accumulate':
-        initial_amount = category.initial_amount or 0.0
-        if initial_amount > 0:
-            budget_currency = db.query(Currency).get(budget_month.currency_id)
-            initial_currency = None
-            if category.initial_currency_id:
-                initial_currency = db.query(Currency).get(category.initial_currency_id)
+        # Check if there's a previous month budget
+        prev_budget = get_previous_budget(db, budget_month.category_id, budget_month.month, budget_month.currency_id)
 
-            if initial_currency and budget_currency:
-                initial_available = convert_currency(
-                    initial_amount,
-                    initial_currency.code,
-                    budget_currency.code,
-                    db
-                )
-            else:
-                initial_available = initial_amount
+        if prev_budget:
+            # Use previous month's available amount (rollover from last month)
+            initial_available = prev_budget.available
+        else:
+            # First month: use initial_amount from category
+            initial_amount = category.initial_amount or 0.0
+            if initial_amount > 0:
+                budget_currency = db.query(Currency).get(budget_month.currency_id)
+                initial_currency = None
+                if category.initial_currency_id:
+                    initial_currency = db.query(Currency).get(category.initial_currency_id)
+
+                if initial_currency and budget_currency:
+                    initial_available = convert_currency(
+                        initial_amount,
+                        initial_currency.code,
+                        budget_currency.code,
+                        db
+                    )
+                else:
+                    initial_available = initial_amount
 
     # Available = assigned - activity (negative for expenses) + initial amount (if accumulate)
     # activity is negative for expenses, so we add it
