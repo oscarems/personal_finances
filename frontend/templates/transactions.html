@@ -71,6 +71,7 @@
                 <option value="100" selected>Últimas 100</option>
                 <option value="200">Últimas 200</option>
                 <option value="500">Últimas 500</option>
+                <option value="0">Todas</option>
             </select>
         </div>
         <div class="flex items-end">
@@ -515,14 +516,32 @@
         const txType = document.getElementById('txType').value;
         const rawAmount = parseFloat(document.getElementById('txAmount').value);
         const signedAmount = txType === 'income' ? Math.abs(rawAmount) : -Math.abs(rawAmount);
+        const accountId = parseInt(document.getElementById('txAccount').value, 10);
+        const currencyId = parseInt(document.getElementById('txCurrency').value, 10);
+        const dateValue = document.getElementById('txDate').value;
 
+        if (!dateValue) {
+            alert('La fecha es obligatoria.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            return;
+        }
+
+        if (Number.isNaN(accountId) || Number.isNaN(currencyId) || Number.isNaN(rawAmount)) {
+            alert('Revisa los campos obligatorios: cuenta, moneda y monto.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            return;
+        }
+
+        const categoryValue = document.getElementById('txCategory').value;
         const data = {
-            account_id: parseInt(document.getElementById('txAccount').value),
-            date: document.getElementById('txDate').value,
+            account_id: accountId,
+            date: dateValue,
             payee_name: document.getElementById('txPayee').value || null,
-            category_id: parseInt(document.getElementById('txCategory').value) || null,
+            category_id: categoryValue ? parseInt(categoryValue, 10) : null,
             amount: signedAmount,
-            currency_id: parseInt(document.getElementById('txCurrency').value),
+            currency_id: currencyId,
             memo: document.getElementById('txMemo').value || null,
             cleared: document.getElementById('txCleared').checked
         };
@@ -549,8 +568,20 @@
                 closeTransactionModal();
                 await loadTransactions();
             } else {
-                const error = await res.json();
-                alert('Error: ' + (error.detail || 'Error desconocido'));
+                let errorMessage = 'Error desconocido';
+                try {
+                    const error = await res.json();
+                    if (typeof error.detail === 'string') {
+                        errorMessage = error.detail;
+                    } else if (error.detail) {
+                        errorMessage = JSON.stringify(error.detail);
+                    } else {
+                        errorMessage = JSON.stringify(error);
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing error response:', parseError);
+                }
+                alert(`Error: ${errorMessage}`);
             }
         } catch (error) {
             console.error('Error:', error);
