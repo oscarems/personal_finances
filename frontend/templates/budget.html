@@ -18,24 +18,48 @@
     </div>
 </div>
 
-<!-- Ready to Assign Banner (showing both currencies) -->
-<div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 mb-8 text-white">
-    <div class="flex justify-between items-center">
-        <div class="flex-1">
-            <p class="text-sm opacity-90 mb-2">Disponible para Asignar</p>
-            <div class="flex items-baseline space-x-6">
-                <div>
-                    <p class="text-4xl font-bold" id="readyToAssignCOP">$0</p>
-                    <p class="text-xs opacity-75">COP</p>
-                </div>
-                <div class="text-2xl opacity-75">/</div>
-                <div>
-                    <p class="text-4xl font-bold" id="readyToAssignUSD">US$0.00</p>
-                    <p class="text-xs opacity-75">USD</p>
+<!-- Budget Summary Grid -->
+<div class="grid grid-cols-2 gap-6 mb-8">
+    <!-- Ready to Assign Banner -->
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+        <div class="flex justify-between items-center">
+            <div class="flex-1">
+                <p class="text-sm opacity-90 mb-2">Disponible para Asignar</p>
+                <div class="flex items-baseline space-x-4">
+                    <div>
+                        <p class="text-3xl font-bold" id="readyToAssignCOP">$0</p>
+                        <p class="text-xs opacity-75">COP</p>
+                    </div>
+                    <div class="text-xl opacity-75">/</div>
+                    <div>
+                        <p class="text-3xl font-bold" id="readyToAssignUSD">US$0.00</p>
+                        <p class="text-xs opacity-75">USD</p>
+                    </div>
                 </div>
             </div>
+            <div class="text-5xl">💰</div>
         </div>
-        <div class="text-6xl">💰</div>
+    </div>
+
+    <!-- Total Assigned This Month Banner -->
+    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
+        <div class="flex justify-between items-center">
+            <div class="flex-1">
+                <p class="text-sm opacity-90 mb-2">Total Asignado este Mes</p>
+                <div class="flex items-baseline space-x-4">
+                    <div>
+                        <p class="text-3xl font-bold" id="totalAssignedCOP">$0</p>
+                        <p class="text-xs opacity-75">COP</p>
+                    </div>
+                    <div class="text-xl opacity-75">/</div>
+                    <div>
+                        <p class="text-3xl font-bold" id="totalAssignedUSD">US$0.00</p>
+                        <p class="text-xs opacity-75">USD</p>
+                    </div>
+                </div>
+            </div>
+            <div class="text-5xl">📊</div>
+        </div>
     </div>
 </div>
 
@@ -393,6 +417,12 @@
             `$${formatAmount(dataCOP.ready_to_assign, 0)}`;
         document.getElementById('readyToAssignUSD').textContent =
             `US$${formatAmount(dataUSD.ready_to_assign, 2)}`;
+
+        // Display Total Assigned in BOTH currencies
+        document.getElementById('totalAssignedCOP').textContent =
+            `$${formatAmount(dataCOP.totals.assigned, 0)}`;
+        document.getElementById('totalAssignedUSD').textContent =
+            `US$${formatAmount(dataUSD.totals.assigned, 2)}`;
 
         updateOverallocatedAlert(dataCOP.ready_to_assign, dataUSD.ready_to_assign);
 
