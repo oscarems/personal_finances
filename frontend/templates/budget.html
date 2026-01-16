@@ -63,6 +63,21 @@
     </div>
 </div>
 
+<!-- Budget Distribution Pie Chart -->
+<div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+    <h3 class="text-xl font-bold text-gray-800 mb-4">Distribución del Presupuesto por Categoría</h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Chart Canvas -->
+        <div class="flex items-center justify-center" style="height: 300px;">
+            <canvas id="budgetPieChart"></canvas>
+        </div>
+        <!-- Legend -->
+        <div id="budgetChartLegend" class="overflow-y-auto" style="max-height: 300px;">
+            <!-- Legend items will be populated here -->
+        </div>
+    </div>
+</div>
+
 <!-- Overallocated Alert -->
 <div id="budgetOverallocatedAlert" class="hidden bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg mb-8">
     <div class="flex items-start space-x-3">
@@ -252,6 +267,7 @@
     let currentMonth = new Date();
     let selectedCategory = null;
     let selectedCategoryData = null;
+    let budgetPieChart = null;  // Chart.js instance for pie chart
 
     // Exchange rates (will be loaded from API)
     let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
@@ -543,6 +559,104 @@
                                 <span class="mr-1">+</span> Agregar Categoría
                             </button>
                         </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Render the pie chart after displaying the budget
+        renderBudgetPieChart(dataCOP);
+    }
+
+    function renderBudgetPieChart(budgetData) {
+        if (!budgetData || !budgetData.groups) return;
+
+        // Collect all categories with their assigned amounts
+        const categoryData = [];
+        budgetData.groups.forEach(group => {
+            if (group.is_income) return; // Skip income groups
+
+            group.categories.forEach(cat => {
+                if (cat.assigned > 0) {  // Only include categories with assigned budget
+                    categoryData.push({
+                        name: cat.category_name,
+                        amount: cat.assigned,
+                        color: null  // Will be assigned below
+                    });
+                }
+            });
+        });
+
+        // Sort by amount (descending) to show largest categories first
+        categoryData.sort((a, b) => b.amount - a.amount);
+
+        // Generate colors for each category
+        const colors = [
+            '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+            '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
+            '#06B6D4', '#F43F5E', '#8B5CF6', '#A78BFA', '#34D399'
+        ];
+
+        const labels = categoryData.map(c => c.name);
+        const amounts = categoryData.map(c => c.amount);
+        const backgroundColors = categoryData.map((_, index) => colors[index % colors.length]);
+
+        // Destroy previous chart if it exists
+        if (budgetPieChart) {
+            budgetPieChart.destroy();
+        }
+
+        // Create new pie chart
+        const ctx = document.getElementById('budgetPieChart').getContext('2d');
+        budgetPieChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: amounts,
+                    backgroundColor: backgroundColors,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false  // We'll create a custom legend
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: $${formatAmount(value, 0)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Create custom legend
+        const legendContainer = document.getElementById('budgetChartLegend');
+        const total = amounts.reduce((a, b) => a + b, 0);
+
+        legendContainer.innerHTML = categoryData.map((cat, index) => {
+            const percentage = ((cat.amount / total) * 100).toFixed(1);
+            const color = backgroundColors[index];
+            return `
+                <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-4 h-4 rounded-full flex-shrink-0" style="background-color: ${color}"></div>
+                        <span class="text-sm font-medium text-gray-700">${cat.name}</span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-gray-800">$${formatAmount(cat.amount, 0)}</p>
+                        <p class="text-xs text-gray-500">${percentage}%</p>
                     </div>
                 </div>
             `;
