@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import init_db, get_db
 from backend.init_db import initialize_database
-from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts
+from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund
 
 # Create FastAPI app
 app = FastAPI(
@@ -49,6 +49,7 @@ app.include_router(recurring.router, prefix="/api/recurring", tags=["recurring"]
 app.include_router(exchange_rates.router, prefix="/api/exchange-rates", tags=["exchange-rates"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(debts.router, prefix="/api/debts", tags=["debts"])
+app.include_router(emergency_fund.router, prefix="/api/emergency-fund", tags=["emergency-fund"])
 
 
 @app.on_event("startup")
@@ -124,6 +125,12 @@ async def recurring_page(request: Request):
 async def debts_page(request: Request):
     """Debts management page"""
     return templates.TemplateResponse("debts.html", {"request": request})
+
+
+@app.get("/emergency-fund")
+async def emergency_fund_page(request: Request):
+    """Emergency fund page"""
+    return templates.TemplateResponse("emergency_fund.html", {"request": request})
 
 
 @app.get("/api/currencies")

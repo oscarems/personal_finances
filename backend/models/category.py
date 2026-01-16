@@ -43,6 +43,10 @@ class Category(Base):
     # Rollover behavior: 'accumulate' (dinero pasa al siguiente mes) o 'reset' (dinero vuelve a Ready to Assign)
     rollover_type = Column(String(20), default='reset')  # 'accumulate' or 'reset'
 
+    # Emergency fund tracking
+    is_essential = Column(Boolean, default=False)  # Si es un gasto esencial/fundamental para emergencias
+    is_emergency_fund = Column(Boolean, default=False)  # Si es un fondo de ahorro para emergencias
+
     # Relationships
     category_group = relationship('CategoryGroup', back_populates='categories')
     transactions = relationship('Transaction', back_populates='category', lazy=True)
@@ -66,7 +70,9 @@ class Category(Base):
             'is_hidden': self.is_hidden,
             'rollover_type': self.rollover_type,
             'initial_currency_id': self.initial_currency_id,
-            'initial_currency_code': self.initial_currency.code if self.initial_currency else None
+            'initial_currency_code': self.initial_currency.code if self.initial_currency else None,
+            'is_essential': self.is_essential,
+            'is_emergency_fund': self.is_emergency_fund
         }
         if include_group and self.category_group:
             data['category_group'] = {
