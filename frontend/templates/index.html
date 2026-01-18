@@ -207,10 +207,22 @@
         return Array.from(currencySet);
     }
 
+    function getPrimaryCurrency(accountTotals, assignedTotals) {
+        const available = getCurrencyOptions(accountTotals, assignedTotals);
+        if (available.includes('COP')) {
+            return 'COP';
+        }
+        if (available.includes('USD')) {
+            return 'USD';
+        }
+        return available[0] || 'COP';
+    }
+
     function displayTotalAccountsSummary(accountsData, assignedData) {
         const container = document.getElementById('totalAccountsSummary');
         const accountTotals = buildAccountTotals(accountsData.accounts || []);
         const assignedTotals = assignedData.totals || {};
+        const primaryCurrency = getPrimaryCurrency(accountTotals, assignedTotals);
 
         const rateInfo = dashboardState.exchangeRate;
         const rateValue = rateInfo ? rateInfo.rate : null;
@@ -218,59 +230,39 @@
             ? `Tasa USD/COP ${rateInfo.rate.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
             : 'Tasa de cambio no disponible';
 
-        // Calculate totals in COP (primary)
-        const convertedAccountsCOP = sumConvertedTotals(accountTotals, 'COP', rateValue);
-        const convertedAssignedCOP = sumConvertedTotals(assignedTotals, 'COP', rateValue);
-        const totalAccountsCOP = convertedAccountsCOP.sum;
-        const totalAssignedCOP = convertedAssignedCOP.sum;
-        const netWorthCOP = totalAccountsCOP - totalAssignedCOP;
-        const missingRateCOP = convertedAccountsCOP.missing || convertedAssignedCOP.missing;
+        const convertedAccounts = sumConvertedTotals(accountTotals, primaryCurrency, rateValue);
+        const convertedAssigned = sumConvertedTotals(assignedTotals, primaryCurrency, rateValue);
+        const totalAccounts = convertedAccounts.sum;
+        const totalAssigned = convertedAssigned.sum;
+        const totalAvailable = totalAccounts - totalAssigned;
+        const missingRate = convertedAccounts.missing || convertedAssigned.missing;
 
-        // Calculate totals in USD (secondary)
-        const convertedAccountsUSD = sumConvertedTotals(accountTotals, 'USD', rateValue);
-        const convertedAssignedUSD = sumConvertedTotals(assignedTotals, 'USD', rateValue);
-        const totalAccountsUSD = convertedAccountsUSD.sum;
-        const totalAssignedUSD = convertedAssignedUSD.sum;
-        const netWorthUSD = totalAccountsUSD - totalAssignedUSD;
-        const missingRateUSD = convertedAccountsUSD.missing || convertedAssignedUSD.missing;
-
-        const symbolCOP = getCurrencySymbol('COP', accountTotals, assignedTotals);
-        const symbolUSD = getCurrencySymbol('USD', accountTotals, assignedTotals);
-
-        // Format COP values (primary - large)
-        const totalAccountsCOPFormatted = formatCurrency(totalAccountsCOP, 'COP', symbolCOP);
-        const totalAssignedCOPFormatted = formatCurrency(totalAssignedCOP, 'COP', symbolCOP);
-        const netWorthCOPFormatted = formatCurrency(netWorthCOP, 'COP', symbolCOP);
-
-        // Format USD values (secondary - small)
-        const totalAccountsUSDFormatted = formatCurrency(totalAccountsUSD, 'USD', symbolUSD);
-        const totalAssignedUSDFormatted = formatCurrency(totalAssignedUSD, 'USD', symbolUSD);
-        const netWorthUSDFormatted = formatCurrency(netWorthUSD, 'USD', symbolUSD);
+        const symbol = getCurrencySymbol(primaryCurrency, accountTotals, assignedTotals);
+        const totalAccountsFormatted = formatCurrency(totalAccounts, primaryCurrency, symbol);
+        const totalAssignedFormatted = formatCurrency(totalAssigned, primaryCurrency, symbol);
+        const totalAvailableFormatted = formatCurrency(totalAvailable, primaryCurrency, symbol);
 
         container.innerHTML = `
             <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
                 <div>
                     <h3 class="text-lg font-semibold text-gray-800">Total general</h3>
-                    <p class="text-xs text-gray-500">${(missingRateCOP || missingRateUSD) ? 'Tasa de cambio no disponible' : rateText}</p>
+                    <p class="text-xs text-gray-500">${missingRate ? 'Tasa de cambio no disponible' : rateText}</p>
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
                     <p class="text-gray-500 text-sm">Total dinero en cuentas</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1">${totalAccountsCOPFormatted}</p>
-                    <p class="text-xs text-gray-500 mt-1">${totalAccountsUSDFormatted}</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1">${totalAccountsFormatted}</p>
                 </div>
                 <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
                     <p class="text-gray-500 text-sm">Total asignado</p>
-                    <p class="text-2xl font-bold text-blue-600 mt-1">${totalAssignedCOPFormatted}</p>
-                    <p class="text-xs text-gray-500 mt-1">${totalAssignedUSDFormatted}</p>
+                    <p class="text-2xl font-bold text-blue-600 mt-1">${totalAssignedFormatted}</p>
                 </div>
                 <div class="bg-gray-50 rounded-lg p-4 border border-gray-100">
                     <p class="text-gray-500 text-sm">Total disponible</p>
-                    <p class="text-2xl font-bold ${netWorthCOP >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">
-                        ${netWorthCOPFormatted}
+                    <p class="text-2xl font-bold ${totalAvailable >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">
+                        ${totalAvailableFormatted}
                     </p>
-                    <p class="text-xs ${netWorthUSD >= 0 ? 'text-green-600' : 'text-red-600'} mt-1">${netWorthUSDFormatted}</p>
                 </div>
             </div>
         `;
