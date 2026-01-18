@@ -419,7 +419,14 @@ def create_transfer(db: Session, data):
     return [from_transaction, to_transaction]
 
 
-def get_monthly_activity(db: Session, category_id, month, year, currency_id):
+def get_monthly_activity(
+    db: Session,
+    category_id,
+    month,
+    year,
+    currency_id,
+    include_all_currencies: bool = True
+):
     """
     Calculate total activity (spending) for a category in a month
     Returns negative number for expenses
@@ -427,12 +434,16 @@ def get_monthly_activity(db: Session, category_id, month, year, currency_id):
     start_date = date(year, month, 1)
     end_date = start_date + relativedelta(months=1)
 
+    filters = [
+        Transaction.category_id == category_id,
+        Transaction.date >= start_date,
+        Transaction.date < end_date
+    ]
+    if not include_all_currencies:
+        filters.append(Transaction.currency_id == currency_id)
+
     transactions = db.query(Transaction).options(joinedload(Transaction.currency)).filter(
-        and_(
-            Transaction.category_id == category_id,
-            Transaction.date >= start_date,
-            Transaction.date < end_date
-        )
+        and_(*filters)
     ).all()
 
     target_currency = db.query(Currency).get(currency_id)
