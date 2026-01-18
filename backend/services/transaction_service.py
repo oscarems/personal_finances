@@ -2,7 +2,8 @@
 Transaction service for CRUD operations
 """
 from datetime import datetime, date
-from sqlalchemy import and_, or_, extract
+from dateutil.relativedelta import relativedelta
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from backend.models import Transaction, Account, Category, Payee, Currency
 from backend.services.exchange_rate_service import convert_currency
@@ -418,12 +419,15 @@ def get_monthly_activity(db: Session, category_id, month, year, currency_id):
     Calculate total activity (spending) for a category in a month
     Returns negative number for expenses
     """
+    start_date = date(year, month, 1)
+    end_date = start_date + relativedelta(months=1)
+
     transactions = db.query(Transaction).filter(
         and_(
             Transaction.category_id == category_id,
             Transaction.currency_id == currency_id,
-            extract('month', Transaction.date) == month,
-            extract('year', Transaction.date) == year
+            Transaction.date >= start_date,
+            Transaction.date < end_date
         )
     ).all()
 
