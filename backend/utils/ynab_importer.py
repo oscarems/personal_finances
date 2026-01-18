@@ -10,6 +10,7 @@ from typing import List, Dict, Tuple
 from sqlalchemy.orm import Session
 
 from backend.models import Account, Category, CategoryGroup, Payee, Transaction, Currency
+from backend.services.transaction_service import build_transaction_audit_fields
 
 
 def parse_ynab_date(date_str):
@@ -297,6 +298,12 @@ def import_ynab_csv(db: Session, csv_file_path: str, default_currency_code: str 
                     stats['skipped'] += 1
                     continue
 
+                base_amount, base_currency_id = build_transaction_audit_fields(
+                    db,
+                    amount,
+                    currency.id,
+                    transaction_date
+                )
                 # Create transaction
                 transaction = Transaction(
                     account_id=account_id,
@@ -306,6 +313,11 @@ def import_ynab_csv(db: Session, csv_file_path: str, default_currency_code: str 
                     memo=memo,
                     amount=amount,
                     currency_id=currency.id,
+                    original_amount=amount,
+                    original_currency_id=currency.id,
+                    fx_rate=None,
+                    base_amount=base_amount,
+                    base_currency_id=base_currency_id,
                     cleared=cleared,
                     import_id=import_id
                 )

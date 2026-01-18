@@ -21,6 +21,15 @@ Aplicación de finanzas personales estilo YNAB (You Need A Budget) construida co
 - **Tasas de Cambio Reales**: Desde API con fallback inteligente (4000 por defecto)
 - **Transferencias Multi-Moneda**: Transfiere entre cuentas de diferentes monedas
 
+#### ✅ Auditoría Multi-Moneda (Transacciones)
+Cada transacción conserva campos de auditoría para trazabilidad completa:
+- **Monto original + moneda original** (lo que ingresó el usuario)
+- **Tasa FX usada** (USD/COP) cuando aplica conversión
+- **Monto en moneda base** (para reportes y reconciliación)
+
+> **Nota:** Si actualizas desde una versión anterior con datos existentes, debes ejecutar un backfill
+> para poblar estos campos con tasas históricas apropiadas o reimportar tu histórico.
+
 ### 📊 Transacciones y Reportes
 - **Transferencias Inteligentes**: Sistema completo de transferencias entre cuentas
 - **Importador YNAB**: Importa tus datos existentes desde archivos CSV

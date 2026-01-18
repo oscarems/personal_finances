@@ -14,6 +14,11 @@ class Transaction(Base):
     memo = Column(Text)
     amount = Column(Float, nullable=False)  # Positive=inflow, Negative=outflow
     currency_id = Column(Integer, ForeignKey('currencies.id'), nullable=False)
+    original_amount = Column(Float, nullable=False)  # Amount as entered by user
+    original_currency_id = Column(Integer, ForeignKey('currencies.id'), nullable=False)
+    fx_rate = Column(Float)  # Conversion rate used when original currency differs
+    base_amount = Column(Float)  # Amount converted to base currency
+    base_currency_id = Column(Integer, ForeignKey('currencies.id'))
     cleared = Column(Boolean, default=False)  # Reconciliation
     approved = Column(Boolean, default=True)
     transfer_account_id = Column(Integer, ForeignKey('accounts.id'))  # If transfer
@@ -44,6 +49,11 @@ class Transaction(Base):
             'memo': self.memo,
             'amount': self.amount,
             'currency': self.currency.to_dict() if self.currency else None,
+            'original_amount': self.original_amount,
+            'original_currency_id': self.original_currency_id,
+            'fx_rate': self.fx_rate,
+            'base_amount': self.base_amount,
+            'base_currency_id': self.base_currency_id,
             'cleared': self.cleared,
             'approved': self.approved,
             'transfer_account_id': self.transfer_account_id,
