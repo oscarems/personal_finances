@@ -522,7 +522,7 @@ def get_balance_trend(
     ).filter(
         and_(
             Transaction.account_id.in_(account_ids),
-            Transaction.date > start_date_obj
+            Transaction.date >= start_date_obj
         )
     ).all()
 
@@ -532,6 +532,43 @@ def get_balance_trend(
     )
 
     start_balance = current_total_balance - net_after_start
+
+    initial_balance_adjustments = {}
+    for account in accounts:
+        if not account.created_at:
+            continue
+        created_date = account.created_at.date()
+        if created_date <= start_date_obj or created_date > end_date_obj:
+            continue
+
+        transactions_after_creation = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
+            and_(
+                Transaction.account_id == account.id,
+                Transaction.date >= created_date
+            )
+        ).all()
+
+        net_after_creation = sum(
+            convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+            for t in transactions_after_creation
+        )
+
+        initial_balance = convert_to_currency(
+            account.balance,
+            account.currency_id,
+            currency_id,
+            exchange_rate
+        ) - net_after_creation
+
+        start_balance -= initial_balance
+
+        month_key = created_date.strftime('%Y-%m')
+        initial_balance_adjustments[month_key] = (
+            initial_balance_adjustments.get(month_key, 0.0) + initial_balance
+        )
 
     transactions_in_range = db.query(
         Transaction.amount,
@@ -555,6 +592,10 @@ def get_balance_trend(
             currency_id,
             exchange_rate
         )
+
+    for month_key, adjustment in initial_balance_adjustments.items():
+        monthly_net.setdefault(month_key, 0.0)
+        monthly_net[month_key] += adjustment
 
     months = []
     running_balance = start_balance
