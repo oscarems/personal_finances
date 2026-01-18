@@ -79,7 +79,12 @@ def get_transactions(db: Session, account_id=None, category_id=None, start_date=
     if end_date:
         query = query.filter(Transaction.date <= end_date)
 
-    query = query.order_by(Transaction.date.desc(), Transaction.id.desc())
+    query = query.order_by(
+        Transaction.date.desc(),
+        Transaction.currency_id,
+        Transaction.amount.desc(),
+        Transaction.id.desc()
+    )
 
     if limit is not None and limit > 0:
         query = query.limit(limit)
