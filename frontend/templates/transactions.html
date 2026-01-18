@@ -293,6 +293,7 @@
     let accounts = [];
     let categories = [];
     let editingTransactionId = null;
+    let editingTransactionOriginal = null;
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadAccounts();
@@ -502,6 +503,7 @@
 
     function openCreateModal() {
         editingTransactionId = null;
+        editingTransactionOriginal = null;
         document.getElementById('modalTitle').textContent = 'Nueva Transacción';
         document.getElementById('transactionForm').reset();
         setDefaultDate();
@@ -512,6 +514,7 @@
     function closeTransactionModal() {
         document.getElementById('transactionModal').classList.add('hidden');
         editingTransactionId = null;
+        editingTransactionOriginal = null;
     }
 
     async function editTransaction(transactionId) {
@@ -519,6 +522,7 @@
         if (!transaction) return;
 
         editingTransactionId = transactionId;
+        editingTransactionOriginal = transaction;
         document.getElementById('modalTitle').textContent = 'Editar Transacción';
         document.getElementById('txDate').value = transaction.date;
         document.getElementById('txAccount').value = transaction.account_id;
@@ -574,25 +578,45 @@
         }
 
         const categoryValue = document.getElementById('txCategory').value;
+        const payeeValue = document.getElementById('txPayee').value || null;
+        const memoValue = document.getElementById('txMemo').value || null;
+        const clearedValue = document.getElementById('txCleared').checked;
         const data = {
             account_id: accountId,
             date: dateValue,
-            payee_name: document.getElementById('txPayee').value || null,
+            payee_name: payeeValue,
             category_id: categoryValue ? parseInt(categoryValue, 10) : null,
             amount: signedAmount,
             currency_id: currencyId,
-            memo: document.getElementById('txMemo').value || null,
-            cleared: document.getElementById('txCleared').checked
+            memo: memoValue,
+            cleared: clearedValue
         };
 
         try {
             let res;
             if (editingTransactionId) {
+                const payload = {};
+                const original = editingTransactionOriginal || {};
+                const originalCurrencyId = original.currency ? original.currency.id : original.currency_id;
+
+                if (data.account_id !== original.account_id) payload.account_id = data.account_id;
+                if (data.date !== original.date) payload.date = data.date;
+                if ((data.payee_name || null) !== (original.payee_name || null)) payload.payee_name = data.payee_name;
+                if ((data.category_id || null) !== (original.category_id || null)) payload.category_id = data.category_id;
+                if (data.amount !== original.amount) payload.amount = data.amount;
+                if (data.currency_id !== originalCurrencyId) payload.currency_id = data.currency_id;
+                if ((data.memo || null) !== (original.memo || null)) payload.memo = data.memo;
+                if (data.cleared !== original.cleared) payload.cleared = data.cleared;
+
+                if (Object.keys(payload).length === 0) {
+                    closeTransactionModal();
+                    return;
+                }
                 // Update
                 res = await fetch(`/api/transactions/${editingTransactionId}`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(payload)
                 });
             } else {
                 // Create
