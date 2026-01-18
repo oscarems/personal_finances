@@ -17,6 +17,36 @@ def transaction_affects_balance(account: Account, transaction_date: date) -> boo
     return transaction_date >= account.created_at.date()
 
 
+def normalize_transaction_currency(
+    db: Session,
+    amount: float,
+    currency_id: int,
+    account: Account,
+    transaction_date: date
+):
+    if not account or currency_id is None:
+        return amount, currency_id
+
+    if account.currency_id == currency_id:
+        return amount, currency_id
+
+    from_currency = db.query(Currency).get(currency_id)
+    to_currency = db.query(Currency).get(account.currency_id)
+
+    if not from_currency or not to_currency:
+        return amount, currency_id
+
+    converted_amount = convert_currency(
+        amount=amount,
+        from_currency=from_currency.code,
+        to_currency=to_currency.code,
+        db=db,
+        rate_date=transaction_date
+    )
+
+    return converted_amount, account.currency_id
+
+
 def create_transaction(db: Session, data):
     """
     Create a new transaction
@@ -35,6 +65,14 @@ def create_transaction(db: Session, data):
             db.flush()
 
     transaction_date = data.get('date', date.today())
+    account = db.query(Account).get(data['account_id'])
+    normalized_amount, normalized_currency_id = normalize_transaction_currency(
+        db,
+        data['amount'],
+        data['currency_id'],
+        account,
+        transaction_date
+    )
     # Create transaction
     transaction = Transaction(
         account_id=data['account_id'],
@@ -42,8 +80,8 @@ def create_transaction(db: Session, data):
         payee_id=payee.id if payee else None,
         category_id=data.get('category_id'),
         memo=data.get('memo', ''),
-        amount=data['amount'],
-        currency_id=data['currency_id'],
+        amount=normalized_amount,
+        currency_id=normalized_currency_id,
         cleared=data.get('cleared', False),
         approved=data.get('approved', True),
         transfer_account_id=data.get('transfer_account_id')
@@ -52,9 +90,8 @@ def create_transaction(db: Session, data):
     db.add(transaction)
 
     # Update account balance
-    account = db.query(Account).get(data['account_id'])
     if account and transaction_affects_balance(account, transaction_date):
-        account.balance += data['amount']
+        account.balance += normalized_amount
 
     db.commit()
     return transaction
@@ -122,12 +159,22 @@ def update_transaction(db: Session, transaction_id, data):
         if key not in ['payee_name'] and hasattr(transaction, key):
             setattr(transaction, key, value)
 
+    new_account = db.query(Account).get(transaction.account_id)
+    normalized_amount, normalized_currency_id = normalize_transaction_currency(
+        db,
+        transaction.amount,
+        transaction.currency_id,
+        new_account,
+        transaction.date
+    )
+    transaction.amount = normalized_amount
+    transaction.currency_id = normalized_currency_id
+
     # Update account balances
     old_account = db.query(Account).get(old_account_id)
     if old_account and transaction_affects_balance(old_account, old_date):
         old_account.balance -= old_amount
 
-    new_account = db.query(Account).get(transaction.account_id)
     if new_account and transaction_affects_balance(new_account, transaction.date):
         new_account.balance += transaction.amount
 
