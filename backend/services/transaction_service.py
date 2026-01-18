@@ -4,7 +4,7 @@ Transaction service for CRUD operations
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from backend.models import Transaction, Account, Category, Payee, Currency
 from backend.services.exchange_rate_service import convert_currency
 
@@ -422,16 +422,28 @@ def get_monthly_activity(db: Session, category_id, month, year, currency_id):
     start_date = date(year, month, 1)
     end_date = start_date + relativedelta(months=1)
 
-    transactions = db.query(Transaction).filter(
+    transactions = db.query(Transaction).options(joinedload(Transaction.currency)).filter(
         and_(
             Transaction.category_id == category_id,
-            Transaction.currency_id == currency_id,
             Transaction.date >= start_date,
             Transaction.date < end_date
         )
     ).all()
 
-    return sum(t.amount for t in transactions)
+    target_currency = db.query(Currency).get(currency_id)
+
+    if not target_currency:
+        return sum(t.amount for t in transactions)
+
+    return sum(
+        convert_currency(
+            t.amount,
+            t.currency.code if t.currency else target_currency.code,
+            target_currency.code,
+            db
+        )
+        for t in transactions
+    )
 
 
 def get_account_summary(db: Session):
