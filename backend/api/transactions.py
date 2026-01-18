@@ -61,11 +61,20 @@ class TransactionUpdate(BaseModel):
 def list_transactions(
     account_id: Optional[int] = None,
     category_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
     """Get list of transactions"""
-    transactions = get_transactions(db, account_id=account_id, category_id=category_id, limit=limit)
+    transactions = get_transactions(
+        db,
+        account_id=account_id,
+        category_id=category_id,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit
+    )
     return [t.to_dict() for t in transactions]
 
 
