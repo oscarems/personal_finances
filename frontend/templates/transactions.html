@@ -331,7 +331,7 @@
     async function loadCategories() {
         try {
             const res = await fetch('/api/categories/groups');
-            const groups = await res.json();
+            const groups = (await res.json()).filter(group => !group.is_income);
 
             // Flatten categories
             categories = [];
