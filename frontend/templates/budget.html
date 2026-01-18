@@ -19,22 +19,15 @@
 </div>
 
 <!-- Budget Summary Grid -->
-<div class="grid grid-cols-2 gap-6 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <!-- Ready to Assign Banner -->
     <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
         <div class="flex justify-between items-center">
             <div class="flex-1">
                 <p class="text-sm opacity-90 mb-2">Disponible para Asignar</p>
-                <div class="flex items-baseline space-x-4">
-                    <div>
-                        <p class="text-3xl font-bold" id="readyToAssignCOP">$0</p>
-                        <p class="text-xs opacity-75">COP</p>
-                    </div>
-                    <div class="text-xl opacity-75">/</div>
-                    <div>
-                        <p class="text-3xl font-bold" id="readyToAssignUSD">US$0.00</p>
-                        <p class="text-xs opacity-75">USD</p>
-                    </div>
+                <div>
+                    <p class="text-3xl font-bold" id="readyToAssignTotalCOP">$0</p>
+                    <p class="text-xs opacity-75 mt-1" id="readyToAssignTotalUSD">US$0.00</p>
                 </div>
             </div>
             <div class="text-5xl">💰</div>
@@ -46,30 +39,37 @@
         <div class="flex justify-between items-center">
             <div class="flex-1">
                 <p class="text-sm opacity-90 mb-2">Total Asignado este Mes</p>
-                <div class="flex items-baseline space-x-4">
-                    <div>
-                        <p class="text-3xl font-bold" id="totalAssignedCOP">$0</p>
-                        <p class="text-xs opacity-75">COP</p>
-                    </div>
-                    <div class="text-xl opacity-75">/</div>
-                    <div>
-                        <p class="text-3xl font-bold" id="totalAssignedUSD">US$0.00</p>
-                        <p class="text-xs opacity-75">USD</p>
-                    </div>
+                <div>
+                    <p class="text-3xl font-bold" id="totalAssignedTotalCOP">$0</p>
+                    <p class="text-xs opacity-75 mt-1" id="totalAssignedTotalUSD">US$0.00</p>
                 </div>
             </div>
             <div class="text-5xl">📊</div>
         </div>
     </div>
+
+    <!-- Total Available Banner -->
+    <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg shadow-lg p-6 text-white">
+        <div class="flex justify-between items-center">
+            <div class="flex-1">
+                <p class="text-sm opacity-90 mb-2">Total Disponible</p>
+                <div>
+                    <p class="text-3xl font-bold" id="totalAvailableCOP">$0</p>
+                    <p class="text-xs opacity-75 mt-1" id="totalAvailableUSD">US$0.00</p>
+                </div>
+            </div>
+            <div class="text-5xl">✅</div>
+        </div>
+    </div>
 </div>
 
-<!-- Budget Distribution Pie Chart -->
+<!-- Budget Distribution Bar Chart -->
 <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
     <h3 class="text-xl font-bold text-gray-800 mb-4">Distribución del Presupuesto por Categoría</h3>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Chart Canvas -->
         <div class="flex items-center justify-center" style="height: 300px;">
-            <canvas id="budgetPieChart"></canvas>
+            <canvas id="budgetBarChart"></canvas>
         </div>
         <!-- Legend -->
         <div id="budgetChartLegend" class="overflow-y-auto" style="max-height: 300px;">
@@ -267,7 +267,7 @@
     let currentMonth = new Date();
     let selectedCategory = null;
     let selectedCategoryData = null;
-    let budgetPieChart = null;  // Chart.js instance for pie chart
+    let budgetBarChart = null;  // Chart.js instance for bar chart
 
     // Exchange rates (will be loaded from API)
     let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
@@ -428,17 +428,23 @@
     function displayBudget(dataCOP, dataUSD) {
         if (!dataCOP || !dataUSD) return;
 
-        // Display Ready to Assign in BOTH currencies
-        document.getElementById('readyToAssignCOP').textContent =
+        // Display Ready to Assign total in both currencies (combined)
+        document.getElementById('readyToAssignTotalCOP').textContent =
             `$${formatAmount(dataCOP.ready_to_assign, 0)}`;
-        document.getElementById('readyToAssignUSD').textContent =
+        document.getElementById('readyToAssignTotalUSD').textContent =
             `US$${formatAmount(dataUSD.ready_to_assign, 2)}`;
 
-        // Display Total Assigned in BOTH currencies
-        document.getElementById('totalAssignedCOP').textContent =
+        // Display Total Assigned (sum) in both currencies
+        document.getElementById('totalAssignedTotalCOP').textContent =
             `$${formatAmount(dataCOP.totals.assigned, 0)}`;
-        document.getElementById('totalAssignedUSD').textContent =
+        document.getElementById('totalAssignedTotalUSD').textContent =
             `US$${formatAmount(dataUSD.totals.assigned, 2)}`;
+
+        // Display Total Available (sum) in both currencies
+        document.getElementById('totalAvailableCOP').textContent =
+            `$${formatAmount(dataCOP.totals.available, 0)}`;
+        document.getElementById('totalAvailableUSD').textContent =
+            `US$${formatAmount(dataUSD.totals.available, 2)}`;
 
         updateOverallocatedAlert(dataCOP.ready_to_assign, dataUSD.ready_to_assign);
 
@@ -575,11 +581,11 @@
             `;
         }).join('');
 
-        // Render the pie chart after displaying the budget
-        renderBudgetPieChart(dataCOP);
+        // Render the bar chart after displaying the budget
+        renderBudgetBarChart(dataCOP);
     }
 
-    function renderBudgetPieChart(budgetData) {
+    function renderBudgetBarChart(budgetData) {
         if (!budgetData || !budgetData.groups) return;
 
         // Collect all categories with their assigned amounts
@@ -613,26 +619,36 @@
         const backgroundColors = categoryData.map((_, index) => colors[index % colors.length]);
 
         // Destroy previous chart if it exists
-        if (budgetPieChart) {
-            budgetPieChart.destroy();
+        if (budgetBarChart) {
+            budgetBarChart.destroy();
         }
 
-        // Create new pie chart
-        const ctx = document.getElementById('budgetPieChart').getContext('2d');
-        budgetPieChart = new Chart(ctx, {
-            type: 'pie',
+        // Create new bar chart
+        const ctx = document.getElementById('budgetBarChart').getContext('2d');
+        budgetBarChart = new Chart(ctx, {
+            type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
                     data: amounts,
                     backgroundColor: backgroundColors,
-                    borderWidth: 2,
+                    borderWidth: 1,
                     borderColor: '#fff'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        ticks: {
+                            callback: function(value) {
+                                return `$${formatAmount(value, 0)}`;
+                            }
+                        }
+                    }
+                },
                 plugins: {
                     legend: {
                         display: false  // We'll create a custom legend
@@ -641,9 +657,9 @@
                         callbacks: {
                             label: function(context) {
                                 const label = context.label || '';
-                                const value = context.parsed || 0;
+                                const value = context.parsed.x || 0;
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                 return `${label}: $${formatAmount(value, 0)} (${percentage}%)`;
                             }
                         }
@@ -662,7 +678,7 @@
             return `
                 <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded">
                     <div class="flex items-center space-x-3">
-                        <div class="w-4 h-4 rounded-full flex-shrink-0" style="background-color: ${color}"></div>
+                        <div class="w-4 h-4 rounded flex-shrink-0" style="background-color: ${color}"></div>
                         <span class="text-sm font-medium text-gray-700">${cat.name}</span>
                     </div>
                     <div class="text-right">
