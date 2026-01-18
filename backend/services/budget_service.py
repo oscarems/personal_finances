@@ -153,12 +153,21 @@ def assign_money_to_category(db: Session, category_id, month_date, currency_id, 
     """
     budget = get_or_create_budget_month(db, category_id, month_date, currency_id)
     budget.assigned = amount
-    calculate_available(db, budget)
+    existing_budgets = db.query(BudgetMonth).filter_by(
+        category_id=category_id,
+        month=month_date
+    ).all()
+    has_multiple_budget_currencies = len({b.currency_id for b in existing_budgets}) > 1
+    calculate_available(
+        db,
+        budget,
+        include_all_currencies=not has_multiple_budget_currencies
+    )
     db.commit()
     return budget
 
 
-def calculate_available(db: Session, budget_month):
+def calculate_available(db: Session, budget_month, include_all_currencies: bool = True):
     """
     Calcula la cantidad disponible para un presupuesto mensual.
 
@@ -205,7 +214,8 @@ def calculate_available(db: Session, budget_month):
         budget_month.category_id,
         month,
         year,
-        budget_month.currency_id
+        budget_month.currency_id,
+        include_all_currencies=include_all_currencies
     )
 
     budget_month.activity = activity
@@ -414,10 +424,15 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
             total_assigned = 0.0
             total_activity = 0.0
             total_available = 0.0
+            has_multiple_budget_currencies = len({b.currency_id for b in all_budgets}) > 1
 
             for budget in all_budgets:
                 # Recalculate available
-                calculate_available(db, budget)
+                calculate_available(
+                    db,
+                    budget,
+                    include_all_currencies=not has_multiple_budget_currencies
+                )
 
                 # Get budget currency from cache
                 budget_currency = all_currencies.get(budget.currency_id)
@@ -566,10 +581,19 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
     # Create currency cache
     currency_cache = {c.id: c for c in db.query(Currency).all()}
 
+    budgets_by_category = {}
+    for budget in all_budgets_this_month:
+        budgets_by_category.setdefault(budget.category_id, set()).add(budget.currency_id)
+
     # Sum available amounts converted to the target currency
     total_available = 0.0
     for budget in all_budgets_this_month:
-        calculate_available(db, budget)
+        has_multiple_budget_currencies = len(budgets_by_category.get(budget.category_id, set())) > 1
+        calculate_available(
+            db,
+            budget,
+            include_all_currencies=not has_multiple_budget_currencies
+        )
         budget_currency = currency_cache.get(budget.currency_id)
         if budget_currency:
             converted_available = convert_with_cache(budget.available, budget_currency.code)
