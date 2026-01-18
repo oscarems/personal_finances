@@ -91,6 +91,8 @@
                 <option value="date_asc">Fecha (más antigua)</option>
                 <option value="account">Cuenta</option>
                 <option value="category">Categoría</option>
+                <option value="amount_desc">Monto (mayor)</option>
+                <option value="amount_asc">Monto (menor)</option>
             </select>
         </div>
         <div class="flex items-end">
@@ -497,6 +499,14 @@
                 }
                 case 'category': {
                     const diff = compareText(a.category_name, b.category_name);
+                    return diff !== 0 ? diff : new Date(b.date) - new Date(a.date);
+                }
+                case 'amount_desc': {
+                    const diff = Math.abs(b.amount) - Math.abs(a.amount);
+                    return diff !== 0 ? diff : new Date(b.date) - new Date(a.date);
+                }
+                case 'amount_asc': {
+                    const diff = Math.abs(a.amount) - Math.abs(b.amount);
                     return diff !== 0 ? diff : new Date(b.date) - new Date(a.date);
                 }
                 default:
