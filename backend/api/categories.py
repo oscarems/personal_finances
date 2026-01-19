@@ -383,8 +383,8 @@ def update_category(category_id: int, category_update: CategoryUpdate, db: Sessi
     if category_update.initial_amount is not None:
         category.initial_amount = category_update.initial_amount
 
-    if category_update.initial_currency_code is not None:
-        if category_update.initial_currency_code == '':
+    if "initial_currency_code" in category_update.__fields_set__:
+        if not category_update.initial_currency_code:
             category.initial_currency_id = None
         else:
             currency = db.query(Currency).filter_by(code=category_update.initial_currency_code).first()
