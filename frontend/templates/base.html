@@ -241,11 +241,24 @@
             @apply w-full px-4 py-3 border-2 border-neutral-200 rounded-button
                    focus:ring-4 focus:ring-primary-100 focus:border-primary-500
                    transition-all duration-200 bg-white font-medium
-                   hover:border-neutral-300;
+                   hover:border-neutral-300 hover:shadow-md;
         }
 
         .input-field:disabled {
             @apply bg-neutral-50 cursor-not-allowed border-neutral-100;
+        }
+
+        /* Select con indicador visual claro */
+        select.input-field {
+            @apply cursor-pointer;
+        }
+
+        /* Input de texto con cursor claro */
+        input[type="text"].input-field,
+        input[type="number"].input-field,
+        input[type="email"].input-field,
+        input[type="password"].input-field {
+            @apply cursor-text;
         }
 
         /* Sidebar navigation con efectos modernos */
