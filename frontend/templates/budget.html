@@ -3,18 +3,27 @@
 {% block title %}Presupuesto - Personal Finances{% endblock %}
 
 {% block content %}
-<!-- Header mejorado -->
-<div class="mb-8">
-    <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+<!-- Header Ultra Moderno -->
+<div class="mb-10">
+    <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
         <div>
-            <h2 class="text-4xl font-bold text-neutral-900 tracking-tight">Presupuesto Multi-Moneda</h2>
-            <p class="text-neutral-500 mt-2 text-lg">Dale un propósito a cada peso - Asigna en COP o USD</p>
+            <div class="flex items-center space-x-4 mb-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center shadow-lg">
+                    <span class="text-2xl">💰</span>
+                </div>
+                <div>
+                    <h2 class="text-5xl font-extrabold bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-700 bg-clip-text text-transparent tracking-tight">
+                        Presupuesto
+                    </h2>
+                </div>
+            </div>
+            <p class="text-neutral-600 text-lg font-medium ml-16">Dale un propósito a cada peso - Asigna en COP o USD</p>
         </div>
-        <div class="flex items-center space-x-4">
-            <button onclick="openNewGroupModal()" class="btn-success flex items-center">
-                <span class="mr-2 text-lg">+</span> Nuevo Grupo
+        <div class="flex items-center space-x-3">
+            <button onclick="openNewGroupModal()" class="btn-primary flex items-center shadow-lg">
+                <span class="mr-2 text-xl">+</span> Nuevo Grupo
             </button>
-            <input type="month" id="monthSelect" class="input-field">
+            <input type="month" id="monthSelect" class="input-field shadow-md">
         </div>
     </div>
 </div>
@@ -77,21 +86,26 @@
     </div>
 </div>
 
-<!-- Budget Distribution Bar Chart con diseño mejorado -->
-<div class="card p-8 mb-8">
-    <div class="flex items-center space-x-3 mb-6">
-        <div class="bg-primary-100 p-2 rounded-lg">
-            <span class="text-2xl">📊</span>
+<!-- Budget Distribution Bar Chart ultra moderno -->
+<div class="card-hover-lift p-8 mb-10">
+    <div class="flex items-center space-x-4 mb-8">
+        <div class="relative">
+            <div class="absolute inset-0 bg-secondary-500 rounded-xl blur-md opacity-30"></div>
+            <div class="relative bg-gradient-to-br from-secondary-400 to-secondary-600 p-3 rounded-xl">
+                <span class="text-2xl">📊</span>
+            </div>
         </div>
-        <h3 class="text-2xl font-bold text-neutral-900">Distribución del Presupuesto por Categoría</h3>
+        <h3 class="text-2xl font-bold bg-gradient-to-r from-neutral-800 to-neutral-600 bg-clip-text text-transparent">
+            Distribución del Presupuesto por Categoría
+        </h3>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Chart Canvas -->
-        <div class="flex items-center justify-center" style="height: 300px;">
+        <div class="flex items-center justify-center bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6" style="height: 300px;">
             <canvas id="budgetBarChart"></canvas>
         </div>
         <!-- Legend -->
-        <div id="budgetChartLegend" class="overflow-y-auto bg-neutral-50 rounded-lg p-4" style="max-height: 300px;">
+        <div id="budgetChartLegend" class="overflow-y-auto bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6 border border-neutral-100" style="max-height: 300px;">
             <!-- Legend items will be populated here -->
         </div>
     </div>
