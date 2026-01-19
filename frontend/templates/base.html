@@ -4,74 +4,349 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Personal Finances{% endblock %}</title>
-    
+
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
+    <!-- Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Sistema de colores profesional para finanzas
+                        primary: {
+                            50: '#EFF6FF',
+                            100: '#DBEAFE',
+                            200: '#BFDBFE',
+                            300: '#93C5FD',
+                            400: '#60A5FA',
+                            500: '#3B82F6',
+                            600: '#2563EB',
+                            700: '#1D4ED8',
+                            800: '#1E40AF',
+                            900: '#1E3A8A',
+                        },
+                        success: {
+                            50: '#ECFDF5',
+                            100: '#D1FAE5',
+                            200: '#A7F3D0',
+                            300: '#6EE7B7',
+                            400: '#34D399',
+                            500: '#10B981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065F46',
+                            900: '#064E3B',
+                        },
+                        danger: {
+                            50: '#FEF2F2',
+                            100: '#FEE2E2',
+                            200: '#FECACA',
+                            300: '#FCA5A5',
+                            400: '#F87171',
+                            500: '#EF4444',
+                            600: '#DC2626',
+                            700: '#B91C1C',
+                            800: '#991B1B',
+                            900: '#7F1D1D',
+                        },
+                        warning: {
+                            50: '#FFF7ED',
+                            100: '#FFEDD5',
+                            200: '#FED7AA',
+                            300: '#FDBA74',
+                            400: '#FB923C',
+                            500: '#F97316',
+                            600: '#EA580C',
+                            700: '#C2410C',
+                            800: '#9A3412',
+                            900: '#7C2D12',
+                        },
+                        accent: {
+                            50: '#FAF5FF',
+                            100: '#F3E8FF',
+                            200: '#E9D5FF',
+                            300: '#D8B4FE',
+                            400: '#C084FC',
+                            500: '#A855F7',
+                            600: '#9333EA',
+                            700: '#7E22CE',
+                            800: '#6B21A8',
+                            900: '#581C87',
+                        },
+                        neutral: {
+                            50: '#F9FAFB',
+                            100: '#F3F4F6',
+                            200: '#E5E7EB',
+                            300: '#D1D5DB',
+                            400: '#9CA3AF',
+                            500: '#6B7280',
+                            600: '#4B5563',
+                            700: '#374151',
+                            800: '#1F2937',
+                            900: '#111827',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 8px rgba(0, 0, 0, 0.08)',
+                        'medium': '0 4px 16px rgba(0, 0, 0, 0.12)',
+                        'strong': '0 8px 24px rgba(0, 0, 0, 0.16)',
+                    },
+                    borderRadius: {
+                        'card': '12px',
+                        'button': '8px',
+                    }
+                }
+            }
+        }
+    </script>
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <style>
+        /* Sistema de diseño global */
+        :root {
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        * {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        /* Animaciones suaves */
         .budget-bar {
-            transition: width 0.3s ease;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Componentes de botón estandarizados */
+        .btn-primary {
+            @apply px-5 py-2.5 bg-primary-600 text-white rounded-button font-medium
+                   hover:bg-primary-700 active:bg-primary-800
+                   transition-all duration-200 shadow-sm hover:shadow-md;
+        }
+
+        .btn-success {
+            @apply px-5 py-2.5 bg-success-600 text-white rounded-button font-medium
+                   hover:bg-success-700 active:bg-success-800
+                   transition-all duration-200 shadow-sm hover:shadow-md;
+        }
+
+        .btn-danger {
+            @apply px-5 py-2.5 bg-danger-600 text-white rounded-button font-medium
+                   hover:bg-danger-700 active:bg-danger-800
+                   transition-all duration-200 shadow-sm hover:shadow-md;
+        }
+
+        .btn-secondary {
+            @apply px-5 py-2.5 bg-neutral-100 text-neutral-700 rounded-button font-medium
+                   hover:bg-neutral-200 active:bg-neutral-300
+                   transition-all duration-200 border border-neutral-300;
+        }
+
+        /* Cards mejoradas */
+        .card {
+            @apply bg-white rounded-card shadow-soft hover:shadow-medium
+                   transition-all duration-200;
+        }
+
+        .card-gradient-primary {
+            @apply bg-gradient-to-br from-primary-500 to-primary-700
+                   rounded-card shadow-medium text-white;
+        }
+
+        .card-gradient-success {
+            @apply bg-gradient-to-br from-success-500 to-success-700
+                   rounded-card shadow-medium text-white;
+        }
+
+        .card-gradient-accent {
+            @apply bg-gradient-to-br from-accent-500 to-accent-700
+                   rounded-card shadow-medium text-white;
+        }
+
+        /* Inputs mejorados */
+        .input-field {
+            @apply w-full px-4 py-2.5 border border-neutral-300 rounded-button
+                   focus:ring-2 focus:ring-primary-500 focus:border-primary-500
+                   transition-all duration-200 bg-white;
+        }
+
+        .input-field:disabled {
+            @apply bg-neutral-100 cursor-not-allowed;
+        }
+
+        /* Sidebar navigation items */
+        .nav-item {
+            @apply flex items-center px-4 py-3 text-neutral-300
+                   hover:bg-neutral-800 hover:text-white
+                   transition-all duration-200 rounded-lg mx-2 my-1;
+        }
+
+        .nav-item.active {
+            @apply bg-primary-600 text-white;
+        }
+
+        /* Badges y tags */
+        .badge {
+            @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+        }
+
+        .badge-success {
+            @apply bg-success-100 text-success-800;
+        }
+
+        .badge-danger {
+            @apply bg-danger-100 text-danger-800;
+        }
+
+        .badge-warning {
+            @apply bg-warning-100 text-warning-800;
+        }
+
+        .badge-primary {
+            @apply bg-primary-100 text-primary-800;
+        }
+
+        /* Alertas */
+        .alert {
+            @apply rounded-lg p-4 border-l-4;
+        }
+
+        .alert-success {
+            @apply bg-success-50 border-success-500 text-success-800;
+        }
+
+        .alert-danger {
+            @apply bg-danger-50 border-danger-500 text-danger-800;
+        }
+
+        .alert-warning {
+            @apply bg-warning-50 border-warning-500 text-warning-800;
+        }
+
+        .alert-info {
+            @apply bg-primary-50 border-primary-500 text-primary-800;
+        }
+
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #F3F4F6;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9CA3AF;
         }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-neutral-50 antialiased">
     <div class="flex h-screen">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-gray-900 text-white">
-            <div class="p-6">
-                <h1 class="text-2xl font-bold">💰 Finanzas</h1>
-                <p class="text-gray-400 text-sm mt-1">Personal</p>
+        <!-- Sidebar mejorado -->
+        <aside class="w-72 bg-gradient-to-b from-neutral-900 to-neutral-800 text-white shadow-strong flex flex-col">
+            <!-- Logo y título -->
+            <div class="p-6 border-b border-neutral-700">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gradient-to-br from-primary-500 to-accent-600 p-3 rounded-xl shadow-lg">
+                        <span class="text-3xl">💰</span>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight">Finanzas Personal</h1>
+                        <p class="text-neutral-400 text-xs mt-0.5 font-medium">Gestión Inteligente</p>
+                    </div>
+                </div>
             </div>
-            
-            <nav class="mt-6">
-                <a href="/" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">📊</span>
-                    Dashboard
-                </a>
-                <a href="/budget" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">💰</span>
-                    Presupuesto
-                </a>
-                <a href="/transactions" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">📝</span>
-                    Transacciones
-                </a>
-                <a href="/recurring" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">🔄</span>
-                    Transacciones Automáticas
-                </a>
-                <a href="/accounts" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">🏦</span>
-                    Cuentas
-                </a>
-                <a href="/debts" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">💳</span>
-                    Deudas
-                </a>
-                <a href="/emergency-fund" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">🆘</span>
-                    Fondo de Emergencia
-                </a>
-                <a href="/reports" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">📈</span>
-                    Reportes
-                </a>
-                <a href="/mortgage" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">🏠</span>
-                    Simulador Hipoteca
-                </a>
-                <a href="/import" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-800 hover:text-white transition">
-                    <span class="mr-3">📥</span>
-                    Importar YNAB
-                </a>
+
+            <!-- Navegación principal -->
+            <nav class="flex-1 py-4 overflow-y-auto">
+                <div class="space-y-1 px-2">
+                    <a href="/" class="nav-item">
+                        <span class="text-xl mr-3">📊</span>
+                        <span class="font-medium">Dashboard</span>
+                    </a>
+                    <a href="/budget" class="nav-item">
+                        <span class="text-xl mr-3">💰</span>
+                        <span class="font-medium">Presupuesto</span>
+                    </a>
+                    <a href="/transactions" class="nav-item">
+                        <span class="text-xl mr-3">📝</span>
+                        <span class="font-medium">Transacciones</span>
+                    </a>
+                    <a href="/recurring" class="nav-item">
+                        <span class="text-xl mr-3">🔄</span>
+                        <span class="font-medium text-sm">Transacciones Automáticas</span>
+                    </a>
+                </div>
+
+                <div class="mt-6 px-4 mb-3">
+                    <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Gestión</p>
+                </div>
+
+                <div class="space-y-1 px-2">
+                    <a href="/accounts" class="nav-item">
+                        <span class="text-xl mr-3">🏦</span>
+                        <span class="font-medium">Cuentas</span>
+                    </a>
+                    <a href="/debts" class="nav-item">
+                        <span class="text-xl mr-3">💳</span>
+                        <span class="font-medium">Deudas</span>
+                    </a>
+                </div>
+
+                <div class="mt-6 px-4 mb-3">
+                    <p class="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Herramientas</p>
+                </div>
+
+                <div class="space-y-1 px-2">
+                    <a href="/emergency-fund" class="nav-item">
+                        <span class="text-xl mr-3">🆘</span>
+                        <span class="font-medium">Fondo Emergencia</span>
+                    </a>
+                    <a href="/reports" class="nav-item">
+                        <span class="text-xl mr-3">📈</span>
+                        <span class="font-medium">Reportes</span>
+                    </a>
+                    <a href="/mortgage" class="nav-item">
+                        <span class="text-xl mr-3">🏠</span>
+                        <span class="font-medium">Simulador Hipoteca</span>
+                    </a>
+                    <a href="/import" class="nav-item">
+                        <span class="text-xl mr-3">📥</span>
+                        <span class="font-medium">Importar YNAB</span>
+                    </a>
+                </div>
             </nav>
+
+            <!-- Footer del sidebar -->
+            <div class="p-4 border-t border-neutral-700">
+                <div class="text-xs text-neutral-400 text-center">
+                    <p class="font-medium">v1.0.0</p>
+                </div>
+            </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto">
+        <main class="flex-1 overflow-y-auto bg-neutral-50">
             <div class="container mx-auto px-8 py-8">
                 {% block content %}{% endblock %}
             </div>
@@ -79,5 +354,20 @@
     </div>
 
     {% block scripts %}{% endblock %}
+
+    <script>
+        // Marcar el item activo en la navegación
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-item');
+
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPath || (currentPath === '/' && href === '/')) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
