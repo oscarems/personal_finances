@@ -1268,7 +1268,26 @@
         const monthDate = `${year}-${String(month).padStart(2, '0')}-01`;
 
         try {
-            // Save BOTH budgets (COP and USD)
+            // CRITICAL FIX: Update category FIRST with rollover_type and initial_amount
+            // This prevents a race condition where the budget calculation runs before
+            // the initial_amount is saved to the database
+            const categoryUpdateResponse = await fetch(`/api/categories/${selectedCategory}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rollover_type: rolloverType,
+                    initial_amount: rolloverType === 'accumulate' ? initialAmount : 0,
+                    initial_currency_code: rolloverType === 'accumulate' ? initialCurrencyCode : null
+                })
+            });
+
+            if (!categoryUpdateResponse.ok) {
+                alert('Error al actualizar la categoría');
+                return;
+            }
+
+            // Now save BOTH budgets (COP and USD)
+            // The initial_amount will be correctly applied during calculate_available()
             const requests = [];
 
             if (amountCOP > 0 || amountUSD === 0) {
@@ -1302,19 +1321,6 @@
                     })
                 );
             }
-
-            // Update category with rollover_type and initial_amount
-            requests.push(
-                fetch(`/api/categories/${selectedCategory}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        rollover_type: rolloverType,
-                        initial_amount: rolloverType === 'accumulate' ? initialAmount : 0,
-                        initial_currency_code: rolloverType === 'accumulate' ? initialCurrencyCode : null
-                    })
-                })
-            );
 
             const results = await Promise.all(requests);
 
