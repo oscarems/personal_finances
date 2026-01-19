@@ -298,6 +298,34 @@
         const totalAccountsFormatted = formatCurrency(totalAccounts, primaryCurrency, symbol);
         const totalAssignedFormatted = formatCurrency(totalAssigned, primaryCurrency, symbol);
         const totalAvailableFormatted = formatCurrency(totalAvailable, primaryCurrency, symbol);
+        const assignedCardClass = [
+            'rounded-card',
+            'p-6',
+            'shadow-md',
+            'hover:shadow-lg',
+            'transition-shadow',
+            'bg-gradient-to-br',
+            'from-primary-400',
+            'via-primary-500',
+            'to-primary-600',
+            'text-white',
+            'border',
+            'border-primary-300/20'
+        ].join(' ');
+        const availableCardClass = [
+            'rounded-card',
+            'p-6',
+            'shadow-md',
+            'hover:shadow-lg',
+            'transition-shadow',
+            'bg-gradient-to-br',
+            totalAvailable >= 0 ? 'from-success-400' : 'from-danger-400',
+            totalAvailable >= 0 ? 'via-success-500' : 'via-danger-500',
+            totalAvailable >= 0 ? 'to-success-600' : 'to-danger-600',
+            'text-white',
+            'border',
+            totalAvailable >= 0 ? 'border-success-300/20' : 'border-danger-300/20'
+        ].join(' ');
 
         container.innerHTML = `
             <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -317,14 +345,14 @@
                     </div>
                     <p class="text-4xl font-extrabold text-neutral-900">${totalAccountsFormatted}</p>
                 </div>
-                <div class="card-gradient-primary p-6 shadow-md hover:shadow-lg transition-shadow">
+                <div class="${assignedCardClass}">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-white text-sm font-bold uppercase tracking-wide">Disponible Presupuesto</p>
                         <span class="text-3xl">📊</span>
                     </div>
                     <p class="text-4xl font-extrabold text-white">${totalAssignedFormatted}</p>
                 </div>
-                <div class="card-gradient-${totalAvailable >= 0 ? 'success' : 'danger'} p-6 shadow-md hover:shadow-lg transition-shadow">
+                <div class="${availableCardClass}">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-white text-sm font-bold uppercase tracking-wide">Listo para Asignar</p>
                         <span class="text-3xl">${totalAvailable >= 0 ? '✅' : '⚠️'}</span>
