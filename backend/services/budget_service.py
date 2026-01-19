@@ -253,9 +253,16 @@ def calculate_available(db: Session, budget_month, include_all_currencies: bool 
                     initial_currency = None
                     if category.initial_currency_id:
                         initial_currency = db.query(Currency).get(category.initial_currency_id)
+                    else:
+                        category_budget_currencies = db.query(BudgetMonth.currency_id).filter(
+                            BudgetMonth.category_id == budget_month.category_id
+                        ).distinct().all()
+                        unique_currency_ids = {row[0] for row in category_budget_currencies}
+                        if unique_currency_ids == {budget_month.currency_id}:
+                            initial_currency = budget_currency
 
                     # Only apply initial_amount if currencies match
-                    # If no initial_currency is set, we MUST skip to prevent duplication across currencies
+                    # If no initial_currency is set, we only allow it when this category has a single currency
                     if initial_currency and budget_currency and budget_currency.id == initial_currency.id:
                         # Currency matches: apply initial_amount (with conversion if needed)
                         initial_available = convert_currency(
