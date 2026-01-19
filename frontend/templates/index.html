@@ -3,10 +3,19 @@
 {% block title %}Dashboard - Personal Finances{% endblock %}
 
 {% block content %}
-<!-- Header mejorado -->
-<div class="mb-8">
-    <h2 class="text-4xl font-bold text-neutral-900 tracking-tight">Dashboard</h2>
-    <p class="text-neutral-500 mt-2 text-lg">Resumen completo de tus finanzas personales</p>
+<!-- Header Ultra Moderno -->
+<div class="mb-10">
+    <div class="flex items-center space-x-4 mb-3">
+        <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-lg">
+            <span class="text-2xl">📊</span>
+        </div>
+        <div>
+            <h2 class="text-5xl font-extrabold bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-700 bg-clip-text text-transparent tracking-tight">
+                Dashboard
+            </h2>
+        </div>
+    </div>
+    <p class="text-neutral-600 text-lg font-medium ml-16">Resumen completo de tus finanzas personales</p>
 </div>
 
 <!-- Total Accounts Summary con diseño mejorado -->
@@ -19,76 +28,96 @@
     <!-- Cards will be loaded here -->
 </div>
 
-<!-- Charts Row con diseño mejorado -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+<!-- Charts Row con diseño ultra moderno -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
     <!-- Monthly Trend Chart -->
-    <div class="card p-6">
-        <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center space-x-3">
-                <div class="bg-primary-100 p-2 rounded-lg">
-                    <span class="text-2xl">📈</span>
+    <div class="card-hover-lift p-8">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
+                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
+                        <span class="text-2xl">📈</span>
+                    </div>
                 </div>
-                <h3 class="text-xl font-bold text-neutral-800">Ingresos vs Gastos</h3>
+                <h3 class="text-2xl font-bold bg-gradient-to-r from-neutral-800 to-neutral-600 bg-clip-text text-transparent">
+                    Ingresos vs Gastos
+                </h3>
             </div>
         </div>
         <canvas id="monthlyTrendChart"></canvas>
     </div>
 
     <!-- Category Distribution -->
-    <div class="card p-6">
-        <div class="flex items-center justify-between mb-5">
-            <div class="flex items-center space-x-3">
-                <div class="bg-accent-100 p-2 rounded-lg">
-                    <span class="text-2xl">🎯</span>
+    <div class="card-hover-lift p-8">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <div class="absolute inset-0 bg-accent-500 rounded-xl blur-md opacity-30"></div>
+                    <div class="relative bg-gradient-to-br from-accent-400 to-accent-600 p-3 rounded-xl">
+                        <span class="text-2xl">🎯</span>
+                    </div>
                 </div>
-                <h3 class="text-xl font-bold text-neutral-800">Distribución por Categorías</h3>
+                <h3 class="text-2xl font-bold bg-gradient-to-r from-neutral-800 to-neutral-600 bg-clip-text text-transparent">
+                    Distribución por Categorías
+                </h3>
             </div>
         </div>
         <canvas id="categoryChart"></canvas>
     </div>
 </div>
 
-<!-- Debts Summary con diseño mejorado -->
-<div class="card mb-8">
-    <div class="p-6 border-b border-neutral-200 flex justify-between items-center">
-        <div class="flex items-center space-x-3">
-            <div class="bg-danger-100 p-2 rounded-lg">
-                <span class="text-2xl">💳</span>
+<!-- Debts Summary ultra moderno -->
+<div class="card-hover-lift mb-10">
+    <div class="p-8 border-b border-neutral-100 flex justify-between items-center bg-gradient-to-r from-neutral-50 to-white">
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <div class="absolute inset-0 bg-danger-500 rounded-xl blur-md opacity-30"></div>
+                <div class="relative bg-gradient-to-br from-danger-400 to-danger-600 p-3 rounded-xl">
+                    <span class="text-2xl">💳</span>
+                </div>
             </div>
-            <h3 class="text-xl font-bold text-neutral-800">Resumen de Deudas</h3>
+            <h3 class="text-2xl font-bold bg-gradient-to-r from-neutral-800 to-neutral-600 bg-clip-text text-transparent">
+                Resumen de Deudas
+            </h3>
         </div>
-        <a href="/debts" class="text-sm font-semibold text-primary-600 hover:text-primary-700 flex items-center space-x-1 transition-colors">
+        <a href="/debts" class="btn-secondary text-sm px-4 py-2 flex items-center space-x-2 group">
             <span>Ver todas</span>
-            <span>→</span>
+            <span class="group-hover:translate-x-1 transition-transform">→</span>
         </a>
     </div>
-    <div id="debtsSummary" class="p-6">
+    <div id="debtsSummary" class="p-8">
         <!-- Debts summary will be loaded here -->
     </div>
 </div>
 
-<!-- Recent Transactions con diseño mejorado -->
-<div class="card overflow-hidden">
-    <div class="p-6 border-b border-neutral-200">
-        <div class="flex items-center space-x-3">
-            <div class="bg-success-100 p-2 rounded-lg">
-                <span class="text-2xl">📝</span>
+<!-- Recent Transactions ultra moderno -->
+<div class="card-hover-lift overflow-hidden">
+    <div class="p-8 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white">
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <div class="absolute inset-0 bg-success-500 rounded-xl blur-md opacity-30"></div>
+                <div class="relative bg-gradient-to-br from-success-400 to-success-600 p-3 rounded-xl">
+                    <span class="text-2xl">📝</span>
+                </div>
             </div>
-            <h3 class="text-xl font-bold text-neutral-800">Transacciones Recientes</h3>
+            <h3 class="text-2xl font-bold bg-gradient-to-r from-neutral-800 to-neutral-600 bg-clip-text text-transparent">
+                Transacciones Recientes
+            </h3>
         </div>
     </div>
     <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-neutral-200">
-            <thead class="bg-neutral-50">
+        <table class="min-w-full">
+            <thead>
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-600 uppercase tracking-wider">Fecha</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-600 uppercase tracking-wider">Beneficiario</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-600 uppercase tracking-wider">Categoría</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-600 uppercase tracking-wider">Cuenta</th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-neutral-600 uppercase tracking-wider">Monto</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Fecha</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Beneficiario</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Categoría</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Cuenta</th>
+                    <th class="px-6 py-4 text-right text-xs font-bold text-neutral-700 uppercase tracking-wider">Monto</th>
                 </tr>
             </thead>
-            <tbody id="recentTransactions" class="bg-white divide-y divide-neutral-100">
+            <tbody id="recentTransactions" class="bg-white">
                 <!-- Transactions will be loaded here -->
             </tbody>
         </table>
@@ -504,29 +533,29 @@
                 datasets: [{
                     label: 'Ingresos',
                     data: [0, 0, 0, 0, 0, 0],
-                    borderColor: '#059669',
-                    backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                    borderColor: '#22C55E', // success-500 (verde vibrante)
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
                     borderWidth: 3,
                     tension: 0.4,
                     fill: true,
-                    pointBackgroundColor: '#059669',
+                    pointBackgroundColor: '#22C55E',
                     pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointBorderWidth: 3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
                 }, {
                     label: 'Gastos',
                     data: [0, 0, 0, 0, 0, 0],
-                    borderColor: '#DC2626',
-                    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                    borderColor: '#F43F5E', // danger-500 (rose)
+                    backgroundColor: 'rgba(244, 63, 94, 0.1)',
                     borderWidth: 3,
                     tension: 0.4,
                     fill: true,
-                    pointBackgroundColor: '#DC2626',
+                    pointBackgroundColor: '#F43F5E',
                     pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointBorderWidth: 3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
                 }]
             },
             options: {
@@ -620,21 +649,22 @@
                 datasets: [{
                     data: categoryData.length ? categoryData : [1],
                     backgroundColor: [
-                        '#2563EB', // primary-600
-                        '#059669', // success-600
-                        '#EA580C', // warning-600
-                        '#DC2626', // danger-600
-                        '#9333EA', // accent-600
-                        '#EC4899', // pink-600
-                        '#14B8A6', // teal-600
-                        '#F97316', // orange-600
-                        '#6366F1', // indigo-600
-                        '#84CC16'  // lime-600
+                        '#14B8A6', // primary-500 (teal vibrante)
+                        '#4F46E5', // secondary-600 (indigo profesional)
+                        '#22C55E', // success-500 (verde moderno)
+                        '#F43F5E', // danger-500 (rose)
+                        '#F59E0B', // warning-500 (amber)
+                        '#EC4899', // accent-500 (pink/fucsia)
+                        '#8B5CF6', // violet-500
+                        '#06B6D4', // cyan-500
+                        '#F97316', // orange-500
+                        '#84CC16'  // lime-500
                     ],
-                    borderWidth: 3,
+                    borderWidth: 4,
                     borderColor: '#fff',
-                    hoverBorderWidth: 4,
-                    hoverBorderColor: '#fff'
+                    hoverBorderWidth: 5,
+                    hoverBorderColor: '#fff',
+                    spacing: 2
                 }]
             },
             options: {
