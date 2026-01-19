@@ -20,6 +20,7 @@ class Currency(Base):
     transactions = relationship(
         'Transaction',
         foreign_keys='Transaction.currency_id',
+        primaryjoin='Currency.id == Transaction.currency_id',
         back_populates='currency',
         lazy=True
     )
