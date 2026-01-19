@@ -23,6 +23,10 @@
                         <option value="">Selecciona una hipoteca</option>
                     </select>
                     <p class="text-xs text-gray-500 mt-1">Carga valores desde una cuenta tipo hipoteca.</p>
+                    <div id="loadedMortgageInfo" class="hidden mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                        <p class="font-semibold text-blue-800 mb-1">Información guardada:</p>
+                        <div id="loadedMortgageDetails" class="text-blue-700 space-y-1"></div>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -212,6 +216,8 @@
                 option.dataset.interestRate = account.interest_rate || '';
                 option.dataset.loanYears = account.loan_years || '';
                 option.dataset.loanStartDate = account.loan_start_date || '';
+                option.dataset.monthlyPayment = account.monthly_payment || '';
+                option.dataset.paymentDueDay = account.payment_due_day || '';
                 select.appendChild(option);
             });
         } catch (error) {
@@ -221,7 +227,11 @@
 
     document.getElementById('mortgageAccount').addEventListener('change', function(e) {
         const option = e.target.selectedOptions[0];
+        const infoDiv = document.getElementById('loadedMortgageInfo');
+        const detailsDiv = document.getElementById('loadedMortgageDetails');
+
         if (!option || !option.value) {
+            infoDiv.classList.add('hidden');
             return;
         }
 
@@ -230,7 +240,11 @@
         const interestRate = parseFloat(option.dataset.interestRate) || '';
         const loanYears = parseInt(option.dataset.loanYears, 10) || '';
         const loanStartDate = option.dataset.loanStartDate || '';
+        const monthlyPayment = parseFloat(option.dataset.monthlyPayment) || '';
+        const paymentDueDay = parseInt(option.dataset.paymentDueDay, 10) || '';
+        const currentBalance = parseFloat(option.dataset.balance) || 0;
 
+        // Llenar los campos del formulario
         if (principalValue > 0) {
             document.getElementById('principal').value = principalValue;
         }
@@ -242,6 +256,25 @@
         }
         if (loanStartDate) {
             document.getElementById('startDate').value = loanStartDate;
+        }
+
+        // Mostrar información adicional de la hipoteca guardada
+        let detailsHTML = '';
+        if (currentBalance > 0) {
+            detailsHTML += `<p>💰 Saldo actual: <strong>${formatCurrency(currentBalance)}</strong></p>`;
+        }
+        if (monthlyPayment) {
+            detailsHTML += `<p>📅 Cuota mensual: <strong>${formatCurrency(monthlyPayment)}</strong></p>`;
+        }
+        if (paymentDueDay) {
+            detailsHTML += `<p>📆 Día de pago: <strong>Día ${paymentDueDay} de cada mes</strong></p>`;
+        }
+
+        if (detailsHTML) {
+            detailsDiv.innerHTML = detailsHTML;
+            infoDiv.classList.remove('hidden');
+        } else {
+            infoDiv.classList.add('hidden');
         }
     });
 
