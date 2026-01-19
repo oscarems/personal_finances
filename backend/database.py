@@ -65,6 +65,31 @@ def init_db():
         column_name="is_adjustment",
         column_definition="is_adjustment BOOLEAN DEFAULT 0"
     )
+    ensure_sqlite_column(
+        table_name="transactions",
+        column_name="original_amount",
+        column_definition="original_amount FLOAT DEFAULT 0"
+    )
+    ensure_sqlite_column(
+        table_name="transactions",
+        column_name="original_currency_id",
+        column_definition="original_currency_id INTEGER"
+    )
+    ensure_sqlite_column(
+        table_name="transactions",
+        column_name="fx_rate",
+        column_definition="fx_rate FLOAT"
+    )
+    ensure_sqlite_column(
+        table_name="transactions",
+        column_name="base_amount",
+        column_definition="base_amount FLOAT"
+    )
+    ensure_sqlite_column(
+        table_name="transactions",
+        column_name="base_currency_id",
+        column_definition="base_currency_id INTEGER"
+    )
     print("✓ Database tables created")
 
 

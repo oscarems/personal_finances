@@ -17,7 +17,12 @@ class Currency(Base):
 
     # Relationships
     accounts = relationship('Account', back_populates='currency', lazy=True)
-    transactions = relationship('Transaction', back_populates='currency', lazy=True)
+    transactions = relationship(
+        'Transaction',
+        foreign_keys='Transaction.currency_id',
+        back_populates='currency',
+        lazy=True
+    )
     budget_months = relationship('BudgetMonth', back_populates='currency', lazy=True)
 
     def __repr__(self):

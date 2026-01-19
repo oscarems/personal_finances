@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from backend.models import RecurringTransaction, Transaction, Account, Payee, Debt, DebtPayment
+from backend.services.transaction_service import build_transaction_audit_fields
 
 
 def get_next_occurrence_date(recurring: RecurringTransaction, from_date: date) -> date:
@@ -106,6 +107,12 @@ def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
                         base_amount = abs(recurring.amount)
                         signed_amount = base_amount if recurring.transaction_type == 'income' else -base_amount
 
+                    audit_base_amount, audit_base_currency_id = build_transaction_audit_fields(
+                        db,
+                        signed_amount,
+                        recurring.currency_id,
+                        check_date
+                    )
                     # Create the transaction
                     transaction = Transaction(
                         account_id=recurring.account_id,
@@ -115,6 +122,11 @@ def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
                         memo=f"Auto: {recurring.description}" if recurring.description else "Transacción automática",
                         amount=signed_amount,
                         currency_id=recurring.currency_id,
+                        original_amount=signed_amount,
+                        original_currency_id=recurring.currency_id,
+                        fx_rate=None,
+                        base_amount=audit_base_amount,
+                        base_currency_id=audit_base_currency_id,
                         cleared=False,
                         approved=True
                     )

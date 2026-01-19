@@ -5,8 +5,9 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
+from typing import Optional
 from backend.models import Transaction, Account, Category, Payee, Currency
-from backend.services.exchange_rate_service import convert_currency
+from backend.services.exchange_rate_service import convert_currency, get_rate_for_date
 
 
 def transaction_affects_balance(account: Account, transaction_date: date) -> bool:
@@ -25,17 +26,18 @@ def normalize_transaction_currency(
     transaction_date: date
 ):
     if not account or currency_id is None:
-        return amount, currency_id
+        return amount, currency_id, None
 
     if account.currency_id == currency_id:
-        return amount, currency_id
+        return amount, currency_id, None
 
     from_currency = db.query(Currency).get(currency_id)
     to_currency = db.query(Currency).get(account.currency_id)
 
     if not from_currency or not to_currency:
-        return amount, currency_id
+        return amount, currency_id, None
 
+    fx_rate = get_rate_for_date(db, transaction_date)
     converted_amount = convert_currency(
         amount=amount,
         from_currency=from_currency.code,
@@ -44,7 +46,37 @@ def normalize_transaction_currency(
         rate_date=transaction_date
     )
 
-    return converted_amount, account.currency_id
+    return converted_amount, account.currency_id, fx_rate
+
+
+def get_base_currency(db: Session) -> Optional[Currency]:
+    return db.query(Currency).filter_by(is_base=True).first()
+
+
+def build_transaction_audit_fields(
+    db: Session,
+    original_amount: float,
+    original_currency_id: int,
+    transaction_date: date
+):
+    base_currency = get_base_currency(db)
+    base_currency_id = base_currency.id if base_currency else None
+    base_amount = None
+
+    if base_currency:
+        original_currency = db.query(Currency).get(original_currency_id)
+        if original_currency and original_currency.code != base_currency.code:
+            base_amount = convert_currency(
+                amount=original_amount,
+                from_currency=original_currency.code,
+                to_currency=base_currency.code,
+                db=db,
+                rate_date=transaction_date
+            )
+        else:
+            base_amount = original_amount
+
+    return base_amount, base_currency_id
 
 
 def create_transaction(db: Session, data):
@@ -66,11 +98,17 @@ def create_transaction(db: Session, data):
 
     transaction_date = data.get('date', date.today())
     account = db.query(Account).get(data['account_id'])
-    normalized_amount, normalized_currency_id = normalize_transaction_currency(
+    normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
         db,
         data['amount'],
         data['currency_id'],
         account,
+        transaction_date
+    )
+    base_amount, base_currency_id = build_transaction_audit_fields(
+        db,
+        data['amount'],
+        data['currency_id'],
         transaction_date
     )
     # Create transaction
@@ -82,6 +120,11 @@ def create_transaction(db: Session, data):
         memo=data.get('memo', ''),
         amount=normalized_amount,
         currency_id=normalized_currency_id,
+        original_amount=data['amount'],
+        original_currency_id=data['currency_id'],
+        fx_rate=fx_rate,
+        base_amount=base_amount,
+        base_currency_id=base_currency_id,
         cleared=data.get('cleared', False),
         approved=data.get('approved', True),
         transfer_account_id=data.get('transfer_account_id')
@@ -159,16 +202,29 @@ def update_transaction(db: Session, transaction_id, data):
         if key not in ['payee_name'] and hasattr(transaction, key):
             setattr(transaction, key, value)
 
+    original_amount = data.get('amount', transaction.original_amount)
+    original_currency_id = data.get('currency_id', transaction.original_currency_id)
     new_account = db.query(Account).get(transaction.account_id)
-    normalized_amount, normalized_currency_id = normalize_transaction_currency(
+    normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
         db,
-        transaction.amount,
-        transaction.currency_id,
+        original_amount,
+        original_currency_id,
         new_account,
         transaction.date
     )
     transaction.amount = normalized_amount
     transaction.currency_id = normalized_currency_id
+    transaction.original_amount = original_amount
+    transaction.original_currency_id = original_currency_id
+    transaction.fx_rate = fx_rate
+    base_amount, base_currency_id = build_transaction_audit_fields(
+        db,
+        original_amount,
+        original_currency_id,
+        transaction.date
+    )
+    transaction.base_amount = base_amount
+    transaction.base_currency_id = base_currency_id
 
     # Update account balances
     old_account = db.query(Account).get(old_account_id)
@@ -267,6 +323,13 @@ def create_adjustment(db: Session, data):
 
     adjustment_date = data.get('date', date.today())
 
+    base_amount, base_currency_id = build_transaction_audit_fields(
+        db,
+        difference,
+        account.currency_id,
+        adjustment_date
+    )
+
     # Create the adjustment transaction
     adjustment = Transaction(
         account_id=data['account_id'],
@@ -276,6 +339,11 @@ def create_adjustment(db: Session, data):
         memo=data.get('memo', f'Balance adjustment: {difference:+.2f}'),
         amount=difference,
         currency_id=account.currency_id,
+        original_amount=difference,
+        original_currency_id=account.currency_id,
+        fx_rate=None,
+        base_amount=base_amount,
+        base_currency_id=base_currency_id,
         cleared=True,  # Adjustments are always cleared
         approved=True,
         is_adjustment=True
@@ -390,16 +458,20 @@ def create_transfer(db: Session, data):
     from_currency = db.query(Currency).get(data['from_currency_id'])
     to_currency = db.query(Currency).get(data['to_currency_id'])
 
+    transfer_date = data.get('date', date.today())
     # Calculate amounts
     from_amount = -abs(data['amount'])  # Negative (outflow)
+    fx_rate = None
 
     # If different currencies, convert
     if from_currency.code != to_currency.code:
+        fx_rate = get_rate_for_date(db, transfer_date)
         to_amount = convert_currency(
             amount=abs(data['amount']),
             from_currency=from_currency.code,
             to_currency=to_currency.code,
-            db=db
+            db=db,
+            rate_date=transfer_date
         )
     else:
         to_amount = abs(data['amount'])  # Positive (inflow)
@@ -420,7 +492,18 @@ def create_transfer(db: Session, data):
         db.add(payee_to)
         db.flush()
 
-    transfer_date = data.get('date', date.today())
+    from_base_amount, from_base_currency_id = build_transaction_audit_fields(
+        db,
+        from_amount,
+        data['from_currency_id'],
+        transfer_date
+    )
+    to_base_amount, to_base_currency_id = build_transaction_audit_fields(
+        db,
+        to_amount,
+        data['to_currency_id'],
+        transfer_date
+    )
 
     # Create outflow transaction (from account)
     from_transaction = Transaction(
@@ -431,6 +514,11 @@ def create_transfer(db: Session, data):
         memo=data.get('memo', ''),
         amount=from_amount,
         currency_id=data['from_currency_id'],
+        original_amount=from_amount,
+        original_currency_id=data['from_currency_id'],
+        fx_rate=fx_rate,
+        base_amount=from_base_amount,
+        base_currency_id=from_base_currency_id,
         cleared=data.get('cleared', False),
         approved=True,
         transfer_account_id=data['to_account_id']
@@ -445,6 +533,11 @@ def create_transfer(db: Session, data):
         memo=data.get('memo', ''),
         amount=to_amount,
         currency_id=data['to_currency_id'],
+        original_amount=to_amount,
+        original_currency_id=data['to_currency_id'],
+        fx_rate=fx_rate,
+        base_amount=to_base_amount,
+        base_currency_id=to_base_currency_id,
         cleared=data.get('cleared', False),
         approved=True,
         transfer_account_id=data['from_account_id']
