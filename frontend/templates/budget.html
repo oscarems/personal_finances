@@ -3,99 +3,115 @@
 {% block title %}Presupuesto - Personal Finances{% endblock %}
 
 {% block content %}
+<!-- Header mejorado -->
 <div class="mb-8">
-    <div class="flex justify-between items-center">
+    <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
-            <h2 class="text-3xl font-bold text-gray-800">Presupuesto Multi-Moneda</h2>
-            <p class="text-gray-600 mt-2">Dale un propósito a cada peso - Asigna en COP o USD</p>
+            <h2 class="text-4xl font-bold text-neutral-900 tracking-tight">Presupuesto Multi-Moneda</h2>
+            <p class="text-neutral-500 mt-2 text-lg">Dale un propósito a cada peso - Asigna en COP o USD</p>
         </div>
         <div class="flex items-center space-x-4">
-            <button onclick="openNewGroupModal()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
-                <span class="mr-2">+</span> Nuevo Grupo
+            <button onclick="openNewGroupModal()" class="btn-success flex items-center">
+                <span class="mr-2 text-lg">+</span> Nuevo Grupo
             </button>
-            <input type="month" id="monthSelect" class="border border-gray-300 rounded-lg px-4 py-2">
+            <input type="month" id="monthSelect" class="input-field">
         </div>
     </div>
 </div>
 
-<!-- Budget Summary Grid -->
+<!-- Budget Summary Grid con diseño mejorado -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <!-- Ready to Assign Banner -->
-    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
-        <div class="flex justify-between items-center">
+    <div class="card-gradient-primary p-8 hover:shadow-strong transition-shadow">
+        <div class="flex justify-between items-start">
             <div class="flex-1">
-                <p class="text-sm opacity-90 mb-2">Disponible para Asignar</p>
+                <div class="flex items-center space-x-2 mb-3">
+                    <span class="text-3xl">💰</span>
+                    <p class="text-sm font-semibold text-white/90 uppercase tracking-wide">Disponible para Asignar</p>
+                </div>
                 <div>
-                    <p class="text-3xl font-bold" id="readyToAssignTotalCOP">$0</p>
-                    <p class="text-xs opacity-75 mt-1" id="readyToAssignTotalUSD">US$0.00</p>
+                    <p class="text-4xl font-bold text-white mb-2" id="readyToAssignTotalCOP">$0</p>
+                    <p class="text-sm text-white/80" id="readyToAssignTotalUSD">US$0.00</p>
                 </div>
             </div>
-            <div class="text-5xl">💰</div>
         </div>
     </div>
 
     <!-- Total Assigned This Month Banner -->
-    <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
-        <div class="flex justify-between items-center">
+    <div class="card-gradient-accent p-8 hover:shadow-strong transition-shadow">
+        <div class="flex justify-between items-start">
             <div class="flex-1">
-                <p class="text-sm opacity-90 mb-2">Total Asignado este Mes</p>
+                <div class="flex items-center space-x-2 mb-3">
+                    <span class="text-3xl">📊</span>
+                    <p class="text-sm font-semibold text-white/90 uppercase tracking-wide">Asignado este Mes</p>
+                </div>
                 <div>
-                    <p class="text-3xl font-bold" id="totalAssignedTotalCOP">$0</p>
-                    <p class="text-xs opacity-75 mt-1" id="totalAssignedTotalUSD">US$0.00</p>
+                    <p class="text-4xl font-bold text-white mb-2" id="totalAssignedTotalCOP">$0</p>
+                    <p class="text-sm text-white/80" id="totalAssignedTotalUSD">US$0.00</p>
                 </div>
             </div>
-            <div class="text-5xl">📊</div>
         </div>
     </div>
 
     <!-- Total Available Banner -->
-    <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg shadow-lg p-6 text-white">
-        <div class="flex justify-between items-center">
+    <div class="card-gradient-success p-8 hover:shadow-strong transition-shadow">
+        <div class="flex justify-between items-start">
             <div class="flex-1">
-                <p class="text-sm opacity-90 mb-2">Total Disponible</p>
+                <div class="flex items-center space-x-2 mb-3">
+                    <span class="text-3xl">✅</span>
+                    <p class="text-sm font-semibold text-white/90 uppercase tracking-wide">Total Disponible</p>
+                </div>
                 <div>
-                    <p class="text-3xl font-bold" id="totalAvailableCOP">$0</p>
-                    <p class="text-xs opacity-75 mt-1" id="totalAvailableUSD">US$0.00</p>
-                    <p class="text-xs opacity-75 mt-2">
-                        En cuentas:
-                        <span id="totalInAccountsCOP">$0</span> /
-                        <span id="totalInAccountsUSD">US$0.00</span>
-                    </p>
+                    <p class="text-4xl font-bold text-white mb-2" id="totalAvailableCOP">$0</p>
+                    <p class="text-sm text-white/80 mb-3" id="totalAvailableUSD">US$0.00</p>
+                    <div class="pt-3 border-t border-white/20">
+                        <p class="text-xs text-white/70 font-medium">
+                            En cuentas:
+                            <span id="totalInAccountsCOP" class="text-white font-bold">$0</span> /
+                            <span id="totalInAccountsUSD" class="text-white font-bold">US$0.00</span>
+                        </p>
+                    </div>
                 </div>
             </div>
-            <div class="text-5xl">✅</div>
         </div>
     </div>
 </div>
 
-<!-- Budget Distribution Bar Chart -->
-<div class="bg-white rounded-lg shadow-lg p-6 mb-8">
-    <h3 class="text-xl font-bold text-gray-800 mb-4">Distribución del Presupuesto por Categoría</h3>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Budget Distribution Bar Chart con diseño mejorado -->
+<div class="card p-8 mb-8">
+    <div class="flex items-center space-x-3 mb-6">
+        <div class="bg-primary-100 p-2 rounded-lg">
+            <span class="text-2xl">📊</span>
+        </div>
+        <h3 class="text-2xl font-bold text-neutral-900">Distribución del Presupuesto por Categoría</h3>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Chart Canvas -->
         <div class="flex items-center justify-center" style="height: 300px;">
             <canvas id="budgetBarChart"></canvas>
         </div>
         <!-- Legend -->
-        <div id="budgetChartLegend" class="overflow-y-auto" style="max-height: 300px;">
+        <div id="budgetChartLegend" class="overflow-y-auto bg-neutral-50 rounded-lg p-4" style="max-height: 300px;">
             <!-- Legend items will be populated here -->
         </div>
     </div>
 </div>
 
-<!-- Overallocated Alert -->
-<div id="budgetOverallocatedAlert" class="hidden bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg mb-8">
-    <div class="flex items-start space-x-3">
-        <div class="text-xl">⚠️</div>
-        <div>
-            <p class="font-semibold">Tu presupuesto disponible supera el dinero en tus cuentas.</p>
-            <p class="text-sm">
+<!-- Overallocated Alert con diseño mejorado -->
+<div id="budgetOverallocatedAlert" class="hidden alert alert-danger mb-8">
+    <div class="flex items-start space-x-4">
+        <div class="text-3xl">⚠️</div>
+        <div class="flex-1">
+            <p class="font-bold text-lg text-danger-900 mb-2">Tu presupuesto disponible supera el dinero en tus cuentas</p>
+            <p class="text-sm text-danger-800 mb-3">
                 Ajusta las asignaciones o los saldos de tus cuentas (excluyendo deudas) para corregirlo.
             </p>
-            <p class="text-sm mt-2">
-                Exceso: <span id="overallocatedCOP" class="font-medium">$0</span> /
-                <span id="overallocatedUSD" class="font-medium">US$0.00</span>
-            </p>
+            <div class="bg-danger-100 rounded-lg p-3 inline-block">
+                <p class="text-sm font-semibold text-danger-900">
+                    Exceso: <span id="overallocatedCOP" class="font-bold">$0</span> /
+                    <span id="overallocatedUSD" class="font-bold">US$0.00</span>
+                </p>
+            </div>
         </div>
     </div>
 </div>
@@ -105,98 +121,117 @@
     <!-- Budget groups will be loaded here -->
 </div>
 
-<!-- Assign Money Modal - NEW DESIGN WITH BOTH CURRENCIES -->
-<div id="assignModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-2xl w-full">
-        <h3 class="text-xl font-bold mb-4">Asignar Dinero</h3>
+<!-- Assign Money Modal - Diseño mejorado -->
+<div id="assignModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div class="card p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="bg-primary-100 p-2 rounded-lg">
+                    <span class="text-2xl">💰</span>
+                </div>
+                <h3 class="text-2xl font-bold text-neutral-900">Asignar Dinero</h3>
+            </div>
+            <button onclick="closeAssignModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
 
         <!-- Category Name -->
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
-            <input type="text" id="modalCategoryName" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+        <div class="mb-6">
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Categoría</label>
+            <input type="text" id="modalCategoryName" readonly class="input-field bg-neutral-50 cursor-not-allowed font-semibold">
         </div>
 
         <!-- Rollover Behavior Selection -->
         <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Comportamiento</label>
-            <select id="modalRolloverType" onchange="toggleInitialAmountField()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Comportamiento</label>
+            <select id="modalRolloverType" onchange="toggleInitialAmountField()" class="input-field">
                 <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
                 <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">
-                <strong>Gasto Mensual:</strong> El dinero no gastado vuelve a "Disponible para Asignar"<br>
-                <strong>Meta/Ahorro:</strong> El dinero no gastado se acumula para el siguiente mes
-            </p>
+            <div class="mt-3 alert alert-info">
+                <p class="text-xs">
+                    <strong class="font-bold">Gasto Mensual:</strong> El dinero no gastado vuelve a "Disponible para Asignar"<br>
+                    <strong class="font-bold">Meta/Ahorro:</strong> El dinero no gastado se acumula para el siguiente mes
+                </p>
+            </div>
         </div>
 
         <!-- Initial Amount Field (only for savings/accumulate categories) -->
         <div id="initialAmountSection" class="mb-6 hidden">
-            <label class="block text-sm font-medium text-gray-700 mb-2">💎 Dinero que Tengo Hoy (Inicial)</label>
-            <div class="flex space-x-2">
-                <select id="modalInitialCurrency" class="border border-gray-300 rounded-lg px-3 py-2">
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">💎 Dinero que Tengo Hoy (Inicial)</label>
+            <div class="flex space-x-3">
+                <select id="modalInitialCurrency" class="input-field w-32">
                     <option value="COP">COP</option>
                     <option value="USD">USD</option>
                 </select>
                 <div class="relative flex-1">
-                    <span class="absolute left-3 top-3 text-gray-500">$</span>
+                    <span class="absolute left-3 top-3 text-neutral-500 font-semibold">$</span>
                     <input type="number" id="modalInitialAmount"
-                           class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg"
+                           class="input-field pl-8"
                            placeholder="0"
                            step="1000">
                 </div>
             </div>
-            <p class="text-xs text-gray-500 mt-1">
+            <p class="text-xs text-neutral-500 mt-2 pl-1">
                 Este es el monto que ya tienes ahorrado para esta categoría. Solo aplica para categorías de tipo Meta/Ahorro.
             </p>
         </div>
 
-        <!-- BOTH CURRENCY FIELDS -->
-        <div class="grid grid-cols-2 gap-6 mb-6">
+        <!-- BOTH CURRENCY FIELDS con diseño mejorado -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <!-- COP Field -->
-            <div class="border-2 border-blue-200 bg-blue-50 p-4 rounded-lg">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    💵 Presupuesto en COP
+            <div class="border-2 border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 p-6 rounded-card">
+                <label class="block text-sm font-bold text-primary-900 mb-3 uppercase tracking-wide flex items-center">
+                    <span class="text-xl mr-2">💵</span>
+                    Presupuesto en COP
                 </label>
                 <div class="relative">
-                    <span class="absolute left-3 top-3 text-gray-500">$</span>
+                    <span class="absolute left-4 top-3.5 text-neutral-600 font-bold text-lg">$</span>
                     <input type="number" id="modalAmountCOP"
-                           class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg"
+                           class="input-field pl-10 text-lg font-semibold"
                            placeholder="0"
                            step="1000"
                            onInput="updateConversion('COP')">
                 </div>
-                <p class="text-xs text-gray-500 mt-1" id="copConversionHint"></p>
+                <p class="text-xs text-primary-700 mt-2 font-medium" id="copConversionHint"></p>
             </div>
 
             <!-- USD Field -->
-            <div class="border-2 border-green-200 bg-green-50 p-4 rounded-lg">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    💵 Presupuesto en USD
+            <div class="border-2 border-success-200 bg-gradient-to-br from-success-50 to-success-100 p-6 rounded-card">
+                <label class="block text-sm font-bold text-success-900 mb-3 uppercase tracking-wide flex items-center">
+                    <span class="text-xl mr-2">💵</span>
+                    Presupuesto en USD
                 </label>
                 <div class="relative">
-                    <span class="absolute left-3 top-3 text-gray-500">US$</span>
+                    <span class="absolute left-4 top-3.5 text-neutral-600 font-bold">US$</span>
                     <input type="number" id="modalAmountUSD"
-                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+                           class="input-field pl-14 text-lg font-semibold"
                            placeholder="0.00"
                            step="0.01"
                            onInput="updateConversion('USD')">
                 </div>
-                <p class="text-xs text-gray-500 mt-1" id="usdConversionHint"></p>
+                <p class="text-xs text-success-700 mt-2 font-medium" id="usdConversionHint"></p>
             </div>
         </div>
 
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-            <p class="text-sm text-yellow-700">
-                <strong>💡 Tip:</strong> Puedes asignar en ambas monedas. El total se mostrará combinado en la pantalla principal.
-            </p>
+        <div class="alert alert-warning mb-6">
+            <div class="flex items-start space-x-3">
+                <span class="text-xl">💡</span>
+                <p class="text-sm font-medium">
+                    <strong>Tip:</strong> Puedes asignar en ambas monedas. El total se mostrará combinado en la pantalla principal.
+                </p>
+            </div>
         </div>
 
         <!-- Buttons -->
         <div class="flex justify-end space-x-3">
-            <button onclick="closeAssignModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+            <button onclick="closeAssignModal()" class="btn-secondary">
                 Cancelar
             </button>
-            <button onclick="saveAssignment()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button onclick="saveAssignment()" class="btn-primary">
                 Guardar Presupuesto
             </button>
         </div>
@@ -204,27 +239,32 @@
 </div>
 
 <!-- Cover Overspending Modal -->
-<div id="coverOverspendingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-xl w-full">
-        <h3 class="text-xl font-bold mb-4">Cubrir Exceso en Categoría</h3>
+<div id="coverOverspendingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div class="card p-8 max-w-xl w-full mx-4">
+        <div class="flex items-center space-x-3 mb-6">
+            <div class="bg-danger-100 p-2 rounded-lg">
+                <span class="text-2xl">⚠️</span>
+            </div>
+            <h3 class="text-2xl font-bold text-neutral-900">Cubrir Exceso en Categoría</h3>
+        </div>
 
         <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría con exceso</label>
-            <input type="text" id="coverOverspendingCategory" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Categoría con exceso</label>
+            <input type="text" id="coverOverspendingCategory" readonly class="input-field bg-neutral-50 font-semibold">
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-                <select id="coverOverspendingCurrency" onchange="updateCoverOverspendingCurrency()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+                <select id="coverOverspendingCurrency" onchange="updateCoverOverspendingCurrency()" class="input-field">
                     <option value="COP">COP</option>
                     <option value="USD">USD</option>
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Monto a cubrir</label>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Monto a cubrir</label>
                 <input type="number" id="coverOverspendingAmount"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       class="input-field"
                        placeholder="0"
                        step="0.01"
                        onInput="updateCoverOverspendingHint()">
@@ -233,18 +273,18 @@
         </div>
 
         <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">¿De qué categoría se toma el dinero?</label>
-            <select id="coverOverspendingSource" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">¿De qué categoría se toma el dinero?</label>
+            <select id="coverOverspendingSource" class="input-field">
                 <option value="">Selecciona una categoría</option>
             </select>
             <p class="text-xs text-gray-500 mt-1" id="coverOverspendingSourceHint"></p>
         </div>
 
         <div class="flex justify-end space-x-3">
-            <button onclick="closeCoverOverspendingModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+            <button onclick="closeCoverOverspendingModal()" class="btn-secondary">
                 Cancelar
             </button>
-            <button onclick="coverOverspending()" id="coverOverspendingSubmit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+            <button onclick="coverOverspending()" id="coverOverspendingSubmit" class="btn-danger">
                 Cubrir exceso
             </button>
         </div>
@@ -252,31 +292,36 @@
 </div>
 
 <!-- New Category Modal -->
-<div id="newCategoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-md w-full">
-        <h3 class="text-xl font-bold mb-4">Nueva Categoría</h3>
+<div id="newCategoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div class="card p-8 max-w-md w-full mx-4">
+        <div class="flex items-center space-x-3 mb-6">
+            <div class="bg-primary-100 p-2 rounded-lg">
+                <span class="text-2xl">🏷️</span>
+            </div>
+            <h3 class="text-2xl font-bold text-neutral-900">Nueva Categoría</h3>
+        </div>
         <form id="newCategoryForm">
             <input type="hidden" id="newCategoryGroupId">
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Grupo</label>
-                <input type="text" id="newCategoryGroupName" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Grupo</label>
+                <input type="text" id="newCategoryGroupName" readonly class="input-field bg-neutral-50 font-semibold">
             </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre de la Categoría</label>
-                <input type="text" id="newCategoryName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Netflix, Gasolina, etc.">
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Nombre de la Categoría</label>
+                <input type="text" id="newCategoryName" required class="input-field" placeholder="Ej: Netflix, Gasolina, etc.">
             </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Comportamiento</label>
-                <select id="newCategoryRollover" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Comportamiento</label>
+                <select id="newCategoryRollover" class="input-field">
                     <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
                     <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
                 </select>
             </div>
             <div class="flex justify-end space-x-3">
-                <button type="button" onclick="closeNewCategoryModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                <button type="button" onclick="closeNewCategoryModal()" class="btn-secondary">
                     Cancelar
                 </button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <button type="submit" class="btn-primary">
                     Crear Categoría
                 </button>
             </div>
@@ -285,27 +330,32 @@
 </div>
 
 <!-- New Group Modal -->
-<div id="newGroupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-8 max-w-md w-full">
-        <h3 class="text-xl font-bold mb-4">Nuevo Grupo de Presupuesto</h3>
-        <form id="newGroupForm">
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Grupo</label>
-                <input type="text" id="newGroupName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Entretenimiento, Transporte, etc.">
+<div id="newGroupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+    <div class="card p-8 max-w-md w-full mx-4">
+        <div class="flex items-center space-x-3 mb-6">
+            <div class="bg-success-100 p-2 rounded-lg">
+                <span class="text-2xl">📁</span>
             </div>
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-                <select id="newGroupIsIncome" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <h3 class="text-2xl font-bold text-neutral-900">Nuevo Grupo de Presupuesto</h3>
+        </div>
+        <form id="newGroupForm">
+            <div class="mb-5">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Nombre del Grupo</label>
+                <input type="text" id="newGroupName" required class="input-field" placeholder="Ej: Entretenimiento, Transporte, etc.">
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Tipo</label>
+                <select id="newGroupIsIncome" class="input-field">
                     <option value="false">💰 Gastos (default)</option>
                     <option value="true">💵 Ingresos</option>
                 </select>
-                <p class="text-xs text-gray-500 mt-1">Los grupos de gastos aparecen en el presupuesto principal</p>
+                <p class="text-xs text-neutral-500 mt-2">Los grupos de gastos aparecen en el presupuesto principal</p>
             </div>
             <div class="flex justify-end space-x-3">
-                <button type="button" onclick="closeNewGroupModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                <button type="button" onclick="closeNewGroupModal()" class="btn-secondary">
                     Cancelar
                 </button>
-                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                <button type="submit" class="btn-success">
                     Crear Grupo
                 </button>
             </div>
