@@ -31,7 +31,7 @@ class Transaction(Base):
     transfer_account = relationship('Account', foreign_keys=[transfer_account_id], overlaps="transfer_transactions")
     payee = relationship('Payee', back_populates='transactions')
     category = relationship('Category', back_populates='transactions')
-    currency = relationship('Currency', back_populates='transactions')
+    currency = relationship('Currency', foreign_keys=[currency_id], back_populates='transactions')
 
     def __repr__(self):
         return f'<Transaction {self.date} {self.amount}>'
