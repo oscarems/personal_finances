@@ -91,7 +91,7 @@
             const assignedData = await assignedRes.json();
 
             try {
-                const rateRes = await fetch('/api/exchange_rates/current');
+                const rateRes = await fetch('/api/exchange-rates/current');
                 if (rateRes.ok) {
                     dashboardState.exchangeRate = await rateRes.json();
                 }
