@@ -12,7 +12,8 @@ from backend.services.budget_service import (
     get_month_budget,
     assign_money_to_category,
     get_budget_overview,
-    get_assigned_totals_by_currency
+    get_assigned_totals_by_currency,
+    calculate_available
 )
 from backend.models import BudgetMonth, Currency, Category
 
@@ -121,3 +122,93 @@ def assign_budget(assignment: BudgetAssignment, db: Session = Depends(get_db)):
     )
 
     return {"success": True, "budget": budget.to_dict()}
+
+
+@router.post("/recalculate-savings")
+def recalculate_savings_budgets(db: Session = Depends(get_db)):
+    """
+    Recalcula todos los presupuestos de categorías de ahorro (accumulate).
+
+    Este endpoint corrige el problema donde el initial_amount no se aplicó
+    correctamente debido a un race condition. Recalcula todos los presupuestos
+    en orden cronológico para asegurar que el rollover funcione correctamente.
+    """
+    from sqlalchemy import distinct
+
+    # Encontrar todas las categorías de ahorro
+    savings_categories = db.query(Category).filter(
+        Category.rollover_type == 'accumulate'
+    ).all()
+
+    results = []
+
+    for category in savings_categories:
+        category_result = {
+            "category_id": category.id,
+            "category_name": category.name,
+            "initial_amount": category.initial_amount,
+            "currencies": []
+        }
+
+        # Obtener todas las monedas usadas para esta categoría
+        budget_currencies = db.query(distinct(BudgetMonth.currency_id)).filter(
+            BudgetMonth.category_id == category.id
+        ).all()
+
+        for (currency_id,) in budget_currencies:
+            currency = db.query(Currency).get(currency_id)
+
+            # Obtener todos los presupuestos de esta categoría en esta moneda
+            budgets = db.query(BudgetMonth).filter(
+                BudgetMonth.category_id == category.id,
+                BudgetMonth.currency_id == currency_id
+            ).order_by(BudgetMonth.month).all()
+
+            updated_budgets = []
+
+            # Recalcular cada presupuesto en orden cronológico
+            for budget in budgets:
+                old_available = budget.available
+
+                # Determinar si hay múltiples monedas en este mes
+                existing_budgets = db.query(BudgetMonth).filter_by(
+                    category_id=category.id,
+                    month=budget.month
+                ).all()
+                has_multiple_currencies = len({b.currency_id for b in existing_budgets}) > 1
+
+                # Recalcular available
+                calculate_available(
+                    db,
+                    budget,
+                    include_all_currencies=not has_multiple_currencies
+                )
+
+                if old_available != budget.available:
+                    updated_budgets.append({
+                        "month": budget.month.isoformat(),
+                        "old_available": old_available,
+                        "new_available": budget.available,
+                        "assigned": budget.assigned,
+                        "activity": budget.activity
+                    })
+
+            if updated_budgets:
+                category_result["currencies"].append({
+                    "currency_code": currency.code,
+                    "budgets_updated": len(updated_budgets),
+                    "updates": updated_budgets
+                })
+
+        if category_result["currencies"]:
+            results.append(category_result)
+
+    # Hacer commit de todos los cambios
+    db.commit()
+
+    return {
+        "success": True,
+        "categories_processed": len(savings_categories),
+        "categories_updated": len(results),
+        "details": results
+    }
