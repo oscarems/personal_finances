@@ -203,6 +203,54 @@
     </div>
 </div>
 
+<!-- Cover Overspending Modal -->
+<div id="coverOverspendingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-8 max-w-xl w-full">
+        <h3 class="text-xl font-bold mb-4">Cubrir Exceso en Categoría</h3>
+
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría con exceso</label>
+            <input type="text" id="coverOverspendingCategory" readonly class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+                <select id="coverOverspendingCurrency" onchange="updateCoverOverspendingCurrency()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="COP">COP</option>
+                    <option value="USD">USD</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Monto a cubrir</label>
+                <input type="number" id="coverOverspendingAmount"
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                       placeholder="0"
+                       step="0.01"
+                       onInput="updateCoverOverspendingHint()">
+                <p class="text-xs text-gray-500 mt-1" id="coverOverspendingHint"></p>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">¿De qué categoría se toma el dinero?</label>
+            <select id="coverOverspendingSource" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="">Selecciona una categoría</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1" id="coverOverspendingSourceHint"></p>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+            <button onclick="closeCoverOverspendingModal()" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+                Cancelar
+            </button>
+            <button onclick="coverOverspending()" id="coverOverspendingSubmit" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                Cubrir exceso
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- New Category Modal -->
 <div id="newCategoryModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-8 max-w-md w-full">
@@ -273,6 +321,9 @@
     let selectedCategory = null;
     let selectedCategoryData = null;
     let budgetBarChart = null;  // Chart.js instance for bar chart
+    let budgetDataByCurrency = { COP: null, USD: null };
+    let categoryBudgetMap = {};
+    let overspendingContext = null;
 
     // Exchange rates (will be loaded from API)
     let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
@@ -433,6 +484,9 @@
     function displayBudget(dataCOP, dataUSD) {
         if (!dataCOP || !dataUSD) return;
 
+        budgetDataByCurrency = { COP: dataCOP, USD: dataUSD };
+        buildCategoryBudgetMap(dataCOP, dataUSD);
+
         // Display Ready to Assign total in both currencies (combined)
         document.getElementById('readyToAssignTotalCOP').textContent =
             `$${formatAmount(dataCOP.ready_to_assign, 0)}`;
@@ -529,6 +583,7 @@
                             const barColor = isOverbudget ? 'bg-red-500' : (percentSpent > 80 ? 'bg-yellow-500' : 'bg-green-500');
                             const hasNoActivity = Math.abs(cat.activity) === 0;
                             const showResetHint = cat.rollover_type === 'reset' && hasNoActivity && cat.assigned > 0;
+                            const isOverspent = cat.available < 0;
 
                             return `
                                 <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer"
@@ -578,6 +633,12 @@
                                                 ${formatDualCurrency(cat.available, 'COP', 0)}
                                             </p>
                                             ${showResetHint ? '<p class="text-xs text-gray-500 mt-1">Sin gasto: disponible = asignado</p>' : ''}
+                                            ${isOverspent ? `
+                                                <button onclick="event.stopPropagation(); openCoverOverspendingModal(${cat.category_id})"
+                                                        class="mt-2 text-xs text-red-600 hover:text-red-800 font-semibold">
+                                                    Cubrir exceso
+                                                </button>
+                                            ` : ''}
                                         </div>
                                     </div>
                                 </div>
@@ -757,6 +818,33 @@
         });
     }
 
+    function buildCategoryBudgetMap(dataCOP, dataUSD) {
+        categoryBudgetMap = {};
+
+        const applyCurrencyData = (data, currencyCode) => {
+            if (!data || !data.groups) return;
+            data.groups.forEach(group => {
+                if (group.is_income) return;
+                group.categories.forEach(cat => {
+                    if (!categoryBudgetMap[cat.category_id]) {
+                        categoryBudgetMap[cat.category_id] = {
+                            id: cat.category_id,
+                            name: cat.category_name,
+                            budgets: {}
+                        };
+                    }
+                    categoryBudgetMap[cat.category_id].budgets[currencyCode] = {
+                        assigned: cat.assigned || 0,
+                        available: cat.available || 0
+                    };
+                });
+            });
+        };
+
+        applyCurrencyData(dataCOP, 'COP');
+        applyCurrencyData(dataUSD, 'USD');
+    }
+
     function toggleGroup(groupId) {
         const content = document.getElementById(`group-${groupId}`);
         const chevron = document.getElementById(`chevron-${groupId}`);
@@ -859,6 +947,193 @@
         selectedCategory = null;
         selectedCategoryData = null;
         document.getElementById('assignModal').classList.add('hidden');
+    }
+
+    function openCoverOverspendingModal(categoryId) {
+        const category = categoryBudgetMap[categoryId];
+        if (!category) {
+            alert('No se encontró la categoría seleccionada.');
+            return;
+        }
+
+        overspendingContext = {
+            categoryId: categoryId
+        };
+
+        document.getElementById('coverOverspendingCategory').value = category.name;
+        document.getElementById('coverOverspendingCurrency').value = 'COP';
+        setCoverOverspendingDefaults();
+        document.getElementById('coverOverspendingModal').classList.remove('hidden');
+    }
+
+    function closeCoverOverspendingModal() {
+        overspendingContext = null;
+        document.getElementById('coverOverspendingModal').classList.add('hidden');
+    }
+
+    function setCoverOverspendingDefaults() {
+        if (!overspendingContext) return;
+        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const category = categoryBudgetMap[overspendingContext.categoryId];
+        const available = category?.budgets?.[currencyCode]?.available || 0;
+        const overspendAmount = Math.abs(available);
+        const amountInput = document.getElementById('coverOverspendingAmount');
+        amountInput.value = overspendAmount ? overspendAmount.toFixed(currencyCode === 'USD' ? 2 : 0) : '';
+        updateCoverOverspendingHint();
+        updateCoverOverspendingSources();
+    }
+
+    function updateCoverOverspendingCurrency() {
+        setCoverOverspendingDefaults();
+    }
+
+    function updateCoverOverspendingHint() {
+        const amount = parseFloat(document.getElementById('coverOverspendingAmount').value) || 0;
+        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const hint = document.getElementById('coverOverspendingHint');
+
+        if (!amount) {
+            hint.textContent = '';
+            return;
+        }
+
+        if (currencyCode === 'USD') {
+            const copEquivalent = convertBalance(amount, 'USD', 'COP');
+            hint.textContent = `≈ $${formatAmount(copEquivalent, 0)} COP`;
+        } else {
+            const usdEquivalent = convertBalance(amount, 'COP', 'USD');
+            hint.textContent = `≈ US$${formatAmount(usdEquivalent, 2)} USD`;
+        }
+    }
+
+    function updateCoverOverspendingSources() {
+        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const categoryId = overspendingContext?.categoryId;
+        const sourceSelect = document.getElementById('coverOverspendingSource');
+        const sourceHint = document.getElementById('coverOverspendingSourceHint');
+        const submitButton = document.getElementById('coverOverspendingSubmit');
+
+        const options = Object.values(categoryBudgetMap)
+            .filter(cat => cat.id !== categoryId)
+            .map(cat => {
+                const available = cat.budgets?.[currencyCode]?.available || 0;
+                return {
+                    id: cat.id,
+                    name: cat.name,
+                    available: available
+                };
+            })
+            .filter(cat => cat.available > 0)
+            .sort((a, b) => b.available - a.available);
+
+        if (options.length === 0) {
+            sourceSelect.innerHTML = '<option value="">Sin categorías con disponible</option>';
+            sourceSelect.disabled = true;
+            submitButton.disabled = true;
+            submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+            sourceHint.textContent = 'No hay categorías con disponible en esta moneda.';
+            return;
+        }
+
+        sourceSelect.disabled = false;
+        submitButton.disabled = false;
+        submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        sourceHint.textContent = 'Selecciona una categoría con disponible positivo.';
+
+        sourceSelect.innerHTML = `
+            <option value="">Selecciona una categoría</option>
+            ${options.map(option => `
+                <option value="${option.id}">
+                    ${option.name} (Disponible: ${currencyCode === 'USD' ? 'US$' : '$'}${formatAmount(option.available, currencyCode === 'USD' ? 2 : 0)})
+                </option>
+            `).join('')}
+        `;
+    }
+
+    async function fetchCategoryBudgets(categoryId) {
+        const year = currentMonth.getFullYear();
+        const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+        const monthStr = `${year}-${month}`;
+        const res = await fetch(`/api/budgets/category/${categoryId}/${monthStr}`);
+        return res.json();
+    }
+
+    function getAssignedFromBudgets(budgets, currencyCode) {
+        const budget = budgets.find(entry => entry.currency_code === currencyCode);
+        return budget ? budget.assigned : 0;
+    }
+
+    async function coverOverspending() {
+        if (!overspendingContext) return;
+
+        const categoryId = overspendingContext.categoryId;
+        const sourceId = parseInt(document.getElementById('coverOverspendingSource').value, 10);
+        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const amount = parseFloat(document.getElementById('coverOverspendingAmount').value);
+
+        if (!sourceId) {
+            alert('Selecciona una categoría de origen.');
+            return;
+        }
+
+        if (!amount || amount <= 0) {
+            alert('Ingresa un monto válido.');
+            return;
+        }
+
+        const year = currentMonth.getFullYear();
+        const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+        const monthDate = `${year}-${month}-01`;
+
+        try {
+            const [targetBudgets, sourceBudgets] = await Promise.all([
+                fetchCategoryBudgets(categoryId),
+                fetchCategoryBudgets(sourceId)
+            ]);
+
+            const targetAssigned = getAssignedFromBudgets(targetBudgets, currencyCode);
+            const sourceAssigned = getAssignedFromBudgets(sourceBudgets, currencyCode);
+
+            if (sourceAssigned - amount < 0) {
+                alert('La categoría de origen no tiene suficiente presupuesto en esta moneda.');
+                return;
+            }
+
+            const requests = [
+                fetch('/api/budgets/assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category_id: categoryId,
+                        amount: targetAssigned + amount,
+                        month: monthDate,
+                        currency_code: currencyCode
+                    })
+                }),
+                fetch('/api/budgets/assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category_id: sourceId,
+                        amount: sourceAssigned - amount,
+                        month: monthDate,
+                        currency_code: currencyCode
+                    })
+                })
+            ];
+
+            const responses = await Promise.all(requests);
+            if (responses.some(res => !res.ok)) {
+                throw new Error('No se pudo actualizar el presupuesto.');
+            }
+
+            closeCoverOverspendingModal();
+            loadBudget();
+            alert('Exceso cubierto correctamente.');
+        } catch (error) {
+            console.error('Error covering overspending:', error);
+            alert('Error al cubrir el exceso.');
+        }
     }
 
     async function saveAssignment() {
