@@ -602,7 +602,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
 
     # Get ALL budgets this month (todas las monedas) with eager loading
     all_budgets_this_month = db.query(BudgetMonth).options(
-        joinedload(BudgetMonth.category)
+        joinedload(BudgetMonth.category).joinedload(Category.category_group)
     ).filter_by(
         month=month_date
     ).all()
@@ -617,6 +617,8 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
     # Sum available amounts converted to the target currency
     total_available = 0.0
     for budget in all_budgets_this_month:
+        if budget.category and budget.category.category_group and budget.category.category_group.is_income:
+            continue
         has_multiple_budget_currencies = len(budgets_by_category.get(budget.category_id, set())) > 1
         calculate_available(
             db,
