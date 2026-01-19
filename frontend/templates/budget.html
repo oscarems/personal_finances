@@ -175,59 +175,73 @@
 
         <!-- Initial Amount Field (only for savings/accumulate categories) -->
         <div id="initialAmountSection" class="mb-6 hidden">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">💎 Dinero que Tengo Hoy (Inicial)</label>
-            <div class="flex space-x-3">
-                <select id="modalInitialCurrency" class="input-field w-32">
-                    <option value="COP">COP</option>
-                    <option value="USD">USD</option>
-                </select>
-                <div class="relative flex-1">
-                    <span class="absolute left-3 top-3 text-neutral-500 font-semibold">$</span>
-                    <input type="number" id="modalInitialAmount"
-                           class="input-field pl-8"
-                           placeholder="0"
-                           step="1000">
+            <div class="relative overflow-hidden bg-gradient-to-br from-secondary-500 to-secondary-600 p-6 rounded-card shadow-lg border-2 border-secondary-400">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                <div class="relative">
+                    <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
+                        <span class="text-2xl mr-2">💎</span>
+                        Dinero que Tengo Hoy (Inicial)
+                    </label>
+                    <div class="flex space-x-3">
+                        <select id="modalInitialCurrency" class="px-4 py-3 border-2 border-white/30 rounded-xl bg-white/20 backdrop-blur-sm text-white font-bold focus:ring-4 focus:ring-white/40 focus:border-white transition-all">
+                            <option value="COP" class="text-neutral-900">COP</option>
+                            <option value="USD" class="text-neutral-900">USD</option>
+                        </select>
+                        <div class="relative flex-1">
+                            <span class="absolute left-4 top-3.5 text-white/80 font-bold text-lg">$</span>
+                            <input type="number" id="modalInitialAmount"
+                                   class="w-full px-4 py-3 pl-10 border-2 border-white/30 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-white/50 text-xl font-bold focus:ring-4 focus:ring-white/40 focus:border-white transition-all"
+                                   placeholder="0"
+                                   step="1000">
+                        </div>
+                    </div>
+                    <p class="text-sm text-white/90 mt-3 font-medium">
+                        Este es el monto que ya tienes ahorrado para esta categoría. Solo aplica para categorías de tipo Meta/Ahorro.
+                    </p>
                 </div>
             </div>
-            <p class="text-xs text-neutral-500 mt-2 pl-1">
-                Este es el monto que ya tienes ahorrado para esta categoría. Solo aplica para categorías de tipo Meta/Ahorro.
-            </p>
         </div>
 
-        <!-- BOTH CURRENCY FIELDS con diseño mejorado -->
+        <!-- BOTH CURRENCY FIELDS ultra modernos -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <!-- COP Field -->
-            <div class="border-2 border-primary-200 bg-gradient-to-br from-primary-50 to-primary-100 p-6 rounded-card">
-                <label class="block text-sm font-bold text-primary-900 mb-3 uppercase tracking-wide flex items-center">
-                    <span class="text-xl mr-2">💵</span>
-                    Presupuesto en COP
-                </label>
+            <div class="relative overflow-hidden bg-gradient-to-br from-primary-500 to-primary-600 p-6 rounded-card shadow-lg border-2 border-primary-400">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
                 <div class="relative">
-                    <span class="absolute left-4 top-3.5 text-neutral-600 font-bold text-lg">$</span>
-                    <input type="number" id="modalAmountCOP"
-                           class="input-field pl-10 text-lg font-semibold"
-                           placeholder="0"
-                           step="1000"
-                           onInput="updateConversion('COP')">
+                    <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
+                        <span class="text-2xl mr-2">💵</span>
+                        Presupuesto en COP
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-4 text-white/80 font-bold text-xl">$</span>
+                        <input type="number" id="modalAmountCOP"
+                               class="w-full px-4 py-3 pl-10 border-2 border-white/30 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-white/50 text-2xl font-bold focus:ring-4 focus:ring-white/40 focus:border-white transition-all"
+                               placeholder="0"
+                               step="1000"
+                               onInput="updateConversion('COP')">
+                    </div>
+                    <p class="text-sm text-white/90 mt-3 font-semibold" id="copConversionHint"></p>
                 </div>
-                <p class="text-xs text-primary-700 mt-2 font-medium" id="copConversionHint"></p>
             </div>
 
             <!-- USD Field -->
-            <div class="border-2 border-success-200 bg-gradient-to-br from-success-50 to-success-100 p-6 rounded-card">
-                <label class="block text-sm font-bold text-success-900 mb-3 uppercase tracking-wide flex items-center">
-                    <span class="text-xl mr-2">💵</span>
-                    Presupuesto en USD
-                </label>
+            <div class="relative overflow-hidden bg-gradient-to-br from-success-500 to-success-600 p-6 rounded-card shadow-lg border-2 border-success-400">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
                 <div class="relative">
-                    <span class="absolute left-4 top-3.5 text-neutral-600 font-bold">US$</span>
-                    <input type="number" id="modalAmountUSD"
-                           class="input-field pl-14 text-lg font-semibold"
-                           placeholder="0.00"
-                           step="0.01"
-                           onInput="updateConversion('USD')">
+                    <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
+                        <span class="text-2xl mr-2">💵</span>
+                        Presupuesto en USD
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-4 text-white/80 font-bold text-lg">US$</span>
+                        <input type="number" id="modalAmountUSD"
+                               class="w-full px-4 py-3 pl-14 border-2 border-white/30 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-white/50 text-2xl font-bold focus:ring-4 focus:ring-white/40 focus:border-white transition-all"
+                               placeholder="0.00"
+                               step="0.01"
+                               onInput="updateConversion('USD')">
+                    </div>
+                    <p class="text-sm text-white/90 mt-3 font-semibold" id="usdConversionHint"></p>
                 </div>
-                <p class="text-xs text-success-700 mt-2 font-medium" id="usdConversionHint"></p>
             </div>
         </div>
 
