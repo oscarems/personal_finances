@@ -56,6 +56,11 @@
                 <div>
                     <p class="text-3xl font-bold" id="totalAvailableCOP">$0</p>
                     <p class="text-xs opacity-75 mt-1" id="totalAvailableUSD">US$0.00</p>
+                    <p class="text-xs opacity-75 mt-2">
+                        En cuentas:
+                        <span id="totalInAccountsCOP">$0</span> /
+                        <span id="totalInAccountsUSD">US$0.00</span>
+                    </p>
                 </div>
             </div>
             <div class="text-5xl">✅</div>
@@ -446,7 +451,17 @@
         document.getElementById('totalAvailableUSD').textContent =
             `US$${formatAmount(dataUSD.totals.available, 2)}`;
 
-        updateOverallocatedAlert(dataCOP.ready_to_assign, dataUSD.ready_to_assign);
+        document.getElementById('totalInAccountsCOP').textContent =
+            `$${formatAmount(dataCOP.totals.in_accounts || 0, 0)}`;
+        document.getElementById('totalInAccountsUSD').textContent =
+            `US$${formatAmount(dataUSD.totals.in_accounts || 0, 2)}`;
+
+        updateOverallocatedAlert(
+            dataCOP.totals.available,
+            dataUSD.totals.available,
+            dataCOP.totals.in_accounts || 0,
+            dataUSD.totals.in_accounts || 0
+        );
 
         // Display budget groups (merge both currencies)
         const container = document.getElementById('budgetGroups');
@@ -690,17 +705,16 @@
         }).join('');
     }
 
-    function updateOverallocatedAlert(readyToAssignCOP, readyToAssignUSD) {
+    function updateOverallocatedAlert(totalAvailableCOP, totalAvailableUSD, totalInAccountsCOP, totalInAccountsUSD) {
         const alertElement = document.getElementById('budgetOverallocatedAlert');
-        const isOverallocated = readyToAssignCOP < 0 || readyToAssignUSD < 0;
+        const overallocatedCOP = totalAvailableCOP - totalInAccountsCOP;
+        const overallocatedUSD = totalAvailableUSD - totalInAccountsUSD;
+        const isOverallocated = overallocatedCOP > 0 || overallocatedUSD > 0;
 
         if (!isOverallocated) {
             alertElement.classList.add('hidden');
             return;
         }
-
-        const overallocatedCOP = Math.abs(readyToAssignCOP);
-        const overallocatedUSD = Math.abs(readyToAssignUSD);
 
         document.getElementById('overallocatedCOP').textContent = `$${formatAmount(overallocatedCOP, 0)}`;
         document.getElementById('overallocatedUSD').textContent = `US$${formatAmount(overallocatedUSD, 2)}`;
