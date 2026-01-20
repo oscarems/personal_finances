@@ -232,53 +232,39 @@ def calculate_available(db: Session, budget_month, include_all_currencies: bool 
             initial_available = prev_budget.available
         else:
             # No previous month budget found
-            # Only use initial_amount if this is truly the FIRST budget ever for this category
-            # AND if the budget currency matches the initial_amount currency
+            # Apply initial_amount if the budget currency matches the initial_amount currency
             # This prevents the initial_amount from being counted multiple times across different currencies
-            has_any_budget = has_any_previous_budget(
-                db,
-                budget_month.category_id,
-                budget_month.currency_id,
-                exclude_month=budget_month.month
-            )
+            initial_amount = category.initial_amount or 0.0
 
-            if not has_any_budget:
-                # Truly first budget for this category in this currency
-                initial_amount = category.initial_amount or 0.0
+            # CRITICAL FIX: Only apply initial_amount if budget currency matches initial currency
+            # This prevents double-counting when you have budgets in multiple currencies
+            if initial_amount > 0:
+                budget_currency = db.query(Currency).get(budget_month.currency_id)
+                initial_currency = None
+                if category.initial_currency_id:
+                    initial_currency = db.query(Currency).get(category.initial_currency_id)
+                else:
+                    category_budget_currencies = db.query(BudgetMonth.currency_id).filter(
+                        BudgetMonth.category_id == budget_month.category_id
+                    ).distinct().all()
+                    unique_currency_ids = {row[0] for row in category_budget_currencies}
+                    if unique_currency_ids == {budget_month.currency_id}:
+                        initial_currency = budget_currency
 
-                # CRITICAL FIX: Only apply initial_amount if budget currency matches initial currency
-                # This prevents double-counting when you have budgets in multiple currencies
-                if initial_amount > 0:
-                    budget_currency = db.query(Currency).get(budget_month.currency_id)
-                    initial_currency = None
-                    if category.initial_currency_id:
-                        initial_currency = db.query(Currency).get(category.initial_currency_id)
-                    else:
-                        category_budget_currencies = db.query(BudgetMonth.currency_id).filter(
-                            BudgetMonth.category_id == budget_month.category_id
-                        ).distinct().all()
-                        unique_currency_ids = {row[0] for row in category_budget_currencies}
-                        if unique_currency_ids == {budget_month.currency_id}:
-                            initial_currency = budget_currency
-
-                    # Only apply initial_amount if currencies match
-                    # If no initial_currency is set, we only allow it when this category has a single currency
-                    if initial_currency and budget_currency and budget_currency.id == initial_currency.id:
-                        # Currency matches: apply initial_amount (with conversion if needed)
-                        initial_available = convert_currency(
-                            initial_amount,
-                            initial_currency.code,
-                            budget_currency.code,
-                            db
-                        )
-                    else:
-                        # Budget currency doesn't match initial currency (or no initial_currency set)
-                        # This prevents the same initial_amount from being applied to multiple currencies
-                        initial_available = 0.0
-            else:
-                # There are budgets in the past, but not in the previous month
-                # This means months were skipped, so we don't carry over money (money not budgeted)
-                initial_available = 0.0
+                # Only apply initial_amount if currencies match
+                # If no initial_currency is set, we only allow it when this category has a single currency
+                if initial_currency and budget_currency and budget_currency.id == initial_currency.id:
+                    # Currency matches: apply initial_amount (with conversion if needed)
+                    initial_available = convert_currency(
+                        initial_amount,
+                        initial_currency.code,
+                        budget_currency.code,
+                        db
+                    )
+                else:
+                    # Budget currency doesn't match initial currency (or no initial_currency set)
+                    # This prevents the same initial_amount from being applied to multiple currencies
+                    initial_available = 0.0
 
     # Available = assigned - activity (negative for expenses) + initial amount (if accumulate)
     # activity is negative for expenses, so we add it
