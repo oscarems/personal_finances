@@ -184,15 +184,22 @@ def generate_amortization_schedule_with_extra(
     annual_rate: float,
     years: int,
     extra_monthly_payment: float,
-    start_date: date = None
+    start_date: date = None,
+    extra_payment_start_date: date = None
 ) -> List[Dict]:
     """
     Genera la tabla de amortización aplicando abonos extra mensuales al capital.
 
-    Cada mes se paga la cuota fija + el abono extra, reduciendo el plazo total.
+    Cada mes se paga la cuota fija + el abono extra (a partir de la fecha indicada),
+    reduciendo el plazo total.
     """
     if start_date is None:
         start_date = date.today()
+
+    if extra_payment_start_date is None:
+        extra_payment_start_date = start_date
+    else:
+        extra_payment_start_date = max(start_date, extra_payment_start_date)
 
     base_payment = calculate_monthly_payment(principal, annual_rate, years)
     monthly_rate = (1 + annual_rate) ** (1/12) - 1 if annual_rate > 0 else 0
@@ -205,7 +212,8 @@ def generate_amortization_schedule_with_extra(
     while balance > 0 and payment_num < years * 12 * 2:
         payment_num += 1
         interest = balance * monthly_rate
-        max_payment = base_payment + extra_monthly_payment
+        extra_for_month = extra_monthly_payment if payment_date >= extra_payment_start_date else 0.0
+        max_payment = base_payment + extra_for_month
         applied_payment = min(balance + interest, max_payment)
         principal_payment = applied_payment - interest
         balance -= principal_payment

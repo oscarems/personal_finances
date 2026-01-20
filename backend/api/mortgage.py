@@ -15,7 +15,6 @@ from backend.services.mortgage_service import (
     generate_amortization_schedule,
     generate_amortization_schedule_with_extra,
     calculate_total_interest,
-    calculate_early_payoff,
     compare_scenarios
 )
 
@@ -29,6 +28,7 @@ class MortgageRequest(BaseModel):
     years: int  # Plazo en años (se convertirá a meses internamente)
     start_date: Optional[str] = None  # Fecha de inicio (opcional, default: hoy)
     extra_payment: Optional[float] = None  # Pago extra mensual al capital
+    extra_payment_start_date: Optional[str] = None  # Fecha desde la que aplica el pago extra
 
 
 class AmortizationRow(BaseModel):
@@ -74,7 +74,8 @@ def calculate_mortgage(request: MortgageRequest):
         "annual_rate": 12.5,  // Tasa efectiva anual en % (12.5%)
         "years": 20,
         "start_date": "2025-01-15",  // Opcional
-        "extra_payment": 500000  // Opcional: abono extra mensual
+        "extra_payment": 500000,  // Opcional: abono extra mensual
+        "extra_payment_start_date": "2025-06-01"  // Opcional: desde cuándo aplica
     }
     """
     # Convertir tasa de porcentaje a decimal
@@ -89,6 +90,16 @@ def calculate_mortgage(request: MortgageRequest):
         else:
             start_date_obj = request.start_date
 
+    extra_payment_start_date_obj = None
+    if request.extra_payment_start_date:
+        if isinstance(request.extra_payment_start_date, str):
+            from datetime import datetime
+            extra_payment_start_date_obj = datetime.fromisoformat(
+                request.extra_payment_start_date
+            ).date()
+        else:
+            extra_payment_start_date_obj = request.extra_payment_start_date
+
     base_payment = calculate_monthly_payment(
         request.principal,
         rate_decimal,
@@ -101,7 +112,8 @@ def calculate_mortgage(request: MortgageRequest):
             rate_decimal,
             request.years,
             request.extra_payment,
-            start_date_obj
+            start_date_obj,
+            extra_payment_start_date_obj
         )
         monthly_payment = schedule[0]["payment"] if schedule else base_payment
         total_interest = sum(row["interest"] for row in schedule)
@@ -109,15 +121,24 @@ def calculate_mortgage(request: MortgageRequest):
         months = len(schedule)
         years = months / 12
         payoff_date = schedule[-1]["date"].isoformat() if schedule else date.today().isoformat()
-        early_payoff = calculate_early_payoff(
+        base_schedule = generate_amortization_schedule(
             request.principal,
             rate_decimal,
             request.years,
-            request.extra_payment
+            start_date_obj
         )
-        months_saved = early_payoff["with_extra"]["months_saved"]
-        interest_saved = early_payoff["with_extra"]["interest_saved"]
-        with_extra = early_payoff["with_extra"]
+        base_total_interest = sum(row["interest"] for row in base_schedule)
+        months_saved = max(0, len(base_schedule) - months)
+        interest_saved = max(0.0, base_total_interest - total_interest)
+        with_extra = {
+            "extra_payment_start_date": (
+                extra_payment_start_date_obj.isoformat()
+                if extra_payment_start_date_obj
+                else None
+            ),
+            "months_saved": months_saved,
+            "interest_saved": interest_saved
+        }
     else:
         schedule = generate_amortization_schedule(
             request.principal,

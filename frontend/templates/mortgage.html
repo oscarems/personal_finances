@@ -289,13 +289,15 @@
         const termYears = parseInt(document.getElementById('termYears').value);
         const startDate = document.getElementById('startDate').value;
         const extraPayment = parseFloat(document.getElementById('extraPayment').value) || 0;
+        const editDate = new Date().toISOString().split('T')[0];
 
         const requestData = {
             principal: principal,
             annual_rate: annualRate,
             years: termYears,
             start_date: startDate,
-            extra_payment: extraPayment
+            extra_payment: extraPayment,
+            extra_payment_start_date: extraPayment > 0 ? editDate : null
         };
 
         try {
