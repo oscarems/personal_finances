@@ -446,8 +446,27 @@
     }
 
     function getNextDate(rt) {
-        // Simplified - just show last generated or start date
-        return rt.last_generated_date || rt.start_date;
+        const rawDate = rt.next_occurrence_date || rt.last_generated_date || rt.start_date;
+        return formatRecurringDate(rawDate);
+    }
+
+    function formatRecurringDate(dateString) {
+        if (!dateString) return '';
+
+        const isoMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+        }
+
+        const parsed = new Date(dateString);
+        if (Number.isNaN(parsed.getTime())) {
+            return dateString;
+        }
+
+        const day = String(parsed.getUTCDate()).padStart(2, '0');
+        const month = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+        const year = parsed.getUTCFullYear();
+        return `${day}/${month}/${year}`;
     }
 
     function formatAmount(amount, decimals = 0) {

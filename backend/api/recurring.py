@@ -11,6 +11,7 @@ from backend.database import get_db
 from backend.models import RecurringTransaction, Payee
 from backend.services.recurring_service import (
     generate_due_transactions,
+    get_next_scheduled_date,
     preview_next_occurrences
 )
 
@@ -62,7 +63,13 @@ def list_recurring_transactions(
         query = query.filter(RecurringTransaction.is_active == is_active)
 
     recurring_txs = query.all()
-    return [rt.to_dict() for rt in recurring_txs]
+    response = []
+    for recurring in recurring_txs:
+        data = recurring.to_dict()
+        next_date = get_next_scheduled_date(recurring)
+        data['next_occurrence_date'] = next_date.isoformat() if next_date else None
+        response.append(data)
+    return response
 
 
 @router.get("/{recurring_id}")
@@ -71,7 +78,10 @@ def get_recurring_transaction(recurring_id: int, db: Session = Depends(get_db)):
     recurring = db.query(RecurringTransaction).get(recurring_id)
     if not recurring:
         raise HTTPException(status_code=404, detail="Recurring transaction not found")
-    return recurring.to_dict()
+    data = recurring.to_dict()
+    next_date = get_next_scheduled_date(recurring)
+    data['next_occurrence_date'] = next_date.isoformat() if next_date else None
+    return data
 
 
 @router.post("/")

@@ -5,7 +5,7 @@ Handles generation of transactions from recurring rules
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from backend.models import RecurringTransaction, Transaction, Account, Payee, Debt, DebtPayment
 from backend.services.transaction_service import build_transaction_audit_fields
@@ -44,6 +44,48 @@ def get_next_occurrence_date(recurring: RecurringTransaction, from_date: date) -
         return from_date + relativedelta(years=recurring.interval)
 
     return from_date
+
+
+def get_next_scheduled_date(recurring: RecurringTransaction) -> Optional[date]:
+    """
+    Calculate the next scheduled date based on the recurrence settings.
+    """
+    if recurring.last_generated_date:
+        next_date = get_next_occurrence_date(recurring, recurring.last_generated_date)
+        if recurring.end_date and next_date > recurring.end_date:
+            return None
+        return next_date
+
+    start_date = recurring.start_date
+
+    if recurring.frequency == 'weekly' and recurring.day_of_week is not None:
+        days_ahead = recurring.day_of_week - start_date.weekday()
+        candidate = start_date + timedelta(days=days_ahead)
+        if candidate < start_date:
+            candidate += timedelta(weeks=recurring.interval)
+        if recurring.end_date and candidate > recurring.end_date:
+            return None
+        return candidate
+
+    if recurring.frequency == 'monthly' and recurring.day_of_month is not None:
+        try:
+            candidate = start_date.replace(day=recurring.day_of_month)
+        except ValueError:
+            candidate = start_date.replace(day=1) + relativedelta(months=1) - timedelta(days=1)
+
+        if candidate < start_date:
+            candidate = candidate + relativedelta(months=recurring.interval)
+            try:
+                candidate = candidate.replace(day=recurring.day_of_month)
+            except ValueError:
+                candidate = candidate.replace(day=1) + relativedelta(months=1) - timedelta(days=1)
+        if recurring.end_date and candidate > recurring.end_date:
+            return None
+        return candidate
+
+    if recurring.end_date and start_date > recurring.end_date:
+        return None
+    return start_date
 
 
 def should_generate_transaction(recurring: RecurringTransaction, check_date: date) -> bool:
