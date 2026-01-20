@@ -131,21 +131,19 @@
         exchangeRate: null,
         selectedCurrency: 'ALL',
         lastAccountsData: null,
-        lastAssignedData: null
+        lastBudgetData: null
     };
 
     // Load dashboard data
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const [accountsRes, debtsRes, assignedRes] = await Promise.all([
+            const [accountsRes, debtsRes] = await Promise.all([
                 fetch('/api/accounts/summary'),
-                fetch('/api/debts/summary'),
-                fetch('/api/budgets/assigned-totals')
+                fetch('/api/debts/summary')
             ]);
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
-            const assignedData = await assignedRes.json();
 
             try {
                 const rateRes = await fetch('/api/exchange-rates/current');
@@ -156,11 +154,17 @@
                 console.warn('No se pudo obtener la tasa de cambio:', rateError);
             }
 
+            const accountTotals = buildAccountTotals(accountsData.accounts || []);
+            const primaryCurrency = getPrimaryCurrency(accountTotals);
+
+            const budgetRes = await fetch(`/api/budgets/current?currency_code=${primaryCurrency}`);
+            const budgetData = await budgetRes.json();
+
             dashboardState.lastAccountsData = accountsData;
-            dashboardState.lastAssignedData = assignedData;
+            dashboardState.lastBudgetData = budgetData;
 
             displaySummaryCards(accountsData, debtsData);
-            displayTotalAccountsSummary(accountsData, assignedData);
+            displayTotalAccountsSummary(accountsData, budgetData);
             displayDebtsSummary(debtsData);
 
             // Load recent transactions
@@ -169,8 +173,6 @@
             displayRecentTransactions(transactions);
 
             // Load budget data for charts
-            const budgetRes = await fetch('/api/budgets/current');
-            const budgetData = await budgetRes.json();
             createCharts(budgetData, transactions);
 
         } catch (error) {
@@ -196,19 +198,6 @@
         });
 
         return totals;
-    }
-
-    function getCurrencySymbol(currencyCode, accountTotals, assignedTotals) {
-        // Try to get symbol from accountTotals first
-        if (accountTotals && accountTotals[currencyCode] && accountTotals[currencyCode].symbol) {
-            return accountTotals[currencyCode].symbol;
-        }
-        // Try to get symbol from assignedTotals as fallback
-        if (assignedTotals && assignedTotals[currencyCode] && assignedTotals[currencyCode].symbol) {
-            return assignedTotals[currencyCode].symbol;
-        }
-        // Default to standard symbols
-        return currencyCode === 'USD' ? 'US$' : '$';
     }
 
     function getCurrencyDecimals(currencyCode) {
@@ -256,16 +245,12 @@
         return { sum, missing };
     }
 
-    function getCurrencyOptions(accountTotals, assignedTotals) {
-        const currencySet = new Set([
-            ...Object.keys(accountTotals || {}),
-            ...Object.keys(assignedTotals || {})
-        ]);
-        return Array.from(currencySet);
+    function getCurrencyOptions(accountTotals) {
+        return Array.from(new Set(Object.keys(accountTotals || {})));
     }
 
-    function getPrimaryCurrency(accountTotals, assignedTotals) {
-        const available = getCurrencyOptions(accountTotals, assignedTotals);
+    function getPrimaryCurrency(accountTotals) {
+        const available = getCurrencyOptions(accountTotals);
         if (available.includes('COP')) {
             return 'COP';
         }
@@ -275,11 +260,14 @@
         return available[0] || 'COP';
     }
 
-    function displayTotalAccountsSummary(accountsData, assignedData) {
+    function displayTotalAccountsSummary(accountsData, budgetData) {
         const container = document.getElementById('totalAccountsSummary');
+        if (!budgetData || !budgetData.currency) {
+            container.innerHTML = '';
+            return;
+        }
         const accountTotals = buildAccountTotals(accountsData.accounts || []);
-        const assignedTotals = assignedData.totals || {};
-        const primaryCurrency = getPrimaryCurrency(accountTotals, assignedTotals);
+        const primaryCurrency = budgetData.currency.code || getPrimaryCurrency(accountTotals);
 
         const rateInfo = dashboardState.exchangeRate;
         const rateValue = rateInfo ? rateInfo.rate : null;
@@ -287,17 +275,15 @@
             ? `Tasa USD/COP ${rateInfo.rate.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
             : 'Tasa de cambio no disponible';
 
-        const convertedAccounts = sumConvertedTotals(accountTotals, primaryCurrency, rateValue);
-        const convertedAssigned = sumConvertedTotals(assignedTotals, primaryCurrency, rateValue);
-        const totalAccounts = convertedAccounts.sum;
-        const totalAssigned = convertedAssigned.sum;
-        const totalAvailable = totalAccounts - totalAssigned;
-        const missingRate = convertedAccounts.missing || convertedAssigned.missing;
+        const totalAccounts = budgetData.totals?.in_accounts || 0;
+        const totalBudgetAvailable = budgetData.totals?.available || 0;
+        const totalReadyToAssign = budgetData.ready_to_assign || 0;
+        const missingRate = !rateValue && primaryCurrency !== 'COP' && primaryCurrency !== 'USD';
 
-        const symbol = getCurrencySymbol(primaryCurrency, accountTotals, assignedTotals);
+        const symbol = budgetData.currency.symbol || (primaryCurrency === 'USD' ? 'US$' : '$');
         const totalAccountsFormatted = formatCurrency(totalAccounts, primaryCurrency, symbol);
-        const totalAssignedFormatted = formatCurrency(totalAssigned, primaryCurrency, symbol);
-        const totalAvailableFormatted = formatCurrency(totalAvailable, primaryCurrency, symbol);
+        const totalBudgetAvailableFormatted = formatCurrency(totalBudgetAvailable, primaryCurrency, symbol);
+        const totalReadyToAssignFormatted = formatCurrency(totalReadyToAssign, primaryCurrency, symbol);
         const assignedCardClass = [
             'rounded-card',
             'p-6',
@@ -319,12 +305,12 @@
             'hover:shadow-lg',
             'transition-shadow',
             'bg-gradient-to-br',
-            totalAvailable >= 0 ? 'from-success-400' : 'from-danger-400',
-            totalAvailable >= 0 ? 'via-success-500' : 'via-danger-500',
-            totalAvailable >= 0 ? 'to-success-600' : 'to-danger-600',
+            totalReadyToAssign >= 0 ? 'from-success-400' : 'from-danger-400',
+            totalReadyToAssign >= 0 ? 'via-success-500' : 'via-danger-500',
+            totalReadyToAssign >= 0 ? 'to-success-600' : 'to-danger-600',
             'text-white',
             'border',
-            totalAvailable >= 0 ? 'border-success-300/20' : 'border-danger-300/20'
+            totalReadyToAssign >= 0 ? 'border-success-300/20' : 'border-danger-300/20'
         ].join(' ');
 
         container.innerHTML = `
@@ -347,17 +333,17 @@
                 </div>
                 <div class="${assignedCardClass}">
                     <div class="flex items-center justify-between mb-3">
-                        <p class="text-white text-sm font-bold uppercase tracking-wide">Disponible Presupuesto</p>
+                        <p class="text-white text-sm font-bold uppercase tracking-wide">Disponible de Presupuesto</p>
                         <span class="text-3xl">📊</span>
                     </div>
-                    <p class="text-4xl font-extrabold text-white">${totalAssignedFormatted}</p>
+                    <p class="text-4xl font-extrabold text-white">${totalBudgetAvailableFormatted}</p>
                 </div>
                 <div class="${availableCardClass}">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-white text-sm font-bold uppercase tracking-wide">Listo para Asignar</p>
-                        <span class="text-3xl">${totalAvailable >= 0 ? '✅' : '⚠️'}</span>
+                        <span class="text-3xl">${totalReadyToAssign >= 0 ? '✅' : '⚠️'}</span>
                     </div>
-                    <p class="text-4xl font-extrabold text-white">${totalAvailableFormatted}</p>
+                    <p class="text-4xl font-extrabold text-white">${totalReadyToAssignFormatted}</p>
                 </div>
             </div>
         `;
