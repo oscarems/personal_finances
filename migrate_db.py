@@ -60,6 +60,17 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        cursor.execute("PRAGMA table_info(debts)")
+        debt_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'loan_years' in debt_columns:
+            print("✓ La columna 'loan_years' ya existe en debts")
+        else:
+            print("🔧 Agregando columna 'loan_years' a la tabla debts...")
+            cursor.execute("ALTER TABLE debts ADD COLUMN loan_years INTEGER")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en debts")
+
         cursor.execute("PRAGMA table_info(recurring_transactions)")
         recurring_columns = [row[1] for row in cursor.fetchall()]
 
