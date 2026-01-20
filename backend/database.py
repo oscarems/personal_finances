@@ -41,7 +41,7 @@ def init_db():
     from backend.models import (
         Currency, Account, CategoryGroup, Category,
         Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate,
-        Debt, DebtPayment
+        Debt, DebtPayment, YnabCategoryMapping
     )
 
     Base.metadata.create_all(bind=engine)

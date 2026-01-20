@@ -7,6 +7,7 @@ from backend.models.budget import BudgetMonth
 from backend.models.recurring_transaction import RecurringTransaction
 from backend.models.exchange_rate import ExchangeRate
 from backend.models.debt import Debt, DebtPayment
+from backend.models.ynab_category_mapping import YnabCategoryMapping
 
 __all__ = [
     'Currency',
@@ -19,5 +20,6 @@ __all__ = [
     'RecurringTransaction',
     'ExchangeRate',
     'Debt',
-    'DebtPayment'
+    'DebtPayment',
+    'YnabCategoryMapping'
 ]

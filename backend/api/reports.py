@@ -1,7 +1,7 @@
 """
 Reports and Analytics API
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_
 from typing import Optional, Tuple
@@ -9,7 +9,7 @@ from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
-from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate
+from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment
 
 router = APIRouter()
 
@@ -615,4 +615,536 @@ def get_balance_trend(
         'start_date': start_date_obj.isoformat(),
         'end_date': end_date_obj.isoformat(),
         'months': months
+    }
+
+
+@router.get("/savings-rate")
+def get_savings_rate(
+    months: int = 12,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate savings rate (Income - Expenses) / Income * 100
+    Returns monthly, quarterly, and yearly averages
+    Excludes transfers
+    """
+    end_date = date.today()
+    start_date = end_date - relativedelta(months=months)
+
+    exchange_rate = get_exchange_rate(db)
+
+    # Get monthly data
+    monthly_data = []
+    current_date = start_date.replace(day=1)
+
+    while current_date <= end_date:
+        month_start = current_date
+        month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
+
+        # Income (excludes transfers)
+        income_transactions = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
+            and_(
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.amount > 0,
+                Transaction.transfer_account_id.is_(None)
+            )
+        ).all()
+
+        income = sum(
+            convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+            for t in income_transactions
+        )
+
+        # Expenses (excludes transfers)
+        expense_transactions = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
+            and_(
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.amount < 0,
+                Transaction.transfer_account_id.is_(None)
+            )
+        ).all()
+
+        expenses = sum(
+            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+            for t in expense_transactions
+        )
+
+        # Calculate savings and rate
+        savings = income - expenses
+        savings_rate = (savings / income * 100) if income > 0 else 0
+
+        monthly_data.append({
+            'month': current_date.strftime('%Y-%m'),
+            'month_name': current_date.strftime('%b %Y'),
+            'income': income,
+            'expenses': expenses,
+            'savings': savings,
+            'savings_rate': round(savings_rate, 2)
+        })
+
+        current_date += relativedelta(months=1)
+
+    # Calculate overall average
+    total_income = sum(m['income'] for m in monthly_data)
+    total_expenses = sum(m['expenses'] for m in monthly_data)
+    total_savings = total_income - total_expenses
+    avg_savings_rate = (total_savings / total_income * 100) if total_income > 0 else 0
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        'monthly': monthly_data,
+        'average_savings_rate': round(avg_savings_rate, 2),
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'total_savings': total_savings,
+        'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}',
+        'currency': currency.to_dict() if currency else None
+    }
+
+
+@router.get("/budget-vs-actual")
+def get_budget_vs_actual(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Compare budgeted amounts vs actual spending by category
+    Defaults to January 2026 onwards if no dates provided
+    """
+    # Default to January 2026 if not specified
+    if not start_date:
+        start_date = '2026-01-01'
+    if not end_date:
+        end_date = date.today().isoformat()
+
+    start_date_obj = date.fromisoformat(start_date)
+    end_date_obj = date.fromisoformat(end_date)
+
+    exchange_rate = get_exchange_rate(db)
+
+    # Get all budget months in range
+    budget_data = db.query(BudgetMonth).filter(
+        and_(
+            BudgetMonth.month >= start_date_obj,
+            BudgetMonth.month <= end_date_obj
+        )
+    ).all()
+
+    # Group by category
+    category_summary = {}
+
+    for budget_month in budget_data:
+        category_id = budget_month.category_id
+
+        if category_id not in category_summary:
+            category = db.query(Category).get(category_id)
+            category_summary[category_id] = {
+                'category_id': category_id,
+                'category_name': category.name if category else 'Unknown',
+                'category_group': category.category_group.name if category and category.category_group else 'Unknown',
+                'budgeted': 0,
+                'actual': 0,
+                'difference': 0,
+                'percentage': 0
+            }
+
+        # Convert budgeted amount to selected currency
+        budgeted_converted = convert_to_currency(
+            budget_month.assigned or 0,
+            budget_month.currency_id,
+            currency_id,
+            exchange_rate
+        )
+
+        category_summary[category_id]['budgeted'] += budgeted_converted
+
+        # Get actual spending for this category in this month
+        month_start = budget_month.month
+        month_end = month_start + relativedelta(months=1) - relativedelta(days=1)
+
+        actual_transactions = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
+            and_(
+                Transaction.category_id == category_id,
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.amount < 0  # Only expenses
+            )
+        ).all()
+
+        actual_spent = sum(
+            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+            for t in actual_transactions
+        )
+
+        category_summary[category_id]['actual'] += actual_spent
+
+    # Calculate differences and percentages
+    results = []
+    for cat_id, data in category_summary.items():
+        difference = data['budgeted'] - data['actual']
+        percentage = (data['actual'] / data['budgeted'] * 100) if data['budgeted'] > 0 else 0
+
+        data['difference'] = difference
+        data['percentage'] = round(percentage, 2)
+        data['status'] = 'under' if difference > 0 else ('over' if difference < 0 else 'exact')
+
+        results.append(data)
+
+    # Sort by overspending (most overspent first)
+    results.sort(key=lambda x: x['difference'])
+
+    # Calculate totals
+    total_budgeted = sum(r['budgeted'] for r in results)
+    total_actual = sum(r['actual'] for r in results)
+    total_difference = total_budgeted - total_actual
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        'start_date': start_date_obj.isoformat(),
+        'end_date': end_date_obj.isoformat(),
+        'categories': results,
+        'totals': {
+            'budgeted': total_budgeted,
+            'actual': total_actual,
+            'difference': total_difference,
+            'percentage': round((total_actual / total_budgeted * 100) if total_budgeted > 0 else 0, 2)
+        },
+        'currency': currency.to_dict() if currency else None
+    }
+
+
+@router.get("/net-worth")
+def get_net_worth(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Calculate net worth (Assets - Liabilities) over time
+    Defaults to January 2026 onwards if no dates provided
+    Assets: checking, savings, cash, CDT, investment accounts (positive balances)
+    Liabilities: credit cards, loans, mortgages (negative balances or debt accounts)
+    """
+    # Default to January 2026 if not specified
+    if not start_date:
+        start_date = '2026-01-01'
+    if not end_date:
+        end_date = date.today().isoformat()
+
+    start_date_obj = date.fromisoformat(start_date)
+    end_date_obj = date.fromisoformat(end_date)
+
+    exchange_rate = get_exchange_rate(db)
+
+    # Get all accounts
+    accounts = db.query(Account).filter(Account.is_closed == False).all()
+
+    # Asset account types
+    asset_types = ['checking', 'savings', 'cash', 'cdt', 'investment']
+    # Liability account types
+    liability_types = ['credit_card', 'credit_loan', 'mortgage']
+
+    monthly_net_worth = []
+    current_date = start_date_obj.replace(day=1)
+
+    while current_date <= end_date_obj:
+        month_start = current_date
+        month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
+
+        assets = 0
+        liabilities = 0
+
+        for account in accounts:
+            # Skip accounts created after this month
+            if account.created_at and account.created_at.date() > month_end:
+                continue
+
+            # Calculate account balance at end of this month
+            # Start with current balance
+            current_balance = account.balance
+
+            # Subtract all transactions after month_end
+            future_transactions = db.query(
+                Transaction.amount,
+                Transaction.currency_id
+            ).filter(
+                and_(
+                    Transaction.account_id == account.id,
+                    Transaction.date > month_end
+                )
+            ).all()
+
+            balance_at_month_end = convert_to_currency(
+                current_balance,
+                account.currency_id,
+                currency_id,
+                exchange_rate
+            )
+
+            for txn in future_transactions:
+                balance_at_month_end -= convert_to_currency(
+                    txn.amount,
+                    txn.currency_id,
+                    currency_id,
+                    exchange_rate
+                )
+
+            # Categorize as asset or liability
+            if account.type in asset_types:
+                assets += balance_at_month_end
+            elif account.type in liability_types:
+                # For credit cards/loans, negative balance = owe money
+                # So we add absolute value to liabilities
+                liabilities += abs(balance_at_month_end)
+
+        net_worth = assets - liabilities
+
+        monthly_net_worth.append({
+            'month': current_date.strftime('%Y-%m'),
+            'month_name': current_date.strftime('%b %Y'),
+            'assets': round(assets, 2),
+            'liabilities': round(liabilities, 2),
+            'net_worth': round(net_worth, 2)
+        })
+
+        current_date += relativedelta(months=1)
+
+    # Calculate change over period
+    if len(monthly_net_worth) > 1:
+        first_net_worth = monthly_net_worth[0]['net_worth']
+        last_net_worth = monthly_net_worth[-1]['net_worth']
+        change = last_net_worth - first_net_worth
+        change_percentage = (change / first_net_worth * 100) if first_net_worth != 0 else 0
+    else:
+        change = 0
+        change_percentage = 0
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        'start_date': start_date_obj.isoformat(),
+        'end_date': end_date_obj.isoformat(),
+        'monthly': monthly_net_worth,
+        'change': round(change, 2),
+        'change_percentage': round(change_percentage, 2),
+        'current_net_worth': monthly_net_worth[-1]['net_worth'] if monthly_net_worth else 0,
+        'currency': currency.to_dict() if currency else None
+    }
+
+
+@router.get("/debt-summary")
+def get_debt_summary(
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Summary of all active debts with amortization info
+    Shows current balances, monthly payments, interest rates, and payoff dates
+    """
+    exchange_rate = get_exchange_rate(db)
+
+    # Get all active debts
+    debts = db.query(Debt).filter(Debt.is_active == True).all()
+
+    debt_details = []
+    total_debt = 0
+    total_monthly_payment = 0
+    total_interest_paid = 0
+
+    for debt in debts:
+        # Convert amounts to selected currency
+        current_balance = convert_to_currency(
+            debt.current_balance or 0,
+            debt.currency_code,
+            currency_id,
+            exchange_rate
+        )
+
+        monthly_payment = convert_to_currency(
+            debt.monthly_payment or 0,
+            debt.currency_code,
+            currency_id,
+            exchange_rate
+        )
+
+        # Calculate interest paid (from debt_payments table)
+        debt_payments = db.query(DebtPayment).filter(
+            DebtPayment.debt_id == debt.id
+        ).all()
+
+        interest_paid = sum(
+            convert_to_currency(
+                payment.interest or 0,
+                debt.currency_code,
+                currency_id,
+                exchange_rate
+            )
+            for payment in debt_payments
+        )
+
+        # Calculate months remaining
+        if monthly_payment > 0 and current_balance > 0:
+            months_remaining = current_balance / monthly_payment
+        else:
+            months_remaining = 0
+
+        # Estimate payoff date
+        payoff_date = None
+        if months_remaining > 0:
+            payoff_date = (date.today() + relativedelta(months=int(months_remaining))).isoformat()
+
+        debt_details.append({
+            'id': debt.id,
+            'name': debt.name,
+            'type': debt.debt_type,
+            'institution': debt.institution,
+            'current_balance': round(current_balance, 2),
+            'original_amount': convert_to_currency(
+                debt.original_amount or 0,
+                debt.currency_code,
+                currency_id,
+                exchange_rate
+            ),
+            'monthly_payment': round(monthly_payment, 2),
+            'interest_rate': debt.interest_rate,
+            'interest_paid': round(interest_paid, 2),
+            'months_remaining': round(months_remaining, 1),
+            'payoff_date': payoff_date,
+            'start_date': debt.start_date.isoformat() if debt.start_date else None,
+            'payment_day': debt.payment_day
+        })
+
+        total_debt += current_balance
+        total_monthly_payment += monthly_payment
+        total_interest_paid += interest_paid
+
+    # Sort by balance descending
+    debt_details.sort(key=lambda x: x['current_balance'], reverse=True)
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        'debts': debt_details,
+        'totals': {
+            'total_debt': round(total_debt, 2),
+            'total_monthly_payment': round(total_monthly_payment, 2),
+            'total_interest_paid': round(total_interest_paid, 2),
+            'debt_count': len(debt_details)
+        },
+        'currency': currency.to_dict() if currency else None
+    }
+
+
+@router.get("/debt-payoff-projection")
+def get_debt_payoff_projection(
+    debt_id: int,
+    extra_payment: float = 0,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Project debt payoff schedule with optional extra payments
+    Shows month-by-month breakdown of principal, interest, and remaining balance
+    """
+    debt = db.query(Debt).get(debt_id)
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+
+    exchange_rate = get_exchange_rate(db)
+
+    # Convert to selected currency
+    current_balance = convert_to_currency(
+        debt.current_balance or 0,
+        debt.currency_code,
+        currency_id,
+        exchange_rate
+    )
+
+    monthly_payment = convert_to_currency(
+        debt.monthly_payment or 0,
+        debt.currency_code,
+        currency_id,
+        exchange_rate
+    ) + extra_payment
+
+    interest_rate = debt.interest_rate or 0
+    monthly_interest_rate = (interest_rate / 100) / 12
+
+    # Calculate amortization schedule
+    schedule = []
+    balance = current_balance
+    month = 1
+    total_interest = 0
+    total_principal = 0
+
+    while balance > 0 and month <= 360:  # Max 30 years
+        # Calculate interest for this month
+        interest_payment = balance * monthly_interest_rate
+        principal_payment = min(monthly_payment - interest_payment, balance)
+
+        # Handle case where payment is less than interest
+        if principal_payment <= 0:
+            break
+
+        balance -= principal_payment
+        total_interest += interest_payment
+        total_principal += principal_payment
+
+        payment_date = date.today() + relativedelta(months=month)
+
+        schedule.append({
+            'month': month,
+            'date': payment_date.isoformat(),
+            'payment': round(monthly_payment, 2),
+            'principal': round(principal_payment, 2),
+            'interest': round(interest_payment, 2),
+            'balance': round(max(balance, 0), 2)
+        })
+
+        month += 1
+
+        if balance <= 0:
+            break
+
+    payoff_date = schedule[-1]['date'] if schedule else None
+    months_to_payoff = len(schedule)
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        'debt': {
+            'id': debt.id,
+            'name': debt.name,
+            'type': debt.debt_type,
+            'current_balance': round(current_balance, 2),
+            'interest_rate': interest_rate
+        },
+        'projection': {
+            'monthly_payment': round(monthly_payment, 2),
+            'extra_payment': round(extra_payment, 2),
+            'months_to_payoff': months_to_payoff,
+            'payoff_date': payoff_date,
+            'total_interest': round(total_interest, 2),
+            'total_principal': round(total_principal, 2),
+            'total_paid': round(total_interest + total_principal, 2)
+        },
+        'schedule': schedule,
+        'currency': currency.to_dict() if currency else None
     }
