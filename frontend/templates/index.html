@@ -28,6 +28,29 @@
     <!-- Cards will be loaded here -->
 </div>
 
+<!-- Monthly Spending Section -->
+<div class="card-hover-lift p-8 mb-10" id="monthlySpendingSection">
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <div class="absolute inset-0 bg-warning-500 rounded-xl blur-md opacity-30"></div>
+                <div class="relative bg-gradient-to-br from-warning-400 to-warning-600 p-3 rounded-xl">
+                    <span class="text-2xl">🧾</span>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-2xl font-bold text-neutral-800">
+                    ¿Cuánto he gastado este mes?
+                </h3>
+                <p class="text-sm text-neutral-500 mt-1" id="monthlySpendingPeriod"></p>
+            </div>
+        </div>
+    </div>
+    <div id="monthlySpendingTotals">
+        <!-- Monthly spending totals will be loaded here -->
+    </div>
+</div>
+
 <!-- Charts Row con diseño ultra moderno -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
     <!-- Monthly Trend Chart -->
@@ -174,6 +197,15 @@
 
             // Load budget data for charts
             createCharts(budgetData, transactions);
+
+            // Load monthly spending (current month only)
+            try {
+                const monthlyTransactions = await fetchMonthlyTransactions();
+                displayMonthlySpending(monthlyTransactions);
+            } catch (monthlyError) {
+                console.warn('No se pudo cargar el gasto mensual:', monthlyError);
+                displayMonthlySpending([]);
+            }
 
         } catch (error) {
             console.error('Error loading dashboard:', error);
@@ -402,6 +434,82 @@
         }
 
         container.innerHTML = html;
+    }
+
+    function getCurrentMonthRange() {
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const toIsoDate = date =>
+            date.toISOString().split('T')[0];
+
+        return {
+            start: toIsoDate(startDate),
+            end: toIsoDate(endDate),
+            label: new Intl.DateTimeFormat('es-CO', {
+                month: 'long',
+                year: 'numeric'
+            }).format(now)
+        };
+    }
+
+    async function fetchMonthlyTransactions() {
+        const range = getCurrentMonthRange();
+        const params = new URLSearchParams({
+            start_date: range.start,
+            end_date: range.end,
+            limit: '10000'
+        });
+        const response = await fetch(`/api/transactions/?${params.toString()}`);
+        if (!response.ok) {
+            throw new Error('No se pudieron cargar las transacciones del mes');
+        }
+        return response.json();
+    }
+
+    function displayMonthlySpending(transactions) {
+        const totalsContainer = document.getElementById('monthlySpendingTotals');
+        const periodLabel = document.getElementById('monthlySpendingPeriod');
+        const range = getCurrentMonthRange();
+        periodLabel.textContent = `Total de gastos en ${range.label}`;
+
+        const totals = {};
+        transactions.forEach(t => {
+            if (t.amount >= 0 || t.is_adjustment || t.transfer_account_id) {
+                return;
+            }
+            const currency = t.currency || {};
+            const code = currency.code || 'COP';
+            const symbol = currency.symbol || (code === 'USD' ? 'US$' : '$');
+            if (!totals[code]) {
+                totals[code] = { total: 0, symbol };
+            }
+            totals[code].total += Math.abs(t.amount);
+        });
+
+        const entries = Object.entries(totals);
+        if (!entries.length) {
+            totalsContainer.innerHTML = `
+                <p class="text-neutral-500 text-sm">No hay gastos registrados en este mes.</p>
+            `;
+            return;
+        }
+
+        totalsContainer.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-${Math.min(entries.length, 3)} gap-6">
+                ${entries.map(([currency, info]) => {
+                    const decimals = currency === 'USD' ? 2 : 0;
+                    return `
+                        <div class="bg-gradient-to-br from-warning-50 to-warning-100 rounded-card p-6 border-l-4 border-warning-500 shadow-sm">
+                            <p class="text-sm font-semibold text-neutral-600 uppercase tracking-wide mb-2">Gasto ${currency}</p>
+                            <p class="text-3xl font-bold text-warning-700">
+                                ${info.symbol}${info.total.toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
+                            </p>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
     }
 
     function displayRecentTransactions(transactions) {
