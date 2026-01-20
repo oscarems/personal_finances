@@ -102,7 +102,7 @@ def ensure_sqlite_column(table_name: str, column_name: str, column_definition: s
     if engine.url.drivername != "sqlite":
         return
 
-    with engine.connect() as connection:
+    with engine.begin() as connection:
         columns = connection.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
         if not columns:
             return
@@ -110,4 +110,4 @@ def ensure_sqlite_column(table_name: str, column_name: str, column_definition: s
         if column_name in column_names:
             return
         connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}"))
-        connection.commit()
+        # No need for explicit commit() - context manager handles it
