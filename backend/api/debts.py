@@ -44,6 +44,7 @@ class DebtUpdate(BaseModel):
     monthly_payment: Optional[float] = None
     minimum_payment: Optional[float] = None
     loan_years: Optional[int] = None
+    start_date: Optional[date] = None
     due_date: Optional[date] = None
     payment_day: Optional[int] = None
     institution: Optional[str] = None
@@ -302,6 +303,8 @@ def update_debt(debt_id: int, debt_update: DebtUpdate, db: Session = Depends(get
             debt.account.balance = debt_update.current_balance
         if debt_update.loan_years is not None:
             debt.account.loan_years = debt_update.loan_years
+        if debt_update.start_date is not None:
+            debt.account.loan_start_date = debt_update.start_date
         if debt_update.due_date is not None:
             debt.account.maturity_date = debt_update.due_date
 
