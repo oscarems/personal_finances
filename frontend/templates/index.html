@@ -154,7 +154,8 @@
         exchangeRate: null,
         selectedCurrency: 'ALL',
         lastAccountsData: null,
-        lastBudgetData: null
+        lastBudgetData: null,
+        primaryCurrency: 'COP'
     };
 
     // Load dashboard data
@@ -179,6 +180,7 @@
 
             const accountTotals = buildAccountTotals(accountsData.accounts || []);
             const primaryCurrency = getPrimaryCurrency(accountTotals);
+            dashboardState.primaryCurrency = primaryCurrency;
 
             const budgetRes = await fetch(`/api/budgets/current?currency_code=${primaryCurrency}`);
             const budgetData = await budgetRes.json();
@@ -495,8 +497,25 @@
             return;
         }
 
+        const targetCurrency = dashboardState.primaryCurrency || getPrimaryCurrency(totals);
+        const targetSymbol = targetCurrency === 'USD' ? 'US$' : '$';
+        const rateValue = dashboardState.exchangeRate ? dashboardState.exchangeRate.rate : null;
+        const { sum: convertedTotal, missing: missingRate } = sumConvertedTotals(totals, targetCurrency, rateValue);
+        const totalDecimals = targetCurrency === 'USD' ? 2 : 0;
+
         totalsContainer.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-${Math.min(entries.length, 3)} gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-${Math.min(entries.length + 1, 3)} gap-6">
+                <div class="bg-gradient-to-br from-warning-100 to-warning-200 rounded-card p-6 border-l-4 border-warning-600 shadow-md">
+                    <p class="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-2">
+                        Total en ${targetCurrency}
+                    </p>
+                    <p class="text-3xl font-bold text-warning-800">
+                        ${targetSymbol}${convertedTotal.toLocaleString('es-CO', {minimumFractionDigits: totalDecimals, maximumFractionDigits: totalDecimals})}
+                    </p>
+                    <p class="text-xs text-neutral-500 mt-2">
+                        ${missingRate ? 'No se pudo convertir una moneda por falta de tasa.' : 'Sumatoria total en una sola moneda.'}
+                    </p>
+                </div>
                 ${entries.map(([currency, info]) => {
                     const decimals = currency === 'USD' ? 2 : 0;
                     return `
