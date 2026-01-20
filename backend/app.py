@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import init_db, get_db
 from backend.init_db import initialize_database
-from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund
+from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings
 
 # Create FastAPI app
 app = FastAPI(
@@ -50,6 +50,7 @@ app.include_router(exchange_rates.router, prefix="/api/exchange-rates", tags=["e
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(debts.router, prefix="/api/debts", tags=["debts"])
 app.include_router(emergency_fund.router, prefix="/api/emergency-fund", tags=["emergency-fund"])
+app.include_router(ynab_mappings.router, prefix="/api/ynab-mappings", tags=["ynab-mappings"])
 
 
 @app.on_event("startup")
