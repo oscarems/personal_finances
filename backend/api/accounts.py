@@ -123,7 +123,8 @@ def create_account(account_data: AccountCreate, db: Session = Depends(get_db)):
                 credit_limit=account.credit_limit,
                 interest_rate=account.interest_rate,
                 monthly_payment=account.monthly_payment,
-                start_date=date.today()
+                loan_years=account.loan_years,
+                start_date=account.loan_start_date or date.today()
             )
             db.add(debt)
             db.commit()

@@ -26,6 +26,7 @@ class DebtCreate(BaseModel):
     interest_rate: Optional[float] = None
     monthly_payment: Optional[float] = None
     minimum_payment: Optional[float] = None
+    loan_years: Optional[int] = None
     start_date: date
     due_date: Optional[date] = None
     payment_day: Optional[int] = None
@@ -42,6 +43,7 @@ class DebtUpdate(BaseModel):
     interest_rate: Optional[float] = None
     monthly_payment: Optional[float] = None
     minimum_payment: Optional[float] = None
+    loan_years: Optional[int] = None
     due_date: Optional[date] = None
     payment_day: Optional[int] = None
     institution: Optional[str] = None
@@ -241,6 +243,7 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
         interest_rate=debt_data.interest_rate,
         monthly_payment=debt_data.monthly_payment,
         minimum_payment=debt_data.minimum_payment,
+        loan_years=debt_data.loan_years,
         start_date=debt_data.start_date,
         due_date=debt_data.due_date,
         payment_day=debt_data.payment_day,
@@ -253,6 +256,18 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
     db.add(new_debt)
     db.commit()
     db.refresh(new_debt)
+
+    if account.type in {'credit_loan', 'mortgage'}:
+        if debt_data.interest_rate is not None:
+            account.interest_rate = debt_data.interest_rate
+        if debt_data.monthly_payment is not None:
+            account.monthly_payment = debt_data.monthly_payment
+        if debt_data.original_amount is not None:
+            account.original_amount = debt_data.original_amount
+        if debt_data.loan_years is not None:
+            account.loan_years = debt_data.loan_years
+        account.loan_start_date = debt_data.start_date
+        db.commit()
 
     return new_debt.to_dict()
 
@@ -277,6 +292,18 @@ def update_debt(debt_id: int, debt_update: DebtUpdate, db: Session = Depends(get
     update_data = debt_update.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(debt, field, value)
+
+    if debt.account and debt.account.type in {'credit_loan', 'mortgage'}:
+        if debt_update.interest_rate is not None:
+            debt.account.interest_rate = debt_update.interest_rate
+        if debt_update.monthly_payment is not None:
+            debt.account.monthly_payment = debt_update.monthly_payment
+        if debt_update.current_balance is not None:
+            debt.account.balance = debt_update.current_balance
+        if debt_update.loan_years is not None:
+            debt.account.loan_years = debt_update.loan_years
+        if debt_update.due_date is not None:
+            debt.account.maturity_date = debt_update.due_date
 
     db.commit()
     db.refresh(debt)

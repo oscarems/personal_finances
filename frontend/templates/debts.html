@@ -99,8 +99,8 @@
                 </div>
             </div>
 
-            <!-- Interés y Cuota -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Interés, Cuota y Plazo -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Tasa de Interés (% anual)</label>
                     <input type="number" name="interest_rate" step="0.01" class="input-field" placeholder="Ej: 24.5">
@@ -108,6 +108,10 @@
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuota Mensual</label>
                     <input type="number" name="monthly_payment" step="0.01" class="input-field" placeholder="0.00">
+                </div>
+                <div data-debt-type="mortgage credit_loan">
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Plazo (años)</label>
+                    <input type="number" name="loan_years" min="1" step="1" class="input-field" placeholder="Ej: 20">
                 </div>
             </div>
 
@@ -344,6 +348,12 @@
                                 <p class="font-semibold">${debt.currency_code === 'USD' ? '$' : '$'}${debt.monthly_payment.toLocaleString('es-CO')}</p>
                             </div>
                         ` : ''}
+                        ${debt.loan_years ? `
+                            <div>
+                                <p class="text-gray-600">Plazo</p>
+                                <p class="font-semibold">${debt.loan_years} años</p>
+                            </div>
+                        ` : ''}
                         ${debt.credit_limit ? `
                             <div>
                                 <p class="text-gray-600">Utilización</p>
@@ -389,6 +399,7 @@
         document.getElementById('debtModal').classList.remove('hidden');
         // Set default start date to today
         document.querySelector('[name="start_date"]').value = new Date().toISOString().split('T')[0];
+        toggleDebtTypeFields(document.querySelector('[name="debt_type"]').value);
     }
 
     function closeDebtModal() {
@@ -411,10 +422,12 @@
             document.querySelector('[name="current_balance"]').value = debt.current_balance;
             if (debt.interest_rate) document.querySelector('[name="interest_rate"]').value = debt.interest_rate;
             if (debt.monthly_payment) document.querySelector('[name="monthly_payment"]').value = debt.monthly_payment;
+            if (debt.loan_years) document.querySelector('[name="loan_years"]').value = debt.loan_years;
             document.querySelector('[name="start_date"]').value = debt.start_date;
             if (debt.institution) document.querySelector('[name="institution"]').value = debt.institution;
 
             document.getElementById('debtModal').classList.remove('hidden');
+            toggleDebtTypeFields(debt.debt_type);
         } catch (error) {
             console.error('Error loading debt:', error);
             alert('Error al cargar la deuda');
@@ -443,6 +456,7 @@
         data.current_balance = parseFloat(data.current_balance);
         if (data.interest_rate) data.interest_rate = parseFloat(data.interest_rate);
         if (data.monthly_payment) data.monthly_payment = parseFloat(data.monthly_payment);
+        if (data.loan_years) data.loan_years = parseInt(data.loan_years, 10);
 
         // Remove empty values for updates
         if (debtId) {
@@ -587,6 +601,12 @@
                         <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.monthly_payment.toLocaleString('es-CO', {minimumFractionDigits: decimals})}</p>
                     </div>
                 ` : ''}
+                ${debt.loan_years ? `
+                    <div>
+                        <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Plazo</p>
+                        <p class="text-xl font-extrabold text-neutral-900">${debt.loan_years} años</p>
+                    </div>
+                ` : ''}
                 ${debt.minimum_payment ? `
                     <div>
                         <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Pago Mínimo</p>
@@ -693,6 +713,24 @@
         document.getElementById('debtDetailsModal').classList.add('hidden');
         currentDebtId = null;
     }
+
+    function toggleDebtTypeFields(debtType) {
+        document.querySelectorAll('[data-debt-type]').forEach((field) => {
+            const types = field.dataset.debtType.split(' ');
+            const isVisible = types.includes(debtType);
+            field.classList.toggle('hidden', !isVisible);
+            if (!isVisible) {
+                const input = field.querySelector('input, select, textarea');
+                if (input) {
+                    input.value = '';
+                }
+            }
+        });
+    }
+
+    document.querySelector('[name="debt_type"]').addEventListener('change', (event) => {
+        toggleDebtTypeFields(event.target.value);
+    });
 
     function editDebtFromDetails() {
         if (currentDebtId) {
