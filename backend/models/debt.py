@@ -33,6 +33,7 @@ class Debt(Base):
     interest_rate = Column(Float)  # Tasa de interés anual (%)
     monthly_payment = Column(Float)  # Cuota mensual
     minimum_payment = Column(Float)  # Pago mínimo (para tarjetas de crédito)
+    loan_years = Column(Integer)  # Plazo en años (créditos e hipotecas)
 
     # Fechas
     start_date = Column(Date, nullable=False)  # Fecha de inicio de la deuda
@@ -71,6 +72,7 @@ class Debt(Base):
             'interest_rate': self.interest_rate,
             'monthly_payment': self.monthly_payment,
             'minimum_payment': self.minimum_payment,
+            'loan_years': self.loan_years,
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'due_date': self.due_date.isoformat() if self.due_date else None,
             'payment_day': self.payment_day,
