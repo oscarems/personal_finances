@@ -90,6 +90,11 @@ def init_db():
         column_name="base_currency_id",
         column_definition="base_currency_id INTEGER"
     )
+    ensure_sqlite_column(
+        table_name="debts",
+        column_name="loan_years",
+        column_definition="loan_years INTEGER"
+    )
     print("✓ Database tables created")
 
 
