@@ -48,7 +48,7 @@ class AdjustmentCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     account_id: Optional[int] = None
-    date: Optional[date] = None
+    date: Optional[str] = None
     payee_name: Optional[str] = None
     category_id: Optional[int] = None
     memo: Optional[str] = None
@@ -103,6 +103,11 @@ def update_existing_transaction(
 ):
     """Update an existing transaction"""
     data = {k: v for k, v in transaction.dict().items() if v is not None}
+    if "date" in data:
+        try:
+            data["date"] = date.fromisoformat(data["date"])
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.") from exc
     updated_transaction = update_transaction(db, transaction_id, data)
     if not updated_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
