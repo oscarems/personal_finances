@@ -324,11 +324,12 @@
         </div>
 
         <div class="mb-6">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">💸 ¿De qué categoría se toma el dinero?</label>
-            <select id="coverOverspendingSource" class="input-field">
-                <option value="">Selecciona una categoría</option>
-            </select>
-            <p class="text-xs text-neutral-600 mt-1 font-medium" id="coverOverspendingSourceHint"></p>
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">💸 ¿De qué categorías se toma el dinero?</label>
+            <div id="coverOverspendingSources" class="space-y-3"></div>
+            <button type="button" id="coverOverspendingAddSource" onclick="addCoverOverspendingSourceRow()" class="btn-secondary mt-3">
+                + Agregar fuente
+            </button>
+            <p class="text-xs text-neutral-600 mt-2 font-medium" id="coverOverspendingSourceHint"></p>
         </div>
 
         <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
@@ -1077,12 +1078,14 @@
 
         document.getElementById('coverOverspendingCategory').value = category.name;
         document.getElementById('coverOverspendingCurrency').value = 'COP';
+        resetCoverOverspendingSources();
         setCoverOverspendingDefaults();
         document.getElementById('coverOverspendingModal').classList.remove('hidden');
     }
 
     function closeCoverOverspendingModal() {
         overspendingContext = null;
+        resetCoverOverspendingSources();
         document.getElementById('coverOverspendingModal').classList.add('hidden');
     }
 
@@ -1121,12 +1124,55 @@
         }
     }
 
+    function resetCoverOverspendingSources() {
+        const sourcesContainer = document.getElementById('coverOverspendingSources');
+        sourcesContainer.innerHTML = '';
+        addCoverOverspendingSourceRow();
+    }
+
+    function getCoverOverspendingSourceRows() {
+        return Array.from(document.querySelectorAll('[data-cover-overspending-source]'));
+    }
+
+    function addCoverOverspendingSourceRow() {
+        const sourcesContainer = document.getElementById('coverOverspendingSources');
+        const row = document.createElement('div');
+        row.className = 'flex flex-col gap-2 sm:flex-row sm:items-center';
+        row.setAttribute('data-cover-overspending-source', 'true');
+
+        row.innerHTML = `
+            <select class="input-field flex-1" data-cover-overspending-source-select>
+                <option value="">Selecciona una categoría</option>
+            </select>
+            <input type="number"
+                   class="input-field w-full sm:w-40"
+                   data-cover-overspending-source-amount
+                   placeholder="0"
+                   step="0.01">
+            <button type="button" class="btn-secondary px-3" data-cover-overspending-remove>
+                ✕
+            </button>
+        `;
+
+        row.querySelector('[data-cover-overspending-remove]').addEventListener('click', () => {
+            row.remove();
+            if (getCoverOverspendingSourceRows().length === 0) {
+                addCoverOverspendingSourceRow();
+            }
+            updateCoverOverspendingSources();
+        });
+
+        sourcesContainer.appendChild(row);
+        updateCoverOverspendingSources();
+    }
+
     function updateCoverOverspendingSources() {
         const currencyCode = document.getElementById('coverOverspendingCurrency').value;
         const categoryId = overspendingContext?.categoryId;
-        const sourceSelect = document.getElementById('coverOverspendingSource');
         const sourceHint = document.getElementById('coverOverspendingSourceHint');
         const submitButton = document.getElementById('coverOverspendingSubmit');
+        const addButton = document.getElementById('coverOverspendingAddSource');
+        const rows = getCoverOverspendingSourceRows();
 
         const options = Object.values(categoryBudgetMap)
             .filter(cat => cat.id !== categoryId)
@@ -1142,27 +1188,50 @@
             .sort((a, b) => b.available - a.available);
 
         if (options.length === 0) {
-            sourceSelect.innerHTML = '<option value="">Sin categorías con disponible</option>';
-            sourceSelect.disabled = true;
+            rows.forEach(row => {
+                const select = row.querySelector('[data-cover-overspending-source-select]');
+                const amountInput = row.querySelector('[data-cover-overspending-source-amount]');
+                select.innerHTML = '<option value="">Sin categorías con disponible</option>';
+                select.disabled = true;
+                amountInput.disabled = true;
+            });
             submitButton.disabled = true;
             submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+            addButton.disabled = true;
+            addButton.classList.add('opacity-50', 'cursor-not-allowed');
             sourceHint.textContent = 'No hay categorías con disponible en esta moneda.';
             return;
         }
 
-        sourceSelect.disabled = false;
+        if (rows.length === 0) {
+            addCoverOverspendingSourceRow();
+        }
+
         submitButton.disabled = false;
         submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
-        sourceHint.textContent = 'Selecciona una categoría con disponible positivo.';
+        addButton.disabled = false;
+        addButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        sourceHint.textContent = 'Puedes dividir el monto entre varias fuentes. Se ajustará si alguna no alcanza.';
 
-        sourceSelect.innerHTML = `
-            <option value="">Selecciona una categoría</option>
-            ${options.map(option => `
-                <option value="${option.id}">
-                    ${option.name} (Disponible: ${currencyCode === 'USD' ? 'US$' : '$'}${formatAmount(option.available, currencyCode === 'USD' ? 2 : 0)})
-                </option>
-            `).join('')}
-        `;
+        rows.forEach(row => {
+            const select = row.querySelector('[data-cover-overspending-source-select]');
+            const amountInput = row.querySelector('[data-cover-overspending-source-amount]');
+            const selectedValue = select.value;
+            select.disabled = false;
+            amountInput.disabled = false;
+            select.innerHTML = `
+                <option value="">Selecciona una categoría</option>
+                ${options.map(option => `
+                    <option value="${option.id}">
+                        ${option.name} (Disponible: ${currencyCode === 'USD' ? 'US$' : '$'}${formatAmount(option.available, currencyCode === 'USD' ? 2 : 0)})
+                    </option>
+                `).join('')}
+            `;
+
+            if (selectedValue && options.some(option => String(option.id) === selectedValue)) {
+                select.value = selectedValue;
+            }
+        });
     }
 
     async function fetchCategoryBudgets(categoryId) {
@@ -1182,17 +1251,23 @@
         if (!overspendingContext) return;
 
         const categoryId = overspendingContext.categoryId;
-        const sourceId = parseInt(document.getElementById('coverOverspendingSource').value, 10);
         const currencyCode = document.getElementById('coverOverspendingCurrency').value;
-        const amount = parseFloat(document.getElementById('coverOverspendingAmount').value);
+        const requestedTotal = parseFloat(document.getElementById('coverOverspendingAmount').value);
+        const rows = getCoverOverspendingSourceRows();
 
-        if (!sourceId) {
-            alert('Selecciona una categoría de origen.');
+        const selectedSources = rows.map(row => {
+            const sourceId = parseInt(row.querySelector('[data-cover-overspending-source-select]').value, 10);
+            const amount = parseFloat(row.querySelector('[data-cover-overspending-source-amount]').value);
+            return { sourceId, amount: Number.isFinite(amount) ? amount : 0 };
+        }).filter(entry => entry.sourceId && entry.amount > 0);
+
+        if (!selectedSources.length) {
+            alert('Selecciona al menos una categoría de origen con monto.');
             return;
         }
 
-        if (!amount || amount <= 0) {
-            alert('Ingresa un monto válido.');
+        if (!requestedTotal || requestedTotal <= 0) {
+            alert('Ingresa un monto válido a cubrir.');
             return;
         }
 
@@ -1201,17 +1276,64 @@
         const monthDate = `${year}-${month}-01`;
 
         try {
-            const [targetBudgets, sourceBudgets] = await Promise.all([
+            const uniqueSourceIds = [...new Set(selectedSources.map(entry => entry.sourceId))];
+            const [targetBudgets, ...sourceBudgetsList] = await Promise.all([
                 fetchCategoryBudgets(categoryId),
-                fetchCategoryBudgets(sourceId)
+                ...uniqueSourceIds.map(sourceId => fetchCategoryBudgets(sourceId))
             ]);
 
             const targetAssigned = getAssignedFromBudgets(targetBudgets, currencyCode);
-            const sourceAssigned = getAssignedFromBudgets(sourceBudgets, currencyCode);
+            const sourceAssignedMap = new Map(
+                uniqueSourceIds.map((sourceId, index) => [
+                    sourceId,
+                    getAssignedFromBudgets(sourceBudgetsList[index], currencyCode)
+                ])
+            );
 
-            if (sourceAssigned - amount < 0) {
-                alert('La categoría de origen no tiene suficiente presupuesto en esta moneda.');
+            let adjusted = false;
+            let totalTransfer = 0;
+            let remainingAmount = requestedTotal;
+            const usedBySource = new Map();
+            const sourceTransfersMap = new Map();
+
+            selectedSources.forEach(entry => {
+                if (remainingAmount <= 0) {
+                    adjusted = true;
+                    return;
+                }
+                const sourceAssigned = sourceAssignedMap.get(entry.sourceId) || 0;
+                const alreadyUsed = usedBySource.get(entry.sourceId) || 0;
+                const available = Math.max(0, sourceAssigned - alreadyUsed);
+                const requested = entry.amount;
+                let transferAmount = Math.min(requested, available, remainingAmount);
+                if (transferAmount < requested) {
+                    adjusted = true;
+                }
+                if (transferAmount > 0) {
+                    remainingAmount -= transferAmount;
+                    totalTransfer += transferAmount;
+                    usedBySource.set(entry.sourceId, alreadyUsed + transferAmount);
+                    sourceTransfersMap.set(entry.sourceId, (sourceTransfersMap.get(entry.sourceId) || 0) + transferAmount);
+                }
+            });
+
+            if (remainingAmount > 0) {
+                adjusted = true;
+            }
+
+            const sourceTransfers = [...sourceTransfersMap.entries()].map(([sourceId, transferAmount]) => ({
+                sourceId,
+                transferAmount,
+                sourceAssigned: sourceAssignedMap.get(sourceId) || 0
+            }));
+
+            if (totalTransfer <= 0) {
+                alert('Las categorías de origen no tienen presupuesto disponible en esta moneda.');
                 return;
+            }
+
+            if (totalTransfer < requestedTotal) {
+                adjusted = true;
             }
 
             const requests = [
@@ -1220,21 +1342,21 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         category_id: categoryId,
-                        amount: targetAssigned + amount,
+                        amount: targetAssigned + totalTransfer,
                         month: monthDate,
                         currency_code: currencyCode
                     })
                 }),
-                fetch('/api/budgets/assign', {
+                ...sourceTransfers.map(source => fetch('/api/budgets/assign', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        category_id: sourceId,
-                        amount: sourceAssigned - amount,
+                        category_id: source.sourceId,
+                        amount: source.sourceAssigned - source.transferAmount,
                         month: monthDate,
                         currency_code: currencyCode
                     })
-                })
+                }))
             ];
 
             const responses = await Promise.all(requests);
@@ -1244,7 +1366,11 @@
 
             closeCoverOverspendingModal();
             loadBudget();
-            alert('Exceso cubierto correctamente.');
+            if (adjusted) {
+                alert('Exceso cubierto parcialmente. Se ajustaron algunos montos al disponible.');
+            } else {
+                alert('Exceso cubierto correctamente.');
+            }
         } catch (error) {
             console.error('Error covering overspending:', error);
             alert('Error al cubrir el exceso.');
