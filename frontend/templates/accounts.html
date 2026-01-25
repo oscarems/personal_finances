@@ -155,12 +155,76 @@
         </form>
     </div>
 </div>
+
+<!-- Balance Adjustment Modal -->
+<div id="adjustmentModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
+    <div class="bg-white card p-8 max-w-xl w-full mx-4 shadow-2xl border-2 border-neutral-300">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
+                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
+                        <span class="text-2xl">🧮</span>
+                    </div>
+                </div>
+                <h3 class="text-2xl font-extrabold text-neutral-900">Ajustar saldo</h3>
+            </div>
+            <button onclick="closeAdjustmentModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="mb-4 p-4 bg-neutral-50 rounded-xl border border-neutral-200">
+            <p class="text-sm text-neutral-500">Saldo actual en la app</p>
+            <p id="adjustmentCurrentBalance" class="text-xl font-bold text-neutral-900"></p>
+            <p id="adjustmentAccountName" class="text-sm text-neutral-500 mt-1"></p>
+        </div>
+
+        <form id="adjustmentForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Saldo real (banco)</label>
+                <input type="number" id="adjustmentActualBalance" step="0.01" required
+                       class="input-field text-xl"
+                       placeholder="Ingresa el saldo real">
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
+                <input type="date" id="adjustmentDate" required class="input-field">
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Nota (opcional)</label>
+                <input type="text" id="adjustmentMemo" class="input-field"
+                       placeholder="Ej: Ajuste por conciliación bancaria">
+            </div>
+
+            <div class="p-4 rounded-xl border border-neutral-200 bg-white">
+                <p class="text-sm text-neutral-500">Diferencia a registrar</p>
+                <p id="adjustmentDifference" class="text-lg font-semibold text-neutral-900"></p>
+                <p id="adjustmentImpact" class="text-sm text-neutral-500 mt-1"></p>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4 border-t-2 border-neutral-100">
+                <button type="button" onclick="closeAdjustmentModal()" class="btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-primary">
+                    ✅ Registrar ajuste
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     let accounts = [];
     let editingAccountId = null;
+    let adjustingAccountId = null;
 
     // Exchange rates (will be loaded from API)
     let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
@@ -288,6 +352,10 @@
                                     class="text-blue-600 hover:text-blue-700 text-sm">
                                 Editar
                             </button>
+                            <button onclick="openAdjustmentModal(${acc.id})"
+                                    class="ml-3 text-sm text-emerald-600 hover:text-emerald-700">
+                                Ajustar saldo
+                            </button>
                         </div>
                     </div>
 
@@ -381,6 +449,62 @@
     function closeAccountModal() {
         document.getElementById('accountModal').classList.add('hidden');
         editingAccountId = null;
+    }
+
+    function openAdjustmentModal(accountId) {
+        const account = accounts.find(a => a.id === accountId);
+        if (!account) return;
+
+        adjustingAccountId = accountId;
+        const symbol = account.currency.symbol || '$';
+        const decimals = account.currency.decimals ?? 0;
+        const formattedBalance = `${symbol}${Math.abs(account.balance).toLocaleString('en-US', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        })}`;
+
+        document.getElementById('adjustmentCurrentBalance').textContent = formattedBalance;
+        document.getElementById('adjustmentAccountName').textContent = `${account.name} · ${account.currency.code}`;
+        document.getElementById('adjustmentActualBalance').value = '';
+        document.getElementById('adjustmentMemo').value = '';
+        document.getElementById('adjustmentDate').value = new Date().toISOString().slice(0, 10);
+
+        updateAdjustmentPreview();
+        document.getElementById('adjustmentModal').classList.remove('hidden');
+    }
+
+    function closeAdjustmentModal() {
+        document.getElementById('adjustmentModal').classList.add('hidden');
+        adjustingAccountId = null;
+    }
+
+    function updateAdjustmentPreview() {
+        const account = accounts.find(a => a.id === adjustingAccountId);
+        if (!account) return;
+
+        const actualValue = parseFloat(document.getElementById('adjustmentActualBalance').value);
+        const difference = Number.isFinite(actualValue) ? actualValue - account.balance : 0;
+        const symbol = account.currency.symbol || '$';
+        const decimals = account.currency.decimals ?? 0;
+        const formattedDiff = `${symbol}${Math.abs(difference).toLocaleString('en-US', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        })}`;
+
+        const differenceEl = document.getElementById('adjustmentDifference');
+        differenceEl.textContent = difference === 0 ? `${symbol}0` : formattedDiff;
+        differenceEl.className = `text-lg font-semibold ${difference >= 0 ? 'text-green-600' : 'text-red-600'}`;
+
+        const impactEl = document.getElementById('adjustmentImpact');
+        if (!Number.isFinite(actualValue)) {
+            impactEl.textContent = 'Ingresa el saldo real para calcular el ajuste.';
+        } else if (difference === 0) {
+            impactEl.textContent = 'No hay diferencia. No se registrará ningún movimiento.';
+        } else if (difference > 0) {
+            impactEl.textContent = `Se registrará una entrada de ${formattedDiff}.`;
+        } else {
+            impactEl.textContent = `Se registrará una salida de ${formattedDiff}.`;
+        }
     }
 
     async function editAccount(accountId) {
@@ -504,6 +628,52 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error al guardar la cuenta');
+        }
+    });
+
+    document.getElementById('adjustmentActualBalance').addEventListener('input', updateAdjustmentPreview);
+
+    document.getElementById('adjustmentForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const account = accounts.find(a => a.id === adjustingAccountId);
+        if (!account) return;
+
+        const actualBalance = parseFloat(document.getElementById('adjustmentActualBalance').value);
+        if (!Number.isFinite(actualBalance)) {
+            alert('Ingresa un saldo real válido.');
+            return;
+        }
+
+        const difference = actualBalance - account.balance;
+        if (difference === 0) {
+            alert('No hay diferencia para ajustar.');
+            return;
+        }
+
+        const data = {
+            account_id: adjustingAccountId,
+            date: document.getElementById('adjustmentDate').value,
+            actual_balance: actualBalance,
+            memo: document.getElementById('adjustmentMemo').value || null
+        };
+
+        try {
+            const res = await fetch('/api/transactions/adjustment', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                closeAdjustmentModal();
+                await loadAccounts();
+            } else {
+                const error = await res.json();
+                alert('Error: ' + (error.detail || 'No se pudo ajustar el saldo'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al ajustar el saldo');
         }
     });
 
