@@ -597,9 +597,11 @@
         document.getElementById('txAccount').value = transaction.account_id;
         document.getElementById('txPayee').value = transaction.payee_name || '';
         document.getElementById('txCategory').value = transaction.category_id || '';
-        document.getElementById('txType').value = transaction.amount >= 0 ? 'income' : 'expense';
-        document.getElementById('txAmount').value = Math.abs(transaction.amount);
-        document.getElementById('txCurrency').value = transaction.currency.id;
+        const originalAmount = transaction.original_amount ?? transaction.amount;
+        const originalCurrencyId = transaction.original_currency_id ?? transaction.currency.id;
+        document.getElementById('txType').value = originalAmount >= 0 ? 'income' : 'expense';
+        document.getElementById('txAmount').value = Math.abs(originalAmount);
+        document.getElementById('txCurrency').value = originalCurrencyId;
         document.getElementById('txMemo').value = transaction.memo || '';
         document.getElementById('txCleared').checked = transaction.cleared;
 
@@ -666,13 +668,15 @@
             if (editingTransactionId) {
                 const payload = {};
                 const original = editingTransactionOriginal || {};
-                const originalCurrencyId = original.currency ? original.currency.id : original.currency_id;
+                const originalCurrencyId = original.original_currency_id
+                    ?? (original.currency ? original.currency.id : original.currency_id);
+                const originalAmount = original.original_amount ?? original.amount;
 
                 if (data.account_id !== original.account_id) payload.account_id = data.account_id;
                 if (data.date !== original.date) payload.date = data.date;
                 if ((data.payee_name || null) !== (original.payee_name || null)) payload.payee_name = data.payee_name;
                 if ((data.category_id || null) !== (original.category_id || null)) payload.category_id = data.category_id;
-                if (data.amount !== original.amount) payload.amount = data.amount;
+                if (data.amount !== originalAmount) payload.amount = data.amount;
                 if (data.currency_id !== originalCurrencyId) payload.currency_id = data.currency_id;
                 if ((data.memo || null) !== (original.memo || null)) payload.memo = data.memo;
                 if (data.cleared !== original.cleared) payload.cleared = data.cleared;
