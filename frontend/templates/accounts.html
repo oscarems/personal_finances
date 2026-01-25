@@ -223,7 +223,7 @@
             <div class="mt-2 pt-2 border-t border-gray-100">
                 <p class="text-xs text-gray-500">Equivalente en ${otherCurrency}</p>
                 <p class="text-sm font-semibold ${balanceClass}">
-                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('es-CO', {
+                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('en-US', {
                         minimumFractionDigits: otherDecimals,
                         maximumFractionDigits: otherDecimals
                     })}
@@ -294,7 +294,7 @@
                     <div class="border-t pt-4">
                         <p class="text-sm text-gray-600 mb-1">Saldo</p>
                         <p class="text-2xl font-bold ${balanceClass}">
-                            ${acc.currency.symbol}${Math.abs(acc.balance).toLocaleString('es-CO', {
+                            ${acc.currency.symbol}${Math.abs(acc.balance).toLocaleString('en-US', {
                                 minimumFractionDigits: acc.currency.decimals
                             })}
                         </p>

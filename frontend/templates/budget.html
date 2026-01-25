@@ -927,7 +927,7 @@
     }
 
     function formatAmount(amount, decimals = 0) {
-        return Math.abs(amount).toLocaleString('es-CO', {
+        return Math.abs(amount).toLocaleString('en-US', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         });

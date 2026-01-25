@@ -543,7 +543,7 @@
     }
 
     function formatCurrency(amount) {
-        return currentCurrency.symbol + Math.round(amount).toLocaleString('es-CO', {
+        return currentCurrency.symbol + Math.round(amount).toLocaleString('en-US', {
             minimumFractionDigits: currentCurrency.decimals
         });
     }
