@@ -538,22 +538,37 @@ def get_debt_balance_history(
             if debt.start_date and debt.start_date > month_end:
                 continue
 
-            payments = sorted(
-                [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+            all_payments = sorted(
+                [p for p in debt.payments if p.payment_date],
                 key=lambda p: p.payment_date
             )
+            first_payment = all_payments[0] if all_payments else None
 
-            if payments:
-                last_payment = payments[-1]
-                if last_payment.balance_after is not None:
-                    balance = last_payment.balance_after
+            if first_payment and month_end < first_payment.payment_date:
+                if first_payment.balance_after is not None:
+                    balance = first_payment.balance_after
+                else:
+                    balance = debt.original_amount or 0
+                    first_amount = first_payment.principal if first_payment.principal is not None else first_payment.amount
+                    if first_amount:
+                        balance -= first_amount
+            else:
+                payments = sorted(
+                    [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+                    key=lambda p: p.payment_date
+                )
+
+                if payments:
+                    last_payment = payments[-1]
+                    if last_payment.balance_after is not None:
+                        balance = last_payment.balance_after
+                    else:
+                        balance = debt.original_amount
+                        for payment in payments:
+                            payment_amount = payment.principal if payment.principal is not None else payment.amount
+                            balance -= payment_amount
                 else:
                     balance = debt.original_amount
-                    for payment in payments:
-                        payment_amount = payment.principal if payment.principal is not None else payment.amount
-                        balance -= payment_amount
-            else:
-                balance = debt.original_amount
 
             if month_end >= today and debt.current_balance is not None:
                 balance = debt.current_balance
