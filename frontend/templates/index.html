@@ -162,12 +162,17 @@
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const [accountsRes, debtsRes] = await Promise.all([
+            const [accountsRes, debtsRes, wealthAssetsRes] = await Promise.all([
                 fetch('/api/accounts/summary'),
-                fetch('/api/debts/summary')
+                fetch('/api/debts/summary'),
+                fetch('/api/wealth-assets')
             ]);
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
+            const wealthAssetsData = wealthAssetsRes.ok ? await wealthAssetsRes.json() : { assets: [] };
+            if (!wealthAssetsRes.ok) {
+                console.warn('No se pudieron cargar los activos de patrimonio.');
+            }
 
             try {
                 const rateRes = await fetch('/api/exchange-rates/current');
@@ -188,7 +193,7 @@
             dashboardState.lastAccountsData = accountsData;
             dashboardState.lastBudgetData = budgetData;
 
-            displaySummaryCards(accountsData, debtsData);
+            displaySummaryCards(accountsData, debtsData, wealthAssetsData);
             displayTotalAccountsSummary(accountsData, budgetData);
             displayDebtsSummary(debtsData);
 
@@ -229,6 +234,22 @@
                 totals[code] = { total: 0, symbol };
             }
             totals[code].total += account.balance || 0;
+        });
+
+        return totals;
+    }
+
+    function buildWealthAssetTotals(assets) {
+        const totals = {};
+
+        assets.forEach(asset => {
+            const currency = asset.currency || {};
+            const code = currency.code || 'COP';
+            const symbol = currency.symbol || (code === 'USD' ? 'US$' : '$');
+            if (!totals[code]) {
+                totals[code] = { total: 0, symbol };
+            }
+            totals[code].total += asset.value || 0;
         });
 
         return totals;
@@ -383,17 +404,27 @@
         `;
     }
 
-    function displaySummaryCards(data, debtsData) {
+    function displaySummaryCards(data, debtsData, wealthAssetsData) {
         const container = document.getElementById('summaryCards');
         let html = '';
         const debtsTotals = debtsData.total_current || {};
         const accountTotals = buildAccountTotals(data.accounts || []);
+        const assetTotals = buildWealthAssetTotals(wealthAssetsData.assets || []);
+        const currencyCodes = new Set([
+            ...Object.keys(accountTotals),
+            ...Object.keys(assetTotals),
+            ...Object.keys(debtsTotals)
+        ]);
 
-        for (const [currency, info] of Object.entries(accountTotals)) {
-            const accountTotal = info.total || 0;
+        for (const currency of currencyCodes) {
+            const accountInfo = accountTotals[currency] || {};
+            const assetInfo = assetTotals[currency] || {};
+            const currencySymbol = accountInfo.symbol || assetInfo.symbol || (currency === 'USD' ? 'US$' : '$');
+            const accountTotal = accountInfo.total || 0;
+            const assetTotal = assetInfo.total || 0;
             const debtTotal = debtsTotals[currency] || 0;
-            const netWorth = accountTotal - debtTotal;
             const decimals = currency === 'USD' ? 2 : 0;
+            const netWorthWithAssets = accountTotal + assetTotal - debtTotal;
 
             html += `
                 <div class="card p-6 hover:shadow-strong transition-shadow border-l-[6px] border-success-500 bg-gradient-to-br from-white to-success-50/30">
@@ -402,7 +433,7 @@
                         <span class="text-2xl">💵</span>
                     </div>
                     <p class="text-4xl font-extrabold text-neutral-900">
-                        ${info.symbol}${Math.abs(accountTotal).toLocaleString('en-US', {minimumFractionDigits: decimals})}
+                        ${currencySymbol}${Math.abs(accountTotal).toLocaleString('en-US', {minimumFractionDigits: decimals})}
                     </p>
                     <div class="mt-3 pt-3 border-t-2 border-neutral-300">
                         <p class="text-xs text-neutral-600 font-semibold">Total disponible</p>
@@ -414,22 +445,25 @@
                         <span class="text-2xl">💳</span>
                     </div>
                     <p class="text-4xl font-extrabold text-danger-600">
-                        ${info.symbol}${Math.abs(debtTotal).toLocaleString('en-US', {minimumFractionDigits: decimals})}
+                        ${currencySymbol}${Math.abs(debtTotal).toLocaleString('en-US', {minimumFractionDigits: decimals})}
                     </p>
                     <div class="mt-3 pt-3 border-t-2 border-neutral-300">
                         <p class="text-xs text-neutral-600 font-semibold">Total adeudado</p>
                     </div>
                 </div>
-                <div class="card p-6 hover:shadow-strong transition-shadow border-l-[6px] border-${netWorth >= 0 ? 'success' : 'danger'}-500 bg-gradient-to-br from-white to-${netWorth >= 0 ? 'success' : 'danger'}-50/30">
+                <div class="card p-6 hover:shadow-strong transition-shadow border-l-[6px] border-${netWorthWithAssets >= 0 ? 'success' : 'danger'}-500 bg-gradient-to-br from-white to-${netWorthWithAssets >= 0 ? 'success' : 'danger'}-50/30">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-neutral-700 text-sm font-bold uppercase tracking-wide">Patrimonio ${currency}</p>
-                        <span class="text-2xl">${netWorth >= 0 ? '📈' : '📉'}</span>
+                        <span class="text-2xl">${netWorthWithAssets >= 0 ? '📈' : '📉'}</span>
                     </div>
-                    <p class="text-4xl font-extrabold ${netWorth >= 0 ? 'text-success-600' : 'text-danger-600'}">
-                        ${info.symbol}${Math.abs(netWorth).toLocaleString('en-US', {minimumFractionDigits: decimals})}
+                    <p class="text-4xl font-extrabold ${netWorthWithAssets >= 0 ? 'text-success-600' : 'text-danger-600'}">
+                        ${currencySymbol}${Math.abs(netWorthWithAssets).toLocaleString('en-US', {minimumFractionDigits: decimals})}
                     </p>
                     <div class="mt-3 pt-3 border-t-2 border-neutral-300">
-                        <p class="text-xs text-neutral-600 font-semibold">Valor neto</p>
+                        <p class="text-xs text-neutral-600 font-semibold">
+                            Activos: ${currencySymbol}${Math.abs(assetTotal).toLocaleString('en-US', {minimumFractionDigits: decimals})}
+                        </p>
+                        <p class="text-[11px] text-neutral-500">Cuentas + Activos - Deudas</p>
                     </div>
                 </div>
             `;
