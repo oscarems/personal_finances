@@ -4,24 +4,28 @@
 
 {% block content %}
 <div class="mb-8">
-    <h2 class="text-3xl font-bold text-gray-800">Reportes y Análisis</h2>
-    <p class="text-gray-600 mt-2">Visualiza tus patrones de gasto e ingreso</p>
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Reportes y análisis</h2>
+            <p class="page-subtitle mt-2">Visualiza tus patrones de gasto e ingreso</p>
+        </div>
+    </div>
 </div>
 
 <!-- Filters -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-4">Filtros</h3>
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Filtros</h3>
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-            <select id="currencyFilter" onchange="loadAllReports()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+            <select id="currencyFilter" onchange="loadAllReports()" class="input-field">
                 <option value="1">COP - Peso Colombiano</option>
                 <option value="2">USD - Dólar Estadounidense</option>
             </select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Periodo</label>
-            <select id="periodFilter" onchange="updatePeriodDates(); loadAllReports()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Periodo</label>
+            <select id="periodFilter" onchange="updatePeriodDates(); loadAllReports()" class="input-field">
                 <option value="current_month">Mes Actual</option>
                 <option value="last_month">Mes Anterior</option>
                 <option value="last_3_months">Últimos 3 Meses</option>
@@ -31,16 +35,16 @@
             </select>
         </div>
         <div id="customDateStart" class="hidden">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Desde</label>
-            <input type="date" id="startDateFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Desde</label>
+            <input type="date" id="startDateFilter" class="input-field">
         </div>
         <div id="customDateEnd" class="hidden">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Hasta</label>
-            <input type="date" id="endDateFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Hasta</label>
+            <input type="date" id="endDateFilter" class="input-field">
         </div>
     </div>
     <div id="customApply" class="hidden mt-4">
-        <button onclick="loadAllReports()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <button onclick="loadAllReports()" class="btn-primary">
             Aplicar Fechas
         </button>
     </div>
@@ -48,48 +52,48 @@
 
 <!-- Period Summary Cards -->
 <div class="mb-3">
-    <h3 class="text-lg font-semibold text-gray-800">Resumen del periodo</h3>
-    <p class="text-sm text-gray-500">Transferencias entre cuentas excluidas</p>
+    <h3 class="text-lg font-semibold text-neutral-800">Resumen del periodo</h3>
+    <p class="text-sm text-neutral-500">Transferencias entre cuentas excluidas</p>
 </div>
 <div id="summarySection" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-    <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-6">
-        <p class="text-sm text-gray-600 mb-2">Ingresos del periodo</p>
-        <p id="summaryIncome" class="text-3xl font-bold text-green-600">$0</p>
+    <div class="bg-gradient-to-br from-success-50 to-success-100 border border-success-200 rounded-card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Ingresos del periodo</p>
+        <p id="summaryIncome" class="text-3xl font-bold text-success-600">$0</p>
     </div>
-    <div class="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-lg p-6">
-        <p class="text-sm text-gray-600 mb-2">Gastos del periodo</p>
-        <p id="summaryExpenses" class="text-3xl font-bold text-red-600">$0</p>
+    <div class="bg-gradient-to-br from-danger-50 to-danger-100 border border-danger-200 rounded-card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Gastos del periodo</p>
+        <p id="summaryExpenses" class="text-3xl font-bold text-danger-600">$0</p>
     </div>
-    <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-6">
-        <p class="text-sm text-gray-600 mb-2">Promedio de gasto mensual</p>
-        <p id="summaryAvgExpenses" class="text-3xl font-bold text-blue-600">$0</p>
+    <div class="bg-gradient-to-br from-primary-50 to-primary-100 border border-primary-200 rounded-card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Promedio de gasto mensual</p>
+        <p id="summaryAvgExpenses" class="text-3xl font-bold text-primary-600">$0</p>
     </div>
 </div>
 
 <!-- Overall Summary Cards -->
 <div class="mb-3">
-    <h3 class="text-lg font-semibold text-gray-800">Resumen general</h3>
-    <p class="text-sm text-gray-500">Saldo total y balance del mes actual</p>
+    <h3 class="text-lg font-semibold text-neutral-800">Resumen general</h3>
+    <p class="text-sm text-neutral-500">Saldo total y balance del mes actual</p>
 </div>
 <div id="overallSummarySection" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-    <div class="bg-white rounded-lg shadow p-6">
-        <p class="text-sm text-gray-600 mb-2">Ingresos del mes</p>
-        <p id="overallIncome" class="text-2xl font-bold text-green-600">$0</p>
+    <div class="card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Ingresos del mes</p>
+        <p id="overallIncome" class="text-2xl font-bold text-success-600">$0</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <p class="text-sm text-gray-600 mb-2">Gastos del mes</p>
-        <p id="overallExpenses" class="text-2xl font-bold text-red-600">$0</p>
+    <div class="card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Gastos del mes</p>
+        <p id="overallExpenses" class="text-2xl font-bold text-danger-600">$0</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
-        <p class="text-sm text-gray-600 mb-2">Balance total en cuentas</p>
-        <p id="overallBalance" class="text-2xl font-bold text-blue-600">$0</p>
+    <div class="card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Balance total en cuentas</p>
+        <p id="overallBalance" class="text-2xl font-bold text-primary-600">$0</p>
     </div>
 </div>
 
 <!-- Charts Grid -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Spending by Category -->
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="card p-6">
         <h3 class="text-lg font-semibold mb-4">Gastos por Categoría</h3>
         <div class="h-80">
             <canvas id="categoryPieChart"></canvas>
@@ -100,7 +104,7 @@
     </div>
 
     <!-- Spending by Group -->
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="card p-6">
         <h3 class="text-lg font-semibold mb-4">Gastos por Grupo</h3>
         <div class="h-80">
             <canvas id="groupDoughnutChart"></canvas>
@@ -109,7 +113,7 @@
 </div>
 
 <!-- Income vs Expenses Chart -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Ingresos vs Gastos</h3>
     <p id="incomeExpensesNotice" class="text-sm text-gray-500 mb-3">
         Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.
@@ -118,12 +122,12 @@
 </div>
 
 <!-- Total Balance Chart -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card p-6 mb-6">
     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
         <h3 class="text-lg font-semibold">Dinero total en cuentas</h3>
         <div class="flex items-center gap-2">
-            <label for="balanceInterval" class="text-sm text-gray-600">Vista</label>
-            <select id="balanceInterval" onchange="loadAccountBalanceHistory()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <label for="balanceInterval" class="text-sm text-neutral-600 font-semibold uppercase tracking-wide">Vista</label>
+            <select id="balanceInterval" onchange="loadAccountBalanceHistory()" class="input-field text-sm py-2 px-3">
                 <option value="daily">Día a día</option>
                 <option value="monthly" selected>Mes a mes</option>
             </select>
@@ -133,13 +137,13 @@
 </div>
 
 <!-- Spending Trends Chart -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Tendencias de gasto</h3>
     <canvas id="spendingTrendsChart" height="80"></canvas>
 </div>
 
 <!-- Top Categories Table -->
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="card overflow-hidden">
     <div class="p-6">
         <h3 class="text-lg font-semibold mb-4">Top 10 Categorías</h3>
     </div>
@@ -161,7 +165,7 @@
 </div>
 
 <!-- Savings Rate -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Tasa de ahorro</h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
@@ -198,7 +202,7 @@
 </div>
 
 <!-- Budget vs Actual -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Presupuesto vs Real</h3>
     <p class="text-sm text-gray-500 mb-4">Mostrando: <span id="budgetVsActualMonth">-</span></p>
     <div class="overflow-x-auto">
@@ -223,7 +227,7 @@
 </div>
 
 <!-- Debt Summary -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Resumen de deudas</h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div>
@@ -262,19 +266,19 @@
 </div>
 
 <!-- Debt Payoff Projection -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
+<div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Proyección de pago de deuda</h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">ID Deuda</label>
-            <input id="debtProjectionId" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 1">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">ID deuda</label>
+            <input id="debtProjectionId" type="number" class="input-field" placeholder="Ej: 1">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Pago extra</label>
-            <input id="debtProjectionExtra" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Pago extra</label>
+            <input id="debtProjectionExtra" type="number" class="input-field" placeholder="0">
         </div>
         <div class="flex items-end">
-            <button onclick="loadDebtProjection()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button onclick="loadDebtProjection()" class="px-6 py-2 bg-blue-600 text-white rounded-card hover:bg-blue-700">
                 Generar proyección
             </button>
         </div>

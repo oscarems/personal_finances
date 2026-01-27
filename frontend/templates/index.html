@@ -6,7 +6,7 @@
 <!-- Header Ultra Moderno -->
 <div class="mb-10">
     <div class="flex items-center space-x-4 mb-3">
-        <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-lg">
+        <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-accent-500 rounded-2xl flex items-center justify-center shadow-strong">
             <span class="text-2xl">📊</span>
         </div>
         <div>
@@ -342,8 +342,8 @@
         const assignedCardClass = [
             'rounded-card',
             'p-6',
-            'shadow-md',
-            'hover:shadow-lg',
+            'shadow-medium',
+            'hover:shadow-strong',
             'transition-shadow',
             'bg-gradient-to-br',
             'from-primary-400',
@@ -356,8 +356,8 @@
         const availableCardClass = [
             'rounded-card',
             'p-6',
-            'shadow-md',
-            'hover:shadow-lg',
+            'shadow-medium',
+            'hover:shadow-strong',
             'transition-shadow',
             'bg-gradient-to-br',
             totalReadyToAssign >= 0 ? 'from-success-400' : 'from-danger-400',
@@ -379,7 +379,7 @@
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-card p-6 border-2 border-neutral-300 shadow-md hover:shadow-lg transition-shadow">
+                <div class="bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-card p-6 border-2 border-neutral-300 shadow-medium hover:shadow-strong transition-shadow">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-neutral-800 text-sm font-bold uppercase tracking-wide">Dinero en Cuentas</p>
                         <span class="text-3xl">🏦</span>
@@ -539,7 +539,7 @@
 
         totalsContainer.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-${Math.min(entries.length + 1, 3)} gap-6">
-                <div class="bg-gradient-to-br from-warning-100 to-warning-200 rounded-card p-6 border-l-4 border-warning-600 shadow-md">
+                <div class="bg-gradient-to-br from-warning-100 to-warning-200 rounded-card p-6 border-l-4 border-warning-600 shadow-medium">
                     <p class="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-2">
                         Total en ${targetCurrency}
                     </p>

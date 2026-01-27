@@ -3,14 +3,16 @@
 {% block title %}Cuentas - Personal Finances{% endblock %}
 
 {% block content %}
-<div class="mb-8 flex justify-between items-center">
-    <div>
-        <h2 class="text-3xl font-bold text-gray-800">Cuentas</h2>
-        <p class="text-gray-600 mt-2">Gestiona tus cuentas bancarias y tarjetas</p>
+<div class="mb-8">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Cuentas</h2>
+            <p class="page-subtitle mt-2">Gestiona tus cuentas bancarias y tarjetas</p>
+        </div>
+        <button onclick="openCreateModal()" class="btn-primary">
+            + Nueva cuenta
+        </button>
     </div>
-    <button onclick="openCreateModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold">
-        + Nueva Cuenta
-    </button>
 </div>
 
 <!-- Accounts Grid -->
@@ -340,7 +342,7 @@
             const balanceClass = isDebtAccount ? 'text-red-600' : (isPositive ? 'text-green-600' : 'text-red-600');
 
             return `
-                <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+                <div class="card-md p-6 hover:shadow-strong transition">
                     <div class="flex justify-between items-start mb-4">
                         <div>
                             <div class="text-3xl mb-2">${typeIcons[acc.type] || '🏦'}</div>

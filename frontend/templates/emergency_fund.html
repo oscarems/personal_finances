@@ -4,9 +4,11 @@
 
 {% block content %}
 <div class="mb-8">
-    <div>
-        <h2 class="text-3xl font-bold text-gray-800">🆘 Fondo de Emergencia</h2>
-        <p class="text-gray-600 mt-2">Calcula cuántos meses puedes sobrevivir con tus gastos esenciales</p>
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">🆘 Fondo de Emergencia</h2>
+            <p class="page-subtitle mt-2">Calcula cuántos meses puedes sobrevivir con tus gastos esenciales</p>
+        </div>
     </div>
 </div>
 
@@ -16,17 +18,17 @@
 </div>
 
 <!-- Coverage Status -->
-<div id="coverageStatus" class="bg-white rounded-lg shadow p-6 mb-8">
+<div id="coverageStatus" class="card p-6 mb-8">
     <!-- Status will be loaded here -->
 </div>
 
 <!-- Configuration Sections -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <!-- Essential Expenses Section -->
-    <div class="bg-white rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-800">💰 Gastos Esenciales</h3>
-            <p class="text-sm text-gray-600 mt-1">Marca las categorías de gastos fundamentales que necesitas cubrir en una emergencia</p>
+    <div class="card">
+        <div class="p-6 border-b border-neutral-200">
+            <h3 class="text-lg font-semibold text-neutral-800">💰 Gastos Esenciales</h3>
+            <p class="text-sm text-neutral-600 mt-1">Marca las categorías de gastos fundamentales que necesitas cubrir en una emergencia</p>
         </div>
         <div id="essentialCategories" class="p-6 space-y-3 max-h-96 overflow-y-auto">
             <!-- Categories will be loaded here -->
@@ -34,10 +36,10 @@
     </div>
 
     <!-- Emergency Funds Section -->
-    <div class="bg-white rounded-lg shadow">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-800">🏦 Fondos de Emergencia</h3>
-            <p class="text-sm text-gray-600 mt-1">Marca las categorías de ahorros destinadas a emergencias</p>
+    <div class="card">
+        <div class="p-6 border-b border-neutral-200">
+            <h3 class="text-lg font-semibold text-neutral-800">🏦 Fondos de Emergencia</h3>
+            <p class="text-sm text-neutral-600 mt-1">Marca las categorías de ahorros destinadas a emergencias</p>
         </div>
         <div id="emergencyFundCategories" class="p-6 space-y-3 max-h-96 overflow-y-auto">
             <!-- Categories will be loaded here -->
@@ -46,28 +48,28 @@
 </div>
 
 <style>
-    .status-excellent { background-color: #10b981; }
-    .status-good { background-color: #3b82f6; }
-    .status-fair { background-color: #f59e0b; }
-    .status-poor { background-color: #ef4444; }
-    .status-critical { background-color: #dc2626; }
+    .status-excellent { background-color: #3F7C64; }
+    .status-good { background-color: #527EB6; }
+    .status-fair { background-color: #CF8B2B; }
+    .status-poor { background-color: #B64854; }
+    .status-critical { background-color: #7F313B; }
 
     .category-checkbox {
         cursor: pointer;
         padding: 12px;
-        border: 2px solid #e5e7eb;
-        border-radius: 8px;
+        border: 2px solid #E3E1DA;
+        border-radius: 12px;
         transition: all 0.2s;
     }
 
     .category-checkbox:hover {
-        border-color: #3b82f6;
-        background-color: #f9fafb;
+        border-color: #527EB6;
+        background-color: #F4F7FB;
     }
 
     .category-checkbox.selected {
-        border-color: #3b82f6;
-        background-color: #eff6ff;
+        border-color: #527EB6;
+        background-color: #E6EDF6;
     }
 
     .category-checkbox input[type="checkbox"] {
@@ -130,7 +132,7 @@
 
         let html = `
             <!-- Essential Expenses Card -->
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="card p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">Gastos Esenciales Mensuales</p>
@@ -142,7 +144,7 @@
             </div>
 
             <!-- Emergency Funds Card -->
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="card p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">Fondos de Emergencia</p>
@@ -154,7 +156,7 @@
             </div>
 
             <!-- Coverage Card -->
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="card p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">Cobertura</p>
