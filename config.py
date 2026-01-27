@@ -5,8 +5,18 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 
 # Database
-DATABASE_PATH = BASE_DIR / 'data' / 'finances.db'
-SQLALCHEMY_DATABASE_URI = f'sqlite:///{DATABASE_PATH}'
+DEMO_MODE = os.getenv('DEMO_MODE', '').lower() in {'1', 'true', 'yes', 'on'}
+DEFAULT_DB_MODE = 'demo' if DEMO_MODE else 'primary'
+
+PRIMARY_DATABASE_PATH = BASE_DIR / 'data' / 'finances.db'
+DEMO_DATABASE_PATH = BASE_DIR / 'data' / 'finances_demo.db'
+
+PRIMARY_DATABASE_URL = os.getenv('DATABASE_URL', f'sqlite:///{PRIMARY_DATABASE_PATH}')
+DEMO_DATABASE_URL = os.getenv('DEMO_DATABASE_URL', f'sqlite:///{DEMO_DATABASE_PATH}')
+
+SQLALCHEMY_DATABASE_URI = PRIMARY_DATABASE_URL
+DATABASE_IS_SQLITE = SQLALCHEMY_DATABASE_URI.startswith('sqlite:///')
+DEMO_DATABASE_IS_SQLITE = DEMO_DATABASE_URL.startswith('sqlite:///')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # App config

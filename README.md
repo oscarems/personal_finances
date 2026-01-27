@@ -74,6 +74,26 @@ Esto creará:
 - ✅ Grupos de categorías organizados
 - ✅ Cuentas de ejemplo (opcional)
 
+#### 🧪 Modo demo (sin borrar tu base real)
+
+Puedes levantar una versión demo que usa **otra base de datos** y se crea sola si no existe. También puedes cambiarla desde la UI (selector "Base de datos" en el sidebar).
+
+```bash
+DEMO_MODE=true python run.py
+```
+
+Esto usará `data/finances_demo.db` y no toca `data/finances.db`. Si el archivo demo no existe, se inicializa automáticamente con datos base.
+
+#### 🔐 Conectar a otra base usando credenciales
+
+Si quieres apuntar a otra base (por ejemplo PostgreSQL) sin tocar tu SQLite local, define `DATABASE_URL`:
+
+```bash
+DATABASE_URL="postgresql+psycopg2://usuario:password@localhost:5432/finanzas" python run.py
+```
+
+> Si `DATABASE_URL` está definido, se ignora `DEMO_MODE` y el archivo SQLite local.
+
 ### 3. Ejecutar la Aplicación
 
 ```bash
