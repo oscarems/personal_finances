@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
 from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset
-from backend.utils.wealth import apply_expected_appreciation
+from backend.utils.wealth import apply_expected_appreciation, apply_depreciation
 
 router = APIRouter()
 
@@ -1383,12 +1383,25 @@ def get_net_worth(
         for asset in wealth_assets:
             if asset.as_of_date and asset.as_of_date > month_end:
                 continue
-            effective_value = apply_expected_appreciation(
-                asset.value,
-                asset.expected_appreciation_rate if asset.asset_class == "inmueble" else None,
-                asset.as_of_date,
-                month_end
-            )
+            if asset.asset_class == "inmueble":
+                effective_value = apply_expected_appreciation(
+                    asset.value,
+                    asset.expected_appreciation_rate,
+                    asset.as_of_date,
+                    month_end
+                )
+            elif asset.asset_class == "activo":
+                effective_value = apply_depreciation(
+                    asset.value,
+                    asset.depreciation_method,
+                    asset.depreciation_rate,
+                    asset.depreciation_years,
+                    asset.depreciation_salvage_value,
+                    asset.depreciation_start_date or asset.as_of_date,
+                    month_end
+                )
+            else:
+                effective_value = asset.value
             additional_assets += convert_to_currency(
                 effective_value,
                 asset.currency_id,
