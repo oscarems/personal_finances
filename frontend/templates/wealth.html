@@ -46,77 +46,6 @@
     </div>
 </div>
 
-<!-- Patrimonio adicional -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-2">Patrimonio (inmuebles, activos e inversiones)</h3>
-    <p class="text-sm text-gray-500 mb-4">Agrega inmuebles, activos físicos y tipos de inversión (incluye fiducia). Estos valores se incluyen en el patrimonio neto.</p>
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
-        <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
-            <input id="wealthAssetName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Apartamento, portafolio ETF">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Clase</label>
-            <select id="wealthAssetClass" onchange="toggleInvestmentTypeField()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                <option value="inmueble">🏠 Inmueble</option>
-                <option value="activo">🏗️ Activo</option>
-                <option value="inversion">📈 Inversión</option>
-            </select>
-        </div>
-        <div id="investmentTypeWrapper" class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de inversión</label>
-            <select id="wealthInvestmentType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                <option value="">Selecciona</option>
-            </select>
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
-            <input id="wealthAssetValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-            <select id="wealthAssetCurrency" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
-            <input id="wealthAssetDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-        </div>
-        <div class="md:col-span-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
-            <input id="wealthAssetNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
-        </div>
-        <div class="md:col-span-6 flex justify-end">
-            <button onclick="addWealthAsset()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Agregar patrimonio
-            </button>
-        </div>
-    </div>
-    <div class="flex items-center justify-between mb-4">
-        <p class="text-sm text-gray-600">Total patrimonio adicional</p>
-        <p id="wealthAssetsTotal" class="text-lg font-semibold text-indigo-600">$0</p>
-    </div>
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clase</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="wealthAssetsTable" class="bg-white divide-y divide-gray-200">
-                <tr>
-                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
 <!-- Net Worth -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Patrimonio neto</h3>
@@ -152,6 +81,194 @@
         </table>
     </div>
 </div>
+
+<!-- Patrimonio adicional -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-2">Inmuebles</h3>
+    <p class="text-sm text-gray-500 mb-4">Registra propiedades y bienes raíces. Puedes asociar una hipoteca para ver el vínculo con tu deuda.</p>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+        <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
+            <input id="wealthPropertyName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Apartamento, local comercial">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
+            <input id="wealthPropertyValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+            <select id="wealthPropertyCurrency" class="wealth-asset-currency w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+            <input id="wealthPropertyDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Hipoteca asociada</label>
+            <select id="wealthPropertyMortgage" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="">Sin hipoteca</option>
+            </select>
+        </div>
+        <div class="md:col-span-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+            <input id="wealthPropertyNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
+        </div>
+        <div class="md:col-span-6 flex justify-end">
+            <button onclick="addWealthAsset('inmueble')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Agregar inmueble
+            </button>
+        </div>
+    </div>
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">Total inmuebles</p>
+        <p id="wealthPropertiesTotal" class="text-lg font-semibold text-indigo-600">$0</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hipoteca</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="wealthPropertiesTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-2">Inversiones</h3>
+    <p class="text-sm text-gray-500 mb-4">Incluye portafolios, fondos, fiduciarias y otros instrumentos. Registra rendimientos para darle seguimiento.</p>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+        <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
+            <input id="wealthInvestmentName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Portafolio ETF, fiducia">
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de inversión</label>
+            <select id="wealthInvestmentType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="">Selecciona</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
+            <input id="wealthInvestmentValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+            <select id="wealthInvestmentCurrency" class="wealth-asset-currency w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+            <input id="wealthInvestmentDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Rendimiento (%)</label>
+            <input id="wealthInvestmentReturnRate" type="number" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 8.5">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Rendimiento</label>
+            <input id="wealthInvestmentReturnAmount" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 150000">
+        </div>
+        <div class="md:col-span-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+            <input id="wealthInvestmentNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
+        </div>
+        <div class="md:col-span-6 flex justify-end">
+            <button onclick="addWealthAsset('inversion')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Agregar inversión
+            </button>
+        </div>
+    </div>
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">Total inversiones</p>
+        <p id="wealthInvestmentsTotal" class="text-lg font-semibold text-indigo-600">$0</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rendimiento</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rend. %</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="wealthInvestmentsTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-2">Activos</h3>
+    <p class="text-sm text-gray-500 mb-4">Incluye vehículos, equipos y otros bienes físicos no inmobiliarios.</p>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+        <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
+            <input id="wealthAssetName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Vehículo, colección">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
+            <input id="wealthAssetValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+            <select id="wealthAssetCurrency" class="wealth-asset-currency w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+            <input id="wealthAssetDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div class="md:col-span-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+            <input id="wealthAssetNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
+        </div>
+        <div class="md:col-span-6 flex justify-end">
+            <button onclick="addWealthAsset('activo')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Agregar activo
+            </button>
+        </div>
+    </div>
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">Total activos</p>
+        <p id="wealthAssetsTotal" class="text-lg font-semibold text-indigo-600">$0</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="wealthAssetsTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -163,7 +280,7 @@
         loadWealthDashboard();
         loadWealthAssetTypes();
         loadWealthAssetCurrencies();
-        toggleInvestmentTypeField();
+        loadMortgageOptions();
     });
 
     function updatePeriodDates() {
@@ -223,7 +340,9 @@
 
     async function loadWealthDashboard() {
         await Promise.all([
-            loadWealthAssets(),
+            loadWealthAssets('inmueble'),
+            loadWealthAssets('inversion'),
+            loadWealthAssets('activo'),
             loadNetWorth()
         ]);
         syncWealthAssetCurrency();
@@ -288,50 +407,119 @@
         try {
             const res = await fetch('/api/currencies');
             const data = await res.json();
-            const select = document.getElementById('wealthAssetCurrency');
-            select.innerHTML = '';
-            (data || []).forEach(currency => {
-                const option = document.createElement('option');
-                option.value = currency.id;
-                option.textContent = `${currency.code} - ${currency.name}`;
-                select.appendChild(option);
+            const selects = document.querySelectorAll('.wealth-asset-currency');
+            selects.forEach(select => {
+                select.innerHTML = '';
+                (data || []).forEach(currency => {
+                    const option = document.createElement('option');
+                    option.value = currency.id;
+                    option.textContent = `${currency.code} - ${currency.name}`;
+                    select.appendChild(option);
+                });
             });
             const selectedCurrency = document.getElementById('currencyFilter').value;
             if (selectedCurrency) {
-                select.value = selectedCurrency;
+                selects.forEach(select => {
+                    select.value = selectedCurrency;
+                });
             }
         } catch (error) {
             console.error('Error loading currencies:', error);
         }
     }
 
-    function toggleInvestmentTypeField() {
-        const assetClass = document.getElementById('wealthAssetClass').value;
-        const wrapper = document.getElementById('investmentTypeWrapper');
-        if (assetClass === 'inversion') {
-            wrapper.classList.remove('hidden');
-        } else {
-            wrapper.classList.add('hidden');
+    async function loadMortgageOptions() {
+        try {
+            const res = await fetch('/api/debts?debt_type=mortgage&is_active=true');
+            const data = await res.json();
+            const select = document.getElementById('wealthPropertyMortgage');
+            select.innerHTML = '<option value="">Sin hipoteca</option>';
+            (data || []).forEach(debt => {
+                const option = document.createElement('option');
+                option.value = debt.id;
+                option.textContent = `${debt.name} (${debt.currency_code} ${debt.current_balance.toLocaleString('en-US')})`;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading mortgages:', error);
         }
     }
 
     function syncWealthAssetCurrency() {
-        const currencySelect = document.getElementById('wealthAssetCurrency');
+        const currencySelects = document.querySelectorAll('.wealth-asset-currency');
         const selectedCurrency = document.getElementById('currencyFilter').value;
-        if (currencySelect && selectedCurrency) {
-            currencySelect.value = selectedCurrency;
-        }
+        currencySelects.forEach(select => {
+            if (select && selectedCurrency) {
+                select.value = selectedCurrency;
+            }
+        });
     }
 
-    async function addWealthAsset() {
+    function getWealthFormData(assetClass) {
+        if (assetClass === 'inmueble') {
+            return {
+                name: document.getElementById('wealthPropertyName').value.trim(),
+                value: parseFloat(document.getElementById('wealthPropertyValue').value || 0),
+                currencyId: document.getElementById('wealthPropertyCurrency').value,
+                asOfDate: document.getElementById('wealthPropertyDate').value || null,
+                notes: document.getElementById('wealthPropertyNotes').value.trim() || null,
+                mortgageId: document.getElementById('wealthPropertyMortgage').value || null
+            };
+        }
+
+        if (assetClass === 'inversion') {
+            return {
+                name: document.getElementById('wealthInvestmentName').value.trim(),
+                investmentType: document.getElementById('wealthInvestmentType').value || null,
+                value: parseFloat(document.getElementById('wealthInvestmentValue').value || 0),
+                currencyId: document.getElementById('wealthInvestmentCurrency').value,
+                asOfDate: document.getElementById('wealthInvestmentDate').value || null,
+                returnRate: document.getElementById('wealthInvestmentReturnRate').value || null,
+                returnAmount: document.getElementById('wealthInvestmentReturnAmount').value || null,
+                notes: document.getElementById('wealthInvestmentNotes').value.trim() || null
+            };
+        }
+
+        return {
+            name: document.getElementById('wealthAssetName').value.trim(),
+            value: parseFloat(document.getElementById('wealthAssetValue').value || 0),
+            currencyId: document.getElementById('wealthAssetCurrency').value,
+            asOfDate: document.getElementById('wealthAssetDate').value || null,
+            notes: document.getElementById('wealthAssetNotes').value.trim() || null
+        };
+    }
+
+    function resetWealthForm(assetClass) {
+        if (assetClass === 'inmueble') {
+            document.getElementById('wealthPropertyName').value = '';
+            document.getElementById('wealthPropertyValue').value = '';
+            document.getElementById('wealthPropertyDate').value = '';
+            document.getElementById('wealthPropertyNotes').value = '';
+            document.getElementById('wealthPropertyMortgage').value = '';
+            return;
+        }
+
+        if (assetClass === 'inversion') {
+            document.getElementById('wealthInvestmentName').value = '';
+            document.getElementById('wealthInvestmentValue').value = '';
+            document.getElementById('wealthInvestmentType').value = '';
+            document.getElementById('wealthInvestmentDate').value = '';
+            document.getElementById('wealthInvestmentNotes').value = '';
+            document.getElementById('wealthInvestmentReturnRate').value = '';
+            document.getElementById('wealthInvestmentReturnAmount').value = '';
+            return;
+        }
+
+        document.getElementById('wealthAssetName').value = '';
+        document.getElementById('wealthAssetValue').value = '';
+        document.getElementById('wealthAssetDate').value = '';
+        document.getElementById('wealthAssetNotes').value = '';
+    }
+
+    async function addWealthAsset(assetClass) {
         try {
-            const name = document.getElementById('wealthAssetName').value.trim();
-            const assetClass = document.getElementById('wealthAssetClass').value;
-            const investmentType = document.getElementById('wealthInvestmentType').value || null;
-            const value = parseFloat(document.getElementById('wealthAssetValue').value || 0);
-            const currencyId = document.getElementById('wealthAssetCurrency').value;
-            const asOfDate = document.getElementById('wealthAssetDate').value || null;
-            const notes = document.getElementById('wealthAssetNotes').value.trim() || null;
+            const formData = getWealthFormData(assetClass);
+            const name = formData.name;
 
             if (!name) {
                 alert('Ingresa un nombre para el patrimonio.');
@@ -341,11 +529,18 @@
             const payload = {
                 name: name,
                 asset_class: assetClass,
-                investment_type: assetClass === 'inversion' ? investmentType : null,
-                value: value,
-                currency_id: Number(currencyId),
-                as_of_date: asOfDate,
-                notes: notes
+                investment_type: assetClass === 'inversion' ? formData.investmentType : null,
+                value: formData.value,
+                currency_id: Number(formData.currencyId),
+                as_of_date: formData.asOfDate,
+                notes: formData.notes,
+                mortgage_debt_id: assetClass === 'inmueble' && formData.mortgageId ? Number(formData.mortgageId) : null,
+                return_rate: assetClass === 'inversion' && formData.returnRate !== null && formData.returnRate !== ''
+                    ? Number(formData.returnRate)
+                    : null,
+                return_amount: assetClass === 'inversion' && formData.returnAmount !== null && formData.returnAmount !== ''
+                    ? Number(formData.returnAmount)
+                    : null
             };
 
             const res = await fetch('/api/wealth-assets', {
@@ -359,12 +554,9 @@
                 throw new Error(errorData.detail || 'Error al guardar');
             }
 
-            document.getElementById('wealthAssetName').value = '';
-            document.getElementById('wealthAssetValue').value = '';
-            document.getElementById('wealthAssetDate').value = '';
-            document.getElementById('wealthAssetNotes').value = '';
+            resetWealthForm(assetClass);
 
-            await loadWealthAssets();
+            await loadWealthAssets(assetClass);
             await loadNetWorth();
         } catch (error) {
             console.error('Error adding wealth asset:', error);
@@ -372,13 +564,13 @@
         }
     }
 
-    async function deleteWealthAsset(assetId) {
+    async function deleteWealthAsset(assetId, assetClass) {
         try {
             const res = await fetch(`/api/wealth-assets/${assetId}`, { method: 'DELETE' });
             if (!res.ok) {
                 throw new Error('Error al eliminar');
             }
-            await loadWealthAssets();
+            await loadWealthAssets(assetClass);
             await loadNetWorth();
         } catch (error) {
             console.error('Error deleting wealth asset:', error);
@@ -386,40 +578,88 @@
         }
     }
 
-    async function loadWealthAssets() {
+    function getWealthSectionConfig(assetClass) {
+        const configs = {
+            inmueble: {
+                tableId: 'wealthPropertiesTable',
+                totalId: 'wealthPropertiesTotal',
+                emptyMessage: 'Sin inmuebles registrados.'
+            },
+            inversion: {
+                tableId: 'wealthInvestmentsTable',
+                totalId: 'wealthInvestmentsTotal',
+                emptyMessage: 'Sin inversiones registradas.'
+            },
+            activo: {
+                tableId: 'wealthAssetsTable',
+                totalId: 'wealthAssetsTotal',
+                emptyMessage: 'Sin activos registrados.'
+            }
+        };
+        return configs[assetClass];
+    }
+
+    async function loadWealthAssets(assetClass) {
         try {
             const currencyId = document.getElementById('currencyFilter').value;
-            const res = await fetch(`/api/wealth-assets?currency_id=${currencyId}`);
+            const res = await fetch(`/api/wealth-assets?currency_id=${currencyId}&asset_class=${assetClass}`);
             const data = await res.json();
+            const sectionConfig = getWealthSectionConfig(assetClass);
 
             if (data.currency) {
                 currentCurrency = data.currency;
             }
 
-            document.getElementById('wealthAssetsTotal').textContent = formatCurrency(data.total_value || 0);
+            if (sectionConfig) {
+                document.getElementById(sectionConfig.totalId).textContent = formatCurrency(data.total_value || 0);
+            }
 
-            const table = document.getElementById('wealthAssetsTable');
+            const table = document.getElementById(sectionConfig.tableId);
             table.innerHTML = '';
             (data.assets || []).forEach(asset => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 text-sm text-gray-700">${asset.name}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${asset.asset_class}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${asset.investment_type || '-'}</td>
-                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(asset.value_converted || asset.value)}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${asset.as_of_date || '-'}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${asset.notes || '-'}</td>
-                    <td class="px-6 py-4 text-sm text-right text-gray-500">
-                        <button onclick="deleteWealthAsset(${asset.id})" class="text-red-600 hover:text-red-800">Eliminar</button>
-                    </td>
-                `;
+                if (assetClass === 'inmueble') {
+                    row.innerHTML = `
+                        <td class="px-6 py-4 text-sm text-gray-700">${asset.name}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.mortgage_name || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(asset.value_converted || asset.value)}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.as_of_date || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.notes || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-500">
+                            <button onclick="deleteWealthAsset(${asset.id}, 'inmueble')" class="text-red-600 hover:text-red-800">Eliminar</button>
+                        </td>
+                    `;
+                } else if (assetClass === 'inversion') {
+                    row.innerHTML = `
+                        <td class="px-6 py-4 text-sm text-gray-700">${asset.name}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.investment_type || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(asset.value_converted || asset.value)}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-700">${asset.return_amount ? formatCurrency(asset.return_amount) : '-'}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-700">${asset.return_rate ? `${asset.return_rate}%` : '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.as_of_date || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.notes || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-500">
+                            <button onclick="deleteWealthAsset(${asset.id}, 'inversion')" class="text-red-600 hover:text-red-800">Eliminar</button>
+                        </td>
+                    `;
+                } else {
+                    row.innerHTML = `
+                        <td class="px-6 py-4 text-sm text-gray-700">${asset.name}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(asset.value_converted || asset.value)}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.as_of_date || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${asset.notes || '-'}</td>
+                        <td class="px-6 py-4 text-sm text-right text-gray-500">
+                            <button onclick="deleteWealthAsset(${asset.id}, 'activo')" class="text-red-600 hover:text-red-800">Eliminar</button>
+                        </td>
+                    `;
+                }
                 table.appendChild(row);
             });
 
             if (!data.assets || data.assets.length === 0) {
                 table.innerHTML = `
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Sin patrimonio registrado.</td>
+                        <td colspan="${assetClass === 'inversion' ? 8 : assetClass === 'inmueble' ? 6 : 5}" class="px-6 py-4 text-center text-sm text-gray-500">${sectionConfig.emptyMessage}</td>
                     </tr>
                 `;
             }

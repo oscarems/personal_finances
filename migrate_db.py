@@ -82,6 +82,33 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        cursor.execute("PRAGMA table_info(wealth_assets)")
+        wealth_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'return_rate' in wealth_columns:
+            print("✓ La columna 'return_rate' ya existe en wealth_assets")
+        else:
+            print("🔧 Agregando columna 'return_rate' a la tabla wealth_assets...")
+            cursor.execute("ALTER TABLE wealth_assets ADD COLUMN return_rate FLOAT")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en wealth_assets")
+
+        if 'return_amount' in wealth_columns:
+            print("✓ La columna 'return_amount' ya existe en wealth_assets")
+        else:
+            print("🔧 Agregando columna 'return_amount' a la tabla wealth_assets...")
+            cursor.execute("ALTER TABLE wealth_assets ADD COLUMN return_amount FLOAT")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en wealth_assets")
+
+        if 'mortgage_debt_id' in wealth_columns:
+            print("✓ La columna 'mortgage_debt_id' ya existe en wealth_assets")
+        else:
+            print("🔧 Agregando columna 'mortgage_debt_id' a la tabla wealth_assets...")
+            cursor.execute("ALTER TABLE wealth_assets ADD COLUMN mortgage_debt_id INTEGER")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en wealth_assets")
+
         conn.close()
         print("\n✓ Migración completada. Ahora puedes ejecutar 'python init_db.py'")
 
