@@ -655,51 +655,27 @@
                         <span class="font-semibold">Importar YNAB</span>
                     </a>
                 </div>
+
+                <div class="mt-8 mb-4 px-6">
+                    <div class="sidebar-section-divider"></div>
+                    <p class="sidebar-section-title mt-4 px-1">Administración</p>
+                </div>
+
+                <div class="space-y-2 px-3">
+                    <button id="openDbModalButton" class="w-full nav-item group justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="nav-icon">
+                                <span class="text-xl">🗂️</span>
+                            </div>
+                            <span class="font-semibold">Base de datos</span>
+                        </div>
+                        <span class="text-xs text-neutral-400">Gestionar</span>
+                    </button>
+                </div>
             </nav>
 
             <!-- Footer del sidebar con estilo -->
             <div class="relative p-6 border-t border-white/10 bg-gradient-to-t from-black/20 to-transparent">
-                <div class="mb-4 space-y-4">
-                    <div class="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
-                        <label for="dbModeSelect" class="block text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
-                            Base de datos
-                        </label>
-                        <select id="dbModeSelect" class="w-full bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"></select>
-                        <p id="dbSelectedLabel" class="text-xs text-neutral-400">Seleccionada: --</p>
-                    </div>
-
-                    <div class="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
-                        <p class="text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
-                            Crear nueva
-                        </p>
-                        <div class="flex flex-col gap-2">
-                            <input id="dbNameInput" type="text" placeholder="Nueva base (personal, pareja)" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                            <button id="dbCreateButton" class="bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold px-3 py-2 rounded-xl">Crear</button>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
-                        <div class="flex items-center justify-between">
-                            <p class="text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
-                                Acciones
-                            </p>
-                            <span id="dbActionHint" class="text-[10px] text-neutral-500">Disponible para bases personalizadas</span>
-                        </div>
-                        <div class="space-y-2">
-                            <div class="flex flex-col gap-2">
-                                <input id="dbRenameInput" type="text" placeholder="Nuevo nombre" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                <button id="dbRenameButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Renombrar</button>
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <input id="dbDuplicateInput" type="text" placeholder="Duplicar como" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                <button id="dbDuplicateButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Duplicar</button>
-                            </div>
-                            <button id="dbDeleteButton" class="w-full border border-red-400/40 text-red-200 hover:bg-red-500/20 text-xs font-semibold px-3 py-2 rounded-xl">Eliminar</button>
-                        </div>
-                    </div>
-
-                    <p id="dbModeStatus" class="text-xs text-neutral-400 mt-2 hidden"></p>
-                </div>
                 <div class="flex items-center justify-between text-xs text-neutral-400">
                     <div class="flex items-center space-x-2">
                         <div class="w-2 h-2 bg-primary-500 rounded-full animate-pulse"></div>
@@ -709,6 +685,64 @@
                 </div>
             </div>
         </aside>
+
+        <div id="dbModal" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-db-modal-close></div>
+            <div class="relative h-full w-full flex items-center justify-center p-6">
+                <div class="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-900/95 text-white shadow-2xl">
+                    <div class="flex items-start justify-between px-6 py-5 border-b border-white/10">
+                        <div>
+                            <p class="text-xs font-semibold text-primary-300 uppercase tracking-[0.3em]">Administración</p>
+                            <h2 class="text-lg font-semibold mt-2">Base de datos</h2>
+                        </div>
+                        <button class="text-neutral-400 hover:text-white transition" data-db-modal-close>
+                            ✕
+                        </button>
+                    </div>
+                    <div class="px-6 py-5 space-y-5">
+                        <div class="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
+                            <label for="dbModeSelect" class="block text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
+                                Base de datos
+                            </label>
+                            <select id="dbModeSelect" class="w-full bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"></select>
+                            <p id="dbSelectedLabel" class="text-xs text-neutral-400">Seleccionada: --</p>
+                        </div>
+
+                        <div class="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
+                            <p class="text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
+                                Crear nueva
+                            </p>
+                            <div class="flex flex-col gap-2">
+                                <input id="dbNameInput" type="text" placeholder="Nueva base (personal, pareja)" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                <button id="dbCreateButton" class="bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold px-3 py-2 rounded-xl">Crear</button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
+                                    Acciones
+                                </p>
+                                <span id="dbActionHint" class="text-[10px] text-neutral-500">Disponible para bases personalizadas</span>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex flex-col gap-2">
+                                    <input id="dbRenameInput" type="text" placeholder="Nuevo nombre" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                    <button id="dbRenameButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Renombrar</button>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <input id="dbDuplicateInput" type="text" placeholder="Duplicar como" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                    <button id="dbDuplicateButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Duplicar</button>
+                                </div>
+                                <button id="dbDeleteButton" class="w-full border border-red-400/40 text-red-200 hover:bg-red-500/20 text-xs font-semibold px-3 py-2 rounded-xl">Eliminar</button>
+                            </div>
+                        </div>
+
+                        <p id="dbModeStatus" class="text-xs text-neutral-400 mt-2 hidden"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Main Content -->
         <main class="flex-1 overflow-y-auto bg-neutral-50">
@@ -744,6 +778,35 @@
             const dbDuplicateButton = document.getElementById('dbDuplicateButton');
             const dbDeleteButton = document.getElementById('dbDeleteButton');
             const dbActionHint = document.getElementById('dbActionHint');
+            const openDbModalButton = document.getElementById('openDbModalButton');
+            const dbModal = document.getElementById('dbModal');
+            const dbModalCloseButtons = document.querySelectorAll('[data-db-modal-close]');
+
+            const openDbModal = () => {
+                if (!dbModal) return;
+                dbModal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            };
+
+            const closeDbModal = () => {
+                if (!dbModal) return;
+                dbModal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            };
+
+            if (openDbModalButton) {
+                openDbModalButton.addEventListener('click', openDbModal);
+            }
+
+            dbModalCloseButtons.forEach(button => {
+                button.addEventListener('click', closeDbModal);
+            });
+
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    closeDbModal();
+                }
+            });
 
             if (dbModeSelect) {
                 const updateStatus = (message, isError = false) => {
