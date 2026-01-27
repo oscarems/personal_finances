@@ -129,6 +129,24 @@ def init_db(engine_override=None):
         column_definition="loan_years INTEGER",
         engine_override=active_engine
     )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
+        column_name="return_rate",
+        column_definition="return_rate FLOAT",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
+        column_name="return_amount",
+        column_definition="return_amount FLOAT",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
+        column_name="mortgage_debt_id",
+        column_definition="mortgage_debt_id INTEGER",
+        engine_override=active_engine
+    )
     print("✓ Database tables created")
 
 
