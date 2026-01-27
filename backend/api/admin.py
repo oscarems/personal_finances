@@ -1,7 +1,7 @@
 """
 API endpoints for administrative operations
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import (
@@ -11,7 +11,8 @@ from backend.models import (
 )
 from sqlalchemy import text
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Literal
+from config import DEFAULT_DB_MODE
 
 router = APIRouter()
 
@@ -28,6 +29,11 @@ class ResetResponse(BaseModel):
     success: bool
     message: str
     deleted: dict
+
+
+class DbModeRequest(BaseModel):
+    """Request to switch database mode"""
+    mode: Literal["primary", "demo"]
 
 
 @router.post("/reset", response_model=ResetResponse)
@@ -167,3 +173,22 @@ def get_database_stats(db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
+
+
+@router.get("/db-mode")
+def get_db_mode(request: Request):
+    """Return active database mode based on cookie"""
+    mode = request.cookies.get("db_mode", DEFAULT_DB_MODE)
+    return {"mode": mode}
+
+
+@router.post("/db-mode")
+def set_db_mode(payload: DbModeRequest, response: Response):
+    """Set active database mode in a cookie"""
+    response.set_cookie(
+        key="db_mode",
+        value=payload.mode,
+        httponly=False,
+        samesite="lax"
+    )
+    return {"mode": payload.mode}
