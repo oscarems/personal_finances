@@ -111,15 +111,25 @@
 <!-- Income vs Expenses Chart -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Ingresos vs Gastos</h3>
+    <p id="incomeExpensesNotice" class="text-sm text-gray-500 mb-3">
+        Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.
+    </p>
     <canvas id="incomeExpensesChart" height="80"></canvas>
 </div>
 
-<!-- Balance Trend Chart -->
+<!-- Total Balance Chart -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-4">Cambio del balance total en cuentas</h3>
-    <p class="text-sm text-gray-500 mb-3">Se calcula sumando los saldos de cuentas activas y aplicando las transacciones del periodo para cada mes.</p>
-    <p id="balanceTrendChange" class="text-sm text-gray-600 mb-4">Último cambio: -</p>
-    <canvas id="balanceTrendChart" height="80"></canvas>
+    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
+        <h3 class="text-lg font-semibold">Dinero total en cuentas</h3>
+        <div class="flex items-center gap-2">
+            <label for="balanceInterval" class="text-sm text-gray-600">Vista</label>
+            <select id="balanceInterval" onchange="loadAccountBalanceHistory()" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="daily">Día a día</option>
+                <option value="monthly" selected>Mes a mes</option>
+            </select>
+        </div>
+    </div>
+    <canvas id="totalBalanceChart" height="80"></canvas>
 </div>
 
 <!-- Spending Trends Chart -->
@@ -312,7 +322,7 @@
         categoryPie: null,
         groupDoughnut: null,
         incomeExpenses: null,
-        balanceTrend: null,
+        totalBalance: null,
         spendingTrends: null
     };
 
@@ -385,7 +395,7 @@
             loadSpendingByCategory(),
             loadSpendingByGroup(),
             loadIncomeVsExpenses(),
-            loadBalanceTrend(),
+            loadAccountBalanceHistory(),
             loadSpendingTrends(),
             loadSavingsRate(),
             loadBudgetVsActual(),
@@ -543,6 +553,11 @@
             const res = await fetch(`/api/reports/income-vs-expenses?months=${months}&currency_id=${currencyId}`);
             const data = await res.json();
 
+            const notice = document.getElementById('incomeExpensesNotice');
+            if (notice) {
+                notice.textContent = data.note || 'Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.';
+            }
+
             const ctx = document.getElementById('incomeExpensesChart').getContext('2d');
 
             if (charts.incomeExpenses) {
@@ -626,37 +641,30 @@
         }
     }
 
-    async function loadBalanceTrend() {
+    async function loadAccountBalanceHistory() {
         try {
             const currencyId = document.getElementById('currencyFilter').value;
             const dateRange = getDateRange();
+            const interval = document.getElementById('balanceInterval')?.value || 'monthly';
             const res = await fetch(
-                `/api/reports/balance-trend?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
+                `/api/reports/account-balance-history?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}&interval=${interval}`
             );
             const data = await res.json();
+            const points = data.points || [];
+            const ctx = document.getElementById('totalBalanceChart').getContext('2d');
 
-            if (data.latest_change !== null && data.latest_change !== undefined) {
-                const changeValue = formatCurrency(data.latest_change);
-                const monthLabel = data.latest_change_month || '';
-                document.getElementById('balanceTrendChange').textContent = `Último cambio (${monthLabel}): ${changeValue}`;
-            } else {
-                document.getElementById('balanceTrendChange').textContent = 'Último cambio: -';
+            if (charts.totalBalance) {
+                charts.totalBalance.destroy();
             }
 
-            const ctx = document.getElementById('balanceTrendChart').getContext('2d');
-
-            if (charts.balanceTrend) {
-                charts.balanceTrend.destroy();
-            }
-
-            charts.balanceTrend = new Chart(ctx, {
+            charts.totalBalance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.months.map(m => m.month_name),
+                    labels: points.map(point => point.label),
                     datasets: [
                         {
                             label: 'Balance total',
-                            data: data.months.map(m => m.balance),
+                            data: points.map(point => point.balance),
                             borderColor: 'rgb(59, 130, 246)',
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
                             borderWidth: 3,
@@ -691,7 +699,7 @@
                 }
             });
         } catch (error) {
-            console.error('Error loading balance trend:', error);
+            console.error('Error loading account balance history:', error);
         }
     }
 

@@ -219,6 +219,11 @@ def get_income_vs_expenses(
     # Calculate start date (N months ago)
     end_date = date.today()
     start_date = end_date - relativedelta(months=months)
+    min_start_date = date(2026, 1, 1)
+    note = None
+    if start_date < min_start_date:
+        start_date = min_start_date
+        note = 'Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.'
 
     # Get exchange rate for conversion
     exchange_rate = get_exchange_rate(db)
@@ -279,7 +284,8 @@ def get_income_vs_expenses(
 
     return {
         'months': results,
-        'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}'
+        'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}',
+        'note': note
     }
 
 
@@ -627,6 +633,157 @@ def get_balance_trend(
         'months': months,
         'latest_change': latest_change,
         'latest_change_month': latest_change_month
+    }
+
+
+@router.get("/account-balance-history")
+def get_account_balance_history(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    currency_id: int = 1,
+    interval: str = Query("monthly"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get total account balances over time for active accounts.
+    Interval can be daily or monthly.
+    """
+    if interval not in {"daily", "monthly"}:
+        raise HTTPException(status_code=400, detail="Invalid interval. Use daily or monthly.")
+
+    start_date_obj, end_date_obj = parse_date_range(start_date, end_date)
+    exchange_rate = get_exchange_rate(db)
+
+    accounts = db.query(Account).filter(Account.is_closed == False).all()
+    account_ids = [account.id for account in accounts]
+
+    if not account_ids:
+        return {'points': []}
+
+    current_total_balance = sum(
+        convert_to_currency(account.balance, account.currency_id, currency_id, exchange_rate)
+        for account in accounts
+    )
+
+    transactions_after_start = db.query(
+        Transaction.amount,
+        Transaction.currency_id,
+        Transaction.date
+    ).filter(
+        and_(
+            Transaction.account_id.in_(account_ids),
+            Transaction.date >= start_date_obj
+        )
+    ).all()
+
+    net_after_start = sum(
+        convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+        for t in transactions_after_start
+    )
+
+    start_balance = current_total_balance - net_after_start
+
+    initial_balance_adjustments = {}
+    for account in accounts:
+        if not account.created_at:
+            continue
+        created_date = account.created_at.date()
+        if created_date <= start_date_obj or created_date > end_date_obj:
+            continue
+
+        transactions_after_creation = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
+            and_(
+                Transaction.account_id == account.id,
+                Transaction.date >= created_date
+            )
+        ).all()
+
+        net_after_creation = sum(
+            convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+            for t in transactions_after_creation
+        )
+
+        initial_balance = convert_to_currency(
+            account.balance,
+            account.currency_id,
+            currency_id,
+            exchange_rate
+        ) - net_after_creation
+
+        start_balance -= initial_balance
+
+        if interval == "daily":
+            key = created_date.strftime('%Y-%m-%d')
+        else:
+            key = created_date.strftime('%Y-%m')
+        initial_balance_adjustments[key] = (
+            initial_balance_adjustments.get(key, 0.0) + initial_balance
+        )
+
+    transactions_in_range = db.query(
+        Transaction.amount,
+        Transaction.currency_id,
+        Transaction.date
+    ).filter(
+        and_(
+            Transaction.account_id.in_(account_ids),
+            Transaction.date >= start_date_obj,
+            Transaction.date <= end_date_obj
+        )
+    ).all()
+
+    period_net = {}
+    for transaction in transactions_in_range:
+        if interval == "daily":
+            period_key = transaction.date.strftime('%Y-%m-%d')
+        else:
+            period_key = transaction.date.strftime('%Y-%m')
+        period_net.setdefault(period_key, 0.0)
+        period_net[period_key] += convert_to_currency(
+            transaction.amount,
+            transaction.currency_id,
+            currency_id,
+            exchange_rate
+        )
+
+    for period_key, adjustment in initial_balance_adjustments.items():
+        period_net.setdefault(period_key, 0.0)
+        period_net[period_key] += adjustment
+
+    points = []
+    running_balance = start_balance
+
+    if interval == "daily":
+        current_date = start_date_obj
+        while current_date <= end_date_obj:
+            period_key = current_date.strftime('%Y-%m-%d')
+            running_balance += period_net.get(period_key, 0.0)
+            points.append({
+                'date': period_key,
+                'label': current_date.strftime('%d %b %Y'),
+                'balance': running_balance
+            })
+            current_date += relativedelta(days=1)
+    else:
+        current_date = start_date_obj.replace(day=1)
+        while current_date <= end_date_obj:
+            period_key = current_date.strftime('%Y-%m')
+            running_balance += period_net.get(period_key, 0.0)
+            points.append({
+                'date': period_key,
+                'label': current_date.strftime('%b %Y'),
+                'balance': running_balance
+            })
+            current_date += relativedelta(months=1)
+
+    return {
+        'start_date': start_date_obj.isoformat(),
+        'end_date': end_date_obj.isoformat(),
+        'interval': interval,
+        'points': points
     }
 
 
