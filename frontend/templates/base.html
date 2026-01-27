@@ -19,102 +19,100 @@
             theme: {
                 extend: {
                     colors: {
-                        // Paleta moderna y única para finanzas - Identidad Teal/Turquesa
+                        // Identidad sobria y ejecutiva: Navy + grises cálidos + acento dorado
                         primary: {
-                            50: '#F0FDFA',
-                            100: '#CCFBF1',
-                            200: '#99F6E4',
-                            300: '#5EEAD4',
-                            400: '#2DD4BF',
-                            500: '#14B8A6', // Teal vibrante - Color principal
-                            600: '#0D9488',
-                            700: '#0F766E',
-                            800: '#115E59',
-                            900: '#134E4A',
+                            50: '#F4F7FB',
+                            100: '#E6EDF6',
+                            200: '#CBD8EC',
+                            300: '#A8BEDD',
+                            400: '#7D9FCA',
+                            500: '#527EB6', // Azul ejecutivo principal
+                            600: '#3F679A',
+                            700: '#315078',
+                            800: '#243A58',
+                            900: '#17243A',
                         },
                         secondary: {
-                            50: '#EEF2FF',
-                            100: '#E0E7FF',
-                            200: '#C7D2FE',
-                            300: '#A5B4FC',
-                            400: '#818CF8',
-                            500: '#6366F1',
-                            600: '#4F46E5', // Índigo profundo - Profesionalismo
-                            700: '#4338CA',
-                            800: '#3730A3',
-                            900: '#312E81',
+                            50: '#F9FAFB',
+                            100: '#F3F4F6',
+                            200: '#E5E7EB',
+                            300: '#D1D5DB',
+                            400: '#9CA3AF',
+                            500: '#6B7280', // Gris profesional
+                            600: '#4B5563',
+                            700: '#374151',
+                            800: '#1F2937',
+                            900: '#111827',
                         },
                         success: {
-                            50: '#F0FDF4',
-                            100: '#DCFCE7',
-                            200: '#BBF7D0',
-                            300: '#86EFAC',
-                            400: '#4ADE80',
-                            500: '#22C55E', // Verde vibrante moderno
-                            600: '#16A34A',
-                            700: '#15803D',
-                            800: '#166534',
-                            900: '#14532D',
+                            50: '#F1F8F4',
+                            100: '#DDEDE4',
+                            200: '#B8D8C7',
+                            300: '#8EBDA6',
+                            400: '#5F9C82',
+                            500: '#3F7C64',
+                            600: '#346755',
+                            700: '#2C5547',
+                            800: '#243F36',
+                            900: '#1C2E28',
                         },
                         danger: {
-                            50: '#FFF1F2',
-                            100: '#FFE4E6',
-                            200: '#FECDD3',
-                            300: '#FDA4AF',
-                            400: '#FB7185',
-                            500: '#F43F5E', // Rose - Rojo más suave y moderno
-                            600: '#E11D48',
-                            700: '#BE123C',
-                            800: '#9F1239',
-                            900: '#881337',
+                            50: '#FDF3F4',
+                            100: '#F8E1E3',
+                            200: '#F0C4C9',
+                            300: '#E59FA6',
+                            400: '#D16B77',
+                            500: '#B64854',
+                            600: '#9B3B47',
+                            700: '#7F313B',
+                            800: '#5E252B',
+                            900: '#3E1A1E',
                         },
                         warning: {
-                            50: '#FFFBEB',
-                            100: '#FEF3C7',
-                            200: '#FDE68A',
-                            300: '#FCD34D',
-                            400: '#FBBF24',
-                            500: '#F59E0B', // Ámbar - Advertencia cálida
-                            600: '#D97706',
-                            700: '#B45309',
-                            800: '#92400E',
-                            900: '#78350F',
+                            50: '#FFFAF2',
+                            100: '#FEF1D7',
+                            200: '#FADFAF',
+                            300: '#F4C77D',
+                            400: '#E7A94D',
+                            500: '#CF8B2B', // Dorado sobrio
+                            600: '#B07422',
+                            700: '#8E5C1B',
+                            800: '#6D4515',
+                            900: '#4C300F',
                         },
                         accent: {
-                            50: '#FDF2F8',
-                            100: '#FCE7F3',
-                            200: '#FBCFE8',
-                            300: '#F9A8D4',
-                            400: '#F472B6',
-                            500: '#EC4899', // Pink/Fucsia - Personalidad única
-                            600: '#DB2777',
-                            700: '#BE185D',
-                            800: '#9D174D',
-                            900: '#831843',
+                            50: '#FFF8EF',
+                            100: '#FDEDD1',
+                            200: '#F6D39B',
+                            300: '#E7B86A',
+                            400: '#D09A3D',
+                            500: '#B07A1F', // Acento dorado
+                            600: '#97661A',
+                            700: '#7B5215',
+                            800: '#5D3C10',
+                            900: '#40280A',
                         },
                         neutral: {
-                            50: '#F8FAFC',
-                            100: '#F1F5F9',
-                            200: '#E2E8F0',
-                            300: '#CBD5E1',
-                            400: '#94A3B8',
-                            500: '#64748B', // Slate - Grises más modernos
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1E293B',
-                            900: '#0F172A',
+                            50: '#FAFAF8',
+                            100: '#F2F1EE',
+                            200: '#E3E1DA',
+                            300: '#D1CFC5',
+                            400: '#B7B3A6',
+                            500: '#9A9588',
+                            600: '#7D776C',
+                            700: '#625D54',
+                            800: '#423E38',
+                            900: '#26231F',
                         }
                     },
                     fontFamily: {
                         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
                     },
                     boxShadow: {
-                        'soft': '0 2px 8px rgba(0, 0, 0, 0.06)',
-                        'medium': '0 4px 16px rgba(0, 0, 0, 0.1)',
-                        'strong': '0 8px 32px rgba(0, 0, 0, 0.12)',
-                        'glow-primary': '0 0 20px rgba(20, 184, 166, 0.3)',
-                        'glow-accent': '0 0 20px rgba(236, 72, 153, 0.3)',
-                        'inner-soft': 'inset 0 2px 4px rgba(0, 0, 0, 0.06)',
+                        'soft': '0 1px 6px rgba(15, 23, 42, 0.08)',
+                        'medium': '0 6px 18px rgba(15, 23, 42, 0.12)',
+                        'strong': '0 12px 28px rgba(15, 23, 42, 0.16)',
+                        'inner-soft': 'inset 0 1px 3px rgba(15, 23, 42, 0.08)',
                     },
                     borderRadius: {
                         'card': '16px',
@@ -136,12 +134,12 @@
     <style>
         /* Sistema de diseño global moderno */
         :root {
-            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            --transition-spring: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.06);
-            --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.1);
-            --shadow-strong: 0 8px 32px rgba(0, 0, 0, 0.12);
-            --focus-ring: 0 0 0 4px rgba(20, 184, 166, 0.2);
+            --transition-smooth: all 0.2s ease;
+            --transition-spring: all 0.25s ease;
+            --shadow-soft: 0 1px 6px rgba(15, 23, 42, 0.08);
+            --shadow-medium: 0 6px 18px rgba(15, 23, 42, 0.12);
+            --shadow-strong: 0 12px 28px rgba(15, 23, 42, 0.16);
+            --focus-ring: 0 0 0 3px rgba(82, 126, 182, 0.25);
         }
 
         * {
@@ -170,11 +168,11 @@
         }
 
         .page-title {
-            @apply text-4xl font-extrabold text-neutral-900 tracking-tight;
+            @apply text-4xl font-semibold text-neutral-900 tracking-tight;
         }
 
         .page-subtitle {
-            @apply text-lg text-neutral-500 font-medium;
+            @apply text-base text-neutral-500 font-medium;
         }
 
         /* Animaciones suaves y micro-interacciones */
@@ -194,89 +192,85 @@
 
         /* Componentes de botón modernos con efectos */
         .btn-primary {
-            @apply px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white
-                   rounded-button font-semibold shadow-md
-                   hover:from-primary-600 hover:to-primary-700 hover:shadow-lg hover:scale-105
-                   active:scale-95 transition-all duration-200
+            @apply px-6 py-3 bg-primary-600 text-white
+                   rounded-button font-semibold shadow-soft
+                   hover:bg-primary-700 hover:shadow-medium
+                   active:scale-[0.99] transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-success {
-            @apply px-6 py-3 bg-gradient-to-r from-success-500 to-success-600 text-white
-                   rounded-button font-semibold shadow-md
-                   hover:from-success-600 hover:to-success-700 hover:shadow-lg hover:scale-105
-                   active:scale-95 transition-all duration-200
+            @apply px-6 py-3 bg-success-600 text-white
+                   rounded-button font-semibold shadow-soft
+                   hover:bg-success-700 hover:shadow-medium
+                   active:scale-[0.99] transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-success-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-danger {
-            @apply px-6 py-3 bg-gradient-to-r from-danger-500 to-danger-600 text-white
-                   rounded-button font-semibold shadow-md
-                   hover:from-danger-600 hover:to-danger-700 hover:shadow-lg hover:scale-105
-                   active:scale-95 transition-all duration-200
+            @apply px-6 py-3 bg-danger-600 text-white
+                   rounded-button font-semibold shadow-soft
+                   hover:bg-danger-700 hover:shadow-medium
+                   active:scale-[0.99] transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-danger-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-secondary {
             @apply px-6 py-3 bg-white text-neutral-700 rounded-button font-semibold
-                   border-2 border-neutral-200 shadow-sm
-                   hover:bg-neutral-50 hover:border-neutral-300 hover:shadow-md
-                   active:scale-95 transition-all duration-200
+                   border border-neutral-200 shadow-soft
+                   hover:bg-neutral-50 hover:border-neutral-300 hover:shadow-medium
+                   active:scale-[0.99] transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-100 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-accent {
-            @apply px-6 py-3 bg-gradient-to-r from-accent-500 to-accent-600 text-white
-                   rounded-button font-semibold shadow-md
-                   hover:from-accent-600 hover:to-accent-700 hover:shadow-lg hover:scale-105
-                   active:scale-95 transition-all duration-200
+            @apply px-6 py-3 bg-accent-500 text-white
+                   rounded-button font-semibold shadow-soft
+                   hover:bg-accent-600 hover:shadow-medium
+                   active:scale-[0.99] transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         /* Cards con efectos glassmorphism y profundidad */
         .card {
-            @apply bg-white/90 rounded-card shadow-soft hover:shadow-medium
-                   transition-all duration-300 border border-neutral-200/80 backdrop-blur;
+            @apply bg-white rounded-card shadow-soft hover:shadow-medium
+                   transition-all duration-300 border border-neutral-200;
         }
 
         .card-hover-lift {
-            @apply bg-white/90 rounded-card shadow-soft hover:shadow-strong
-                   transition-all duration-300 border border-neutral-200/70
-                   hover:-translate-y-1 hover:border-primary-200;
+            @apply bg-white rounded-card shadow-soft hover:shadow-strong
+                   transition-all duration-300 border border-neutral-200
+                   hover:-translate-y-0.5 hover:border-primary-200;
         }
 
         .card-gradient-primary {
-            @apply bg-gradient-to-br from-primary-400 via-primary-500 to-primary-600
-                   rounded-card shadow-medium text-white border border-primary-300/20
-                   hover:shadow-glow-primary transition-all duration-300;
+            @apply bg-primary-600 rounded-card shadow-medium text-white border border-primary-500/20
+                   transition-all duration-300;
         }
 
         .card-gradient-success {
-            @apply bg-gradient-to-br from-success-400 via-success-500 to-success-600
-                   rounded-card shadow-medium text-white border border-success-300/20;
+            @apply bg-success-600 rounded-card shadow-medium text-white border border-success-500/20;
         }
 
         .card-gradient-accent {
-            @apply bg-gradient-to-br from-accent-400 via-accent-500 to-accent-600
-                   rounded-card shadow-medium text-white border border-accent-300/20
-                   hover:shadow-glow-accent transition-all duration-300;
+            @apply bg-accent-500 rounded-card shadow-medium text-white border border-accent-400/20
+                   transition-all duration-300;
         }
 
         .card-gradient-secondary {
-            @apply bg-gradient-to-br from-secondary-400 via-secondary-500 to-secondary-600
-                   rounded-card shadow-medium text-white border border-secondary-300/20;
+            @apply bg-secondary-600 rounded-card shadow-medium text-white border border-secondary-500/20;
         }
 
         .card-glass {
-            @apply bg-white/80 backdrop-blur-md rounded-card shadow-medium border border-white/20;
+            @apply bg-white rounded-card shadow-medium border border-neutral-200;
         }
 
         /* Inputs modernos con mejor feedback */
         .input-field {
-            @apply w-full px-4 py-3 border-2 border-neutral-200 rounded-button
-                   focus:ring-4 focus:ring-primary-100 focus:border-primary-500
+            @apply w-full px-4 py-3 border border-neutral-300 rounded-button
+                   focus:ring-4 focus:ring-primary-100 focus:border-primary-600
                    transition-all duration-200 bg-white font-medium text-neutral-900
-                   hover:border-neutral-300 hover:shadow-md
+                   hover:border-neutral-400 hover:shadow-soft
                    placeholder:text-neutral-400;
         }
 
@@ -299,7 +293,7 @@
 
         /* Sidebar navigation con efectos modernos */
         .nav-item {
-            @apply flex items-center px-4 py-3.5 text-neutral-200
+            @apply flex items-center px-4 py-3 text-neutral-200
                    hover:bg-white/10 hover:text-white
                    transition-all duration-200 rounded-xl mx-2 my-0.5
                    font-medium relative overflow-hidden;
@@ -311,8 +305,8 @@
             left: 0;
             top: 0;
             bottom: 0;
-            width: 4px;
-            background: linear-gradient(to bottom, #14B8A6, #EC4899);
+            width: 3px;
+            background: #B07A1F;
             transform: scaleY(0);
             transition: transform 0.3s ease;
         }
@@ -322,7 +316,7 @@
         }
 
         .nav-item.active {
-            @apply bg-gradient-to-r from-primary-500/90 to-accent-500/90 text-white shadow-md;
+            @apply bg-white/10 text-white shadow-soft;
         }
 
         .nav-item.active::before {
@@ -382,7 +376,7 @@
         }
 
         thead {
-            @apply bg-gradient-to-r from-neutral-50 to-neutral-100 border-b-2 border-neutral-200;
+            @apply bg-neutral-50 border-b border-neutral-200;
         }
 
         th {
@@ -394,7 +388,7 @@
         }
 
         tbody tr {
-            @apply border-b border-neutral-100 hover:bg-primary-50/50 transition-colors duration-150;
+            @apply border-b border-neutral-100 hover:bg-primary-50/40 transition-colors duration-150;
         }
 
         tbody tr:nth-child(even) {
@@ -425,13 +419,13 @@
         }
 
         ::-webkit-scrollbar-thumb {
-            background: linear-gradient(to bottom, #14B8A6, #0D9488);
+            background: #CBD8EC;
             border-radius: 10px;
             border: 2px solid #F1F5F9;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(to bottom, #0D9488, #0F766E);
+            background: #A8BEDD;
         }
 
         /* Loading spinner */
@@ -453,24 +447,24 @@
 <body class="bg-neutral-50 antialiased">
     <div class="flex h-screen">
         <!-- Sidebar Ultra Moderno -->
-        <aside class="w-80 bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 text-white shadow-strong flex flex-col relative overflow-hidden">
+        <aside class="w-80 bg-neutral-900 text-white shadow-strong flex flex-col relative overflow-hidden">
             <!-- Efecto decorativo de fondo -->
-            <div class="absolute inset-0 bg-gradient-to-br from-primary-500/5 via-transparent to-accent-500/5"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-primary-500/10 via-transparent to-accent-500/10"></div>
 
             <!-- Logo y título -->
             <div class="relative p-8 border-b border-white/10">
                 <div class="flex items-center space-x-4">
                     <div class="relative">
-                        <div class="absolute inset-0 bg-gradient-to-br from-primary-400 to-accent-500 rounded-2xl blur-lg opacity-50"></div>
-                        <div class="relative bg-gradient-to-br from-primary-500 to-accent-600 p-4 rounded-2xl shadow-xl">
+                        <div class="absolute inset-0 bg-primary-500/30 rounded-2xl blur-lg opacity-40"></div>
+                        <div class="relative bg-primary-600 p-4 rounded-2xl shadow-medium">
                             <span class="text-3xl">💎</span>
                         </div>
                     </div>
                     <div>
                         <h1 class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">
-                            Finanzas Pro
+                            Finanzas Executive
                         </h1>
-                        <p class="text-primary-300 text-sm mt-1 font-semibold">Gestión Inteligente</p>
+                        <p class="text-neutral-300 text-sm mt-1 font-semibold">Gestión Inteligente</p>
                     </div>
                 </div>
             </div>
@@ -506,7 +500,7 @@
 
                 <div class="mt-8 mb-4 px-6">
                     <div class="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                    <p class="text-xs font-bold text-primary-300 uppercase tracking-widest mt-4 px-1">Gestión</p>
+                    <p class="text-xs font-bold text-neutral-400 uppercase tracking-widest mt-4 px-1">Gestión</p>
                 </div>
 
                 <div class="space-y-1 px-3">
@@ -526,7 +520,7 @@
 
                 <div class="mt-8 mb-4 px-6">
                     <div class="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                    <p class="text-xs font-bold text-accent-300 uppercase tracking-widest mt-4 px-1">Herramientas</p>
+                    <p class="text-xs font-bold text-neutral-400 uppercase tracking-widest mt-4 px-1">Herramientas</p>
                 </div>
 
                 <div class="space-y-1 px-3">
