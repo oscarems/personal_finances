@@ -6,11 +6,76 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import date, datetime
+import calendar
+from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
 from backend.models import Debt, DebtPayment, Account, Transaction
 
 router = APIRouter()
+
+
+def _adjust_to_payment_day(base_date: date, payment_day: int) -> date:
+    if not payment_day:
+        return base_date
+    last_day = calendar.monthrange(base_date.year, base_date.month)[1]
+    safe_day = min(payment_day, last_day)
+    return base_date.replace(day=safe_day)
+
+
+def _build_assumed_payments(debt: Debt, payments: List[DebtPayment]) -> List[dict]:
+    if debt.debt_type != "mortgage":
+        return []
+    if not debt.start_date or not debt.monthly_payment or debt.monthly_payment <= 0:
+        return []
+    if not payments:
+        return []
+
+    first_payment = min(payments, key=lambda payment: payment.payment_date)
+    if debt.start_date >= first_payment.payment_date:
+        return []
+
+    start_date = _adjust_to_payment_day(debt.start_date, debt.payment_day or 0)
+    if start_date < debt.start_date:
+        start_date = _adjust_to_payment_day(
+            debt.start_date + relativedelta(months=1),
+            debt.payment_day or 0
+        )
+
+    assumed_dates = []
+    current_date = start_date
+    while current_date < first_payment.payment_date:
+        assumed_dates.append(current_date)
+        current_date = current_date + relativedelta(months=1)
+
+    if not assumed_dates:
+        return []
+
+    balance_after_first = first_payment.balance_after
+    if balance_after_first is None:
+        balance_after_first = debt.current_balance
+
+    balance_before_first = max(0.0, balance_after_first + first_payment.amount)
+    starting_balance = balance_before_first + debt.monthly_payment * len(assumed_dates)
+    balance = starting_balance
+
+    assumed_payments = []
+    for assumed_date in assumed_dates:
+        balance -= debt.monthly_payment
+        assumed_payments.append({
+            "id": None,
+            "debt_id": debt.id,
+            "transaction_id": None,
+            "payment_date": assumed_date.isoformat(),
+            "amount": debt.monthly_payment,
+            "principal": debt.monthly_payment,
+            "interest": 0.0,
+            "fees": 0.0,
+            "balance_after": max(0.0, balance),
+            "notes": "Pago asumido (estimado)"
+        })
+
+    return assumed_payments
 
 
 # Pydantic Schemas
@@ -359,7 +424,18 @@ def get_debt_payments(debt_id: int, db: Session = Depends(get_db)):
         DebtPayment.payment_date.desc()
     ).all()
 
-    return [payment.to_dict() for payment in payments]
+    assumed_payments = _build_assumed_payments(debt, payments)
+    payment_dicts = [payment.to_dict() for payment in payments]
+    all_payments = payment_dicts + assumed_payments
+
+    if not all_payments:
+        return []
+
+    return sorted(
+        all_payments,
+        key=lambda payment: date.fromisoformat(payment["payment_date"]),
+        reverse=True
+    )
 
 
 @router.post("/{debt_id}/payments")
