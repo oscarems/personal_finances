@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import WealthAsset, Currency
+from backend.models import WealthAsset, Currency, Debt
 from backend.api.reports import get_exchange_rate, convert_to_currency
 
 router = APIRouter()
@@ -20,7 +20,10 @@ class WealthAssetCreate(BaseModel):
     asset_class: str
     investment_type: Optional[str] = None
     value: float = 0.0
+    return_rate: Optional[float] = None
+    return_amount: Optional[float] = None
     currency_id: int
+    mortgage_debt_id: Optional[int] = None
     as_of_date: Optional[date] = None
     notes: Optional[str] = None
 
@@ -30,7 +33,10 @@ class WealthAssetUpdate(BaseModel):
     asset_class: Optional[str] = None
     investment_type: Optional[str] = None
     value: Optional[float] = None
+    return_rate: Optional[float] = None
+    return_amount: Optional[float] = None
     currency_id: Optional[int] = None
+    mortgage_debt_id: Optional[int] = None
     as_of_date: Optional[date] = None
     notes: Optional[str] = None
 
@@ -101,12 +107,20 @@ def create_wealth_asset(asset_data: WealthAssetCreate, db: Session = Depends(get
     if not currency:
         raise HTTPException(status_code=400, detail="Currency not found")
 
+    if asset_data.mortgage_debt_id:
+        mortgage = db.query(Debt).get(asset_data.mortgage_debt_id)
+        if not mortgage or mortgage.debt_type != "mortgage":
+            raise HTTPException(status_code=400, detail="Mortgage debt not found")
+
     asset = WealthAsset(
         name=asset_data.name,
         asset_class=asset_data.asset_class,
         investment_type=asset_data.investment_type,
         value=asset_data.value,
+        return_rate=asset_data.return_rate,
+        return_amount=asset_data.return_amount,
         currency_id=asset_data.currency_id,
+        mortgage_debt_id=asset_data.mortgage_debt_id,
         as_of_date=asset_data.as_of_date or date.today(),
         notes=asset_data.notes
     )
@@ -130,8 +144,17 @@ def update_wealth_asset(asset_id: int, asset_data: WealthAssetUpdate, db: Sessio
             raise HTTPException(status_code=400, detail="Currency not found")
         asset.currency_id = asset_data.currency_id
 
+    if asset_data.mortgage_debt_id is not None:
+        if asset_data.mortgage_debt_id == 0:
+            asset.mortgage_debt_id = None
+        else:
+            mortgage = db.query(Debt).get(asset_data.mortgage_debt_id)
+            if not mortgage or mortgage.debt_type != "mortgage":
+                raise HTTPException(status_code=400, detail="Mortgage debt not found")
+            asset.mortgage_debt_id = asset_data.mortgage_debt_id
+
     for field, value in asset_data.dict(exclude_unset=True).items():
-        if field in {"currency_id"}:
+        if field in {"currency_id", "mortgage_debt_id"}:
             continue
         setattr(asset, field, value)
 
