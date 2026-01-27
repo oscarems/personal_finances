@@ -66,6 +66,26 @@
     </div>
 </div>
 
+<!-- Overall Summary Cards -->
+<div class="mb-3">
+    <h3 class="text-lg font-semibold text-gray-800">Resumen general</h3>
+    <p class="text-sm text-gray-500">Saldo total y balance del mes actual</p>
+</div>
+<div id="overallSummarySection" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-lg shadow p-6">
+        <p class="text-sm text-gray-600 mb-2">Ingresos del mes</p>
+        <p id="overallIncome" class="text-2xl font-bold text-green-600">$0</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <p class="text-sm text-gray-600 mb-2">Gastos del mes</p>
+        <p id="overallExpenses" class="text-2xl font-bold text-red-600">$0</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <p class="text-sm text-gray-600 mb-2">Balance total en cuentas</p>
+        <p id="overallBalance" class="text-2xl font-bold text-blue-600">$0</p>
+    </div>
+</div>
+
 <!-- Charts Grid -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Spending by Category -->
@@ -100,6 +120,12 @@
     <canvas id="balanceTrendChart" height="80"></canvas>
 </div>
 
+<!-- Spending Trends Chart -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Tendencias de gasto</h3>
+    <canvas id="spendingTrendsChart" height="80"></canvas>
+</div>
+
 <!-- Top Categories Table -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
     <div class="p-6">
@@ -122,6 +148,194 @@
     </div>
 </div>
 
+<!-- Savings Rate -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Tasa de ahorro</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Promedio del periodo</p>
+            <p id="savingsRateAverage" class="text-2xl font-bold text-emerald-600">0%</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Ahorro total</p>
+            <p id="savingsRateTotal" class="text-2xl font-bold text-emerald-600">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Periodo</p>
+            <p id="savingsRatePeriod" class="text-sm text-gray-500">-</p>
+        </div>
+    </div>
+    <div class="overflow-x-auto mt-6">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mes</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ingresos</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Gastos</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ahorro</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tasa</th>
+                </tr>
+            </thead>
+            <tbody id="savingsRateTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Budget vs Actual -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Presupuesto vs Real</h3>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grupo</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Presupuesto</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Real</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Diferencia</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">% Real</th>
+                </tr>
+            </thead>
+            <tbody id="budgetVsActualTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Net Worth -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Patrimonio neto</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Patrimonio actual</p>
+            <p id="netWorthCurrent" class="text-2xl font-bold text-indigo-600">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Cambio en el periodo</p>
+            <p id="netWorthChange" class="text-2xl font-bold text-indigo-600">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">% Cambio</p>
+            <p id="netWorthChangePct" class="text-2xl font-bold text-indigo-600">0%</p>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mes</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Activos</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pasivos</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Patrimonio</th>
+                </tr>
+            </thead>
+            <tbody id="netWorthTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Debt Summary -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Resumen de deudas</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Deuda total</p>
+            <p id="debtTotal" class="text-2xl font-bold text-rose-600">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Pago mensual total</p>
+            <p id="debtMonthly" class="text-2xl font-bold text-rose-600">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Intereses pagados</p>
+            <p id="debtInterest" class="text-2xl font-bold text-rose-600">$0</p>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deuda</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Institución</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pago mensual</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Meses restantes</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha fin</th>
+                </tr>
+            </thead>
+            <tbody id="debtSummaryTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Debt Payoff Projection -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Proyección de pago de deuda</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">ID Deuda</label>
+            <input id="debtProjectionId" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 1">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Pago extra</label>
+            <input id="debtProjectionExtra" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+        </div>
+        <div class="flex items-end">
+            <button onclick="loadDebtProjection()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Generar proyección
+            </button>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Pago mensual</p>
+            <p id="debtProjectionPayment" class="text-2xl font-bold text-slate-700">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Meses para pagar</p>
+            <p id="debtProjectionMonths" class="text-2xl font-bold text-slate-700">0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Interés total</p>
+            <p id="debtProjectionInterest" class="text-2xl font-bold text-slate-700">$0</p>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mes</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pago</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Capital</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Interés</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                </tr>
+            </thead>
+            <tbody id="debtProjectionTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Ingresa un ID de deuda para ver la proyección.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -131,7 +345,8 @@
         categoryPie: null,
         groupDoughnut: null,
         incomeExpenses: null,
-        balanceTrend: null
+        balanceTrend: null,
+        spendingTrends: null
     };
 
     let currentCurrency = { symbol: '$', decimals: 0 };
@@ -199,10 +414,16 @@
     async function loadAllReports() {
         await Promise.all([
             loadPeriodSummary(),
+            loadOverallSummary(),
             loadSpendingByCategory(),
             loadSpendingByGroup(),
             loadIncomeVsExpenses(),
-            loadBalanceTrend()
+            loadBalanceTrend(),
+            loadSpendingTrends(),
+            loadSavingsRate(),
+            loadBudgetVsActual(),
+            loadNetWorth(),
+            loadDebtSummary()
         ]);
     }
 
@@ -497,6 +718,259 @@
             });
         } catch (error) {
             console.error('Error loading balance trend:', error);
+        }
+    }
+
+    async function loadOverallSummary() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const res = await fetch(`/api/reports/summary?currency_id=${currencyId}`);
+            const data = await res.json();
+
+            if (data.currency) {
+                currentCurrency = data.currency;
+            }
+
+            document.getElementById('overallIncome').textContent = formatCurrency(data.current_month?.income || 0);
+            document.getElementById('overallExpenses').textContent = formatCurrency(data.current_month?.expenses || 0);
+            document.getElementById('overallBalance').textContent = formatCurrency(data.accounts?.total_balance || 0);
+        } catch (error) {
+            console.error('Error loading overall summary:', error);
+        }
+    }
+
+    async function loadSpendingTrends() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const res = await fetch(`/api/reports/spending-trends?currency_id=${currencyId}`);
+            const data = await res.json();
+
+            const labels = data.months.map(item => item.month_name);
+            const values = data.months.map(item => item.amount);
+
+            if (charts.spendingTrends) {
+                charts.spendingTrends.destroy();
+            }
+
+            const ctx = document.getElementById('spendingTrendsChart');
+            charts.spendingTrends = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Gasto mensual',
+                        data: values,
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.2)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: value => formatCurrency(value)
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error loading spending trends:', error);
+        }
+    }
+
+    async function loadSavingsRate() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const res = await fetch(`/api/reports/savings-rate?currency_id=${currencyId}`);
+            const data = await res.json();
+
+            document.getElementById('savingsRateAverage').textContent = `${data.average_savings_rate || 0}%`;
+            document.getElementById('savingsRateTotal').textContent = formatCurrency(data.total_savings || 0);
+            document.getElementById('savingsRatePeriod').textContent = data.period || '-';
+
+            const table = document.getElementById('savingsRateTable');
+            table.innerHTML = '';
+            (data.monthly || []).forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${item.month_name}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.income)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.expenses)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.savings)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${item.savings_rate}%</td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (!data.monthly || data.monthly.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Sin datos disponibles.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading savings rate:', error);
+        }
+    }
+
+    async function loadBudgetVsActual() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const dateRange = getDateRange();
+            const res = await fetch(
+                `/api/reports/budget-vs-actual?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
+            );
+            const data = await res.json();
+            const table = document.getElementById('budgetVsActualTable');
+            table.innerHTML = '';
+
+            (data.categories || []).forEach(item => {
+                const row = document.createElement('tr');
+                const statusClass = item.status === 'under' ? 'text-green-600' : (item.status === 'over' ? 'text-red-600' : 'text-gray-700');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${item.category_name}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${item.category_group}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.budgeted)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.actual)}</td>
+                    <td class="px-6 py-4 text-sm text-right ${statusClass}">${formatCurrency(item.difference)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${item.percentage}%</td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (!data.categories || data.categories.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Sin datos disponibles.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading budget vs actual:', error);
+        }
+    }
+
+    async function loadNetWorth() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const dateRange = getDateRange();
+            const res = await fetch(
+                `/api/reports/net-worth?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
+            );
+            const data = await res.json();
+
+            document.getElementById('netWorthCurrent').textContent = formatCurrency(data.current_net_worth || 0);
+            document.getElementById('netWorthChange').textContent = formatCurrency(data.change || 0);
+            document.getElementById('netWorthChangePct').textContent = `${data.change_percentage || 0}%`;
+
+            const table = document.getElementById('netWorthTable');
+            table.innerHTML = '';
+            (data.monthly || []).forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${item.month_name}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.assets)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.liabilities)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.net_worth)}</td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (!data.monthly || data.monthly.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">Sin datos disponibles.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading net worth:', error);
+        }
+    }
+
+    async function loadDebtSummary() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const res = await fetch(`/api/reports/debt-summary?currency_id=${currencyId}`);
+            const data = await res.json();
+
+            document.getElementById('debtTotal').textContent = formatCurrency(data.totals?.total_debt || 0);
+            document.getElementById('debtMonthly').textContent = formatCurrency(data.totals?.total_monthly_payment || 0);
+            document.getElementById('debtInterest').textContent = formatCurrency(data.totals?.total_interest_paid || 0);
+
+            const table = document.getElementById('debtSummaryTable');
+            table.innerHTML = '';
+            (data.debts || []).forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${item.name}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${item.type}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${item.institution || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.current_balance)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.monthly_payment)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${item.months_remaining}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${item.payoff_date || '-'}</td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (!data.debts || data.debts.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Sin datos disponibles.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading debt summary:', error);
+        }
+    }
+
+    async function loadDebtProjection() {
+        try {
+            const debtId = document.getElementById('debtProjectionId').value;
+            if (!debtId) {
+                return;
+            }
+            const currencyId = document.getElementById('currencyFilter').value;
+            const extraPayment = document.getElementById('debtProjectionExtra').value || 0;
+            const res = await fetch(
+                `/api/reports/debt-payoff-projection?debt_id=${debtId}&extra_payment=${extraPayment}&currency_id=${currencyId}`
+            );
+            const data = await res.json();
+
+            document.getElementById('debtProjectionPayment').textContent = formatCurrency(data.projection?.monthly_payment || 0);
+            document.getElementById('debtProjectionMonths').textContent = data.projection?.months_to_payoff || 0;
+            document.getElementById('debtProjectionInterest').textContent = formatCurrency(data.projection?.total_interest || 0);
+
+            const table = document.getElementById('debtProjectionTable');
+            table.innerHTML = '';
+            (data.schedule || []).forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${item.date}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.payment)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.principal)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.interest)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(item.balance)}</td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (!data.schedule || data.schedule.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Sin datos disponibles.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading debt projection:', error);
         }
     }
 
