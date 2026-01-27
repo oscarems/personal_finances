@@ -1,12 +1,13 @@
 """
 Database initialization script with seed data
 """
-from datetime import datetime, date
+from datetime import date, timedelta
 from backend.database import SessionLocal, init_db as create_tables
 from backend.models import (
     Currency, Account, CategoryGroup, Category,
-    Payee, Transaction, BudgetMonth, ExchangeRate
+    Payee, Transaction, BudgetMonth, RecurringTransaction, WealthAsset
 )
+from backend.services.transaction_service import build_transaction_audit_fields
 from config import (
     DEFAULT_EXCHANGE_RATES,
     SUPPORTED_CURRENCIES,
@@ -143,7 +144,188 @@ def init_sample_accounts(db_session):
     db_session.commit()
 
 
-def initialize_database(create_samples=True, session_factory=SessionLocal, create_tables_func=create_tables):
+def init_demo_data(db_session):
+    """Initialize demo data with non-zero values for key entities."""
+    print("Creating demo data...")
+
+    cop_currency = db_session.query(Currency).filter_by(code='COP').first()
+    usd_currency = db_session.query(Currency).filter_by(code='USD').first()
+
+    account_cop = db_session.query(Account).filter_by(name='Cuenta Corriente COP').first()
+    account_usd = db_session.query(Account).filter_by(name='Ahorros USD').first()
+    if not account_cop or not account_usd:
+        init_sample_accounts(db_session)
+        account_cop = db_session.query(Account).filter_by(name='Cuenta Corriente COP').first()
+        account_usd = db_session.query(Account).filter_by(name='Ahorros USD').first()
+
+    if account_cop:
+        account_cop.balance = 3250000.0
+    if account_usd:
+        account_usd.balance = 850.0
+    db_session.commit()
+
+    payee_names = ['Empresa ABC', 'Supermercado', 'Netflix', 'PayPal', 'Arrendador']
+    for name in payee_names:
+        if not db_session.query(Payee).filter_by(name=name).first():
+            db_session.add(Payee(name=name))
+    db_session.commit()
+
+    if db_session.query(BudgetMonth).count() == 0:
+        month_start = date.today().replace(day=1)
+        budget_targets = [
+            ('Mercado', 600000.0, -250000.0),
+            ('Hipoteca', 1400000.0, -1400000.0),
+            ('Netflix', 45000.0, -45000.0),
+        ]
+        for category_name, assigned, activity in budget_targets:
+            category = db_session.query(Category).filter_by(name=category_name).first()
+            if not category or not cop_currency:
+                continue
+            available = assigned + activity
+            db_session.add(BudgetMonth(
+                month=month_start,
+                category_id=category.id,
+                currency_id=cop_currency.id,
+                assigned=assigned,
+                activity=activity,
+                available=available,
+                notes="Presupuesto demo"
+            ))
+        db_session.commit()
+
+    if db_session.query(Transaction).count() == 0:
+        payee_empresa = db_session.query(Payee).filter_by(name='Empresa ABC').first()
+        payee_super = db_session.query(Payee).filter_by(name='Supermercado').first()
+        payee_netflix = db_session.query(Payee).filter_by(name='Netflix').first()
+        payee_paypal = db_session.query(Payee).filter_by(name='PayPal').first()
+
+        category_salary = db_session.query(Category).filter_by(name='Salario').first()
+        category_market = db_session.query(Category).filter_by(name='Mercado').first()
+        category_netflix = db_session.query(Category).filter_by(name='Netflix').first()
+
+        today = date.today()
+        transactions = []
+
+        if account_cop and cop_currency:
+            transactions.extend([
+                {
+                    'account': account_cop,
+                    'date': today - timedelta(days=20),
+                    'payee': payee_empresa,
+                    'category': category_salary,
+                    'amount': 5200000.0,
+                    'currency': cop_currency,
+                    'memo': 'Salario mensual'
+                },
+                {
+                    'account': account_cop,
+                    'date': today - timedelta(days=8),
+                    'payee': payee_super,
+                    'category': category_market,
+                    'amount': -320000.0,
+                    'currency': cop_currency,
+                    'memo': 'Mercado semanal'
+                },
+                {
+                    'account': account_cop,
+                    'date': today - timedelta(days=4),
+                    'payee': payee_netflix,
+                    'category': category_netflix,
+                    'amount': -45000.0,
+                    'currency': cop_currency,
+                    'memo': 'Suscripción Netflix'
+                }
+            ])
+
+        if account_usd and usd_currency:
+            transactions.extend([
+                {
+                    'account': account_usd,
+                    'date': today - timedelta(days=12),
+                    'payee': payee_paypal,
+                    'category': None,
+                    'amount': 200.0,
+                    'currency': usd_currency,
+                    'memo': 'Ingreso PayPal'
+                },
+                {
+                    'account': account_usd,
+                    'date': today - timedelta(days=2),
+                    'payee': payee_netflix,
+                    'category': category_netflix,
+                    'amount': -35.0,
+                    'currency': usd_currency,
+                    'memo': 'Netflix USD'
+                }
+            ])
+
+        for entry in transactions:
+            base_amount, base_currency_id = build_transaction_audit_fields(
+                db_session,
+                entry['amount'],
+                entry['currency'].id,
+                entry['date']
+            )
+            db_session.add(Transaction(
+                account_id=entry['account'].id,
+                date=entry['date'],
+                payee_id=entry['payee'].id if entry['payee'] else None,
+                category_id=entry['category'].id if entry['category'] else None,
+                memo=entry['memo'],
+                amount=entry['amount'],
+                currency_id=entry['currency'].id,
+                original_amount=entry['amount'],
+                original_currency_id=entry['currency'].id,
+                fx_rate=None,
+                base_amount=base_amount,
+                base_currency_id=base_currency_id,
+                cleared=False,
+                approved=True
+            ))
+        db_session.commit()
+
+    if db_session.query(RecurringTransaction).count() == 0:
+        category_rent = db_session.query(Category).filter_by(name='Hipoteca').first()
+        payee_landlord = db_session.query(Payee).filter_by(name='Arrendador').first()
+        if account_cop and cop_currency:
+            db_session.add(RecurringTransaction(
+                account_id=account_cop.id,
+                payee_id=payee_landlord.id if payee_landlord else None,
+                category_id=category_rent.id if category_rent else None,
+                description='Pago arriendo',
+                amount=1500000.0,
+                currency_id=cop_currency.id,
+                transaction_type='expense',
+                frequency='monthly',
+                interval=1,
+                start_date=date.today().replace(day=1),
+                day_of_month=5,
+                is_active=True
+            ))
+        db_session.commit()
+
+    if db_session.query(WealthAsset).count() == 0:
+        if cop_currency:
+            db_session.add(WealthAsset(
+                name='Apartamento Demo',
+                asset_class='inmueble',
+                investment_type='Residencial',
+                value=450000000.0,
+                return_rate=6.0,
+                return_amount=27000000.0,
+                currency_id=cop_currency.id,
+                as_of_date=date.today(),
+                notes='Activo inmobiliario de demostración'
+            ))
+        db_session.commit()
+
+
+def initialize_database(
+    create_samples=True,
+    create_demo_data=False,
+    session_factory=SessionLocal,
+    create_tables_func=create_tables
+):
     """
     Main initialization function
     Args:
@@ -168,6 +350,8 @@ def initialize_database(create_samples=True, session_factory=SessionLocal, creat
 
         if create_samples:
             init_sample_accounts(db_session)
+        if create_demo_data:
+            init_demo_data(db_session)
 
         print("=" * 50)
         print("✅ Database initialization complete!\n")
@@ -177,4 +361,4 @@ def initialize_database(create_samples=True, session_factory=SessionLocal, creat
 
 
 if __name__ == '__main__':
-    initialize_database(create_samples=True)
+    initialize_database(create_samples=True, create_demo_data=False)
