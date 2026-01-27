@@ -22,6 +22,7 @@ class Transaction(Base):
     cleared = Column(Boolean, default=False)  # Reconciliation
     approved = Column(Boolean, default=True)
     transfer_account_id = Column(Integer, ForeignKey('accounts.id'))  # If transfer
+    investment_asset_id = Column(Integer, ForeignKey('wealth_assets.id'), nullable=True)
     is_adjustment = Column(Boolean, default=False)  # Balance adjustment transaction
     import_id = Column(String(100))  # YNAB import ID to avoid duplicates
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -32,6 +33,7 @@ class Transaction(Base):
     payee = relationship('Payee', back_populates='transactions')
     category = relationship('Category', back_populates='transactions')
     currency = relationship('Currency', foreign_keys=[currency_id], back_populates='transactions')
+    investment_asset = relationship('WealthAsset')
 
     def __repr__(self):
         return f'<Transaction {self.date} {self.amount}>'
@@ -57,6 +59,8 @@ class Transaction(Base):
             'cleared': self.cleared,
             'approved': self.approved,
             'transfer_account_id': self.transfer_account_id,
+            'investment_asset_id': self.investment_asset_id,
+            'investment_asset_name': self.investment_asset.name if self.investment_asset else None,
             'is_adjustment': self.is_adjustment,
             'import_id': self.import_id,
             'created_at': self.created_at.isoformat() if self.created_at else None

@@ -82,6 +82,17 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        cursor.execute("PRAGMA table_info(transactions)")
+        transaction_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'investment_asset_id' in transaction_columns:
+            print("✓ La columna 'investment_asset_id' ya existe en transactions")
+        else:
+            print("🔧 Agregando columna 'investment_asset_id' a la tabla transactions...")
+            cursor.execute("ALTER TABLE transactions ADD COLUMN investment_asset_id INTEGER")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en transactions")
+
         cursor.execute("PRAGMA table_info(wealth_assets)")
         wealth_columns = [row[1] for row in cursor.fetchall()]
 
