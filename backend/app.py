@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy.orm import Session
 
+from config import DEMO_DATABASE_IS_SQLITE, DEMO_DATABASE_PATH
 from backend.database import init_db, get_db, SessionLocal, SessionLocalDemo, engine_demo
 from backend.init_db import initialize_database
 from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets
