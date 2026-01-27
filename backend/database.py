@@ -341,6 +341,12 @@ def init_db(engine_override=None):
     )
     ensure_sqlite_column(
         table_name="wealth_assets",
+        column_name="expected_appreciation_rate",
+        column_definition="expected_appreciation_rate FLOAT",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
         column_name="mortgage_debt_id",
         column_definition="mortgage_debt_id INTEGER",
         engine_override=active_engine

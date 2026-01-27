@@ -16,6 +16,7 @@ class WealthAsset(Base):
     value = Column(Float, default=0.0)
     return_rate = Column(Float, nullable=True)
     return_amount = Column(Float, nullable=True)
+    expected_appreciation_rate = Column(Float, nullable=True)
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=False)
     mortgage_debt_id = Column(Integer, ForeignKey("debts.id"), nullable=True)
     as_of_date = Column(Date, default=date.today)
@@ -34,6 +35,7 @@ class WealthAsset(Base):
             "value": self.value,
             "return_rate": self.return_rate,
             "return_amount": self.return_amount,
+            "expected_appreciation_rate": self.expected_appreciation_rate,
             "currency_id": self.currency_id,
             "currency": self.currency.to_dict() if self.currency else None,
             "mortgage_debt_id": self.mortgage_debt_id,

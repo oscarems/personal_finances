@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import WealthAsset, Currency, Debt
 from backend.api.reports import get_exchange_rate, convert_to_currency
+from backend.utils.wealth import apply_expected_appreciation
 
 router = APIRouter()
 
@@ -22,6 +23,7 @@ class WealthAssetCreate(BaseModel):
     value: float = 0.0
     return_rate: Optional[float] = None
     return_amount: Optional[float] = None
+    expected_appreciation_rate: Optional[float] = None
     currency_id: int
     mortgage_debt_id: Optional[int] = None
     as_of_date: Optional[date] = None
@@ -35,6 +37,7 @@ class WealthAssetUpdate(BaseModel):
     value: Optional[float] = None
     return_rate: Optional[float] = None
     return_amount: Optional[float] = None
+    expected_appreciation_rate: Optional[float] = None
     currency_id: Optional[int] = None
     mortgage_debt_id: Optional[int] = None
     as_of_date: Optional[date] = None
@@ -81,8 +84,14 @@ def list_wealth_assets(
     results = []
 
     for asset in assets:
-        converted_value = convert_to_currency(
+        effective_value = apply_expected_appreciation(
             asset.value,
+            asset.expected_appreciation_rate if asset.asset_class == "inmueble" else None,
+            asset.as_of_date,
+            date.today()
+        )
+        converted_value = convert_to_currency(
+            effective_value,
             asset.currency_id,
             currency_id,
             exchange_rate
@@ -90,6 +99,7 @@ def list_wealth_assets(
         total_value += converted_value
         asset_data = asset.to_dict()
         asset_data["value_converted"] = converted_value
+        asset_data["value_appreciated"] = effective_value
         results.append(asset_data)
 
     currency = db.query(Currency).get(currency_id)
@@ -119,6 +129,7 @@ def create_wealth_asset(asset_data: WealthAssetCreate, db: Session = Depends(get
         value=asset_data.value,
         return_rate=asset_data.return_rate,
         return_amount=asset_data.return_amount,
+        expected_appreciation_rate=asset_data.expected_appreciation_rate,
         currency_id=asset_data.currency_id,
         mortgage_debt_id=asset_data.mortgage_debt_id,
         as_of_date=asset_data.as_of_date or date.today(),
