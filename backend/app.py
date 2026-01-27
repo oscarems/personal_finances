@@ -138,6 +138,11 @@ async def reports_page(request: Request):
     """Reports and analytics page"""
     return templates.TemplateResponse("reports.html", {"request": request})
 
+@app.get("/patrimonio")
+async def patrimonio_page(request: Request):
+    """Wealth overview page"""
+    return templates.TemplateResponse("wealth.html", {"request": request})
+
 
 @app.get("/recurring")
 async def recurring_page(request: Request):
