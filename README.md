@@ -84,6 +84,12 @@ DEMO_MODE=true python run.py
 
 Esto usará `data/finances_demo.db` y no toca `data/finances.db`. Si el archivo demo no existe, se inicializa automáticamente con datos base.
 
+#### 🗂️ Múltiples bases locales (personal, pareja, amigo)
+
+Desde el selector "Base de datos" en el sidebar puedes elegir o crear nuevas bases locales sin variables de entorno.
+Cada nombre crea un archivo SQLite en `data/<nombre>.db` (ej: `data/pareja.db`). Si no hay ninguna base,
+la app crea y usa automáticamente la demo.
+
 #### 🔐 Conectar a otra base usando credenciales
 
 Si quieres apuntar a otra base (por ejemplo PostgreSQL) sin tocar tu SQLite local, define `DATABASE_URL`:
