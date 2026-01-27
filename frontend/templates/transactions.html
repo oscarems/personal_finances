@@ -194,6 +194,14 @@
                 </select>
             </div>
 
+            <div id="txInvestmentGroup" class="hidden">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Inversión asociada</label>
+                <select id="txInvestment" class="input-field">
+                    <option value="">Sin inversión</option>
+                </select>
+                <p class="text-xs text-neutral-500 mt-2 font-medium">Solo aplica a ingresos.</p>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Tipo</label>
@@ -454,6 +462,7 @@
     let accounts = [];
     let categories = [];
     let currencies = [];
+    let investmentAssets = [];
     let outlookCandidates = [];
     let editingTransactionId = null;
     let editingTransactionOriginal = null;
@@ -462,6 +471,7 @@
         await loadAccounts();
         await loadCategories();
         await loadCurrencies();
+        await loadInvestmentAssets();
         await loadTransactions();
         setDefaultDate();
     });
@@ -551,6 +561,40 @@
             currencies = await res.json();
         } catch (error) {
             console.error('Error loading currencies:', error);
+        }
+    }
+
+    async function loadInvestmentAssets() {
+        try {
+            const res = await fetch('/api/wealth-assets?asset_class=inversion');
+            const data = await res.json();
+            investmentAssets = data.assets || [];
+            populateInvestmentSelect();
+        } catch (error) {
+            console.error('Error loading investment assets:', error);
+        }
+    }
+
+    function populateInvestmentSelect() {
+        const select = document.getElementById('txInvestment');
+        select.innerHTML = '<option value="">Sin inversión</option>';
+        investmentAssets.forEach(asset => {
+            const labelParts = [asset.name];
+            if (asset.investment_type) {
+                labelParts.push(`(${asset.investment_type})`);
+            }
+            select.innerHTML += `<option value="${asset.id}">${labelParts.join(' ')}</option>`;
+        });
+    }
+
+    function toggleInvestmentSelect() {
+        const txType = document.getElementById('txType').value;
+        const investmentGroup = document.getElementById('txInvestmentGroup');
+        if (txType === 'income') {
+            investmentGroup.classList.remove('hidden');
+        } else {
+            investmentGroup.classList.add('hidden');
+            document.getElementById('txInvestment').value = '';
         }
     }
 
@@ -693,6 +737,7 @@
         document.getElementById('transactionForm').reset();
         setDefaultDate();
         document.getElementById('txType').value = 'expense';
+        toggleInvestmentSelect();
         document.getElementById('transactionModal').classList.remove('hidden');
     }
 
@@ -720,6 +765,8 @@
         document.getElementById('txCurrency').value = originalCurrencyId;
         document.getElementById('txMemo').value = transaction.memo || '';
         document.getElementById('txCleared').checked = transaction.cleared;
+        document.getElementById('txInvestment').value = transaction.investment_asset_id || '';
+        toggleInvestmentSelect();
 
         document.getElementById('transactionModal').classList.remove('hidden');
     }
@@ -731,6 +778,10 @@
         if (currencyId && !editingTransactionId) {
             document.getElementById('txCurrency').value = currencyId;
         }
+    });
+
+    document.getElementById('txType').addEventListener('change', function() {
+        toggleInvestmentSelect();
     });
 
     document.getElementById('transactionForm').addEventListener('submit', async function(e) {
@@ -765,6 +816,7 @@
         }
 
         const categoryValue = document.getElementById('txCategory').value;
+        const investmentValue = document.getElementById('txInvestment').value;
         const payeeValue = document.getElementById('txPayee').value || null;
         const memoValue = document.getElementById('txMemo').value || null;
         const clearedValue = document.getElementById('txCleared').checked;
@@ -773,6 +825,7 @@
             date: dateValue,
             payee_name: payeeValue,
             category_id: categoryValue ? parseInt(categoryValue, 10) : null,
+            investment_asset_id: txType === 'income' && investmentValue ? parseInt(investmentValue, 10) : null,
             amount: signedAmount,
             currency_id: currencyId,
             memo: memoValue,
@@ -794,6 +847,9 @@
                 if ((data.category_id || null) !== (original.category_id || null)) payload.category_id = data.category_id;
                 if (data.amount !== originalAmount) payload.amount = data.amount;
                 if (data.currency_id !== originalCurrencyId) payload.currency_id = data.currency_id;
+                if ((data.investment_asset_id || null) !== (original.investment_asset_id || null)) {
+                    payload.investment_asset_id = data.investment_asset_id;
+                }
                 if ((data.memo || null) !== (original.memo || null)) payload.memo = data.memo;
                 if (data.cleared !== original.cleared) payload.cleared = data.cleared;
 

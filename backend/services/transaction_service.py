@@ -127,7 +127,8 @@ def create_transaction(db: Session, data):
         base_currency_id=base_currency_id,
         cleared=data.get('cleared', False),
         approved=data.get('approved', True),
-        transfer_account_id=data.get('transfer_account_id')
+        transfer_account_id=data.get('transfer_account_id'),
+        investment_asset_id=data.get('investment_asset_id')
     )
 
     db.add(transaction)

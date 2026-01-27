@@ -71,6 +71,7 @@ erDiagram
         date date
         int payee_id FK
         int category_id FK
+        int investment_asset_id FK
         text memo
         float amount "Positive=inflow, Negative=outflow"
         int currency_id FK
@@ -156,6 +157,7 @@ Registro de todas las transacciones financieras.
 - `amount`:
   - Positivo = Ingreso (inflow)
   - Negativo = Gasto (outflow)
+- `investment_asset_id`: Vincula un ingreso con una inversión registrada
 - `cleared`: Estado de reconciliación (confirmado vs pendiente)
 - `transfer_account_id`: Si es transferencia entre cuentas
 - `import_id`: ID único para evitar duplicados al importar de YNAB

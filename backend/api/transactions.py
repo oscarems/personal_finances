@@ -22,6 +22,7 @@ class TransactionCreate(BaseModel):
     date: date
     payee_name: Optional[str] = None
     category_id: Optional[int] = None
+    investment_asset_id: Optional[int] = None
     memo: Optional[str] = None
     amount: float
     currency_id: int
@@ -51,6 +52,7 @@ class TransactionUpdate(BaseModel):
     date: Optional[str] = None
     payee_name: Optional[str] = None
     category_id: Optional[int] = None
+    investment_asset_id: Optional[int] = None
     memo: Optional[str] = None
     amount: Optional[float] = None
     currency_id: Optional[int] = None
@@ -102,8 +104,10 @@ def update_existing_transaction(
     db: Session = Depends(get_db)
 ):
     """Update an existing transaction"""
-    data = {k: v for k, v in transaction.dict().items() if v is not None}
+    data = transaction.dict(exclude_unset=True)
     if "date" in data:
+        if data["date"] is None:
+            raise HTTPException(status_code=400, detail="Date cannot be empty.")
         try:
             data["date"] = date.fromisoformat(data["date"])
         except ValueError as exc:
