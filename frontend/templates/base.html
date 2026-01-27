@@ -488,7 +488,7 @@
 <body class="bg-neutral-50 antialiased">
     <div class="flex h-screen">
         <!-- Sidebar Ultra Moderno -->
-        <aside class="w-80 bg-neutral-900 text-white shadow-strong flex flex-col relative overflow-hidden">
+        <aside class="w-96 bg-neutral-900 text-white shadow-strong flex flex-col relative overflow-hidden">
             <!-- Efecto decorativo de fondo -->
             <div class="absolute inset-0 bg-gradient-to-br from-primary-500/10 via-transparent to-accent-500/10"></div>
 
@@ -630,7 +630,7 @@
                         <p class="text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
                             Crear nueva
                         </p>
-                        <div class="flex gap-2">
+                        <div class="flex flex-col gap-2">
                             <input id="dbNameInput" type="text" placeholder="Nueva base (personal, pareja)" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                             <button id="dbCreateButton" class="bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold px-3 py-2 rounded-xl">Crear</button>
                         </div>
@@ -644,11 +644,11 @@
                             <span id="dbActionHint" class="text-[10px] text-neutral-500">Disponible para bases personalizadas</span>
                         </div>
                         <div class="space-y-2">
-                            <div class="flex gap-2">
+                            <div class="flex flex-col gap-2">
                                 <input id="dbRenameInput" type="text" placeholder="Nuevo nombre" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                 <button id="dbRenameButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Renombrar</button>
                             </div>
-                            <div class="flex gap-2">
+                            <div class="flex flex-col gap-2">
                                 <input id="dbDuplicateInput" type="text" placeholder="Duplicar como" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                 <button id="dbDuplicateButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Duplicar</button>
                             </div>
