@@ -143,7 +143,7 @@ def init_sample_accounts(db_session):
     db_session.commit()
 
 
-def initialize_database(create_samples=True):
+def initialize_database(create_samples=True, session_factory=SessionLocal, create_tables_func=create_tables):
     """
     Main initialization function
     Args:
@@ -153,11 +153,11 @@ def initialize_database(create_samples=True):
     print("=" * 50)
 
     # Create all tables
-    create_tables()
+    create_tables_func()
     print("✓ Database tables created")
 
     # Get database session
-    db_session = SessionLocal()
+    db_session = session_factory()
 
     try:
         db_session.query(BudgetMonth).delete()

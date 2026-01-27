@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from backend.database import init_db, get_db
+from backend.database import init_db, get_db, SessionLocal, SessionLocalDemo, engine_demo
 from backend.init_db import initialize_database
 from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets
 
@@ -63,8 +63,7 @@ async def startup_event():
     init_db()
     print("✓ Database initialized")
 
-    # Check if DB needs seeding
-    from backend.database import SessionLocal
+    # Check if primary DB needs seeding
     from backend.models import Currency
 
     db = SessionLocal()
@@ -76,6 +75,26 @@ async def startup_event():
             initialize_database(create_samples=True)
     finally:
         db.close()
+
+    init_db(engine_override=engine_demo)
+    if DEMO_DATABASE_IS_SQLITE:
+        demo_db_missing = not DEMO_DATABASE_PATH.exists()
+    else:
+        demo_db_missing = False
+
+    demo_db = SessionLocalDemo()
+    try:
+        demo_currencies = demo_db.query(Currency).first()
+        if demo_db_missing or not demo_currencies:
+            print("🌱 Seeding demo database with initial data...")
+            demo_db.close()
+            initialize_database(
+                create_samples=True,
+                session_factory=SessionLocalDemo,
+                create_tables_func=lambda: init_db(engine_override=engine_demo)
+            )
+    finally:
+        demo_db.close()
 
 
 @app.get("/")
