@@ -8,9 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from config import DEMO_DATABASE_IS_SQLITE, DEMO_DATABASE_PATH
-from backend.database import init_db, get_db, SessionLocal, SessionLocalDemo, engine_demo
-from backend.init_db import initialize_database
+from backend.database import init_db, get_db, default_database_name, ensure_database_initialized
 from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets
 
 # Create FastAPI app
@@ -62,40 +60,8 @@ app.include_router(wealth_assets.router, prefix="/api/wealth-assets", tags=["wea
 async def startup_event():
     """Initialize database on startup"""
     init_db()
+    ensure_database_initialized(default_database_name())
     print("✓ Database initialized")
-
-    # Check if primary DB needs seeding
-    from backend.models import Currency
-
-    db = SessionLocal()
-    try:
-        currencies = db.query(Currency).first()
-        if not currencies:
-            print("🌱 Seeding database with initial data...")
-            db.close()
-            initialize_database(create_samples=True)
-    finally:
-        db.close()
-
-    init_db(engine_override=engine_demo)
-    if DEMO_DATABASE_IS_SQLITE:
-        demo_db_missing = not DEMO_DATABASE_PATH.exists()
-    else:
-        demo_db_missing = False
-
-    demo_db = SessionLocalDemo()
-    try:
-        demo_currencies = demo_db.query(Currency).first()
-        if demo_db_missing or not demo_currencies:
-            print("🌱 Seeding demo database with initial data...")
-            demo_db.close()
-            initialize_database(
-                create_samples=True,
-                session_factory=SessionLocalDemo,
-                create_tables_func=lambda: init_db(engine_override=engine_demo)
-            )
-    finally:
-        demo_db.close()
 
 
 @app.get("/")

@@ -3,7 +3,17 @@ API endpoints for administrative operations
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
-from backend.database import get_db
+from backend.database import (
+    get_db,
+    list_databases,
+    normalize_db_name,
+    is_valid_db_name,
+    database_exists,
+    ensure_database_initialized,
+    default_database_name,
+    PRIMARY_DB_ALIAS,
+    DEMO_DB_ALIAS
+)
 from backend.models import (
     Transaction, Category, CategoryGroup, BudgetMonth,
     RecurringTransaction, Account, Payee, ExchangeRate,
@@ -11,7 +21,7 @@ from backend.models import (
 )
 from sqlalchemy import text
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Literal
 from config import DEFAULT_DB_MODE
 
 router = APIRouter()
@@ -34,6 +44,16 @@ class ResetResponse(BaseModel):
 class DbModeRequest(BaseModel):
     """Request to switch database mode"""
     mode: Literal["primary", "demo"]
+
+
+class DatabaseSelectionRequest(BaseModel):
+    """Request to switch active database"""
+    name: str
+
+
+class DatabaseCreateRequest(BaseModel):
+    """Request to create a new database"""
+    name: str
 
 
 @router.post("/reset", response_model=ResetResponse)
@@ -192,3 +212,61 @@ def set_db_mode(payload: DbModeRequest, response: Response):
         samesite="lax"
     )
     return {"mode": payload.mode}
+
+
+@router.get("/databases")
+def get_databases(request: Request):
+    """Return available databases and current selection"""
+    current = request.cookies.get("db_name")
+    if not current:
+        current = request.cookies.get("db_mode", DEFAULT_DB_MODE)
+    current = normalize_db_name(current)
+    if not database_exists(current):
+        current = default_database_name()
+    ensure_database_initialized(current)
+    return {
+        "current": current,
+        "databases": list_databases()
+    }
+
+
+@router.post("/databases/select")
+def select_database(payload: DatabaseSelectionRequest, response: Response):
+    """Select an existing database"""
+    name = normalize_db_name(payload.name)
+    if name not in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS} and not is_valid_db_name(name):
+        raise HTTPException(status_code=400, detail="Nombre de base inválido.")
+    if not database_exists(name) and name in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        ensure_database_initialized(name)
+    elif not database_exists(name):
+        raise HTTPException(status_code=404, detail="La base seleccionada no existe.")
+    ensure_database_initialized(name)
+    response.set_cookie(
+        key="db_name",
+        value=name,
+        httponly=False,
+        samesite="lax"
+    )
+    response.delete_cookie("db_mode")
+    return {"name": name}
+
+
+@router.post("/databases/create")
+def create_database(payload: DatabaseCreateRequest, response: Response):
+    """Create a new database and select it"""
+    name = normalize_db_name(payload.name)
+    if name in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        ensure_database_initialized(name)
+    elif not is_valid_db_name(name):
+        raise HTTPException(status_code=400, detail="Nombre de base inválido.")
+    elif database_exists(name):
+        raise HTTPException(status_code=409, detail="La base ya existe.")
+    ensure_database_initialized(name)
+    response.set_cookie(
+        key="db_name",
+        value=name,
+        httponly=False,
+        samesite="lax"
+    )
+    response.delete_cookie("db_mode")
+    return {"name": name}

@@ -1,4 +1,6 @@
 from pathlib import Path
+import re
+import threading
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -6,9 +8,27 @@ from sqlalchemy.orm import sessionmaker, Session
 from config import (
     SQLALCHEMY_DATABASE_URI,
     DEMO_DATABASE_URL,
-    DEFAULT_DB_MODE
+    DEFAULT_DB_MODE,
+    BASE_DIR
 )
 from fastapi import Request
+
+DEFAULT_DB_NAME = "demo"
+PRIMARY_DB_ALIAS = "primary"
+DEMO_DB_ALIAS = "demo"
+DATABASE_DIRECTORY = BASE_DIR / "data"
+_ENGINE_CACHE: dict[str, any] = {}
+_SESSION_CACHE: dict[str, sessionmaker] = {}
+_INITIALIZED_DATABASES: set[str] = set()
+_INIT_LOCK = threading.Lock()
+
+
+def normalize_db_name(name: str) -> str:
+    return name.strip().lower()
+
+
+def is_valid_db_name(name: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", name))
 
 def ensure_sqlite_directory(database_url: str) -> None:
     if not database_url.startswith('sqlite:///'):
@@ -24,6 +44,7 @@ def create_engine_for_url(database_url: str):
 # Ensure data directories exist
 ensure_sqlite_directory(SQLALCHEMY_DATABASE_URI)
 ensure_sqlite_directory(DEMO_DATABASE_URL)
+DATABASE_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 # Create SQLAlchemy engines
 engine = create_engine_for_url(SQLALCHEMY_DATABASE_URI)
@@ -37,8 +58,116 @@ SessionLocalDemo = sessionmaker(autocommit=False, autoflush=False, bind=engine_d
 Base = declarative_base()
 
 
-def resolve_db_mode(request: Request) -> str:
-    return request.cookies.get("db_mode", DEFAULT_DB_MODE)
+def resolve_db_name(request: Request) -> str:
+    raw_name = request.cookies.get("db_name")
+    if raw_name:
+        return normalize_db_name(raw_name)
+    legacy_mode = request.cookies.get("db_mode", DEFAULT_DB_MODE)
+    if legacy_mode in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        return legacy_mode
+    return DEFAULT_DB_NAME
+
+
+def database_path_for(name: str) -> Path | None:
+    name = normalize_db_name(name)
+    if name == PRIMARY_DB_ALIAS:
+        return Path(SQLALCHEMY_DATABASE_URI.replace("sqlite:///", "")) if SQLALCHEMY_DATABASE_URI.startswith("sqlite:///") else None
+    if name == DEMO_DB_ALIAS:
+        return Path(DEMO_DATABASE_URL.replace("sqlite:///", "")) if DEMO_DATABASE_URL.startswith("sqlite:///") else None
+    return DATABASE_DIRECTORY / f"{name}.db"
+
+
+def database_url_for(name: str) -> str:
+    name = normalize_db_name(name)
+    if name == PRIMARY_DB_ALIAS:
+        return SQLALCHEMY_DATABASE_URI
+    if name == DEMO_DB_ALIAS:
+        return DEMO_DATABASE_URL
+    return f"sqlite:///{DATABASE_DIRECTORY / f'{name}.db'}"
+
+
+def database_exists(name: str) -> bool:
+    db_path = database_path_for(name)
+    if db_path is None:
+        return True
+    return db_path.exists()
+
+
+def list_databases() -> list[dict]:
+    entries: list[dict] = []
+    existing = {path.stem for path in DATABASE_DIRECTORY.glob("*.db")}
+    for alias, label in [(PRIMARY_DB_ALIAS, "Principal"), (DEMO_DB_ALIAS, "Demo")]:
+        entries.append({
+            "name": alias,
+            "label": label,
+            "exists": database_exists(alias)
+        })
+    for name in sorted(existing):
+        if name in {"finances", "finances_demo"}:
+            continue
+        entries.append({
+            "name": name,
+            "label": name.capitalize(),
+            "exists": True
+        })
+    return entries
+
+
+def default_database_name() -> str:
+    if database_exists(PRIMARY_DB_ALIAS):
+        return PRIMARY_DB_ALIAS
+    dbs = list_databases()
+    for entry in dbs:
+        if entry["name"] not in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+            return entry["name"]
+    return DEFAULT_DB_NAME
+
+
+def get_engine_for_name(name: str):
+    name = normalize_db_name(name)
+    if name in _ENGINE_CACHE:
+        return _ENGINE_CACHE[name]
+    url = database_url_for(name)
+    ensure_sqlite_directory(url)
+    engine_for_name = create_engine_for_url(url)
+    _ENGINE_CACHE[name] = engine_for_name
+    return engine_for_name
+
+
+def get_session_factory(name: str) -> sessionmaker:
+    name = normalize_db_name(name)
+    if name in _SESSION_CACHE:
+        return _SESSION_CACHE[name]
+    engine_for_name = get_engine_for_name(name)
+    factory = sessionmaker(autocommit=False, autoflush=False, bind=engine_for_name)
+    _SESSION_CACHE[name] = factory
+    return factory
+
+
+def ensure_database_initialized(name: str) -> None:
+    name = normalize_db_name(name)
+    if name in _INITIALIZED_DATABASES:
+        return
+    with _INIT_LOCK:
+        if name in _INITIALIZED_DATABASES:
+            return
+        engine_for_name = get_engine_for_name(name)
+        init_db(engine_override=engine_for_name)
+        session_factory = get_session_factory(name)
+        db = session_factory()
+        try:
+            from backend.models import Currency
+            currencies = db.query(Currency).first()
+            if not currencies:
+                from backend.init_db import initialize_database
+                initialize_database(
+                    create_samples=True,
+                    session_factory=session_factory,
+                    create_tables_func=lambda: init_db(engine_override=engine_for_name)
+                )
+        finally:
+            db.close()
+        _INITIALIZED_DATABASES.add(name)
 
 
 def get_db(request: Request):
@@ -49,8 +178,11 @@ def get_db(request: Request):
         def endpoint(db: Session = Depends(get_db)):
             ...
     """
-    mode = resolve_db_mode(request)
-    session_factory = SessionLocalDemo if mode == "demo" else SessionLocal
+    selected_name = resolve_db_name(request)
+    if not database_exists(selected_name):
+        selected_name = default_database_name()
+    ensure_database_initialized(selected_name)
+    session_factory = get_session_factory(selected_name)
     db = session_factory()
     try:
         yield db
