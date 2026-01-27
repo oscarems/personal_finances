@@ -8,6 +8,8 @@ from backend.models.recurring_transaction import RecurringTransaction
 from backend.models.exchange_rate import ExchangeRate
 from backend.models.debt import Debt, DebtPayment
 from backend.models.ynab_category_mapping import YnabCategoryMapping
+from backend.models.alert import AlertRule
+from backend.models.reconciliation import ReconciliationSession
 
 __all__ = [
     'Currency',
@@ -21,5 +23,7 @@ __all__ = [
     'ExchangeRate',
     'Debt',
     'DebtPayment',
-    'YnabCategoryMapping'
+    'YnabCategoryMapping',
+    'AlertRule',
+    'ReconciliationSession'
 ]
