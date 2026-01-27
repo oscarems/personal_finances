@@ -64,7 +64,7 @@ def init_db(engine_override=None):
     from backend.models import (
         Currency, Account, CategoryGroup, Category,
         Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate,
-        Debt, DebtPayment, YnabCategoryMapping, AlertRule, ReconciliationSession
+        Debt, DebtPayment, YnabCategoryMapping, AlertRule, ReconciliationSession, WealthAsset
     )
 
     active_engine = engine_override or engine

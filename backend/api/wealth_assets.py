@@ -1,0 +1,153 @@
+"""
+Wealth assets API endpoints
+"""
+from datetime import date
+from typing import Optional, List
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from backend.database import get_db
+from backend.models import WealthAsset, Currency
+from backend.api.reports import get_exchange_rate, convert_to_currency
+
+router = APIRouter()
+
+
+class WealthAssetCreate(BaseModel):
+    name: str
+    asset_class: str
+    investment_type: Optional[str] = None
+    value: float = 0.0
+    currency_id: int
+    as_of_date: Optional[date] = None
+    notes: Optional[str] = None
+
+
+class WealthAssetUpdate(BaseModel):
+    name: Optional[str] = None
+    asset_class: Optional[str] = None
+    investment_type: Optional[str] = None
+    value: Optional[float] = None
+    currency_id: Optional[int] = None
+    as_of_date: Optional[date] = None
+    notes: Optional[str] = None
+
+
+INVESTMENT_TYPES = [
+    "Acciones",
+    "Bonos",
+    "ETF",
+    "Fondos mutuos",
+    "Fondos indexados",
+    "CDT",
+    "Cripto",
+    "Private equity",
+    "Capital semilla",
+    "Fiducia (p.ej. acciones de hotel)",
+    "REIT",
+    "Commodities (oro, petróleo)",
+    "Crowdfunding",
+    "Otros"
+]
+
+
+@router.get("/investment-types")
+def get_investment_types():
+    return {"investment_types": INVESTMENT_TYPES}
+
+
+@router.get("/")
+def list_wealth_assets(
+    asset_class: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    query = db.query(WealthAsset)
+    if asset_class:
+        query = query.filter(WealthAsset.asset_class == asset_class)
+
+    assets = query.order_by(WealthAsset.as_of_date.desc(), WealthAsset.id.desc()).all()
+
+    exchange_rate = get_exchange_rate(db)
+    total_value = 0.0
+    results = []
+
+    for asset in assets:
+        converted_value = convert_to_currency(
+            asset.value,
+            asset.currency_id,
+            currency_id,
+            exchange_rate
+        )
+        total_value += converted_value
+        asset_data = asset.to_dict()
+        asset_data["value_converted"] = converted_value
+        results.append(asset_data)
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        "assets": results,
+        "total_value": round(total_value, 2),
+        "currency": currency.to_dict() if currency else None
+    }
+
+
+@router.post("/")
+def create_wealth_asset(asset_data: WealthAssetCreate, db: Session = Depends(get_db)):
+    currency = db.query(Currency).get(asset_data.currency_id)
+    if not currency:
+        raise HTTPException(status_code=400, detail="Currency not found")
+
+    asset = WealthAsset(
+        name=asset_data.name,
+        asset_class=asset_data.asset_class,
+        investment_type=asset_data.investment_type,
+        value=asset_data.value,
+        currency_id=asset_data.currency_id,
+        as_of_date=asset_data.as_of_date or date.today(),
+        notes=asset_data.notes
+    )
+
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+
+    return asset.to_dict()
+
+
+@router.put("/{asset_id}")
+def update_wealth_asset(asset_id: int, asset_data: WealthAssetUpdate, db: Session = Depends(get_db)):
+    asset = db.query(WealthAsset).get(asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    if asset_data.currency_id is not None:
+        currency = db.query(Currency).get(asset_data.currency_id)
+        if not currency:
+            raise HTTPException(status_code=400, detail="Currency not found")
+        asset.currency_id = asset_data.currency_id
+
+    for field, value in asset_data.dict(exclude_unset=True).items():
+        if field in {"currency_id"}:
+            continue
+        setattr(asset, field, value)
+
+    db.commit()
+    db.refresh(asset)
+
+    return asset.to_dict()
+
+
+@router.delete("/{asset_id}")
+def delete_wealth_asset(asset_id: int, db: Session = Depends(get_db)):
+    asset = db.query(WealthAsset).get(asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    db.delete(asset)
+    db.commit()
+
+    return {"success": True}

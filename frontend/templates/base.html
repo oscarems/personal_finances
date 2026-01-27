@@ -192,43 +192,61 @@
 
         /* Componentes de botón modernos con efectos */
         .btn-primary {
-            @apply px-6 py-3 bg-primary-600 text-white
-                   rounded-button font-semibold shadow-soft
-                   hover:bg-primary-700 hover:shadow-medium
-                   active:scale-[0.99] transition-all duration-200
+            @apply inline-flex items-center justify-center gap-2 px-6 py-3
+                   bg-gradient-to-r from-primary-600 to-primary-500 text-white
+                   border border-primary-600/60 rounded-button font-semibold
+                   shadow-soft hover:from-primary-700 hover:to-primary-600 hover:shadow-strong
+                   hover:-translate-y-0.5 active:translate-y-0 active:shadow-soft
+                   transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-success {
-            @apply px-6 py-3 bg-success-600 text-white
-                   rounded-button font-semibold shadow-soft
-                   hover:bg-success-700 hover:shadow-medium
-                   active:scale-[0.99] transition-all duration-200
+            @apply inline-flex items-center justify-center gap-2 px-6 py-3
+                   bg-gradient-to-r from-success-600 to-success-500 text-white
+                   border border-success-600/60 rounded-button font-semibold
+                   shadow-soft hover:from-success-700 hover:to-success-600 hover:shadow-strong
+                   hover:-translate-y-0.5 active:translate-y-0 active:shadow-soft
+                   transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-success-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-danger {
-            @apply px-6 py-3 bg-danger-600 text-white
-                   rounded-button font-semibold shadow-soft
-                   hover:bg-danger-700 hover:shadow-medium
-                   active:scale-[0.99] transition-all duration-200
+            @apply inline-flex items-center justify-center gap-2 px-6 py-3
+                   bg-gradient-to-r from-danger-600 to-danger-500 text-white
+                   border border-danger-600/60 rounded-button font-semibold
+                   shadow-soft hover:from-danger-700 hover:to-danger-600 hover:shadow-strong
+                   hover:-translate-y-0.5 active:translate-y-0 active:shadow-soft
+                   transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-danger-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-secondary {
-            @apply px-6 py-3 bg-white text-neutral-700 rounded-button font-semibold
+            @apply inline-flex items-center justify-center gap-2 px-6 py-3
+                   bg-white text-neutral-700 rounded-button font-semibold
                    border border-neutral-200 shadow-soft
-                   hover:bg-neutral-50 hover:border-neutral-300 hover:shadow-medium
-                   active:scale-[0.99] transition-all duration-200
+                   hover:bg-neutral-50 hover:border-neutral-300 hover:shadow-strong
+                   hover:-translate-y-0.5 active:translate-y-0 active:shadow-soft
+                   transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-100 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
         }
 
         .btn-accent {
-            @apply px-6 py-3 bg-accent-500 text-white
-                   rounded-button font-semibold shadow-soft
-                   hover:bg-accent-600 hover:shadow-medium
-                   active:scale-[0.99] transition-all duration-200
+            @apply inline-flex items-center justify-center gap-2 px-6 py-3
+                   bg-gradient-to-r from-accent-500 to-accent-400 text-white
+                   border border-accent-500/60 rounded-button font-semibold
+                   shadow-soft hover:from-accent-600 hover:to-accent-500 hover:shadow-strong
+                   hover:-translate-y-0.5 active:translate-y-0 active:shadow-soft
+                   transition-all duration-200
                    focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+        }
+
+        .btn-primary:disabled,
+        .btn-success:disabled,
+        .btn-danger:disabled,
+        .btn-secondary:disabled,
+        .btn-accent:disabled {
+            @apply opacity-60 cursor-not-allowed shadow-none;
         }
 
         /* Cards con efectos glassmorphism y profundidad */
@@ -519,6 +537,23 @@
                 </div>
 
                 <div class="mt-8 mb-4 px-6">
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs font-bold text-emerald-300 uppercase tracking-widest px-1">Patrimonio</p>
+                        <span class="text-[10px] font-semibold text-emerald-200/80 bg-emerald-500/10 px-2 py-1 rounded-full">Análisis</span>
+                    </div>
+                    <div class="h-px bg-gradient-to-r from-emerald-500/40 via-white/10 to-transparent mt-3"></div>
+                </div>
+
+                <div class="space-y-1 px-3">
+                    <a href="/reports" class="nav-item group">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 transition-colors mr-3">
+                            <span class="text-xl">📈</span>
+                        </div>
+                        <span class="font-semibold">Reportes</span>
+                    </a>
+                </div>
+
+                <div class="mt-8 mb-4 px-6">
                     <div class="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
                     <p class="text-xs font-bold text-neutral-400 uppercase tracking-widest mt-4 px-1">Herramientas</p>
                 </div>
@@ -529,12 +564,6 @@
                             <span class="text-xl">🆘</span>
                         </div>
                         <span class="font-semibold">Fondo Emergencia</span>
-                    </a>
-                    <a href="/reports" class="nav-item group">
-                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 transition-colors mr-3">
-                            <span class="text-xl">📈</span>
-                        </div>
-                        <span class="font-semibold">Reportes</span>
                     </a>
                     <a href="/mortgage" class="nav-item group">
                         <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 transition-colors mr-3">
