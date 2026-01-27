@@ -311,6 +311,9 @@
 
         /* Sidebar navigation con efectos modernos */
         .nav-item {
+            --nav-accent: #D4A64A;
+            --nav-accent-strong: #B07A1F;
+            --nav-accent-soft: rgba(212, 166, 74, 0.2);
             @apply flex flex-row items-center gap-3 px-4 py-3 text-neutral-200
                    hover:text-white transition-all duration-200 rounded-2xl mx-2 my-0.5
                    font-semibold relative overflow-hidden border border-white/5
@@ -318,7 +321,7 @@
         }
 
         .nav-item:hover {
-            @apply border-white/10 bg-white/10 shadow-soft;
+            @apply border-white/20 bg-white/12 shadow-medium;
         }
 
         .nav-item::before {
@@ -328,7 +331,7 @@
             top: 0;
             bottom: 0;
             width: 4px;
-            background: linear-gradient(180deg, #D4A64A, #B07A1F);
+            background: linear-gradient(180deg, var(--nav-accent), var(--nav-accent-strong));
             transform: scaleY(0);
             transition: transform 0.3s ease;
         }
@@ -354,14 +357,114 @@
         .nav-item:hover .nav-icon,
         .nav-item.active .nav-icon {
             @apply bg-white/15 border-white/20 shadow-medium;
+            box-shadow: 0 10px 24px var(--nav-accent-soft);
+        }
+
+        .sidebar-section {
+            --section-accent: rgba(226, 232, 240, 0.85);
+            --section-accent-strong: rgba(226, 232, 240, 0.35);
+            --section-accent-soft: rgba(226, 232, 240, 0.12);
+            @apply mt-8 mb-4 px-6;
         }
 
         .sidebar-section-title {
-            @apply text-xs font-bold uppercase tracking-[0.22em] text-emerald-200/90;
+            color: var(--section-accent);
+            @apply text-xs font-bold uppercase tracking-[0.22em];
         }
 
         .sidebar-section-divider {
-            @apply h-px bg-gradient-to-r from-transparent via-white/15 to-transparent;
+            background: linear-gradient(to right, transparent, var(--section-accent-strong), transparent);
+            @apply h-px;
+        }
+
+        .sidebar-section-badge {
+            background: var(--section-accent-soft);
+            color: var(--section-accent);
+            border-color: var(--section-accent-strong);
+        }
+
+        .nav-item[data-group="overview"] {
+            --nav-accent: #7DD3FC;
+            --nav-accent-strong: #38BDF8;
+            --nav-accent-soft: rgba(125, 211, 252, 0.25);
+        }
+
+        .nav-item[data-group="gestion"] {
+            --nav-accent: #6EE7B7;
+            --nav-accent-strong: #34D399;
+            --nav-accent-soft: rgba(110, 231, 183, 0.25);
+        }
+
+        .nav-item[data-group="patrimonio"] {
+            --nav-accent: #FDE68A;
+            --nav-accent-strong: #FBBF24;
+            --nav-accent-soft: rgba(253, 230, 138, 0.28);
+        }
+
+        .nav-item[data-group="reportes"] {
+            --nav-accent: #A5B4FC;
+            --nav-accent-strong: #818CF8;
+            --nav-accent-soft: rgba(165, 180, 252, 0.28);
+        }
+
+        .nav-item[data-group="simuladores"] {
+            --nav-accent: #C4B5FD;
+            --nav-accent-strong: #A78BFA;
+            --nav-accent-soft: rgba(196, 181, 253, 0.3);
+        }
+
+        .nav-item[data-group="importacion"] {
+            --nav-accent: #FDBA74;
+            --nav-accent-strong: #FB923C;
+            --nav-accent-soft: rgba(253, 186, 116, 0.3);
+        }
+
+        .nav-item[data-group="administracion"] {
+            --nav-accent: #FCA5A5;
+            --nav-accent-strong: #F87171;
+            --nav-accent-soft: rgba(252, 165, 165, 0.28);
+        }
+
+        .sidebar-section--overview {
+            --section-accent: rgba(147, 197, 253, 0.9);
+            --section-accent-strong: rgba(147, 197, 253, 0.45);
+            --section-accent-soft: rgba(147, 197, 253, 0.16);
+        }
+
+        .sidebar-section--gestion {
+            --section-accent: rgba(110, 231, 183, 0.9);
+            --section-accent-strong: rgba(110, 231, 183, 0.5);
+            --section-accent-soft: rgba(110, 231, 183, 0.18);
+        }
+
+        .sidebar-section--patrimonio {
+            --section-accent: rgba(252, 211, 77, 0.95);
+            --section-accent-strong: rgba(252, 211, 77, 0.55);
+            --section-accent-soft: rgba(252, 211, 77, 0.2);
+        }
+
+        .sidebar-section--reportes {
+            --section-accent: rgba(165, 180, 252, 0.95);
+            --section-accent-strong: rgba(165, 180, 252, 0.5);
+            --section-accent-soft: rgba(165, 180, 252, 0.2);
+        }
+
+        .sidebar-section--simuladores {
+            --section-accent: rgba(196, 181, 253, 0.95);
+            --section-accent-strong: rgba(196, 181, 253, 0.55);
+            --section-accent-soft: rgba(196, 181, 253, 0.2);
+        }
+
+        .sidebar-section--importacion {
+            --section-accent: rgba(251, 146, 60, 0.9);
+            --section-accent-strong: rgba(251, 146, 60, 0.5);
+            --section-accent-soft: rgba(251, 146, 60, 0.18);
+        }
+
+        .sidebar-section--administracion {
+            --section-accent: rgba(248, 113, 113, 0.9);
+            --section-accent-strong: rgba(248, 113, 113, 0.5);
+            --section-accent-soft: rgba(248, 113, 113, 0.2);
         }
 
         /* Badges modernos */
@@ -512,46 +615,51 @@
 
             <!-- Navegación principal -->
             <nav class="relative flex-1 py-6 overflow-y-auto">
+                <div class="sidebar-section sidebar-section--overview">
+                    <div class="sidebar-section-divider"></div>
+                    <p class="sidebar-section-title mt-4 px-1">Principal</p>
+                </div>
+
                 <div class="space-y-1 px-3">
-                    <a href="/" class="nav-item group">
+                    <a href="/" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
                             <span class="text-xl">📊</span>
                         </div>
-                        <span class="font-semibold">Dashboard</span>
+                        <span class="font-semibold">Resumen general</span>
                     </a>
-                    <a href="/budget" class="nav-item group">
+                    <a href="/budget" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
                             <span class="text-xl">💰</span>
                         </div>
                         <span class="font-semibold">Presupuesto</span>
                     </a>
-                    <a href="/transactions" class="nav-item group">
+                    <a href="/transactions" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
                             <span class="text-xl">📝</span>
                         </div>
                         <span class="font-semibold">Transacciones</span>
                     </a>
-                    <a href="/recurring" class="nav-item group">
+                    <a href="/recurring" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
                             <span class="text-xl">🔄</span>
                         </div>
-                        <span class="font-semibold text-sm">Trans. Automáticas</span>
+                        <span class="font-semibold text-sm">Transacciones automáticas</span>
                     </a>
                 </div>
 
-                <div class="mt-8 mb-4 px-6">
+                <div class="sidebar-section sidebar-section--gestion">
                     <div class="sidebar-section-divider"></div>
                     <p class="sidebar-section-title mt-4 px-1">Gestión</p>
                 </div>
 
                 <div class="space-y-1 px-3">
-                    <a href="/accounts" class="nav-item group">
+                    <a href="/accounts" class="nav-item group" data-group="gestion">
                         <div class="nav-icon">
                             <span class="text-xl">🏦</span>
                         </div>
                         <span class="font-semibold">Cuentas</span>
                     </a>
-                    <a href="/debts" class="nav-item group">
+                    <a href="/debts" class="nav-item group" data-group="gestion">
                         <div class="nav-icon">
                             <span class="text-xl">💳</span>
                         </div>
@@ -559,16 +667,16 @@
                     </a>
                 </div>
 
-                <div class="mt-8 mb-4 px-6">
+                <div class="sidebar-section sidebar-section--patrimonio">
                     <div class="flex items-center justify-between">
-                        <p class="text-xs font-bold text-emerald-300 uppercase tracking-[0.2em] px-1">Patrimonio</p>
-                        <span class="text-[10px] font-semibold text-emerald-200/80 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-300/20">Análisis</span>
+                        <p class="sidebar-section-title px-1">Patrimonio</p>
+                        <span class="sidebar-section-badge text-[10px] font-semibold px-2 py-1 rounded-full border">Análisis</span>
                     </div>
-                    <div class="h-px bg-gradient-to-r from-emerald-500/40 via-white/10 to-transparent mt-3"></div>
+                    <div class="sidebar-section-divider mt-3"></div>
                 </div>
 
                 <div class="space-y-1 px-3">
-                    <a href="/patrimonio" class="nav-item group">
+                    <a href="/patrimonio" class="nav-item group" data-group="patrimonio">
                         <div class="nav-icon">
                             <span class="text-xl">💼</span>
                         </div>
@@ -576,25 +684,25 @@
                     </a>
                 </div>
 
-                <div class="mt-8 mb-4 px-6">
+                <div class="sidebar-section sidebar-section--reportes">
                     <div class="sidebar-section-divider"></div>
                     <p class="sidebar-section-title mt-4 px-1">Reportes</p>
                 </div>
 
                 <div class="space-y-1 px-3">
-                    <a href="/reports/budget" class="nav-item group">
+                    <a href="/reports/budget" class="nav-item group" data-group="reportes">
                         <div class="nav-icon">
                             <span class="text-xl">🧾</span>
                         </div>
-                        <span class="font-semibold text-sm">Presupuesto vs Gastos e Ingresos</span>
+                        <span class="font-semibold text-sm">Presupuesto vs gastos</span>
                     </a>
-                    <a href="/reports/wealth" class="nav-item group">
+                    <a href="/reports/wealth" class="nav-item group" data-group="reportes">
                         <div class="nav-icon">
                             <span class="text-xl">🪙</span>
                         </div>
                         <span class="font-semibold">Patrimonio</span>
                     </a>
-                    <a href="/reports/investments" class="nav-item group">
+                    <a href="/reports/investments" class="nav-item group" data-group="reportes">
                         <div class="nav-icon">
                             <span class="text-xl">📊</span>
                         </div>
@@ -602,53 +710,53 @@
                     </a>
                 </div>
 
-                <div class="mt-8 mb-4 px-6">
+                <div class="sidebar-section sidebar-section--simuladores">
                     <div class="sidebar-section-divider"></div>
                     <p class="sidebar-section-title mt-4 px-1">Simuladores</p>
                 </div>
 
                 <div class="space-y-1 px-3">
-                    <a href="/emergency-fund" class="nav-item group">
+                    <a href="/emergency-fund" class="nav-item group" data-group="simuladores">
                         <div class="nav-icon">
                             <span class="text-xl">🆘</span>
                         </div>
                         <span class="font-semibold">Fondo de Emergencia</span>
                     </a>
-                    <a href="/mortgage" class="nav-item group">
+                    <a href="/mortgage" class="nav-item group" data-group="simuladores">
                         <div class="nav-icon">
                             <span class="text-xl">🏠</span>
                         </div>
-                        <span class="font-semibold">Simulador Hipoteca</span>
+                        <span class="font-semibold">Simulador de hipoteca</span>
                     </a>
-                    <a href="/investment-simulator" class="nav-item group">
+                    <a href="/investment-simulator" class="nav-item group" data-group="simuladores">
                         <div class="nav-icon">
                             <span class="text-xl">💹</span>
                         </div>
-                        <span class="font-semibold">Simulador Inversiones</span>
+                        <span class="font-semibold">Simulador de inversiones</span>
                     </a>
                 </div>
 
-                <div class="mt-8 mb-4 px-6">
+                <div class="sidebar-section sidebar-section--importacion">
                     <div class="sidebar-section-divider"></div>
-                    <p class="sidebar-section-title mt-4 px-1">Improtacion</p>
+                    <p class="sidebar-section-title mt-4 px-1">Importación</p>
                 </div>
 
                 <div class="space-y-1 px-3">
-                    <a href="/import" class="nav-item group">
+                    <a href="/import" class="nav-item group" data-group="importacion">
                         <div class="nav-icon">
                             <span class="text-xl">📥</span>
                         </div>
-                        <span class="font-semibold">Importar YNAB</span>
+                        <span class="font-semibold">Importar desde YNAB</span>
                     </a>
                 </div>
 
-                <div class="mt-8 mb-4 px-6">
+                <div class="sidebar-section sidebar-section--administracion">
                     <div class="sidebar-section-divider"></div>
                     <p class="sidebar-section-title mt-4 px-1">Administración</p>
                 </div>
 
                 <div class="space-y-2 px-3">
-                    <button id="openDbModalButton" class="w-full nav-item group justify-between">
+                    <button id="openDbModalButton" class="w-full nav-item group justify-between" data-group="administracion">
                         <div class="flex items-center space-x-3">
                             <div class="nav-icon">
                                 <span class="text-xl">🗂️</span>
