@@ -227,10 +227,10 @@
     </div>
 </div>
 
-<div class="card p-6 mb-6">
-    <h3 class="text-lg font-semibold text-neutral-800 mb-2">Activos</h3>
-    <p class="text-sm text-neutral-500 mb-4">Incluye vehículos, equipos y otros bienes físicos no inmobiliarios.</p>
-    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-2">Activos</h3>
+    <p class="text-sm text-gray-500 mb-4">Incluye vehículos, equipos y otros bienes físicos no inmobiliarios.</p>
+    <div class="grid grid-cols-1 md:grid-cols-8 gap-4 mb-4">
         <div class="md:col-span-2">
             <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Nombre</label>
             <input id="wealthAssetName" type="text" class="input-field" placeholder="Ej: Vehículo, colección">
@@ -240,19 +240,47 @@
             <input id="wealthAssetValue" type="number" class="input-field" placeholder="0">
         </div>
         <div>
-            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
-            <select id="wealthAssetCurrency" class="wealth-asset-currency input-field"></select>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Depreciación</label>
+            <select id="wealthAssetDepreciationMethod" onchange="updateAssetDepreciationFields()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="sin_depreciacion">Sin depreciación</option>
+                <option value="linea_recta">Línea recta</option>
+                <option value="saldo_decreciente">Saldo decreciente</option>
+                <option value="doble_saldo_decreciente">Doble saldo decreciente</option>
+            </select>
+        </div>
+        <div class="asset-depreciation-field asset-depreciation-rate hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tasa anual (%)</label>
+            <input id="wealthAssetDepreciationRate" type="number" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 10">
+        </div>
+        <div class="asset-depreciation-field asset-depreciation-years hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Vida útil (años)</label>
+            <input id="wealthAssetDepreciationYears" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 5">
+        </div>
+        <div class="asset-depreciation-field asset-depreciation-salvage hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Valor residual</label>
+            <input id="wealthAssetDepreciationSalvage" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 1000000">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+            <select id="wealthAssetCurrency" class="wealth-asset-currency w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
         </div>
         <div>
             <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
             <input id="wealthAssetDate" type="date" class="input-field">
         </div>
+        <div class="asset-depreciation-field asset-depreciation-start-date hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Inicio depreciación</label>
+            <input id="wealthAssetDepreciationStartDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
         <div class="md:col-span-6">
             <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Notas</label>
             <input id="wealthAssetNotes" type="text" class="input-field" placeholder="Detalles adicionales">
         </div>
-        <div class="md:col-span-6 flex justify-end">
-            <button onclick="addWealthAsset('activo')" class="btn-primary">
+        <div class="md:col-span-6 flex justify-end gap-3">
+            <button id="wealthAssetCancelEdit" onclick="cancelWealthEdit('activo')" class="hidden px-6 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">
+                Cancelar edición
+            </button>
+            <button id="wealthAssetSubmit" onclick="addWealthAsset('activo')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Agregar activo
             </button>
         </div>
@@ -266,7 +294,8 @@
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor actual</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Método</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -274,7 +303,7 @@
             </thead>
             <tbody id="wealthAssetsTable" class="bg-white divide-y divide-gray-200">
                 <tr>
-                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                    <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
                 </tr>
             </tbody>
         </table>
@@ -292,7 +321,8 @@
         activo: []
     };
     const wealthAssetEditId = {
-        inmueble: null
+        inmueble: null,
+        activo: null
     };
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -301,6 +331,7 @@
         loadWealthAssetTypes();
         loadWealthAssetCurrencies();
         loadMortgageOptions();
+        updateAssetDepreciationFields();
     });
 
     function updatePeriodDates() {
@@ -506,7 +537,12 @@
             value: parseFloat(document.getElementById('wealthAssetValue').value || 0),
             currencyId: document.getElementById('wealthAssetCurrency').value,
             asOfDate: document.getElementById('wealthAssetDate').value || null,
-            notes: document.getElementById('wealthAssetNotes').value.trim() || null
+            notes: document.getElementById('wealthAssetNotes').value.trim() || null,
+            depreciationMethod: document.getElementById('wealthAssetDepreciationMethod').value,
+            depreciationRate: document.getElementById('wealthAssetDepreciationRate').value || null,
+            depreciationYears: document.getElementById('wealthAssetDepreciationYears').value || null,
+            depreciationSalvage: document.getElementById('wealthAssetDepreciationSalvage').value || null,
+            depreciationStartDate: document.getElementById('wealthAssetDepreciationStartDate').value || null
         };
     }
 
@@ -536,6 +572,12 @@
         document.getElementById('wealthAssetValue').value = '';
         document.getElementById('wealthAssetDate').value = '';
         document.getElementById('wealthAssetNotes').value = '';
+        document.getElementById('wealthAssetDepreciationMethod').value = 'sin_depreciacion';
+        document.getElementById('wealthAssetDepreciationRate').value = '';
+        document.getElementById('wealthAssetDepreciationYears').value = '';
+        document.getElementById('wealthAssetDepreciationSalvage').value = '';
+        document.getElementById('wealthAssetDepreciationStartDate').value = '';
+        updateAssetDepreciationFields();
     }
 
     async function addWealthAsset(assetClass) {
@@ -548,7 +590,7 @@
                 return;
             }
 
-            const isEditing = assetClass === 'inmueble' && wealthAssetEditId.inmueble;
+            const isEditing = wealthAssetEditId[assetClass];
             const payload = {
                 name: name,
                 asset_class: assetClass,
@@ -566,10 +608,21 @@
                     : null,
                 return_amount: assetClass === 'inversion' && formData.returnAmount !== null && formData.returnAmount !== ''
                     ? Number(formData.returnAmount)
-                    : null
+                    : null,
+                depreciation_method: assetClass === 'activo' ? formData.depreciationMethod : null,
+                depreciation_rate: assetClass === 'activo' && formData.depreciationRate !== null && formData.depreciationRate !== ''
+                    ? Number(formData.depreciationRate)
+                    : null,
+                depreciation_years: assetClass === 'activo' && formData.depreciationYears !== null && formData.depreciationYears !== ''
+                    ? Number(formData.depreciationYears)
+                    : null,
+                depreciation_salvage_value: assetClass === 'activo' && formData.depreciationSalvage !== null && formData.depreciationSalvage !== ''
+                    ? Number(formData.depreciationSalvage)
+                    : null,
+                depreciation_start_date: assetClass === 'activo' ? formData.depreciationStartDate : null
             };
 
-            const res = await fetch(isEditing ? `/api/wealth-assets/${wealthAssetEditId.inmueble}` : '/api/wealth-assets', {
+            const res = await fetch(isEditing ? `/api/wealth-assets/${wealthAssetEditId[assetClass]}` : '/api/wealth-assets', {
                 method: isEditing ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -679,12 +732,15 @@
                         </td>
                     `;
                 } else {
+                    const depreciationLabel = formatDepreciationMethod(asset.depreciation_method);
                     row.innerHTML = `
                         <td class="px-6 py-4 text-sm text-gray-700">${asset.name}</td>
                         <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(asset.value_converted || asset.value)}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${depreciationLabel}</td>
                         <td class="px-6 py-4 text-sm text-gray-500">${asset.as_of_date || '-'}</td>
                         <td class="px-6 py-4 text-sm text-gray-500">${asset.notes || '-'}</td>
                         <td class="px-6 py-4 text-sm text-right text-gray-500">
+                            <button onclick="startWealthEdit(${asset.id}, 'activo')" class="text-indigo-600 hover:text-indigo-800 mr-3">Editar</button>
                             <button onclick="deleteWealthAsset(${asset.id}, 'activo')" class="text-red-600 hover:text-red-800">Eliminar</button>
                         </td>
                     `;
@@ -695,7 +751,7 @@
             if (!data.assets || data.assets.length === 0) {
                 table.innerHTML = `
                     <tr>
-                        <td colspan="${assetClass === 'inversion' ? 8 : assetClass === 'inmueble' ? 7 : 5}" class="px-6 py-4 text-center text-sm text-gray-500">${sectionConfig.emptyMessage}</td>
+                        <td colspan="${assetClass === 'inversion' ? 8 : assetClass === 'inmueble' ? 7 : 6}" class="px-6 py-4 text-center text-sm text-gray-500">${sectionConfig.emptyMessage}</td>
                     </tr>
                 `;
             }
@@ -705,7 +761,7 @@
     }
 
     function startWealthEdit(assetId, assetClass) {
-        if (assetClass !== 'inmueble') {
+        if (assetClass !== 'inmueble' && assetClass !== 'activo') {
             return;
         }
         const assets = wealthAssetsCache[assetClass] || [];
@@ -714,27 +770,81 @@
             return;
         }
 
-        wealthAssetEditId.inmueble = assetId;
-        document.getElementById('wealthPropertyName').value = asset.name || '';
-        document.getElementById('wealthPropertyValue').value = asset.value || '';
-        document.getElementById('wealthPropertyAppreciationRate').value = asset.expected_appreciation_rate ?? '';
-        document.getElementById('wealthPropertyCurrency').value = asset.currency_id || document.getElementById('currencyFilter').value;
-        document.getElementById('wealthPropertyDate').value = asset.as_of_date || '';
-        document.getElementById('wealthPropertyNotes').value = asset.notes || '';
-        document.getElementById('wealthPropertyMortgage').value = asset.mortgage_debt_id || '';
+        wealthAssetEditId[assetClass] = assetId;
 
-        document.getElementById('wealthPropertySubmit').textContent = 'Guardar cambios';
-        document.getElementById('wealthPropertyCancelEdit').classList.remove('hidden');
+        if (assetClass === 'inmueble') {
+            document.getElementById('wealthPropertyName').value = asset.name || '';
+            document.getElementById('wealthPropertyValue').value = asset.value || '';
+            document.getElementById('wealthPropertyAppreciationRate').value = asset.expected_appreciation_rate ?? '';
+            document.getElementById('wealthPropertyCurrency').value = asset.currency_id || document.getElementById('currencyFilter').value;
+            document.getElementById('wealthPropertyDate').value = asset.as_of_date || '';
+            document.getElementById('wealthPropertyNotes').value = asset.notes || '';
+            document.getElementById('wealthPropertyMortgage').value = asset.mortgage_debt_id || '';
+
+            document.getElementById('wealthPropertySubmit').textContent = 'Guardar cambios';
+            document.getElementById('wealthPropertyCancelEdit').classList.remove('hidden');
+        }
+
+        if (assetClass === 'activo') {
+            document.getElementById('wealthAssetName').value = asset.name || '';
+            document.getElementById('wealthAssetValue').value = asset.value || '';
+            document.getElementById('wealthAssetCurrency').value = asset.currency_id || document.getElementById('currencyFilter').value;
+            document.getElementById('wealthAssetDate').value = asset.as_of_date || '';
+            document.getElementById('wealthAssetNotes').value = asset.notes || '';
+            document.getElementById('wealthAssetDepreciationMethod').value = asset.depreciation_method || 'sin_depreciacion';
+            document.getElementById('wealthAssetDepreciationRate').value = asset.depreciation_rate ?? '';
+            document.getElementById('wealthAssetDepreciationYears').value = asset.depreciation_years ?? '';
+            document.getElementById('wealthAssetDepreciationSalvage').value = asset.depreciation_salvage_value ?? '';
+            document.getElementById('wealthAssetDepreciationStartDate').value = asset.depreciation_start_date || '';
+            updateAssetDepreciationFields();
+
+            document.getElementById('wealthAssetSubmit').textContent = 'Guardar cambios';
+            document.getElementById('wealthAssetCancelEdit').classList.remove('hidden');
+        }
     }
 
     function cancelWealthEdit(assetClass) {
-        if (assetClass !== 'inmueble') {
+        if (assetClass !== 'inmueble' && assetClass !== 'activo') {
             return;
         }
-        wealthAssetEditId.inmueble = null;
+        wealthAssetEditId[assetClass] = null;
         resetWealthForm(assetClass);
-        document.getElementById('wealthPropertySubmit').textContent = 'Agregar inmueble';
-        document.getElementById('wealthPropertyCancelEdit').classList.add('hidden');
+        if (assetClass === 'inmueble') {
+            document.getElementById('wealthPropertySubmit').textContent = 'Agregar inmueble';
+            document.getElementById('wealthPropertyCancelEdit').classList.add('hidden');
+        }
+        if (assetClass === 'activo') {
+            document.getElementById('wealthAssetSubmit').textContent = 'Agregar activo';
+            document.getElementById('wealthAssetCancelEdit').classList.add('hidden');
+        }
+    }
+
+    function updateAssetDepreciationFields() {
+        const method = document.getElementById('wealthAssetDepreciationMethod')?.value;
+        const rateFields = document.querySelectorAll('.asset-depreciation-rate');
+        const yearsFields = document.querySelectorAll('.asset-depreciation-years');
+        const salvageFields = document.querySelectorAll('.asset-depreciation-salvage');
+        const startDateFields = document.querySelectorAll('.asset-depreciation-start-date');
+
+        const showRate = method === 'saldo_decreciente';
+        const showYears = method === 'linea_recta' || method === 'doble_saldo_decreciente';
+        const showSalvage = method !== 'sin_depreciacion';
+        const showStartDate = method !== 'sin_depreciacion';
+
+        rateFields.forEach(field => field.classList.toggle('hidden', !showRate));
+        yearsFields.forEach(field => field.classList.toggle('hidden', !showYears));
+        salvageFields.forEach(field => field.classList.toggle('hidden', !showSalvage));
+        startDateFields.forEach(field => field.classList.toggle('hidden', !showStartDate));
+    }
+
+    function formatDepreciationMethod(method) {
+        const labels = {
+            sin_depreciacion: 'Sin depreciación',
+            linea_recta: 'Línea recta',
+            saldo_decreciente: 'Saldo decreciente',
+            doble_saldo_decreciente: 'Doble saldo decreciente'
+        };
+        return labels[method] || '-';
     }
 
     function formatCurrency(amount) {

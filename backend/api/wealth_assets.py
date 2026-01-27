@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import WealthAsset, Currency, Debt
 from backend.api.reports import get_exchange_rate, convert_to_currency
-from backend.utils.wealth import apply_expected_appreciation
+from backend.utils.wealth import apply_expected_appreciation, apply_depreciation
 
 router = APIRouter()
 
@@ -24,6 +24,11 @@ class WealthAssetCreate(BaseModel):
     return_rate: Optional[float] = None
     return_amount: Optional[float] = None
     expected_appreciation_rate: Optional[float] = None
+    depreciation_method: Optional[str] = None
+    depreciation_rate: Optional[float] = None
+    depreciation_years: Optional[int] = None
+    depreciation_salvage_value: Optional[float] = None
+    depreciation_start_date: Optional[date] = None
     currency_id: int
     mortgage_debt_id: Optional[int] = None
     as_of_date: Optional[date] = None
@@ -38,6 +43,11 @@ class WealthAssetUpdate(BaseModel):
     return_rate: Optional[float] = None
     return_amount: Optional[float] = None
     expected_appreciation_rate: Optional[float] = None
+    depreciation_method: Optional[str] = None
+    depreciation_rate: Optional[float] = None
+    depreciation_years: Optional[int] = None
+    depreciation_salvage_value: Optional[float] = None
+    depreciation_start_date: Optional[date] = None
     currency_id: Optional[int] = None
     mortgage_debt_id: Optional[int] = None
     as_of_date: Optional[date] = None
@@ -84,12 +94,25 @@ def list_wealth_assets(
     results = []
 
     for asset in assets:
-        effective_value = apply_expected_appreciation(
-            asset.value,
-            asset.expected_appreciation_rate if asset.asset_class == "inmueble" else None,
-            asset.as_of_date,
-            date.today()
-        )
+        if asset.asset_class == "inmueble":
+            effective_value = apply_expected_appreciation(
+                asset.value,
+                asset.expected_appreciation_rate,
+                asset.as_of_date,
+                date.today()
+            )
+        elif asset.asset_class == "activo":
+            effective_value = apply_depreciation(
+                asset.value,
+                asset.depreciation_method,
+                asset.depreciation_rate,
+                asset.depreciation_years,
+                asset.depreciation_salvage_value,
+                asset.depreciation_start_date or asset.as_of_date,
+                date.today()
+            )
+        else:
+            effective_value = asset.value
         converted_value = convert_to_currency(
             effective_value,
             asset.currency_id,
@@ -99,7 +122,10 @@ def list_wealth_assets(
         total_value += converted_value
         asset_data = asset.to_dict()
         asset_data["value_converted"] = converted_value
-        asset_data["value_appreciated"] = effective_value
+        if asset.asset_class == "inmueble":
+            asset_data["value_appreciated"] = effective_value
+        if asset.asset_class == "activo":
+            asset_data["value_depreciated"] = effective_value
         results.append(asset_data)
 
     currency = db.query(Currency).get(currency_id)
@@ -130,6 +156,11 @@ def create_wealth_asset(asset_data: WealthAssetCreate, db: Session = Depends(get
         return_rate=asset_data.return_rate,
         return_amount=asset_data.return_amount,
         expected_appreciation_rate=asset_data.expected_appreciation_rate,
+        depreciation_method=asset_data.depreciation_method,
+        depreciation_rate=asset_data.depreciation_rate,
+        depreciation_years=asset_data.depreciation_years,
+        depreciation_salvage_value=asset_data.depreciation_salvage_value,
+        depreciation_start_date=asset_data.depreciation_start_date,
         currency_id=asset_data.currency_id,
         mortgage_debt_id=asset_data.mortgage_debt_id,
         as_of_date=asset_data.as_of_date or date.today(),

@@ -353,6 +353,36 @@ def init_db(engine_override=None):
     )
     ensure_sqlite_column(
         table_name="wealth_assets",
+        column_name="depreciation_method",
+        column_definition="depreciation_method VARCHAR(40)",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
+        column_name="depreciation_rate",
+        column_definition="depreciation_rate FLOAT",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
+        column_name="depreciation_years",
+        column_definition="depreciation_years INTEGER",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
+        column_name="depreciation_salvage_value",
+        column_definition="depreciation_salvage_value FLOAT",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
+        column_name="depreciation_start_date",
+        column_definition="depreciation_start_date DATE",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="wealth_assets",
         column_name="mortgage_debt_id",
         column_definition="mortgage_debt_id INTEGER",
         engine_override=active_engine

@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
 from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset
-from backend.utils.wealth import apply_expected_appreciation
+from backend.utils.wealth import apply_expected_appreciation, apply_depreciation
 
 router = APIRouter()
 
@@ -538,22 +538,37 @@ def get_debt_balance_history(
             if debt.start_date and debt.start_date > month_end:
                 continue
 
-            payments = sorted(
-                [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+            all_payments = sorted(
+                [p for p in debt.payments if p.payment_date],
                 key=lambda p: p.payment_date
             )
+            first_payment = all_payments[0] if all_payments else None
 
-            if payments:
-                last_payment = payments[-1]
-                if last_payment.balance_after is not None:
-                    balance = last_payment.balance_after
+            if first_payment and month_end < first_payment.payment_date:
+                if first_payment.balance_after is not None:
+                    balance = first_payment.balance_after
+                else:
+                    balance = debt.original_amount or 0
+                    first_amount = first_payment.principal if first_payment.principal is not None else first_payment.amount
+                    if first_amount:
+                        balance -= first_amount
+            else:
+                payments = sorted(
+                    [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+                    key=lambda p: p.payment_date
+                )
+
+                if payments:
+                    last_payment = payments[-1]
+                    if last_payment.balance_after is not None:
+                        balance = last_payment.balance_after
+                    else:
+                        balance = debt.original_amount
+                        for payment in payments:
+                            payment_amount = payment.principal if payment.principal is not None else payment.amount
+                            balance -= payment_amount
                 else:
                     balance = debt.original_amount
-                    for payment in payments:
-                        payment_amount = payment.principal if payment.principal is not None else payment.amount
-                        balance -= payment_amount
-            else:
-                balance = debt.original_amount
 
             if month_end >= today and debt.current_balance is not None:
                 balance = debt.current_balance
@@ -1383,12 +1398,25 @@ def get_net_worth(
         for asset in wealth_assets:
             if asset.as_of_date and asset.as_of_date > month_end:
                 continue
-            effective_value = apply_expected_appreciation(
-                asset.value,
-                asset.expected_appreciation_rate if asset.asset_class == "inmueble" else None,
-                asset.as_of_date,
-                month_end
-            )
+            if asset.asset_class == "inmueble":
+                effective_value = apply_expected_appreciation(
+                    asset.value,
+                    asset.expected_appreciation_rate,
+                    asset.as_of_date,
+                    month_end
+                )
+            elif asset.asset_class == "activo":
+                effective_value = apply_depreciation(
+                    asset.value,
+                    asset.depreciation_method,
+                    asset.depreciation_rate,
+                    asset.depreciation_years,
+                    asset.depreciation_salvage_value,
+                    asset.depreciation_start_date or asset.as_of_date,
+                    month_end
+                )
+            else:
+                effective_value = asset.value
             additional_assets += convert_to_currency(
                 effective_value,
                 asset.currency_id,
