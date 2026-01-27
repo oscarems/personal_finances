@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import threading
+import shutil
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -29,6 +30,67 @@ def normalize_db_name(name: str) -> str:
 
 def is_valid_db_name(name: str) -> bool:
     return bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", name))
+
+
+def clear_database_cache(name: str) -> None:
+    normalized = normalize_db_name(name)
+    engine_to_clear = _ENGINE_CACHE.pop(normalized, None)
+    if engine_to_clear is not None:
+        engine_to_clear.dispose()
+    _SESSION_CACHE.pop(normalized, None)
+    _INITIALIZED_DATABASES.discard(normalized)
+
+
+def delete_database(name: str) -> None:
+    name = normalize_db_name(name)
+    if name in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        raise ValueError("No se puede eliminar la base principal o demo.")
+    db_path = database_path_for(name)
+    if db_path is None:
+        raise ValueError("Solo se pueden eliminar bases SQLite.")
+    if not db_path.exists():
+        raise FileNotFoundError("La base de datos no existe.")
+    clear_database_cache(name)
+    db_path.unlink()
+
+
+def duplicate_database(source: str, target: str) -> None:
+    source = normalize_db_name(source)
+    target = normalize_db_name(target)
+    if source == target:
+        raise ValueError("El nombre de la base destino debe ser diferente.")
+    source_path = database_path_for(source)
+    target_path = database_path_for(target)
+    if source_path is None or target_path is None:
+        raise ValueError("Solo se pueden duplicar bases SQLite.")
+    if not source_path.exists():
+        raise FileNotFoundError("La base de origen no existe.")
+    if target_path.exists():
+        raise FileExistsError("La base destino ya existe.")
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_path, target_path)
+    clear_database_cache(target)
+
+
+def rename_database(source: str, target: str) -> None:
+    source = normalize_db_name(source)
+    target = normalize_db_name(target)
+    if source in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        raise ValueError("No se puede renombrar la base principal o demo.")
+    if source == target:
+        raise ValueError("El nombre nuevo debe ser diferente.")
+    source_path = database_path_for(source)
+    target_path = database_path_for(target)
+    if source_path is None or target_path is None:
+        raise ValueError("Solo se pueden renombrar bases SQLite.")
+    if not source_path.exists():
+        raise FileNotFoundError("La base de origen no existe.")
+    if target_path.exists():
+        raise FileExistsError("La base destino ya existe.")
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    clear_database_cache(source)
+    source_path.rename(target_path)
+
 
 def ensure_sqlite_directory(database_url: str) -> None:
     if not database_url.startswith('sqlite:///'):
@@ -162,9 +224,13 @@ def ensure_database_initialized(name: str) -> None:
                 from backend.init_db import initialize_database
                 initialize_database(
                     create_samples=True,
+                    create_demo_data=(name == DEMO_DB_ALIAS),
                     session_factory=session_factory,
                     create_tables_func=lambda: init_db(engine_override=engine_for_name)
                 )
+            elif name == DEMO_DB_ALIAS:
+                from backend.init_db import init_demo_data
+                init_demo_data(db)
         finally:
             db.close()
         _INITIALIZED_DATABASES.add(name)

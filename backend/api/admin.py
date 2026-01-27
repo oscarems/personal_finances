@@ -9,6 +9,9 @@ from backend.database import (
     normalize_db_name,
     is_valid_db_name,
     database_exists,
+    delete_database,
+    duplicate_database,
+    rename_database,
     ensure_database_initialized,
     default_database_name,
     PRIMARY_DB_ALIAS,
@@ -54,6 +57,23 @@ class DatabaseSelectionRequest(BaseModel):
 class DatabaseCreateRequest(BaseModel):
     """Request to create a new database"""
     name: str
+
+
+class DatabaseDeleteRequest(BaseModel):
+    """Request to delete a database"""
+    name: str
+
+
+class DatabaseDuplicateRequest(BaseModel):
+    """Request to duplicate a database"""
+    source: str
+    target: str
+
+
+class DatabaseRenameRequest(BaseModel):
+    """Request to rename a database"""
+    name: str
+    new_name: str
 
 
 @router.post("/reset", response_model=ResetResponse)
@@ -270,3 +290,69 @@ def create_database(payload: DatabaseCreateRequest, response: Response):
     )
     response.delete_cookie("db_mode")
     return {"name": name}
+
+
+@router.post("/databases/delete")
+def delete_database_api(payload: DatabaseDeleteRequest, request: Request, response: Response):
+    """Delete a database"""
+    name = normalize_db_name(payload.name)
+    if name in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        raise HTTPException(status_code=400, detail="No se puede eliminar la base principal o demo.")
+    if not is_valid_db_name(name):
+        raise HTTPException(status_code=400, detail="Nombre de base inválido.")
+    if not database_exists(name):
+        raise HTTPException(status_code=404, detail="La base seleccionada no existe.")
+    try:
+        delete_database(name)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    current = request.cookies.get("db_name")
+    if current and normalize_db_name(current) == name:
+        fallback = default_database_name()
+        response.set_cookie(key="db_name", value=fallback, httponly=False, samesite="lax")
+    return {"name": name, "deleted": True}
+
+
+@router.post("/databases/duplicate")
+def duplicate_database_api(payload: DatabaseDuplicateRequest):
+    """Duplicate an existing database"""
+    source = normalize_db_name(payload.source)
+    target = normalize_db_name(payload.target)
+    if not database_exists(source):
+        raise HTTPException(status_code=404, detail="La base de origen no existe.")
+    if target in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        raise HTTPException(status_code=400, detail="No se puede sobrescribir la base principal o demo.")
+    if not is_valid_db_name(target):
+        raise HTTPException(status_code=400, detail="Nombre de base destino inválido.")
+    if database_exists(target):
+        raise HTTPException(status_code=409, detail="La base destino ya existe.")
+    try:
+        duplicate_database(source, target)
+    except (FileNotFoundError, FileExistsError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"source": source, "target": target}
+
+
+@router.post("/databases/rename")
+def rename_database_api(payload: DatabaseRenameRequest, request: Request, response: Response):
+    """Rename an existing database"""
+    name = normalize_db_name(payload.name)
+    new_name = normalize_db_name(payload.new_name)
+    if name in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
+        raise HTTPException(status_code=400, detail="No se puede renombrar la base principal o demo.")
+    if not is_valid_db_name(name) or not is_valid_db_name(new_name):
+        raise HTTPException(status_code=400, detail="Nombre de base inválido.")
+    if not database_exists(name):
+        raise HTTPException(status_code=404, detail="La base de origen no existe.")
+    if database_exists(new_name):
+        raise HTTPException(status_code=409, detail="La base destino ya existe.")
+    try:
+        rename_database(name, new_name)
+    except (FileNotFoundError, FileExistsError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    current = request.cookies.get("db_name")
+    if current and normalize_db_name(current) == name:
+        response.set_cookie(key="db_name", value=new_name, httponly=False, samesite="lax")
+    return {"name": name, "renamed_to": new_name}
