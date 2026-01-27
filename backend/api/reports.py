@@ -9,7 +9,7 @@ from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
-from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment
+from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset
 
 router = APIRouter()
 
@@ -600,21 +600,33 @@ def get_balance_trend(
     months = []
     running_balance = start_balance
     current_date = start_date_obj.replace(day=1)
+    previous_balance = None
 
     while current_date <= end_date_obj:
         month_key = current_date.strftime('%Y-%m')
         running_balance += monthly_net.get(month_key, 0.0)
+        change = running_balance - previous_balance if previous_balance is not None else None
         months.append({
             'month': month_key,
             'month_name': current_date.strftime('%b %Y'),
-            'balance': running_balance
+            'balance': running_balance,
+            'change': change
         })
+        previous_balance = running_balance
         current_date += relativedelta(months=1)
+
+    latest_change = None
+    latest_change_month = None
+    if len(months) > 1:
+        latest_change = months[-1]['change']
+        latest_change_month = months[-1]['month_name']
 
     return {
         'start_date': start_date_obj.isoformat(),
         'end_date': end_date_obj.isoformat(),
-        'months': months
+        'months': months,
+        'latest_change': latest_change,
+        'latest_change_month': latest_change_month
     }
 
 
@@ -631,6 +643,9 @@ def get_savings_rate(
     """
     end_date = date.today()
     start_date = end_date - relativedelta(months=months)
+    min_start_date = date(2026, 1, 1)
+    if start_date < min_start_date:
+        start_date = min_start_date
 
     exchange_rate = get_exchange_rate(db)
 
@@ -723,14 +738,10 @@ def get_budget_vs_actual(
     Compare budgeted amounts vs actual spending by category
     Defaults to January 2026 onwards if no dates provided
     """
-    # Default to January 2026 if not specified
-    if not start_date:
-        start_date = '2026-01-01'
-    if not end_date:
-        end_date = date.today().isoformat()
-
-    start_date_obj = date.fromisoformat(start_date)
-    end_date_obj = date.fromisoformat(end_date)
+    # Always use previous month regardless of input
+    today = date.today()
+    start_date_obj = today.replace(day=1) - relativedelta(months=1)
+    end_date_obj = today.replace(day=1) - relativedelta(days=1)
 
     exchange_rate = get_exchange_rate(db)
 
@@ -818,6 +829,7 @@ def get_budget_vs_actual(
     return {
         'start_date': start_date_obj.isoformat(),
         'end_date': end_date_obj.isoformat(),
+        'month_label': start_date_obj.strftime('%b %Y'),
         'categories': results,
         'totals': {
             'budgeted': total_budgeted,
@@ -855,6 +867,7 @@ def get_net_worth(
 
     # Get all accounts
     accounts = db.query(Account).filter(Account.is_closed == False).all()
+    wealth_assets = db.query(WealthAsset).all()
 
     # Asset account types
     asset_types = ['checking', 'savings', 'cash', 'cdt', 'investment']
@@ -913,6 +926,19 @@ def get_net_worth(
                 # For credit cards/loans, negative balance = owe money
                 # So we add absolute value to liabilities
                 liabilities += abs(balance_at_month_end)
+
+        additional_assets = 0
+        for asset in wealth_assets:
+            if asset.as_of_date and asset.as_of_date > month_end:
+                continue
+            additional_assets += convert_to_currency(
+                asset.value,
+                asset.currency_id,
+                currency_id,
+                exchange_rate
+            )
+
+        assets += additional_assets
 
         net_worth = assets - liabilities
 

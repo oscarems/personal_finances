@@ -117,6 +117,8 @@
 <!-- Balance Trend Chart -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Cambio del balance total en cuentas</h3>
+    <p class="text-sm text-gray-500 mb-3">Se calcula sumando los saldos de cuentas activas y aplicando las transacciones del periodo para cada mes.</p>
+    <p id="balanceTrendChange" class="text-sm text-gray-600 mb-4">Último cambio: -</p>
     <canvas id="balanceTrendChart" height="80"></canvas>
 </div>
 
@@ -188,6 +190,7 @@
 <!-- Budget vs Actual -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Presupuesto vs Real</h3>
+    <p class="text-sm text-gray-500 mb-4">Mostrando: <span id="budgetVsActualMonth">-</span></p>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -203,6 +206,77 @@
             <tbody id="budgetVsActualTable" class="bg-white divide-y divide-gray-200">
                 <tr>
                     <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Patrimonio adicional -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-2">Patrimonio (inmuebles, activos e inversiones)</h3>
+    <p class="text-sm text-gray-500 mb-4">Agrega inmuebles, activos físicos y tipos de inversión (incluye fiducia). Estos valores se incluyen en el patrimonio neto.</p>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+        <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
+            <input id="wealthAssetName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Apartamento, portafolio ETF">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Clase</label>
+            <select id="wealthAssetClass" onchange="toggleInvestmentTypeField()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="inmueble">🏠 Inmueble</option>
+                <option value="activo">🏗️ Activo</option>
+                <option value="inversion">📈 Inversión</option>
+            </select>
+        </div>
+        <div id="investmentTypeWrapper" class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de inversión</label>
+            <select id="wealthInvestmentType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                <option value="">Selecciona</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
+            <input id="wealthAssetValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+            <select id="wealthAssetCurrency" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+            <input id="wealthAssetDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+        </div>
+        <div class="md:col-span-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+            <input id="wealthAssetNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
+        </div>
+        <div class="md:col-span-6 flex justify-end">
+            <button onclick="addWealthAsset()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Agregar patrimonio
+            </button>
+        </div>
+    </div>
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">Total patrimonio adicional</p>
+        <p id="wealthAssetsTotal" class="text-lg font-semibold text-indigo-600">$0</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clase</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="wealthAssetsTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
                 </tr>
             </tbody>
         </table>
@@ -354,6 +428,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         updatePeriodDates();
         loadAllReports();
+        loadWealthAssetTypes();
+        loadWealthAssetCurrencies();
+        toggleInvestmentTypeField();
     });
 
     function updatePeriodDates() {
@@ -422,9 +499,11 @@
             loadSpendingTrends(),
             loadSavingsRate(),
             loadBudgetVsActual(),
+            loadWealthAssets(),
             loadNetWorth(),
             loadDebtSummary()
         ]);
+        syncWealthAssetCurrency();
     }
 
     async function loadPeriodSummary() {
@@ -669,6 +748,14 @@
             );
             const data = await res.json();
 
+            if (data.latest_change !== null && data.latest_change !== undefined) {
+                const changeValue = formatCurrency(data.latest_change);
+                const monthLabel = data.latest_change_month || '';
+                document.getElementById('balanceTrendChange').textContent = `Último cambio (${monthLabel}): ${changeValue}`;
+            } else {
+                document.getElementById('balanceTrendChange').textContent = 'Último cambio: -';
+            }
+
             const ctx = document.getElementById('balanceTrendChart').getContext('2d');
 
             if (charts.balanceTrend) {
@@ -821,13 +908,13 @@
     async function loadBudgetVsActual() {
         try {
             const currencyId = document.getElementById('currencyFilter').value;
-            const dateRange = getDateRange();
             const res = await fetch(
-                `/api/reports/budget-vs-actual?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
+                `/api/reports/budget-vs-actual?currency_id=${currencyId}`
             );
             const data = await res.json();
             const table = document.getElementById('budgetVsActualTable');
             table.innerHTML = '';
+            document.getElementById('budgetVsActualMonth').textContent = data.month_label || '-';
 
             (data.categories || []).forEach(item => {
                 const row = document.createElement('tr');
@@ -890,6 +977,167 @@
             }
         } catch (error) {
             console.error('Error loading net worth:', error);
+        }
+    }
+
+    async function loadWealthAssetTypes() {
+        try {
+            const res = await fetch('/api/wealth-assets/investment-types');
+            const data = await res.json();
+            const select = document.getElementById('wealthInvestmentType');
+            select.innerHTML = '<option value=\"\">Selecciona</option>';
+            (data.investment_types || []).forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading investment types:', error);
+        }
+    }
+
+    async function loadWealthAssetCurrencies() {
+        try {
+            const res = await fetch('/api/currencies');
+            const data = await res.json();
+            const select = document.getElementById('wealthAssetCurrency');
+            select.innerHTML = '';
+            (data || []).forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.id;
+                option.textContent = `${currency.code} - ${currency.name}`;
+                select.appendChild(option);
+            });
+            const selectedCurrency = document.getElementById('currencyFilter').value;
+            if (selectedCurrency) {
+                select.value = selectedCurrency;
+            }
+        } catch (error) {
+            console.error('Error loading currencies:', error);
+        }
+    }
+
+    function toggleInvestmentTypeField() {
+        const assetClass = document.getElementById('wealthAssetClass').value;
+        const wrapper = document.getElementById('investmentTypeWrapper');
+        if (assetClass === 'inversion') {
+            wrapper.classList.remove('hidden');
+        } else {
+            wrapper.classList.add('hidden');
+        }
+    }
+
+    function syncWealthAssetCurrency() {
+        const currencySelect = document.getElementById('wealthAssetCurrency');
+        const selectedCurrency = document.getElementById('currencyFilter').value;
+        if (currencySelect && selectedCurrency) {
+            currencySelect.value = selectedCurrency;
+        }
+    }
+
+    async function addWealthAsset() {
+        try {
+            const name = document.getElementById('wealthAssetName').value.trim();
+            const assetClass = document.getElementById('wealthAssetClass').value;
+            const investmentType = document.getElementById('wealthInvestmentType').value || null;
+            const value = parseFloat(document.getElementById('wealthAssetValue').value || 0);
+            const currencyId = document.getElementById('wealthAssetCurrency').value;
+            const asOfDate = document.getElementById('wealthAssetDate').value || null;
+            const notes = document.getElementById('wealthAssetNotes').value.trim() || null;
+
+            if (!name) {
+                alert('Ingresa un nombre para el patrimonio.');
+                return;
+            }
+
+            const payload = {
+                name: name,
+                asset_class: assetClass,
+                investment_type: assetClass === 'inversion' ? investmentType : null,
+                value: value,
+                currency_id: Number(currencyId),
+                as_of_date: asOfDate,
+                notes: notes
+            };
+
+            const res = await fetch('/api/wealth-assets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || 'Error al guardar');
+            }
+
+            document.getElementById('wealthAssetName').value = '';
+            document.getElementById('wealthAssetValue').value = '';
+            document.getElementById('wealthAssetDate').value = '';
+            document.getElementById('wealthAssetNotes').value = '';
+
+            await loadWealthAssets();
+            await loadNetWorth();
+        } catch (error) {
+            console.error('Error adding wealth asset:', error);
+            alert('No se pudo guardar el patrimonio.');
+        }
+    }
+
+    async function deleteWealthAsset(assetId) {
+        try {
+            const res = await fetch(`/api/wealth-assets/${assetId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                throw new Error('Error al eliminar');
+            }
+            await loadWealthAssets();
+            await loadNetWorth();
+        } catch (error) {
+            console.error('Error deleting wealth asset:', error);
+            alert('No se pudo eliminar el patrimonio.');
+        }
+    }
+
+    async function loadWealthAssets() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const res = await fetch(`/api/wealth-assets?currency_id=${currencyId}`);
+            const data = await res.json();
+
+            if (data.currency) {
+                currentCurrency = data.currency;
+            }
+
+            document.getElementById('wealthAssetsTotal').textContent = formatCurrency(data.total_value || 0);
+
+            const table = document.getElementById('wealthAssetsTable');
+            table.innerHTML = '';
+            (data.assets || []).forEach(asset => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${asset.name}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${asset.asset_class}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${asset.investment_type || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(asset.value_converted || asset.value)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${asset.as_of_date || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${asset.notes || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-500">
+                        <button onclick="deleteWealthAsset(${asset.id})" class="text-red-600 hover:text-red-800">Eliminar</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (!data.assets || data.assets.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Sin patrimonio registrado.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading wealth assets:', error);
         }
     }
 
