@@ -9,7 +9,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from backend.database import init_db, get_db, default_database_name, ensure_database_initialized
-from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets
+from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets, investment_simulator
 
 # Create FastAPI app
 app = FastAPI(
@@ -44,6 +44,7 @@ app.include_router(categories.router, prefix="/api/categories", tags=["categorie
 app.include_router(import_routes.router, prefix="/api/import", tags=["import"])
 app.include_router(outlook_import.router, prefix="/api/import/outlook", tags=["outlook-import"])
 app.include_router(mortgage.router, prefix="/api/mortgage", tags=["mortgage"])
+app.include_router(investment_simulator.router, prefix="/api/investment-simulator", tags=["investment-simulator"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(recurring.router, prefix="/api/recurring", tags=["recurring"])
 app.include_router(exchange_rates.router, prefix="/api/exchange-rates", tags=["exchange-rates"])
@@ -98,6 +99,12 @@ async def import_page(request: Request):
 async def mortgage_page(request: Request):
     """Mortgage simulator page"""
     return templates.TemplateResponse("mortgage.html", {"request": request})
+
+
+@app.get("/investment-simulator")
+async def investment_simulator_page(request: Request):
+    """Investment simulator page"""
+    return templates.TemplateResponse("investment_simulator.html", {"request": request})
 
 
 @app.get("/reports")
