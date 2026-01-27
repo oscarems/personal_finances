@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte de Patrimonio - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="page-header mb-8">
+    <div>
+        <h2 class="page-title">Reporte de Patrimonio</h2>
+        <p class="page-subtitle">Evolución del patrimonio total y el progreso del pago de deudas.</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-card shadow-soft p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Filtros</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Moneda</label>
+            <select id="currencyFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Periodo</label>
+            <select id="monthsFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl">
+                <option value="6">Últimos 6 meses</option>
+                <option value="12" selected>Últimos 12 meses</option>
+                <option value="24">Últimos 24 meses</option>
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button id="applyWealthFilters" class="btn-primary w-full">Actualizar reporte</button>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-500 mb-2">Patrimonio actual</p>
+        <p id="netWorthCurrent" class="text-2xl font-semibold text-neutral-900">$0</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-500 mb-2">Variación en el periodo</p>
+        <p id="netWorthChange" class="text-2xl font-semibold text-emerald-600">$0</p>
+        <p id="netWorthChangePct" class="text-sm text-neutral-500 mt-1">0%</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-500 mb-2">Deuda total actual</p>
+        <p id="totalDebtCurrent" class="text-2xl font-semibold text-rose-600">$0</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <h3 class="text-lg font-semibold text-neutral-800 mb-4">Patrimonio a lo largo del tiempo</h3>
+        <div class="h-96">
+            <canvas id="netWorthChart"></canvas>
+        </div>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <h3 class="text-lg font-semibold text-neutral-800 mb-4">Progreso de pago de deudas</h3>
+        <div class="h-96">
+            <canvas id="debtBalanceChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentCurrency = { symbol: '$', decimals: 0 };
+    let netWorthChart = null;
+    let debtBalanceChart = null;
+
+    async function loadCurrencies() {
+        const select = document.getElementById('currencyFilter');
+        select.innerHTML = '';
+        try {
+            const res = await fetch('/api/currencies');
+            const currencies = await res.json();
+            (currencies || []).forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.id;
+                option.textContent = `${currency.code} - ${currency.name}`;
+                select.appendChild(option);
+            });
+            select.value = select.value || '1';
+        } catch (error) {
+            console.error('Error loading currencies:', error);
+            select.innerHTML = '<option value="1">COP - Peso Colombiano</option><option value="2">USD - Dólar Estadounidense</option>';
+        }
+    }
+
+    function formatCurrency(amount) {
+        return `${currentCurrency.symbol}${Math.round(amount).toLocaleString('en-US', {
+            minimumFractionDigits: currentCurrency.decimals
+        })}`;
+    }
+
+    function getDateRange() {
+        const months = parseInt(document.getElementById('monthsFilter').value, 10);
+        const today = new Date();
+        const startDate = new Date(today.getFullYear(), today.getMonth() - months, 1);
+        return {
+            start: startDate.toISOString().split('T')[0],
+            end: today.toISOString().split('T')[0]
+        };
+    }
+
+    function renderNetWorthChart(monthly) {
+        const labels = monthly.map(item => item.month_name);
+        const netWorthData = monthly.map(item => item.net_worth);
+        const assetsData = monthly.map(item => item.assets);
+        const liabilitiesData = monthly.map(item => item.liabilities);
+
+        if (netWorthChart) {
+            netWorthChart.destroy();
+        }
+
+        netWorthChart = new Chart(document.getElementById('netWorthChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Patrimonio',
+                        data: netWorthData,
+                        borderColor: '#3f679a',
+                        backgroundColor: 'rgba(63, 103, 154, 0.15)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Activos',
+                        data: assetsData,
+                        borderColor: '#3f7c64',
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Pasivos',
+                        data: liabilitiesData,
+                        borderColor: '#b64854',
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: value => formatCurrency(value)
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderDebtChart(monthly) {
+        const labels = monthly.map(item => item.month_name);
+        const totals = monthly.map(item => item.total_debt);
+
+        if (debtBalanceChart) {
+            debtBalanceChart.destroy();
+        }
+
+        debtBalanceChart = new Chart(document.getElementById('debtBalanceChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Deuda total',
+                        data: totals,
+                        borderColor: '#b64854',
+                        backgroundColor: 'rgba(182, 72, 84, 0.12)',
+                        tension: 0.3,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: value => formatCurrency(value)
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async function loadWealthReport() {
+        const currencyId = document.getElementById('currencyFilter').value;
+        const dateRange = getDateRange();
+
+        try {
+            const [netWorthRes, debtRes] = await Promise.all([
+                fetch(`/api/reports/net-worth?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`),
+                fetch(`/api/reports/debt-balance-history?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`)
+            ]);
+
+            const netWorthData = await netWorthRes.json();
+            const debtData = await debtRes.json();
+
+            if (netWorthData.currency) {
+                currentCurrency = netWorthData.currency;
+            }
+
+            document.getElementById('netWorthCurrent').textContent = formatCurrency(netWorthData.current_net_worth || 0);
+            document.getElementById('netWorthChange').textContent = formatCurrency(netWorthData.change || 0);
+            document.getElementById('netWorthChangePct').textContent = `${netWorthData.change_percentage || 0}%`;
+            document.getElementById('totalDebtCurrent').textContent = formatCurrency(debtData.current_total_debt || 0);
+
+            renderNetWorthChart(netWorthData.monthly || []);
+            renderDebtChart(debtData.monthly || []);
+        } catch (error) {
+            console.error('Error loading wealth report:', error);
+        }
+    }
+
+    document.getElementById('applyWealthFilters').addEventListener('click', loadWealthReport);
+    document.getElementById('currencyFilter').addEventListener('change', loadWealthReport);
+    document.getElementById('monthsFilter').addEventListener('change', loadWealthReport);
+
+    (async () => {
+        await loadCurrencies();
+        await loadWealthReport();
+    })();
+</script>
+{% endblock %}
