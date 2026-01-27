@@ -241,12 +241,17 @@ def get_income_vs_expenses(
         income_transactions = db.query(
             Transaction.amount,
             Transaction.currency_id
+        ).join(
+            Category, Transaction.category_id == Category.id
+        ).join(
+            CategoryGroup, Category.category_group_id == CategoryGroup.id
         ).filter(
             and_(
                 Transaction.date >= month_start,
                 Transaction.date <= month_end,
                 Transaction.amount > 0,
-                Transaction.transfer_account_id.is_(None)
+                Transaction.transfer_account_id.is_(None),
+                CategoryGroup.is_income.is_(True)
             )
         ).all()
 
@@ -338,12 +343,17 @@ def get_budget_income_expenses(
         income_transactions = db.query(
             Transaction.amount,
             Transaction.currency_id
+        ).join(
+            Category, Transaction.category_id == Category.id
+        ).join(
+            CategoryGroup, Category.category_group_id == CategoryGroup.id
         ).filter(
             and_(
                 Transaction.date >= month_start,
                 Transaction.date <= month_end,
                 Transaction.amount > 0,
-                Transaction.transfer_account_id.is_(None)
+                Transaction.transfer_account_id.is_(None),
+                CategoryGroup.is_income.is_(True)
             )
         ).all()
 
@@ -417,14 +427,17 @@ def get_top_income_expenses(
         Transaction.amount,
         Transaction.currency_id,
         Category.name.label('category_name')
-    ).outerjoin(
+    ).join(
         Category, Transaction.category_id == Category.id
+    ).join(
+        CategoryGroup, Category.category_group_id == CategoryGroup.id
     ).filter(
         and_(
             Transaction.date >= start_date,
             Transaction.date <= end_date,
             Transaction.amount > 0,
-            Transaction.transfer_account_id.is_(None)
+            Transaction.transfer_account_id.is_(None),
+            CategoryGroup.is_income.is_(True)
         )
     ).all()
 
@@ -685,12 +698,17 @@ def get_summary(
     income_transactions = db.query(
         Transaction.amount,
         Transaction.currency_id
+    ).join(
+        Category, Transaction.category_id == Category.id
+    ).join(
+        CategoryGroup, Category.category_group_id == CategoryGroup.id
     ).filter(
         and_(
             Transaction.date >= month_start,
             Transaction.date <= today,
             Transaction.amount > 0,
-            Transaction.transfer_account_id.is_(None)
+            Transaction.transfer_account_id.is_(None),
+            CategoryGroup.is_income.is_(True)
         )
     ).all()
 
@@ -761,12 +779,17 @@ def get_period_summary(
     income_transactions = db.query(
         Transaction.amount,
         Transaction.currency_id
+    ).join(
+        Category, Transaction.category_id == Category.id
+    ).join(
+        CategoryGroup, Category.category_group_id == CategoryGroup.id
     ).filter(
         and_(
             Transaction.date >= start_date_obj,
             Transaction.date <= end_date_obj,
             Transaction.amount > 0,
-            Transaction.transfer_account_id.is_(None)
+            Transaction.transfer_account_id.is_(None),
+            CategoryGroup.is_income.is_(True)
         )
     ).all()
 
@@ -1128,12 +1151,17 @@ def get_savings_rate(
         income_transactions = db.query(
             Transaction.amount,
             Transaction.currency_id
+        ).join(
+            Category, Transaction.category_id == Category.id
+        ).join(
+            CategoryGroup, Category.category_group_id == CategoryGroup.id
         ).filter(
             and_(
                 Transaction.date >= month_start,
                 Transaction.date <= month_end,
                 Transaction.amount > 0,
-                Transaction.transfer_account_id.is_(None)
+                Transaction.transfer_account_id.is_(None),
+                CategoryGroup.is_income.is_(True)
             )
         ).all()
 
