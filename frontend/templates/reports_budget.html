@@ -14,11 +14,11 @@
     <h3 class="text-lg font-semibold text-neutral-800 mb-4">Filtros</h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-            <label class="block text-sm font-medium text-neutral-600 mb-2">Moneda</label>
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
             <select id="currencyFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl"></select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-neutral-600 mb-2">Meses a comparar</label>
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Meses a comparar</label>
             <select id="monthsFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl">
                 <option value="6">Últimos 6 meses</option>
                 <option value="12" selected>Últimos 12 meses</option>
@@ -63,7 +63,7 @@
     <h3 class="text-lg font-semibold text-neutral-800 mb-4">Detalle mensual</h3>
     <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
-            <thead class="bg-neutral-50 text-neutral-600">
+            <thead class="bg-neutral-50 text-xs font-semibold text-neutral-500 uppercase tracking-wide">
                 <tr>
                     <th class="px-4 py-3 text-left">Mes</th>
                     <th class="px-4 py-3 text-right">Presupuesto</th>
@@ -73,6 +73,39 @@
             </thead>
             <tbody id="budgetTrendTable" class="divide-y divide-neutral-200"></tbody>
         </table>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <h3 class="text-lg font-semibold text-neutral-800 mb-4">Top ingresos</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-neutral-50 text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                    <tr>
+                        <th class="px-4 py-3 text-left">#</th>
+                        <th class="px-4 py-3 text-left">Categoría</th>
+                        <th class="px-4 py-3 text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody id="topIncomeTable" class="divide-y divide-neutral-200"></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <h3 class="text-lg font-semibold text-neutral-800 mb-4">Top gastos</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-neutral-50 text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                    <tr>
+                        <th class="px-4 py-3 text-left">#</th>
+                        <th class="px-4 py-3 text-left">Categoría</th>
+                        <th class="px-4 py-3 text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody id="topExpenseTable" class="divide-y divide-neutral-200"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -187,12 +220,46 @@
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="px-4 py-3 text-neutral-700">${item.month_name}</td>
-                <td class="px-4 py-3 text-right text-neutral-700">${formatCurrency(item.budget)}</td>
-                <td class="px-4 py-3 text-right text-emerald-600">${formatCurrency(item.income)}</td>
-                <td class="px-4 py-3 text-right text-rose-600">${formatCurrency(item.expenses)}</td>
+                <td class="px-4 py-3 text-right text-neutral-700 font-medium">${formatCurrency(item.budget)}</td>
+                <td class="px-4 py-3 text-right text-emerald-600 font-semibold">${formatCurrency(item.income)}</td>
+                <td class="px-4 py-3 text-right text-rose-600 font-semibold">${formatCurrency(item.expenses)}</td>
             `;
             table.appendChild(row);
         });
+    }
+
+    function renderTopTable(items, tableId, emptyMessage, amountClass) {
+        const table = document.getElementById(tableId);
+        table.innerHTML = '';
+
+        if (!items.length) {
+            table.innerHTML = `<tr><td colspan="3" class="px-4 py-4 text-center text-neutral-500">${emptyMessage}</td></tr>`;
+            return;
+        }
+
+        items.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.classList.add('hover:bg-neutral-50');
+            row.innerHTML = `
+                <td class="px-4 py-3 text-neutral-500">${index + 1}</td>
+                <td class="px-4 py-3 text-neutral-700">${item.category}</td>
+                <td class="px-4 py-3 text-right font-semibold ${amountClass}">${formatCurrency(item.amount)}</td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
+    async function loadTopIncomeExpenses() {
+        const currencyId = document.getElementById('currencyFilter').value;
+        const months = document.getElementById('monthsFilter').value;
+        try {
+            const res = await fetch(`/api/reports/top-income-expenses?currency_id=${currencyId}&months=${months}`);
+            const data = await res.json();
+            renderTopTable(data.income || [], 'topIncomeTable', 'Sin ingresos disponibles.', 'text-emerald-600');
+            renderTopTable(data.expenses || [], 'topExpenseTable', 'Sin gastos disponibles.', 'text-rose-600');
+        } catch (error) {
+            console.error('Error loading top income/expenses:', error);
+        }
     }
 
     async function loadBudgetTrend() {
@@ -219,6 +286,7 @@
             updateLatestCards(monthsData[monthsData.length - 1]);
             renderBudgetChart(monthsData);
             renderBudgetTable(monthsData);
+            await loadTopIncomeExpenses();
         } catch (error) {
             console.error('Error loading budget report:', error);
         }

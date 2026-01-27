@@ -391,6 +391,99 @@ def get_budget_income_expenses(
     }
 
 
+@router.get("/top-income-expenses")
+def get_top_income_expenses(
+    months: int = 12,
+    currency_id: int = 1,
+    limit: int = 5,
+    db: Session = Depends(get_db)
+):
+    """
+    Get top income and expense categories for the last N months.
+    Transfers are excluded from income and expenses.
+    """
+    end_date = date.today()
+    start_date = end_date - relativedelta(months=months)
+    min_start_date = date(2026, 1, 1)
+    note = None
+    if start_date < min_start_date:
+        start_date = min_start_date
+        note = 'Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.'
+
+    exchange_rate = get_exchange_rate(db)
+
+    income_rows = db.query(
+        Transaction.amount,
+        Transaction.currency_id,
+        Category.name.label('category_name')
+    ).outerjoin(
+        Category, Transaction.category_id == Category.id
+    ).filter(
+        and_(
+            Transaction.date >= start_date,
+            Transaction.date <= end_date,
+            Transaction.amount > 0,
+            Transaction.transfer_account_id.is_(None)
+        )
+    ).all()
+
+    income_totals = {}
+    for row in income_rows:
+        category_name = row.category_name or 'Sin categoría'
+        converted_amount = convert_to_currency(
+            row.amount,
+            row.currency_id,
+            currency_id,
+            exchange_rate
+        )
+        income_totals[category_name] = income_totals.get(category_name, 0) + converted_amount
+
+    income_results = [
+        {'category': category_name, 'amount': total}
+        for category_name, total in income_totals.items()
+    ]
+    income_results.sort(key=lambda item: item['amount'], reverse=True)
+
+    expense_rows = db.query(
+        Transaction.amount,
+        Transaction.currency_id,
+        Category.name.label('category_name')
+    ).outerjoin(
+        Category, Transaction.category_id == Category.id
+    ).filter(
+        and_(
+            Transaction.date >= start_date,
+            Transaction.date <= end_date,
+            Transaction.amount < 0,
+            Transaction.transfer_account_id.is_(None)
+        )
+    ).all()
+
+    expense_totals = {}
+    for row in expense_rows:
+        category_name = row.category_name or 'Sin categoría'
+        converted_amount = convert_to_currency(
+            abs(row.amount),
+            row.currency_id,
+            currency_id,
+            exchange_rate
+        )
+        expense_totals[category_name] = expense_totals.get(category_name, 0) + converted_amount
+
+    expense_results = [
+        {'category': category_name, 'amount': total}
+        for category_name, total in expense_totals.items()
+    ]
+    expense_results.sort(key=lambda item: item['amount'], reverse=True)
+
+    return {
+        'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}',
+        'note': note,
+        'income': income_results[:limit],
+        'expenses': expense_results[:limit]
+    }
+
+
 @router.get("/debt-balance-history")
 def get_debt_balance_history(
     start_date: Optional[str] = None,
