@@ -289,6 +289,207 @@ def get_income_vs_expenses(
     }
 
 
+@router.get("/budget-income-expenses")
+def get_budget_income_expenses(
+    months: int = 12,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Get budget vs income vs expenses over time
+    Now includes ALL currencies, converted to the selected one
+    """
+    end_date = date.today()
+    start_date = end_date - relativedelta(months=months)
+    min_start_date = date(2026, 1, 1)
+    note = None
+    if start_date < min_start_date:
+        start_date = min_start_date
+        note = 'Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.'
+
+    exchange_rate = get_exchange_rate(db)
+
+    budget_totals = {}
+    budget_data = db.query(BudgetMonth).filter(
+        and_(
+            BudgetMonth.month >= start_date.replace(day=1),
+            BudgetMonth.month <= end_date
+        )
+    ).all()
+
+    for budget_month in budget_data:
+        month_key = budget_month.month.strftime('%Y-%m')
+        budgeted_converted = convert_to_currency(
+            budget_month.assigned or 0,
+            budget_month.currency_id,
+            currency_id,
+            exchange_rate
+        )
+        budget_totals[month_key] = budget_totals.get(month_key, 0) + budgeted_converted
+
+    results = []
+    current_date = start_date.replace(day=1)
+
+    while current_date <= end_date:
+        month_start = current_date
+        month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
+
+        income_transactions = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
+            and_(
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.amount > 0,
+                Transaction.transfer_account_id.is_(None)
+            )
+        ).all()
+
+        income = sum(
+            convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+            for t in income_transactions
+        )
+
+        expense_transactions = db.query(
+            Transaction.amount,
+            Transaction.currency_id
+        ).filter(
+            and_(
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.amount < 0,
+                Transaction.transfer_account_id.is_(None)
+            )
+        ).all()
+
+        expenses = sum(
+            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+            for t in expense_transactions
+        )
+
+        month_key = current_date.strftime('%Y-%m')
+        budget = budget_totals.get(month_key, 0)
+
+        results.append({
+            'month': month_key,
+            'month_name': current_date.strftime('%b %Y'),
+            'budget': budget,
+            'income': income,
+            'expenses': expenses
+        })
+
+        current_date += relativedelta(months=1)
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        'months': results,
+        'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}',
+        'note': note,
+        'currency': currency.to_dict() if currency else None
+    }
+
+
+@router.get("/debt-balance-history")
+def get_debt_balance_history(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """
+    Get total debt balance over time using debt payments history.
+    """
+    debts = db.query(Debt).filter(Debt.is_active == True).all()
+    if not debts:
+        return {
+            'monthly': [],
+            'currency': None,
+            'current_total_debt': 0
+        }
+
+    today = date.today()
+    if not end_date:
+        end_date_obj = today
+    else:
+        end_date_obj = date.fromisoformat(end_date)
+
+    if not start_date:
+        earliest_dates = []
+        for debt in debts:
+            if debt.start_date:
+                earliest_dates.append(debt.start_date)
+            if debt.payments:
+                earliest_dates.append(min(p.payment_date for p in debt.payments if p.payment_date))
+        start_date_obj = min(earliest_dates) if earliest_dates else today
+    else:
+        start_date_obj = date.fromisoformat(start_date)
+
+    start_date_obj = start_date_obj.replace(day=1)
+    end_date_obj = end_date_obj.replace(day=1)
+
+    exchange_rate = get_exchange_rate(db)
+    currencies = db.query(Currency).all()
+    currency_map = {currency.code: currency.id for currency in currencies}
+
+    monthly_totals = []
+    current_date = start_date_obj
+
+    while current_date <= end_date_obj:
+        month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
+        total_debt = 0.0
+
+        for debt in debts:
+            if debt.start_date and debt.start_date > month_end:
+                continue
+
+            payments = sorted(
+                [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+                key=lambda p: p.payment_date
+            )
+
+            if payments:
+                last_payment = payments[-1]
+                if last_payment.balance_after is not None:
+                    balance = last_payment.balance_after
+                else:
+                    balance = debt.original_amount
+                    for payment in payments:
+                        payment_amount = payment.principal if payment.principal is not None else payment.amount
+                        balance -= payment_amount
+            else:
+                balance = debt.original_amount
+
+            if month_end >= today and debt.current_balance is not None:
+                balance = debt.current_balance
+
+            balance = max(balance, 0)
+            debt_currency_id = currency_map.get(debt.currency_code, currency_id)
+            total_debt += convert_to_currency(
+                balance,
+                debt_currency_id,
+                currency_id,
+                exchange_rate
+            )
+
+        monthly_totals.append({
+            'month': current_date.strftime('%Y-%m'),
+            'month_name': current_date.strftime('%b %Y'),
+            'total_debt': round(total_debt, 2)
+        })
+
+        current_date += relativedelta(months=1)
+
+    currency = db.query(Currency).get(currency_id)
+
+    return {
+        'monthly': monthly_totals,
+        'current_total_debt': monthly_totals[-1]['total_debt'] if monthly_totals else 0,
+        'currency': currency.to_dict() if currency else None
+    }
+
+
 @router.get("/spending-trends")
 def get_spending_trends(
     category_id: Optional[int] = None,

@@ -112,6 +112,21 @@ async def reports_page(request: Request):
     """Reports and analytics page"""
     return templates.TemplateResponse("reports.html", {"request": request})
 
+@app.get("/reports/budget")
+async def reports_budget_page(request: Request):
+    """Budget vs income vs expenses report page"""
+    return templates.TemplateResponse("reports_budget.html", {"request": request})
+
+@app.get("/reports/wealth")
+async def reports_wealth_page(request: Request):
+    """Wealth progress report page"""
+    return templates.TemplateResponse("reports_wealth.html", {"request": request})
+
+@app.get("/reports/investments")
+async def reports_investments_page(request: Request):
+    """Investments report page"""
+    return templates.TemplateResponse("reports_investments.html", {"request": request})
+
 @app.get("/patrimonio")
 async def patrimonio_page(request: Request):
     """Wealth overview page"""

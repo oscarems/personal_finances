@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte Presupuesto vs Gastos - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="page-header mb-8">
+    <div>
+        <h2 class="page-title">Presupuesto vs Gastos e Ingresos</h2>
+        <p class="page-subtitle">Comparación mensual del presupuesto asignado, los gastos reales y los ingresos.</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-card shadow-soft p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Filtros</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Moneda</label>
+            <select id="currencyFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Meses a comparar</label>
+            <select id="monthsFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl">
+                <option value="6">Últimos 6 meses</option>
+                <option value="12" selected>Últimos 12 meses</option>
+                <option value="24">Últimos 24 meses</option>
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button id="applyBudgetFilters" class="btn-primary w-full">Actualizar reporte</button>
+        </div>
+    </div>
+    <p id="budgetNote" class="text-sm text-neutral-500 mt-4 hidden"></p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-500 mb-2">Presupuesto del último mes</p>
+        <p id="latestBudget" class="text-2xl font-semibold text-neutral-900">$0</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-500 mb-2">Ingresos del último mes</p>
+        <p id="latestIncome" class="text-2xl font-semibold text-emerald-600">$0</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-500 mb-2">Gastos del último mes</p>
+        <p id="latestExpenses" class="text-2xl font-semibold text-rose-600">$0</p>
+    </div>
+</div>
+
+<div class="bg-white rounded-card shadow-soft p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h3 class="text-lg font-semibold text-neutral-800">Tendencia mensual</h3>
+            <p id="budgetPeriod" class="text-sm text-neutral-500">-</p>
+        </div>
+    </div>
+    <div class="h-96">
+        <canvas id="budgetTrendChart"></canvas>
+    </div>
+</div>
+
+<div class="bg-white rounded-card shadow-soft p-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Detalle mensual</h3>
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead class="bg-neutral-50 text-neutral-600">
+                <tr>
+                    <th class="px-4 py-3 text-left">Mes</th>
+                    <th class="px-4 py-3 text-right">Presupuesto</th>
+                    <th class="px-4 py-3 text-right">Ingresos</th>
+                    <th class="px-4 py-3 text-right">Gastos</th>
+                </tr>
+            </thead>
+            <tbody id="budgetTrendTable" class="divide-y divide-neutral-200"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let budgetTrendChart = null;
+    let currentCurrency = { symbol: '$', decimals: 0 };
+
+    async function loadCurrencies() {
+        const select = document.getElementById('currencyFilter');
+        select.innerHTML = '';
+        try {
+            const res = await fetch('/api/currencies');
+            const currencies = await res.json();
+            (currencies || []).forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.id;
+                option.textContent = `${currency.code} - ${currency.name}`;
+                select.appendChild(option);
+            });
+            select.value = select.value || '1';
+        } catch (error) {
+            console.error('Error loading currencies:', error);
+            select.innerHTML = '<option value="1">COP - Peso Colombiano</option><option value="2">USD - Dólar Estadounidense</option>';
+        }
+    }
+
+    function formatCurrency(amount) {
+        return `${currentCurrency.symbol}${Math.round(amount).toLocaleString('en-US', {
+            minimumFractionDigits: currentCurrency.decimals
+        })}`;
+    }
+
+    function updateLatestCards(latest) {
+        document.getElementById('latestBudget').textContent = formatCurrency(latest?.budget || 0);
+        document.getElementById('latestIncome').textContent = formatCurrency(latest?.income || 0);
+        document.getElementById('latestExpenses').textContent = formatCurrency(latest?.expenses || 0);
+    }
+
+    function renderBudgetChart(data) {
+        const labels = data.map(item => item.month_name);
+        const budgetData = data.map(item => item.budget);
+        const incomeData = data.map(item => item.income);
+        const expenseData = data.map(item => item.expenses);
+
+        if (budgetTrendChart) {
+            budgetTrendChart.destroy();
+        }
+
+        const ctx = document.getElementById('budgetTrendChart').getContext('2d');
+        budgetTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Presupuesto',
+                        data: budgetData,
+                        borderColor: '#3f679a',
+                        backgroundColor: 'rgba(63, 103, 154, 0.15)',
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Ingresos',
+                        data: incomeData,
+                        borderColor: '#3f7c64',
+                        backgroundColor: 'rgba(63, 124, 100, 0.12)',
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Gastos',
+                        data: expenseData,
+                        borderColor: '#b64854',
+                        backgroundColor: 'rgba(182, 72, 84, 0.12)',
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: value => formatCurrency(value)
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderBudgetTable(data) {
+        const table = document.getElementById('budgetTrendTable');
+        table.innerHTML = '';
+        if (!data.length) {
+            table.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-center text-neutral-500">Sin datos disponibles.</td></tr>';
+            return;
+        }
+
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-4 py-3 text-neutral-700">${item.month_name}</td>
+                <td class="px-4 py-3 text-right text-neutral-700">${formatCurrency(item.budget)}</td>
+                <td class="px-4 py-3 text-right text-emerald-600">${formatCurrency(item.income)}</td>
+                <td class="px-4 py-3 text-right text-rose-600">${formatCurrency(item.expenses)}</td>
+            `;
+            table.appendChild(row);
+        });
+    }
+
+    async function loadBudgetTrend() {
+        const currencyId = document.getElementById('currencyFilter').value;
+        const months = document.getElementById('monthsFilter').value;
+        try {
+            const res = await fetch(`/api/reports/budget-income-expenses?currency_id=${currencyId}&months=${months}`);
+            const data = await res.json();
+
+            if (data.currency) {
+                currentCurrency = data.currency;
+            }
+
+            document.getElementById('budgetPeriod').textContent = data.period || '-';
+            const noteEl = document.getElementById('budgetNote');
+            if (data.note) {
+                noteEl.textContent = data.note;
+                noteEl.classList.remove('hidden');
+            } else {
+                noteEl.classList.add('hidden');
+            }
+
+            const monthsData = data.months || [];
+            updateLatestCards(monthsData[monthsData.length - 1]);
+            renderBudgetChart(monthsData);
+            renderBudgetTable(monthsData);
+        } catch (error) {
+            console.error('Error loading budget report:', error);
+        }
+    }
+
+    document.getElementById('applyBudgetFilters').addEventListener('click', loadBudgetTrend);
+    document.getElementById('currencyFilter').addEventListener('change', loadBudgetTrend);
+    document.getElementById('monthsFilter').addEventListener('change', loadBudgetTrend);
+
+    (async () => {
+        await loadCurrencies();
+        await loadBudgetTrend();
+    })();
+</script>
+{% endblock %}
