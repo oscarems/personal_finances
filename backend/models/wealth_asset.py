@@ -17,6 +17,11 @@ class WealthAsset(Base):
     return_rate = Column(Float, nullable=True)
     return_amount = Column(Float, nullable=True)
     expected_appreciation_rate = Column(Float, nullable=True)
+    depreciation_method = Column(String(40), nullable=True)
+    depreciation_rate = Column(Float, nullable=True)
+    depreciation_years = Column(Integer, nullable=True)
+    depreciation_salvage_value = Column(Float, nullable=True)
+    depreciation_start_date = Column(Date, nullable=True)
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=False)
     mortgage_debt_id = Column(Integer, ForeignKey("debts.id"), nullable=True)
     as_of_date = Column(Date, default=date.today)
@@ -36,6 +41,11 @@ class WealthAsset(Base):
             "return_rate": self.return_rate,
             "return_amount": self.return_amount,
             "expected_appreciation_rate": self.expected_appreciation_rate,
+            "depreciation_method": self.depreciation_method,
+            "depreciation_rate": self.depreciation_rate,
+            "depreciation_years": self.depreciation_years,
+            "depreciation_salvage_value": self.depreciation_salvage_value,
+            "depreciation_start_date": self.depreciation_start_date.isoformat() if self.depreciation_start_date else None,
             "currency_id": self.currency_id,
             "currency": self.currency.to_dict() if self.currency else None,
             "mortgage_debt_id": self.mortgage_debt_id,
