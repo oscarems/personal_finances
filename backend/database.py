@@ -95,17 +95,12 @@ def database_exists(name: str) -> bool:
 
 def list_databases() -> list[dict]:
     entries: list[dict] = []
-    primary_path = database_path_for(PRIMARY_DB_ALIAS)
-    demo_path = database_path_for(DEMO_DB_ALIAS)
     existing = {path.stem for path in DATABASE_DIRECTORY.glob("*.db")}
     for alias, label in [(PRIMARY_DB_ALIAS, "Principal"), (DEMO_DB_ALIAS, "Demo")]:
         entries.append({
             "name": alias,
             "label": label,
-            "exists": database_exists(alias),
-            "filename": (primary_path if alias == PRIMARY_DB_ALIAS else demo_path).name
-            if (primary_path if alias == PRIMARY_DB_ALIAS else demo_path)
-            else None
+            "exists": database_exists(alias)
         })
     for name in sorted(existing):
         if name in {"finances", "finances_demo"}:
@@ -113,8 +108,7 @@ def list_databases() -> list[dict]:
         entries.append({
             "name": name,
             "label": name.capitalize(),
-            "exists": True,
-            "filename": f"{name}.db"
+            "exists": True
         })
     return entries
 

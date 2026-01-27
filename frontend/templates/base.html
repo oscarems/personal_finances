@@ -577,6 +577,12 @@
                         </div>
                         <span class="font-semibold">Simulador Hipoteca</span>
                     </a>
+                    <a href="/investment-simulator" class="nav-item group">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 transition-colors mr-3">
+                            <span class="text-xl">💹</span>
+                        </div>
+                        <span class="font-semibold">Simulador Inversiones</span>
+                    </a>
                     <a href="/import" class="nav-item group">
                         <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 group-hover:bg-white/10 transition-colors mr-3">
                             <span class="text-xl">📥</span>
@@ -653,8 +659,7 @@
                             data.databases.forEach(db => {
                                 const option = document.createElement('option');
                                 option.value = db.name;
-                                const label = db.label || db.name;
-                                option.textContent = db.filename ? `${label} (${db.filename})` : label;
+                                option.textContent = db.label || db.name;
                                 dbModeSelect.appendChild(option);
                             });
                         }

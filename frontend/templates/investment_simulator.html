@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Simulador de Inversiones - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800">Simulador de Inversiones</h2>
+    <p class="text-gray-600 mt-2">Proyecta pagos periódicos, promedios históricos y valorización de la inversión.</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-lg shadow p-6 sticky top-4">
+            <h3 class="text-lg font-semibold mb-4">Configura tu inversión</h3>
+            <form id="investmentForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Monto inicial</label>
+                    <input type="number" id="initialAmount" value="50000000" step="100000" min="0" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Plazo (años)</label>
+                    <input type="number" id="investmentYears" value="5" min="1" max="50" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Frecuencia de pago</label>
+                    <select id="paymentFrequency" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="monthly">Mensual</option>
+                        <option value="bimonthly">Bimensual</option>
+                        <option value="quarterly">Trimestral</option>
+                        <option value="semiannual">Semestral</option>
+                        <option value="annual">Anual</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de pago</label>
+                    <select id="paymentType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="fixed">Fijo (monto)</option>
+                        <option value="percentage">Porcentaje</option>
+                        <option value="historical">Promedio histórico</option>
+                    </select>
+                </div>
+                <div id="fixedAmountField">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pago fijo</label>
+                    <input type="number" id="paymentAmount" value="250000" step="10000" min="0"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div id="percentageField" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pago porcentual (%)</label>
+                    <input type="number" id="paymentPercentage" value="0.8" step="0.01" min="0"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Valorización anual (%)</label>
+                    <input type="number" id="annualValuationRate" value="6" step="0.1" min="0"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <p class="text-xs text-gray-500 mt-1">Crecimiento esperado del valor de la inversión.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de inicio</label>
+                    <input type="date" id="investmentStartDate" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div class="border-t pt-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pagos históricos (máx. 12)</label>
+                    <textarea id="historicalPayments" rows="3" placeholder="Ej: 200000, 210000, 190000"
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Ingresa montos separados por coma o salto de línea.</p>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">
+                    Simular
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2 space-y-6">
+        <div id="resultsSection" class="hidden space-y-8">
+            <div>
+                <h3 class="text-lg font-semibold mb-4">Resumen</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-1">Total pagos proyectados</p>
+                        <p id="totalPayments" class="text-2xl font-bold text-blue-600">$0</p>
+                    </div>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-1">Valor proyectado</p>
+                        <p id="projectedValue" class="text-2xl font-bold text-green-600">$0</p>
+                    </div>
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-1">Pago promedio proyectado</p>
+                        <p id="projectedAverage" class="text-2xl font-bold text-purple-600">$0</p>
+                    </div>
+                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <p class="text-sm text-gray-600 mb-1">Promedio histórico</p>
+                        <p id="historicalAverage" class="text-2xl font-bold text-orange-600">$0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <h4 class="font-semibold mb-4">Detalle del pago usado</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <p class="text-gray-500">Tipo de pago</p>
+                        <p id="usedPaymentType" class="font-semibold">-</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Monto usado</p>
+                        <p id="usedPaymentAmount" class="font-semibold">-</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Porcentaje usado</p>
+                        <p id="usedPaymentPercentage" class="font-semibold">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="p-6">
+                    <h4 class="font-semibold">Pagos proyectados</h4>
+                    <p class="text-sm text-gray-500 mt-1">Pagos por período según la frecuencia seleccionada.</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pago</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">% pago</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor inversión</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTable" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="initialState" class="text-center py-12">
+            <p class="text-gray-500 text-lg">Configura tu inversión y haz clic en "Simular"</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const formatCurrency = (value) => new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        maximumFractionDigits: 0
+    }).format(value || 0);
+
+    const formatPercent = (value) => `${(value || 0).toFixed(2)}%`;
+
+    const parseHistoricalPayments = (input) => {
+        if (!input) {
+            return [];
+        }
+        return input
+            .split(/[\n,]+/)
+            .map(value => parseFloat(value.trim()))
+            .filter(value => !Number.isNaN(value) && value >= 0)
+            .slice(0, 12);
+    };
+
+    const paymentTypeLabels = {
+        fixed: 'Fijo (monto)',
+        percentage: 'Porcentaje',
+        historical: 'Promedio histórico'
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('investmentStartDate').value = today;
+
+        document.getElementById('paymentType').addEventListener('change', updatePaymentFields);
+        updatePaymentFields();
+
+        document.getElementById('investmentForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            await runSimulation();
+        });
+    });
+
+    function updatePaymentFields() {
+        const paymentType = document.getElementById('paymentType').value;
+        const fixedField = document.getElementById('fixedAmountField');
+        const percentageField = document.getElementById('percentageField');
+
+        fixedField.classList.toggle('hidden', paymentType !== 'fixed');
+        percentageField.classList.toggle('hidden', paymentType !== 'percentage');
+    }
+
+    async function runSimulation() {
+        const paymentType = document.getElementById('paymentType').value;
+        const payload = {
+            initial_amount: parseFloat(document.getElementById('initialAmount').value),
+            years: parseInt(document.getElementById('investmentYears').value, 10),
+            payment_frequency: document.getElementById('paymentFrequency').value,
+            payment_type: paymentType,
+            payment_amount: paymentType === 'fixed' ? parseFloat(document.getElementById('paymentAmount').value || 0) : null,
+            payment_percentage: paymentType === 'percentage' ? parseFloat(document.getElementById('paymentPercentage').value || 0) : null,
+            annual_valuation_rate: parseFloat(document.getElementById('annualValuationRate').value || 0),
+            start_date: document.getElementById('investmentStartDate').value,
+            historical_payments: parseHistoricalPayments(document.getElementById('historicalPayments').value)
+        };
+
+        const response = await fetch('/api/investment-simulator/calculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            alert('No se pudo calcular la simulación. Revisa los datos ingresados.');
+            return;
+        }
+
+        const data = await response.json();
+
+        document.getElementById('totalPayments').textContent = formatCurrency(data.total_payments);
+        document.getElementById('projectedValue').textContent = formatCurrency(data.projected_value);
+        document.getElementById('projectedAverage').textContent = `${formatCurrency(data.projected_average_amount)} (${formatPercent(data.projected_average_percentage)})`;
+        document.getElementById('historicalAverage').textContent = data.historical_average_amount
+            ? `${formatCurrency(data.historical_average_amount)} (${formatPercent(data.historical_average_percentage)})`
+            : 'Sin histórico';
+
+        document.getElementById('usedPaymentType').textContent = paymentTypeLabels[paymentType];
+        document.getElementById('usedPaymentAmount').textContent = data.used_payment_amount
+            ? formatCurrency(data.used_payment_amount)
+            : 'Variable';
+        document.getElementById('usedPaymentPercentage').textContent = formatPercent(data.used_payment_percentage);
+
+        renderSchedule(data.schedule);
+
+        document.getElementById('resultsSection').classList.remove('hidden');
+        document.getElementById('initialState').classList.add('hidden');
+    }
+
+    function renderSchedule(schedule) {
+        const tbody = document.getElementById('scheduleTable');
+        tbody.innerHTML = '';
+
+        schedule.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-6 py-4 text-sm text-gray-700">${row.payment_number}</td>
+                <td class="px-6 py-4 text-sm text-gray-700">${row.date}</td>
+                <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(row.payment_amount)}</td>
+                <td class="px-6 py-4 text-sm text-right text-gray-700">${formatPercent(row.payment_rate)}</td>
+                <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(row.investment_value)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+</script>
+{% endblock %}
