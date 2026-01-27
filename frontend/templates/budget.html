@@ -8,7 +8,7 @@
     <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-6">
         <div>
             <div class="flex items-center space-x-4 mb-3">
-                <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <div class="w-12 h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center shadow-strong">
                     <span class="text-2xl">💰</span>
                 </div>
                 <div>
@@ -20,10 +20,10 @@
             <p class="text-neutral-600 text-lg font-medium ml-16">Dale un propósito a cada peso - Asigna en COP o USD</p>
         </div>
         <div class="flex items-center space-x-3">
-            <button onclick="openNewGroupModal()" class="btn-primary flex items-center shadow-lg">
+            <button onclick="openNewGroupModal()" class="btn-primary flex items-center shadow-strong">
                 <span class="mr-2 text-xl">+</span> Nuevo Grupo
             </button>
-            <input type="month" id="monthSelect" class="input-field shadow-md">
+            <input type="month" id="monthSelect" class="input-field shadow-medium">
         </div>
     </div>
 </div>
@@ -31,7 +31,7 @@
 <!-- Budget Summary Grid con diseño mejorado -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
     <!-- Ready to Assign Banner -->
-    <div class="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-lg p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30">
+    <div class="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30">
         <div class="flex justify-between items-start">
             <div class="flex-1">
                 <div class="flex items-center space-x-2 mb-4">
@@ -47,7 +47,7 @@
     </div>
 
     <!-- Total Assigned This Month Banner -->
-    <div class="bg-gradient-to-br from-accent-500 via-accent-600 to-accent-700 rounded-card shadow-lg p-8 hover:shadow-xl transition-all duration-300 border border-accent-400/30">
+    <div class="bg-gradient-to-br from-accent-500 via-accent-600 to-accent-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-accent-400/30">
         <div class="flex justify-between items-start">
             <div class="flex-1">
                 <div class="flex items-center space-x-2 mb-4">
@@ -63,7 +63,7 @@
     </div>
 
     <!-- Total Available Banner -->
-    <div class="bg-gradient-to-br from-success-500 via-success-600 to-success-700 rounded-card shadow-lg p-8 hover:shadow-xl transition-all duration-300 border border-success-400/30">
+    <div class="bg-gradient-to-br from-success-500 via-success-600 to-success-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-success-400/30">
         <div class="flex justify-between items-start">
             <div class="flex-1">
                 <div class="flex items-center space-x-2 mb-4">
@@ -120,7 +120,7 @@
             <p class="text-sm text-danger-800 mb-3">
                 Ajusta las asignaciones o los saldos de tus cuentas (excluyendo deudas) para corregirlo.
             </p>
-            <div class="bg-danger-100 rounded-lg p-3 inline-block">
+            <div class="bg-danger-100 rounded-card p-3 inline-block">
                 <p class="text-sm font-semibold text-danger-900">
                     Exceso: <span id="overallocatedCOP" class="font-bold">$0</span> /
                     <span id="overallocatedUSD" class="font-bold">US$0.00</span>
@@ -183,7 +183,7 @@
 
         <!-- Initial Amount Field (only for savings/accumulate categories) -->
         <div id="initialAmountSection" class="mb-6 hidden">
-            <div class="relative overflow-hidden bg-gradient-to-br from-secondary-500 to-secondary-600 p-6 rounded-card shadow-lg border-2 border-secondary-400">
+            <div class="relative overflow-hidden bg-gradient-to-br from-secondary-500 to-secondary-600 p-6 rounded-card shadow-strong border-2 border-secondary-400">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
                 <div class="relative">
                     <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
@@ -192,7 +192,7 @@
                     </label>
                     <div class="flex space-x-3">
                         <div class="relative">
-                            <select id="modalInitialCurrency" class="px-4 py-3 pr-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 font-bold focus:ring-4 focus:ring-secondary-300 focus:border-secondary-400 transition-all cursor-pointer appearance-none shadow-md hover:shadow-lg">
+                            <select id="modalInitialCurrency" class="px-4 py-3 pr-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 font-bold focus:ring-4 focus:ring-secondary-300 focus:border-secondary-400 transition-all cursor-pointer appearance-none shadow-medium hover:shadow-strong">
                                 <option value="COP" class="text-neutral-900">COP</option>
                                 <option value="USD" class="text-neutral-900">USD</option>
                             </select>
@@ -206,7 +206,7 @@
                         <div class="relative flex-1">
                             <span class="absolute left-4 top-3.5 text-secondary-600 font-bold text-lg">$</span>
                             <input type="number" id="modalInitialAmount"
-                                   class="w-full px-4 py-3 pl-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 placeholder-neutral-400 text-xl font-bold focus:ring-4 focus:ring-secondary-300 focus:border-secondary-400 transition-all shadow-md hover:shadow-lg hover:border-secondary-300 cursor-text"
+                                   class="w-full px-4 py-3 pl-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 placeholder-neutral-400 text-xl font-bold focus:ring-4 focus:ring-secondary-300 focus:border-secondary-400 transition-all shadow-medium hover:shadow-strong hover:border-secondary-300 cursor-text"
                                    placeholder="0"
                                    step="1000">
                         </div>
@@ -221,7 +221,7 @@
         <!-- BOTH CURRENCY FIELDS ultra modernos -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <!-- COP Field -->
-            <div class="relative overflow-hidden bg-gradient-to-br from-primary-500 to-primary-600 p-6 rounded-card shadow-lg border-2 border-primary-400">
+            <div class="relative overflow-hidden bg-gradient-to-br from-primary-500 to-primary-600 p-6 rounded-card shadow-strong border-2 border-primary-400">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
                 <div class="relative">
                     <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
@@ -231,17 +231,17 @@
                     <div class="relative">
                         <span class="absolute left-4 top-4 text-primary-600 font-bold text-xl z-10">$</span>
                         <input type="number" id="modalAmountCOP"
-                               class="w-full px-4 py-3 pl-10 border-3 border-primary-300 rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-primary-200 focus:border-primary-500 transition-all shadow-md hover:shadow-lg hover:border-primary-400 cursor-text"
+                               class="w-full px-4 py-3 pl-10 border-3 border-primary-300 rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-primary-200 focus:border-primary-500 transition-all shadow-medium hover:shadow-strong hover:border-primary-400 cursor-text"
                                placeholder="0"
                                step="1000"
                                onInput="updateConversion('COP')">
                     </div>
-                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-lg" id="copConversionHint"></p>
+                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-card" id="copConversionHint"></p>
                 </div>
             </div>
 
             <!-- USD Field -->
-            <div class="relative overflow-hidden bg-gradient-to-br from-success-500 to-success-600 p-6 rounded-card shadow-lg border-2 border-success-400">
+            <div class="relative overflow-hidden bg-gradient-to-br from-success-500 to-success-600 p-6 rounded-card shadow-strong border-2 border-success-400">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
                 <div class="relative">
                     <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
@@ -251,12 +251,12 @@
                     <div class="relative">
                         <span class="absolute left-4 top-4 text-success-600 font-bold text-lg z-10">US$</span>
                         <input type="number" id="modalAmountUSD"
-                               class="w-full px-4 py-3 pl-14 border-3 border-success-300 rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-success-200 focus:border-success-500 transition-all shadow-md hover:shadow-lg hover:border-success-400 cursor-text"
+                               class="w-full px-4 py-3 pl-14 border-3 border-success-300 rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-success-200 focus:border-success-500 transition-all shadow-medium hover:shadow-strong hover:border-success-400 cursor-text"
                                placeholder="0.00"
                                step="0.01"
                                onInput="updateConversion('USD')">
                     </div>
-                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-lg" id="usdConversionHint"></p>
+                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-card" id="usdConversionHint"></p>
                 </div>
             </div>
         </div>
@@ -639,7 +639,7 @@
             if (groupCOP.is_income) return ''; // Skip income group
 
             return `
-                <div class="bg-white rounded-lg shadow">
+                <div class="card">
                     <!-- Group Header (Collapsible) -->
                     <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
                          onclick="toggleGroup(${groupCOP.id})">

@@ -4,20 +4,20 @@
 
 {% block content %}
 <div class="mb-8">
-    <div class="flex justify-between items-center">
+    <div class="page-header">
         <div>
-            <h2 class="text-5xl font-extrabold text-neutral-900 tracking-tight">Transacciones Automáticas</h2>
-            <p class="text-neutral-600 mt-2 text-lg">Configura transacciones recurrentes para no olvidarlas</p>
+            <h2 class="page-title">Transacciones Automáticas</h2>
+            <p class="page-subtitle mt-2">Configura transacciones recurrentes para no olvidarlas</p>
         </div>
         <button onclick="openCreateModal()" class="btn-primary flex items-center">
-            <span class="mr-2 text-xl">🔄</span> Nueva Automática
+            <span class="mr-2 text-xl">🔄</span> Nueva automática
         </button>
     </div>
 </div>
 
 <!-- Stats Cards -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="card p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">Activas</p>
@@ -27,7 +27,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="card p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">Inactivas</p>
@@ -37,7 +37,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="card p-6">
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm text-gray-500">Total</p>
@@ -49,7 +49,7 @@
 </div>
 
 <!-- Filters -->
-<div class="bg-white rounded-lg shadow p-4 mb-6">
+<div class="card p-4 mb-6">
     <div class="flex items-center space-x-4">
         <label class="flex items-center space-x-2">
             <input type="radio" name="filter" value="all" checked onchange="filterRecurring()">
@@ -67,7 +67,7 @@
 </div>
 
 <!-- Recurring Transactions List -->
-<div class="bg-white rounded-lg shadow">
+<div class="card">
     <div class="px-6 py-4 border-b border-gray-200">
         <h3 class="text-lg font-semibold text-gray-800">Lista de Transacciones Automáticas</h3>
     </div>
@@ -355,7 +355,7 @@
 
         if (recurringTransactions.length === 0) {
             container.innerHTML = `
-                <div class="px-6 py-12 text-center text-gray-500">
+                <div class="px-6 py-12 text-center text-neutral-500">
                     <div class="text-6xl mb-4">🔄</div>
                     <p class="text-lg">No hay transacciones automáticas configuradas</p>
                     <p class="text-sm mt-2">Haz click en "+ Nueva Transacción Automática" para crear una</p>
@@ -377,19 +377,19 @@
             const typeLabel = transactionType === 'income' ? 'Ingreso automático' : 'Gasto automático';
 
             return `
-                <div class="px-6 py-4 hover:bg-gray-50 ${!isActive ? 'opacity-60' : ''}">
+                <div class="px-6 py-4 hover:bg-neutral-50 ${!isActive ? 'opacity-60' : ''}">
                     <div class="flex items-center justify-between">
                         <div class="flex-1">
                             <div class="flex items-center space-x-3">
                                 <div class="text-2xl">${transactionType === 'income' ? '💰' : '💸'}</div>
                                 <div>
-                                    <h4 class="font-semibold text-gray-800">${rt.description}</h4>
-                                    <p class="text-sm text-gray-600">
+                                    <h4 class="font-semibold text-neutral-800">${rt.description}</h4>
+                                    <p class="text-sm text-neutral-600">
                                         ${rt.account_name}
                                         ${rt.category_name ? `→ ${rt.category_name}` : ''}
                                         ${rt.payee_name ? `(${rt.payee_name})` : ''}
                                     </p>
-                                    <p class="text-xs text-gray-500 mt-1">
+                                    <p class="text-xs text-neutral-500 mt-1">
                                         ${frequencyText} | Próxima: ${nextDate}
                                     </p>
                                 </div>
@@ -411,17 +411,17 @@
 
                             <div class="flex space-x-2">
                                 <button onclick="toggleActive(${rt.id})"
-                                        class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                        class="p-2 text-neutral-600 hover:bg-neutral-100 rounded-button"
                                         title="${isActive ? 'Pausar' : 'Activar'}">
                                     ${isActive ? '⏸️' : '▶️'}
                                 </button>
                                 <button onclick="editRecurring(${rt.id})"
-                                        class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                                        class="p-2 text-primary-600 hover:bg-primary-50 rounded-button"
                                         title="Editar">
                                     ✏️
                                 </button>
                                 <button onclick="deleteRecurring(${rt.id})"
-                                        class="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                        class="p-2 text-danger-600 hover:bg-danger-50 rounded-button"
                                         title="Eliminar">
                                     🗑️
                                 </button>

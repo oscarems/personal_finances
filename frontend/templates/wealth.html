@@ -4,24 +4,28 @@
 
 {% block content %}
 <div class="mb-8">
-    <h2 class="text-3xl font-bold text-gray-800">Patrimonio</h2>
-    <p class="text-gray-600 mt-2">Gestiona tus activos, inversiones y revisa tu patrimonio neto.</p>
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Patrimonio</h2>
+            <p class="page-subtitle mt-2">Gestiona tus activos, inversiones y revisa tu patrimonio neto.</p>
+        </div>
+    </div>
 </div>
 
 <!-- Filters -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-4">Filtros</h3>
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Filtros</h3>
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-            <select id="currencyFilter" onchange="loadWealthDashboard()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+            <select id="currencyFilter" onchange="loadWealthDashboard()" class="input-field">
                 <option value="1">COP - Peso Colombiano</option>
                 <option value="2">USD - Dólar Estadounidense</option>
             </select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Periodo</label>
-            <select id="periodFilter" onchange="updatePeriodDates(); loadWealthDashboard()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Periodo</label>
+            <select id="periodFilter" onchange="updatePeriodDates(); loadWealthDashboard()" class="input-field">
                 <option value="current_month">Mes Actual</option>
                 <option value="last_month">Mes Anterior</option>
                 <option value="last_3_months">Últimos 3 Meses</option>
@@ -31,36 +35,36 @@
             </select>
         </div>
         <div id="customDateStart" class="hidden">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Desde</label>
-            <input type="date" id="startDateFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Desde</label>
+            <input type="date" id="startDateFilter" class="input-field">
         </div>
         <div id="customDateEnd" class="hidden">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Hasta</label>
-            <input type="date" id="endDateFilter" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Hasta</label>
+            <input type="date" id="endDateFilter" class="input-field">
         </div>
     </div>
     <div id="customApply" class="hidden mt-4">
-        <button onclick="loadWealthDashboard()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <button onclick="loadWealthDashboard()" class="btn-primary">
             Aplicar Fechas
         </button>
     </div>
 </div>
 
 <!-- Net Worth -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-4">Patrimonio neto</h3>
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Patrimonio neto</h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div>
-            <p class="text-sm text-gray-600 mb-2">Patrimonio actual</p>
-            <p id="netWorthCurrent" class="text-2xl font-bold text-indigo-600">$0</p>
+            <p class="text-sm text-neutral-600 mb-2">Patrimonio actual</p>
+            <p id="netWorthCurrent" class="text-2xl font-bold text-primary-600">$0</p>
         </div>
         <div>
-            <p class="text-sm text-gray-600 mb-2">Cambio en el periodo</p>
-            <p id="netWorthChange" class="text-2xl font-bold text-indigo-600">$0</p>
+            <p class="text-sm text-neutral-600 mb-2">Cambio en el periodo</p>
+            <p id="netWorthChange" class="text-2xl font-bold text-primary-600">$0</p>
         </div>
         <div>
-            <p class="text-sm text-gray-600 mb-2">% Cambio</p>
-            <p id="netWorthChangePct" class="text-2xl font-bold text-indigo-600">0%</p>
+            <p class="text-sm text-neutral-600 mb-2">% Cambio</p>
+            <p id="netWorthChangePct" class="text-2xl font-bold text-primary-600">0%</p>
         </div>
     </div>
     <div class="overflow-x-auto">
@@ -83,52 +87,52 @@
 </div>
 
 <!-- Patrimonio adicional -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-2">Inmuebles</h3>
-    <p class="text-sm text-gray-500 mb-4">Registra propiedades y bienes raíces. Puedes asociar una hipoteca para ver el vínculo con tu deuda.</p>
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-2">Inmuebles</h3>
+    <p class="text-sm text-neutral-500 mb-4">Registra propiedades y bienes raíces. Puedes asociar una hipoteca para ver el vínculo con tu deuda.</p>
     <div class="grid grid-cols-1 md:grid-cols-8 gap-4 mb-4">
         <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
-            <input id="wealthPropertyName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Apartamento, local comercial">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Nombre</label>
+            <input id="wealthPropertyName" type="text" class="input-field" placeholder="Ej: Apartamento, local comercial">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
-            <input id="wealthPropertyValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Valor</label>
+            <input id="wealthPropertyValue" type="number" class="input-field" placeholder="0">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Valorización esperada (%)</label>
-            <input id="wealthPropertyAppreciationRate" type="number" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 3.5">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Valorización esperada (%)</label>
+            <input id="wealthPropertyAppreciationRate" type="number" step="0.01" class="input-field" placeholder="Ej: 3.5">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-            <select id="wealthPropertyCurrency" class="wealth-asset-currency w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+            <select id="wealthPropertyCurrency" class="wealth-asset-currency input-field"></select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
-            <input id="wealthPropertyDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
+            <input id="wealthPropertyDate" type="date" class="input-field">
         </div>
         <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Hipoteca asociada</label>
-            <select id="wealthPropertyMortgage" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Hipoteca asociada</label>
+            <select id="wealthPropertyMortgage" class="input-field">
                 <option value="">Sin hipoteca</option>
             </select>
         </div>
         <div class="md:col-span-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
-            <input id="wealthPropertyNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Notas</label>
+            <input id="wealthPropertyNotes" type="text" class="input-field" placeholder="Detalles adicionales">
         </div>
         <div class="md:col-span-6 flex justify-end gap-3">
-            <button id="wealthPropertyCancelEdit" onclick="cancelWealthEdit('inmueble')" class="hidden px-6 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50">
+            <button id="wealthPropertyCancelEdit" onclick="cancelWealthEdit('inmueble')" class="hidden btn-secondary">
                 Cancelar edición
             </button>
-            <button id="wealthPropertySubmit" onclick="addWealthAsset('inmueble')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button id="wealthPropertySubmit" onclick="addWealthAsset('inmueble')" class="btn-primary">
                 Agregar inmueble
             </button>
         </div>
     </div>
     <div class="flex items-center justify-between mb-4">
-        <p class="text-sm text-gray-600">Total inmuebles</p>
-        <p id="wealthPropertiesTotal" class="text-lg font-semibold text-indigo-600">$0</p>
+        <p class="text-sm text-neutral-600">Total inmuebles</p>
+        <p id="wealthPropertiesTotal" class="text-lg font-semibold text-primary-600">$0</p>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -152,53 +156,53 @@
     </div>
 </div>
 
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-2">Inversiones</h3>
-    <p class="text-sm text-gray-500 mb-4">Incluye portafolios, fondos, fiduciarias y otros instrumentos. Registra rendimientos para darle seguimiento.</p>
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-2">Inversiones</h3>
+    <p class="text-sm text-neutral-500 mb-4">Incluye portafolios, fondos, fiduciarias y otros instrumentos. Registra rendimientos para darle seguimiento.</p>
     <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
         <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
-            <input id="wealthInvestmentName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Portafolio ETF, fiducia">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Nombre</label>
+            <input id="wealthInvestmentName" type="text" class="input-field" placeholder="Ej: Portafolio ETF, fiducia">
         </div>
         <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de inversión</label>
-            <select id="wealthInvestmentType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Tipo de inversión</label>
+            <select id="wealthInvestmentType" class="input-field">
                 <option value="">Selecciona</option>
             </select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
-            <input id="wealthInvestmentValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Valor</label>
+            <input id="wealthInvestmentValue" type="number" class="input-field" placeholder="0">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-            <select id="wealthInvestmentCurrency" class="wealth-asset-currency w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+            <select id="wealthInvestmentCurrency" class="wealth-asset-currency input-field"></select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
-            <input id="wealthInvestmentDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
+            <input id="wealthInvestmentDate" type="date" class="input-field">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Rendimiento (%)</label>
-            <input id="wealthInvestmentReturnRate" type="number" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 8.5">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Rendimiento (%)</label>
+            <input id="wealthInvestmentReturnRate" type="number" step="0.01" class="input-field" placeholder="Ej: 8.5">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Rendimiento</label>
-            <input id="wealthInvestmentReturnAmount" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: 150000">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Rendimiento</label>
+            <input id="wealthInvestmentReturnAmount" type="number" class="input-field" placeholder="Ej: 150000">
         </div>
         <div class="md:col-span-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
-            <input id="wealthInvestmentNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Notas</label>
+            <input id="wealthInvestmentNotes" type="text" class="input-field" placeholder="Detalles adicionales">
         </div>
         <div class="md:col-span-6 flex justify-end">
-            <button onclick="addWealthAsset('inversion')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button onclick="addWealthAsset('inversion')" class="btn-primary">
                 Agregar inversión
             </button>
         </div>
     </div>
     <div class="flex items-center justify-between mb-4">
-        <p class="text-sm text-gray-600">Total inversiones</p>
-        <p id="wealthInvestmentsTotal" class="text-lg font-semibold text-indigo-600">$0</p>
+        <p class="text-sm text-neutral-600">Total inversiones</p>
+        <p id="wealthInvestmentsTotal" class="text-lg font-semibold text-primary-600">$0</p>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -223,39 +227,39 @@
     </div>
 </div>
 
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-2">Activos</h3>
-    <p class="text-sm text-gray-500 mb-4">Incluye vehículos, equipos y otros bienes físicos no inmobiliarios.</p>
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-2">Activos</h3>
+    <p class="text-sm text-neutral-500 mb-4">Incluye vehículos, equipos y otros bienes físicos no inmobiliarios.</p>
     <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
         <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre</label>
-            <input id="wealthAssetName" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Vehículo, colección">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Nombre</label>
+            <input id="wealthAssetName" type="text" class="input-field" placeholder="Ej: Vehículo, colección">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Valor</label>
-            <input id="wealthAssetValue" type="number" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="0">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Valor</label>
+            <input id="wealthAssetValue" type="number" class="input-field" placeholder="0">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
-            <select id="wealthAssetCurrency" class="wealth-asset-currency w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+            <select id="wealthAssetCurrency" class="wealth-asset-currency input-field"></select>
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
-            <input id="wealthAssetDate" type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
+            <input id="wealthAssetDate" type="date" class="input-field">
         </div>
         <div class="md:col-span-6">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
-            <input id="wealthAssetNotes" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Detalles adicionales">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Notas</label>
+            <input id="wealthAssetNotes" type="text" class="input-field" placeholder="Detalles adicionales">
         </div>
         <div class="md:col-span-6 flex justify-end">
-            <button onclick="addWealthAsset('activo')" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <button onclick="addWealthAsset('activo')" class="btn-primary">
                 Agregar activo
             </button>
         </div>
     </div>
     <div class="flex items-center justify-between mb-4">
-        <p class="text-sm text-gray-600">Total activos</p>
-        <p id="wealthAssetsTotal" class="text-lg font-semibold text-indigo-600">$0</p>
+        <p class="text-sm text-neutral-600">Total activos</p>
+        <p id="wealthAssetsTotal" class="text-lg font-semibold text-primary-600">$0</p>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">

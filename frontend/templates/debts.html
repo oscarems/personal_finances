@@ -3,14 +3,16 @@
 {% block title %}Deudas - Personal Finances{% endblock %}
 
 {% block content %}
-<div class="mb-8 flex justify-between items-center">
-    <div>
-        <h2 class="text-5xl font-extrabold text-neutral-900 tracking-tight">Gestión de Deudas</h2>
-        <p class="text-neutral-600 mt-2 text-lg">Administra tus tarjetas de crédito, préstamos e hipotecas</p>
+<div class="mb-8">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Gestión de deudas</h2>
+            <p class="page-subtitle mt-2">Administra tus tarjetas de crédito, préstamos e hipotecas</p>
+        </div>
+        <button onclick="openNewDebtModal()" class="btn-primary flex items-center">
+            <span class="mr-2 text-xl">➕</span> Nueva deuda
+        </button>
     </div>
-    <button onclick="openNewDebtModal()" class="btn-primary flex items-center">
-        <span class="mr-2 text-xl">➕</span> Nueva Deuda
-    </button>
 </div>
 
 <!-- Summary Cards -->
@@ -241,7 +243,7 @@
 
         // Total debts
         html += `
-            <div class="bg-white rounded-lg shadow p-6">
+            <div class="card p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-gray-500 text-sm">Total Deudas</p>
@@ -255,7 +257,7 @@
         // Total current by currency
         for (const [currency, amount] of Object.entries(data.total_current || {})) {
             html += `
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="card p-6">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm">Deuda ${currency}</p>
@@ -272,7 +274,7 @@
         // Average interest
         if (data.average_interest_rate > 0) {
             html += `
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="card p-6">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm">Interés Promedio</p>
@@ -309,7 +311,7 @@
             const progressPercent = debt.paid_percentage || 0;
 
             return `
-                <div class="border border-gray-200 rounded-lg p-6 mb-4 hover:shadow-md transition">
+                <div class="border border-gray-200 rounded-card p-6 mb-4 hover:shadow-medium transition">
                     <div class="flex justify-between items-start mb-4">
                         <div>
                             <h4 class="text-lg font-semibold text-gray-800">${debt.name}</h4>
@@ -550,21 +552,21 @@
         let html = `
             <!-- Summary Section con gradientes vibrantes -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="relative overflow-hidden bg-gradient-to-br from-danger-500 to-danger-600 p-6 rounded-card shadow-lg border-2 border-danger-400">
+                <div class="relative overflow-hidden bg-gradient-to-br from-danger-500 to-danger-600 p-6 rounded-card shadow-strong border-2 border-danger-400">
                     <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
                     <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">Saldo Actual</p>
                     <p class="text-4xl font-extrabold text-white mt-2 relative z-10">
                         ${symbol}${debt.current_balance.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
                     </p>
                 </div>
-                <div class="relative overflow-hidden bg-gradient-to-br from-neutral-600 to-neutral-700 p-6 rounded-card shadow-lg border-2 border-neutral-500">
+                <div class="relative overflow-hidden bg-gradient-to-br from-neutral-600 to-neutral-700 p-6 rounded-card shadow-strong border-2 border-neutral-500">
                     <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
                     <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">Monto Original</p>
                     <p class="text-4xl font-extrabold text-white mt-2 relative z-10">
                         ${symbol}${debt.original_amount.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
                     </p>
                 </div>
-                <div class="relative overflow-hidden bg-gradient-to-br from-success-500 to-success-600 p-6 rounded-card shadow-lg border-2 border-success-400">
+                <div class="relative overflow-hidden bg-gradient-to-br from-success-500 to-success-600 p-6 rounded-card shadow-strong border-2 border-success-400">
                     <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
                     <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">Total Pagado</p>
                     <p class="text-4xl font-extrabold text-white mt-2 relative z-10">
@@ -580,7 +582,7 @@
                     <span>⏳ ${(100 - progressPercent).toFixed(1)}% restante</span>
                 </div>
                 <div class="w-full bg-neutral-200 rounded-full h-6 shadow-inner">
-                    <div class="bg-gradient-to-r from-success-500 to-success-600 h-6 rounded-full transition-all duration-500 shadow-lg flex items-center justify-end pr-3" style="width: ${progressPercent}%">
+                    <div class="bg-gradient-to-r from-success-500 to-success-600 h-6 rounded-full transition-all duration-500 shadow-strong flex items-center justify-end pr-3" style="width: ${progressPercent}%">
                         ${progressPercent > 10 ? '<span class="text-xs font-bold text-white">💪</span>' : ''}
                     </div>
                 </div>
