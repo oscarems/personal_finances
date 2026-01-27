@@ -313,6 +313,7 @@ def init_demo_data(db_session):
                 value=450000000.0,
                 return_rate=6.0,
                 return_amount=27000000.0,
+                expected_appreciation_rate=4.0,
                 currency_id=cop_currency.id,
                 as_of_date=date.today(),
                 notes='Activo inmobiliario de demostración'
