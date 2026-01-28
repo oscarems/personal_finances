@@ -12,6 +12,7 @@ from dateutil.relativedelta import relativedelta
 from backend.database import get_db
 from backend.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset
 from backend.utils.wealth import apply_expected_appreciation, apply_depreciation
+from backend.services.mortgage_service import calculate_monthly_payment
 
 router = APIRouter()
 
@@ -77,9 +78,67 @@ def _payment_principal(payment: DebtPayment) -> float:
     return 0.0
 
 
+def _calculate_months_between(start_date: date, end_date: date) -> int:
+    return max(0, (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month))
+
+
+def _calculate_mortgage_balance(debt: Debt, month_end: date, today: date) -> float:
+    if debt.start_date and debt.start_date > month_end:
+        return 0.0
+    if not debt.original_amount:
+        return 0.0
+
+    annual_rate = (debt.interest_rate or 0) / 100
+    monthly_rate = (1 + annual_rate) ** (1 / 12) - 1 if annual_rate > 0 else 0.0
+    base_payment = None
+    if debt.has_insurance and debt.loan_years and debt.original_amount:
+        base_payment = calculate_monthly_payment(debt.original_amount, annual_rate, debt.loan_years)
+
+    def apply_payments(payments: list, balance: float) -> float:
+        for payment in payments:
+            payment_amount = payment.amount or 0.0
+            fees = payment.fees or 0.0
+            insurance_amount = 0.0
+            if base_payment:
+                insurance_amount = max(0.0, payment_amount - base_payment)
+            interest = payment.interest if payment.interest is not None else balance * monthly_rate
+            principal = payment.principal if payment.principal is not None else payment_amount - insurance_amount - fees - interest
+            principal = max(0.0, principal)
+            balance = max(0.0, balance - principal)
+        return balance
+
+    balance = debt.original_amount
+    effective_date = min(month_end, today)
+    payments = sorted(
+        [p for p in debt.payments if p.payment_date and p.payment_date <= effective_date],
+        key=lambda p: p.payment_date
+    )
+    balance = apply_payments(payments, balance)
+
+    if month_end <= today:
+        return balance
+
+    projection_balance = balance
+    current_month_end = date(today.year, today.month, 1) + relativedelta(months=1) - relativedelta(days=1)
+    months_ahead = _calculate_months_between(current_month_end, month_end)
+    projection_payment = base_payment or debt.monthly_payment or 0.0
+
+    for _ in range(months_ahead):
+        if projection_payment <= 0:
+            break
+        interest = projection_balance * monthly_rate
+        principal = max(0.0, projection_payment - interest)
+        projection_balance = max(0.0, projection_balance - principal)
+
+    return projection_balance
+
+
 def _calculate_debt_balance(debt: Debt, month_end: date, today: date) -> float:
     if debt.start_date and debt.start_date > month_end:
         return 0.0
+
+    if debt.debt_type == "mortgage":
+        return _calculate_mortgage_balance(debt, month_end, today)
 
     if month_end >= today and debt.current_balance is not None:
         balance = debt.current_balance
@@ -99,7 +158,24 @@ def _calculate_debt_balance(debt: Debt, month_end: date, today: date) -> float:
         else:
             balance = debt.original_amount or 0
 
-    return max(balance, 0.0)
+    if month_end <= today:
+        return max(balance, 0.0)
+
+    projection_balance = balance
+    current_month_end = date(today.year, today.month, 1) + relativedelta(months=1) - relativedelta(days=1)
+    months_ahead = _calculate_months_between(current_month_end, month_end)
+    monthly_payment = debt.monthly_payment or 0.0
+    annual_rate = (debt.interest_rate or 0) / 100
+    monthly_rate = (1 + annual_rate) ** (1 / 12) - 1 if annual_rate > 0 else 0.0
+
+    for _ in range(months_ahead):
+        if monthly_payment <= 0:
+            break
+        interest = projection_balance * monthly_rate
+        principal = max(0.0, monthly_payment - interest)
+        projection_balance = max(0.0, projection_balance - principal)
+
+    return max(projection_balance, 0.0)
 
 
 def _build_mortgage_balance_map(debt: Debt, end_date: date, today: date) -> Optional[dict]:
@@ -684,9 +760,17 @@ def get_debt_balance_history(
 
     currency = db.query(Currency).get(currency_id)
 
+    current_month_key = date.today().strftime('%Y-%m')
+    current_total = next(
+        (item['total_debt'] for item in monthly_totals if item['month'] == current_month_key),
+        monthly_totals[-1]['total_debt'] if monthly_totals else 0
+    )
+
     return {
         'monthly': monthly_totals,
-        'current_total_debt': monthly_totals[-1]['total_debt'] if monthly_totals else 0,
+        'current_total_debt': current_total,
+        'starting_total_debt': monthly_totals[0]['total_debt'] if monthly_totals else 0,
+        'projected_total_debt': monthly_totals[-1]['total_debt'] if monthly_totals else 0,
         'debt_types': debt_types,
         'currency': currency.to_dict() if currency else None
     }
@@ -1546,24 +1630,47 @@ def get_debt_summary(
 
     # Get all active debts
     debts = db.query(Debt).filter(Debt.is_active == True).all()
+    currencies = db.query(Currency).all()
+    currency_map = {currency.code: currency.id for currency in currencies}
 
     debt_details = []
     total_debt = 0
+    total_original = 0
     total_monthly_payment = 0
     total_interest_paid = 0
+    projected_total = 0
+    today = date.today()
+    projection_end = today + relativedelta(months=12)
 
     for debt in debts:
+        debt_currency_id = currency_map.get(debt.currency_code, currency_id)
+        current_balance_raw = _calculate_debt_balance(debt, today, today)
+        projected_balance_raw = _calculate_debt_balance(debt, projection_end, today)
+        original_amount_raw = debt.original_amount or 0
+
         # Convert amounts to selected currency
         current_balance = convert_to_currency(
-            debt.current_balance or 0,
-            debt.currency_code,
+            current_balance_raw,
+            debt_currency_id,
             currency_id,
             exchange_rate
         )
 
         monthly_payment = convert_to_currency(
             debt.monthly_payment or 0,
-            debt.currency_code,
+            debt_currency_id,
+            currency_id,
+            exchange_rate
+        )
+        original_amount = convert_to_currency(
+            original_amount_raw,
+            debt_currency_id,
+            currency_id,
+            exchange_rate
+        )
+        projected_balance = convert_to_currency(
+            projected_balance_raw,
+            debt_currency_id,
             currency_id,
             exchange_rate
         )
@@ -1576,7 +1683,7 @@ def get_debt_summary(
         interest_paid = sum(
             convert_to_currency(
                 payment.interest or 0,
-                debt.currency_code,
+                debt_currency_id,
                 currency_id,
                 exchange_rate
             )
@@ -1600,24 +1707,22 @@ def get_debt_summary(
             'type': debt.debt_type,
             'institution': debt.institution,
             'current_balance': round(current_balance, 2),
-            'original_amount': convert_to_currency(
-                debt.original_amount or 0,
-                debt.currency_code,
-                currency_id,
-                exchange_rate
-            ),
+            'original_amount': round(original_amount, 2),
             'monthly_payment': round(monthly_payment, 2),
             'interest_rate': debt.interest_rate,
             'interest_paid': round(interest_paid, 2),
             'months_remaining': round(months_remaining, 1),
             'payoff_date': payoff_date,
             'start_date': debt.start_date.isoformat() if debt.start_date else None,
-            'payment_day': debt.payment_day
+            'payment_day': debt.payment_day,
+            'projected_balance': round(projected_balance, 2)
         })
 
         total_debt += current_balance
+        total_original += original_amount
         total_monthly_payment += monthly_payment
         total_interest_paid += interest_paid
+        projected_total += projected_balance
 
     # Sort by balance descending
     debt_details.sort(key=lambda x: x['current_balance'], reverse=True)
@@ -1628,6 +1733,8 @@ def get_debt_summary(
         'debts': debt_details,
         'totals': {
             'total_debt': round(total_debt, 2),
+            'total_original': round(total_original, 2),
+            'total_projected': round(projected_total, 2),
             'total_monthly_payment': round(total_monthly_payment, 2),
             'total_interest_paid': round(total_interest_paid, 2),
             'debt_count': len(debt_details)

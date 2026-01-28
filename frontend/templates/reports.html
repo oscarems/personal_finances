@@ -229,10 +229,18 @@
 <!-- Debt Summary -->
 <div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Resumen de deudas</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
         <div>
             <p class="text-sm text-gray-600 mb-2">Deuda total</p>
             <p id="debtTotal" class="text-2xl font-bold text-rose-600">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Capital original</p>
+            <p id="debtOriginal" class="text-2xl font-bold text-slate-700">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-600 mb-2">Deuda proyectada (12m)</p>
+            <p id="debtProjected" class="text-2xl font-bold text-rose-500">$0</p>
         </div>
         <div>
             <p class="text-sm text-gray-600 mb-2">Pago mensual total</p>
@@ -848,6 +856,8 @@
             const data = await res.json();
 
             document.getElementById('debtTotal').textContent = formatCurrency(data.totals?.total_debt || 0);
+            document.getElementById('debtOriginal').textContent = formatCurrency(data.totals?.total_original || 0);
+            document.getElementById('debtProjected').textContent = formatCurrency(data.totals?.total_projected || 0);
             document.getElementById('debtMonthly').textContent = formatCurrency(data.totals?.total_monthly_payment || 0);
             document.getElementById('debtInterest').textContent = formatCurrency(data.totals?.total_interest_paid || 0);
 

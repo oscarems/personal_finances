@@ -49,6 +49,7 @@ class Debt(Base):
     # Estado
     is_active = Column(Boolean, default=True)  # Si la deuda está activa
     is_consolidated = Column(Boolean, default=False)  # Si fue consolidada en otra deuda
+    has_insurance = Column(Boolean, default=False)  # Si la cuota incluye seguros
 
     # Relaciones
     account = relationship('Account', back_populates='debts')
@@ -85,6 +86,7 @@ class Debt(Base):
             'notes': self.notes,
             'is_active': self.is_active,
             'is_consolidated': self.is_consolidated,
+            'has_insurance': self.has_insurance,
         }
 
         # Cálculos adicionales
