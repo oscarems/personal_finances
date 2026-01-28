@@ -41,6 +41,14 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        if 'alerts_enabled' in columns:
+            print("✓ La columna 'alerts_enabled' ya existe")
+        else:
+            print("🔧 Agregando columna 'alerts_enabled' a la tabla categories...")
+            cursor.execute("ALTER TABLE categories ADD COLUMN alerts_enabled BOOLEAN DEFAULT 1")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
         cursor.execute("PRAGMA table_info(accounts)")
         account_columns = [row[1] for row in cursor.fetchall()]
 

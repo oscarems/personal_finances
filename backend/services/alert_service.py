@@ -183,6 +183,8 @@ def get_budget_alerts(
             category = db.query(Category).get(cat["category_id"])
             if not category or not category.category_group or category.category_group.is_income:
                 continue
+            if not getattr(category, "alerts_enabled", True):
+                continue
 
             rule = rules_by_category.get(cat["category_id"])
             if not rule and not include_unconfigured:
