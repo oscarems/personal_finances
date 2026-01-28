@@ -1,6 +1,8 @@
 """
 Debts API endpoints - Gestión de deudas
 """
+from __future__ import annotations
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
