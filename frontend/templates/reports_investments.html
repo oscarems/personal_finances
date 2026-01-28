@@ -62,6 +62,7 @@
                 <tr>
                     <th class="px-4 py-3 text-left">Mes</th>
                     <th class="px-4 py-3 text-right">Valor</th>
+                    <th class="px-4 py-3 text-right">Capital</th>
                     <th class="px-4 py-3 text-right">Ganancia neta</th>
                     <th class="px-4 py-3 text-right">Ganancia %</th>
                 </tr>
@@ -113,6 +114,7 @@
                     month: monthKey,
                     month_name: monthDate.toLocaleString('es-ES', { month: 'short', year: 'numeric' }),
                     total_value: 0,
+                    total_capital: 0,
                     total_return_amount: 0,
                     weighted_return_sum: 0,
                     total_value_for_rate: 0
@@ -123,6 +125,7 @@
             const returnAmount = asset.return_amount ?? 0;
             monthly[monthKey].total_value += value;
             monthly[monthKey].total_return_amount += returnAmount;
+            monthly[monthKey].total_capital += value - returnAmount;
             if (asset.return_rate !== null && asset.return_rate !== undefined && value) {
                 monthly[monthKey].weighted_return_sum += asset.return_rate * value;
                 monthly[monthKey].total_value_for_rate += value;
@@ -239,7 +242,7 @@
         const table = document.getElementById('investmentsTable');
         table.innerHTML = '';
         if (!series.length) {
-            table.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-center text-neutral-500">Sin datos disponibles.</td></tr>';
+            table.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-neutral-500">Sin datos disponibles.</td></tr>';
             return;
         }
 
@@ -248,6 +251,7 @@
             row.innerHTML = `
                 <td class="px-4 py-3 text-neutral-700">${item.month_name}</td>
                 <td class="px-4 py-3 text-right text-neutral-700">${formatCurrency(item.total_value)}</td>
+                <td class="px-4 py-3 text-right text-neutral-700">${formatCurrency(item.total_capital)}</td>
                 <td class="px-4 py-3 text-right text-emerald-600">${formatCurrency(item.total_return_amount)}</td>
                 <td class="px-4 py-3 text-right text-indigo-600">${item.return_pct}%</td>
             `;

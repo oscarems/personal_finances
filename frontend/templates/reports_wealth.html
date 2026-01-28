@@ -45,6 +45,10 @@
     <div class="bg-white rounded-card shadow-soft p-6">
         <p class="text-sm text-neutral-500 mb-2">Deuda total actual</p>
         <p id="totalDebtCurrent" class="text-2xl font-semibold text-rose-600">$0</p>
+        <div class="mt-2 text-xs text-neutral-500 space-y-1">
+            <p>Inicio del periodo: <span id="totalDebtStart">$0</span></p>
+            <p>Proyección 12 meses: <span id="totalDebtProjected">$0</span></p>
+        </div>
     </div>
 </div>
 
@@ -244,6 +248,8 @@
             document.getElementById('netWorthChange').textContent = formatCurrency(netWorthData.change || 0);
             document.getElementById('netWorthChangePct').textContent = `${netWorthData.change_percentage || 0}%`;
             document.getElementById('totalDebtCurrent').textContent = formatCurrency(debtData.current_total_debt || 0);
+            document.getElementById('totalDebtStart').textContent = formatCurrency(debtData.starting_total_debt || 0);
+            document.getElementById('totalDebtProjected').textContent = formatCurrency(debtData.projected_total_debt || 0);
 
             window.debtTypes = debtData.debt_types || [];
             renderNetWorthChart(netWorthData.monthly || []);

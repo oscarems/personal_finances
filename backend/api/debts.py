@@ -598,8 +598,16 @@ def get_debt_payments(debt_id: int, db: Session = Depends(get_db)):
     if not all_payments:
         return []
 
-    return sorted(
+    sorted_payments = sorted(
         all_payments,
+        key=lambda payment: date.fromisoformat(payment["payment_date"])
+    )
+
+    if debt.debt_type == "mortgage":
+        sorted_payments = _build_mortgage_payment_breakdown(debt, sorted_payments)
+
+    return sorted(
+        sorted_payments,
         key=lambda payment: date.fromisoformat(payment["payment_date"]),
         reverse=True
     )
