@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_
 from typing import Optional, Tuple
 from datetime import date, datetime
+import calendar
 from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
@@ -56,6 +57,84 @@ def convert_to_currency(amount: float, from_currency_id: int, to_currency_id: in
         return amount / exchange_rate
 
     return amount
+
+
+def _adjust_to_payment_day(base_date: date, payment_day: Optional[int]) -> date:
+    if not payment_day:
+        return base_date
+    last_day = calendar.monthrange(base_date.year, base_date.month)[1]
+    return base_date.replace(day=min(payment_day, last_day))
+
+
+def _payment_principal(payment: DebtPayment) -> float:
+    if payment.principal is not None:
+        return abs(payment.principal)
+    if payment.amount is not None:
+        return abs(payment.amount)
+    return 0.0
+
+
+def _build_mortgage_balance_map(debt: Debt, end_date: date, today: date) -> Optional[dict]:
+    if not debt.start_date or debt.original_amount is None or not debt.monthly_payment:
+        return None
+
+    annual_rate = (debt.interest_rate or 0) / 100
+    monthly_rate = (1 + annual_rate) ** (1 / 12) - 1 if annual_rate > 0 else 0.0
+
+    extra_by_month = {}
+    for payment in debt.payments:
+        if not payment.payment_date:
+            continue
+        if payment.payment_date < debt.start_date:
+            continue
+        if payment.payment_date > end_date:
+            continue
+        key = (payment.payment_date.year, payment.payment_date.month)
+        extra_by_month[key] = extra_by_month.get(key, 0.0) + _payment_principal(payment)
+
+    balance_map = {}
+    balance = debt.original_amount or 0.0
+    start_month = debt.start_date.replace(day=1)
+    end_month = end_date.replace(day=1)
+    current_month = start_month
+    projection_balance = None
+
+    while current_month <= end_month:
+        month_end = current_month + relativedelta(months=1) - relativedelta(days=1)
+        month_key = (current_month.year, current_month.month)
+        payment_date = _adjust_to_payment_day(current_month, debt.payment_day or debt.start_date.day)
+
+        if month_end < today:
+            if month_end >= debt.start_date and payment_date >= debt.start_date:
+                interest = balance * monthly_rate
+                principal = max(0.0, debt.monthly_payment - interest)
+                balance -= principal
+            balance -= extra_by_month.get(month_key, 0.0)
+            balance = max(0.0, balance)
+            balance_map[month_end] = balance
+        else:
+            if projection_balance is None:
+                projection_balance = debt.current_balance if debt.current_balance is not None else balance
+
+            current_month_end = date(today.year, today.month, 1) + relativedelta(months=1) - relativedelta(days=1)
+
+            if month_end == current_month_end:
+                balance_map[month_end] = max(0.0, projection_balance)
+            else:
+                if debt.monthly_payment and projection_balance > 0:
+                    interest = projection_balance * monthly_rate
+                    principal = max(0.0, debt.monthly_payment - interest)
+                    projection_balance -= principal
+                projection_balance -= extra_by_month.get(month_key, 0.0)
+                projection_balance = max(0.0, projection_balance)
+                balance_map[month_end] = projection_balance
+
+        if balance <= 0 and projection_balance is None:
+            balance = 0.0
+
+        current_month += relativedelta(months=1)
+
+    return balance_map
 
 
 @router.get("/spending-by-category")
@@ -502,6 +581,8 @@ def get_top_income_expenses(
 def get_debt_balance_history(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    projection_months: int = 0,
+    include_full_history: bool = False,
     currency_id: int = 1,
     db: Session = Depends(get_db)
 ):
@@ -522,7 +603,7 @@ def get_debt_balance_history(
     else:
         end_date_obj = date.fromisoformat(end_date)
 
-    if not start_date:
+    if include_full_history or not start_date:
         earliest_dates = []
         for debt in debts:
             if debt.start_date:
@@ -535,10 +616,19 @@ def get_debt_balance_history(
 
     start_date_obj = start_date_obj.replace(day=1)
     end_date_obj = end_date_obj.replace(day=1)
+    if projection_months and projection_months > 0:
+        end_date_obj = end_date_obj + relativedelta(months=projection_months)
 
     exchange_rate = get_exchange_rate(db)
     currencies = db.query(Currency).all()
     currency_map = {currency.code: currency.id for currency in currencies}
+
+    mortgage_balance_maps = {}
+    for debt in debts:
+        if debt.debt_type == "mortgage":
+            balance_map = _build_mortgage_balance_map(debt, end_date_obj, today)
+            if balance_map:
+                mortgage_balance_maps[debt.id] = balance_map
 
     monthly_totals = []
     current_date = start_date_obj
@@ -551,40 +641,45 @@ def get_debt_balance_history(
             if debt.start_date and debt.start_date > month_end:
                 continue
 
-            all_payments = sorted(
-                [p for p in debt.payments if p.payment_date],
-                key=lambda p: p.payment_date
-            )
-            first_payment = all_payments[0] if all_payments else None
+            balance = None
+            if debt.debt_type == "mortgage" and debt.id in mortgage_balance_maps:
+                balance = mortgage_balance_maps[debt.id].get(month_end)
 
-            if first_payment and month_end < first_payment.payment_date:
-                if first_payment.balance_after is not None:
-                    balance = first_payment.balance_after
-                else:
-                    balance = debt.original_amount or 0
-                    first_amount = first_payment.principal if first_payment.principal is not None else first_payment.amount
-                    if first_amount:
-                        balance -= first_amount
-            else:
-                payments = sorted(
-                    [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+            if balance is None:
+                all_payments = sorted(
+                    [p for p in debt.payments if p.payment_date],
                     key=lambda p: p.payment_date
                 )
+                first_payment = all_payments[0] if all_payments else None
 
-                if payments:
-                    last_payment = payments[-1]
-                    if last_payment.balance_after is not None:
-                        balance = last_payment.balance_after
+                if first_payment and month_end < first_payment.payment_date:
+                    if first_payment.balance_after is not None:
+                        balance = first_payment.balance_after
+                    else:
+                        balance = debt.original_amount or 0
+                        first_amount = first_payment.principal if first_payment.principal is not None else first_payment.amount
+                        if first_amount:
+                            balance -= first_amount
+                else:
+                    payments = sorted(
+                        [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+                        key=lambda p: p.payment_date
+                    )
+
+                    if payments:
+                        last_payment = payments[-1]
+                        if last_payment.balance_after is not None:
+                            balance = last_payment.balance_after
+                        else:
+                            balance = debt.original_amount
+                            for payment in payments:
+                                payment_amount = payment.principal if payment.principal is not None else payment.amount
+                                balance -= payment_amount
                     else:
                         balance = debt.original_amount
-                        for payment in payments:
-                            payment_amount = payment.principal if payment.principal is not None else payment.amount
-                            balance -= payment_amount
-                else:
-                    balance = debt.original_amount
 
-            if month_end >= today and debt.current_balance is not None:
-                balance = debt.current_balance
+                if month_end >= today and debt.current_balance is not None:
+                    balance = debt.current_balance
 
             balance = max(balance, 0)
             debt_currency_id = currency_map.get(debt.currency_code, currency_id)

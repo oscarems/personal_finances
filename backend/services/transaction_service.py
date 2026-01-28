@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
-from backend.models import Transaction, Account, Category, Payee, Currency
+from backend.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment
 from backend.services.exchange_rate_service import convert_currency, get_rate_for_date
 
 
@@ -79,6 +79,70 @@ def build_transaction_audit_fields(
     return base_amount, base_currency_id
 
 
+def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
+    if not account or account.type not in {'credit_card', 'credit_loan', 'mortgage'}:
+        return
+    if not transaction_affects_balance(account, transaction.date):
+        return
+
+    debt = db.query(Debt).filter_by(account_id=account.id).first()
+    if not debt:
+        return
+
+    amount = transaction.amount or 0
+    if amount == 0:
+        return
+
+    payment_amount = abs(amount)
+    if amount < 0:
+        debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+        if debt.current_balance <= 0:
+            debt.is_active = False
+        payment = DebtPayment(
+            debt_id=debt.id,
+            transaction_id=transaction.id,
+            payment_date=transaction.date,
+            amount=payment_amount,
+            principal=payment_amount,
+            interest=0.0,
+            fees=0.0,
+            balance_after=debt.current_balance,
+            notes="Pago registrado desde transacción"
+        )
+        db.add(payment)
+    else:
+        debt.current_balance += payment_amount
+        debt.is_active = True
+
+
+def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
+    if not account or account.type not in {'credit_card', 'credit_loan', 'mortgage'}:
+        return
+    if not transaction_affects_balance(account, transaction.date):
+        return
+
+    debt = db.query(Debt).filter_by(account_id=account.id).first()
+    if not debt:
+        return
+
+    payment = db.query(DebtPayment).filter_by(transaction_id=transaction.id).first()
+    if payment:
+        debt.current_balance += payment.amount
+        debt.is_active = True
+        db.delete(payment)
+        return
+
+    amount = transaction.amount or 0
+    payment_amount = abs(amount)
+    if amount < 0:
+        debt.current_balance += payment_amount
+        debt.is_active = True
+    elif amount > 0:
+        debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+        if debt.current_balance <= 0:
+            debt.is_active = False
+
+
 def create_transaction(db: Session, data):
     """
     Create a new transaction
@@ -137,6 +201,8 @@ def create_transaction(db: Session, data):
     if account and transaction_affects_balance(account, transaction_date):
         account.balance += normalized_amount
 
+    _apply_debt_impact(db, transaction, account)
+
     db.commit()
     return transaction
 
@@ -188,6 +254,9 @@ def update_transaction(db: Session, transaction_id, data):
     old_amount = transaction.amount
     old_account_id = transaction.account_id
     old_date = transaction.date
+    old_account = db.query(Account).get(old_account_id)
+
+    _reverse_debt_impact(db, transaction, old_account)
 
     # Update payee if needed
     if data.get('payee_name'):
@@ -235,6 +304,8 @@ def update_transaction(db: Session, transaction_id, data):
     if new_account and transaction_affects_balance(new_account, transaction.date):
         new_account.balance += transaction.amount
 
+    _apply_debt_impact(db, transaction, new_account)
+
     db.commit()
     return transaction
 
@@ -261,12 +332,14 @@ def delete_transaction(db: Session, transaction_id):
             linked_account = db.query(Account).get(linked_transaction.account_id)
             if linked_account and transaction_affects_balance(linked_account, linked_transaction.date):
                 linked_account.balance -= linked_transaction.amount
+            _reverse_debt_impact(db, linked_transaction, linked_account)
             db.delete(linked_transaction)
 
     # Update account balance
     account = db.query(Account).get(transaction.account_id)
     if account and transaction_affects_balance(account, transaction.date):
         account.balance -= transaction.amount
+    _reverse_debt_impact(db, transaction, account)
 
     db.delete(transaction)
     db.commit()
