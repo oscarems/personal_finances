@@ -39,6 +39,7 @@ class Category(Base):
     initial_currency_id = Column(Integer, ForeignKey('currencies.id'))  # Moneda del monto inicial
     sort_order = Column(Integer, default=0)
     is_hidden = Column(Boolean, default=False)
+    alerts_enabled = Column(Boolean, default=True)
 
     # Rollover behavior: 'accumulate' (dinero pasa al siguiente mes) o 'reset' (dinero vuelve a Ready to Assign)
     rollover_type = Column(String(20), default='reset')  # 'accumulate' or 'reset'
@@ -69,6 +70,7 @@ class Category(Base):
             'initial_amount': self.initial_amount,
             'sort_order': self.sort_order,
             'is_hidden': self.is_hidden,
+            'alerts_enabled': self.alerts_enabled,
             'rollover_type': self.rollover_type,
             'initial_currency_id': self.initial_currency_id,
             'initial_currency_code': self.initial_currency.code if self.initial_currency else None,

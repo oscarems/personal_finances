@@ -291,6 +291,7 @@ class CategoryUpdate(BaseModel):
     target_amount: Optional[float] = None
     initial_amount: Optional[float] = None
     initial_currency_code: Optional[str] = None
+    alerts_enabled: Optional[bool] = None
 
 
 @router.post("/", response_model=CategoryResponse)
@@ -391,6 +392,9 @@ def update_category(category_id: int, category_update: CategoryUpdate, db: Sessi
             if not currency:
                 raise HTTPException(status_code=400, detail="Invalid initial currency code")
             category.initial_currency_id = currency.id
+
+    if "alerts_enabled" in category_update.__fields_set__:
+        category.alerts_enabled = bool(category_update.alerts_enabled)
 
     db.commit()
     db.refresh(category)
