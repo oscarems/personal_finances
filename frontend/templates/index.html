@@ -579,12 +579,14 @@
             const isInflow = t.amount >= 0;
             const amountClass = isInflow ? 'text-success-600' : 'text-danger-600';
             const bgClass = isInflow ? 'bg-success-50' : 'bg-danger-50';
-            const symbol = t.currency.symbol || '$';
+            const symbol = t.currency?.symbol || '$';
+            const decimals = t.currency?.decimals ?? (t.currency?.code === 'USD' ? 2 : 0);
+            const amountPrefix = isInflow ? '+' : '';
 
             return `
                 <tr class="hover:bg-neutral-50 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="text-sm font-medium text-neutral-900">${t.date}</span>
+                        <span class="text-sm font-medium text-neutral-900">${formatDashboardDate(t.date)}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-sm font-semibold text-neutral-900">${t.payee_name || '-'}</span>
@@ -597,12 +599,21 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${amountClass} ${bgClass}">
-                            ${isInflow ? '+' : '-'}${symbol}${Math.abs(t.amount).toLocaleString('en-US')}
+                            ${amountPrefix}${symbol}${Math.abs(t.amount).toLocaleString('en-US', {
+                                minimumFractionDigits: decimals,
+                                maximumFractionDigits: decimals
+                            })}
                         </span>
                     </td>
                 </tr>
             `;
         }).join('');
+    }
+
+    function formatDashboardDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(`${dateString}T00:00:00`);
+        return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
     function displayDebtsSummary(data) {
