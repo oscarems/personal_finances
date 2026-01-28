@@ -23,7 +23,7 @@
 </div>
 
 <!-- Budget Summary Grid con diseño mejorado -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
     <!-- Ready to Assign Banner -->
     <div class="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30">
         <div class="flex justify-between items-start">
@@ -51,6 +51,22 @@
                 <div>
                     <p class="text-4xl font-extrabold text-white mb-2" id="totalAssignedTotalCOP">$0</p>
                     <p class="text-base font-semibold text-white/90" id="totalAssignedTotalUSD">US$0.00</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Spent This Month Banner -->
+    <div class="bg-gradient-to-br from-warning-500 via-warning-600 to-warning-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-warning-400/30">
+        <div class="flex justify-between items-start">
+            <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-4">
+                    <span class="text-3xl">💸</span>
+                    <p class="text-sm font-bold text-white uppercase tracking-wide">Gastado este Mes</p>
+                </div>
+                <div>
+                    <p class="text-4xl font-extrabold text-white mb-2" id="totalSpentCOP">$0</p>
+                    <p class="text-base font-semibold text-white/90" id="totalSpentUSD">US$0.00</p>
                 </div>
             </div>
         </div>
@@ -677,6 +693,12 @@
             `$${formatAmount(dataCOP.totals.assigned, 0)}`;
         document.getElementById('totalAssignedTotalUSD').textContent =
             `US$${formatAmount(dataUSD.totals.assigned, 2)}`;
+
+        // Display Total Spent (sum) in both currencies
+        document.getElementById('totalSpentCOP').textContent =
+            `$${formatAmount(dataCOP.totals.activity, 0)}`;
+        document.getElementById('totalSpentUSD').textContent =
+            `US$${formatAmount(dataUSD.totals.activity, 2)}`;
 
         // Display Total Available (sum) in both currencies
         document.getElementById('totalAvailableCOP').textContent =
