@@ -70,7 +70,10 @@ def _payment_principal(payment: DebtPayment) -> float:
     if payment.principal is not None:
         return abs(payment.principal)
     if payment.amount is not None:
-        return abs(payment.amount)
+        interest = abs(payment.interest or 0.0)
+        fees = abs(payment.fees or 0.0)
+        principal = abs(payment.amount) - interest - fees
+        return max(0.0, principal)
     return 0.0
 
 

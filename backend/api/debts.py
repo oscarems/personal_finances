@@ -120,6 +120,15 @@ def _build_category_payments(debt: Debt, payments: List[DebtPayment], db: Sessio
     return category_payments
 
 
+def _calculate_principal_amount(payment: DebtPaymentCreate) -> float:
+    if payment.principal is not None:
+        return max(0.0, payment.principal)
+    interest = payment.interest or 0.0
+    fees = payment.fees or 0.0
+    principal = payment.amount - interest - fees
+    return max(0.0, principal)
+
+
 # Pydantic Schemas
 class DebtCreate(BaseModel):
     """Schema for creating a debt"""
@@ -500,8 +509,9 @@ def create_debt_payment(debt_id: int, payment_data: DebtPaymentCreate, db: Sessi
     if not debt:
         raise HTTPException(status_code=404, detail="Debt not found")
 
-    # Calculate balance after payment
-    balance_after = debt.current_balance - payment_data.amount
+    principal_amount = _calculate_principal_amount(payment_data)
+    # Calculate balance after payment (solo capital)
+    balance_after = debt.current_balance - principal_amount
 
     # Create payment record
     new_payment = DebtPayment(
@@ -556,8 +566,15 @@ def delete_debt_payment(debt_id: int, payment_id: int, db: Session = Depends(get
 
     debt = db.query(Debt).filter_by(id=debt_id).first()
 
-    # Restore debt balance
-    debt.current_balance += payment.amount
+    principal_amount = payment.principal
+    if principal_amount is None and payment.amount is not None:
+        interest = payment.interest or 0.0
+        fees = payment.fees or 0.0
+        principal_amount = payment.amount - interest - fees
+    principal_amount = max(0.0, principal_amount or 0.0)
+
+    # Restore debt balance (solo capital)
+    debt.current_balance += principal_amount
 
     # Reactivate debt if it was marked as paid
     if not debt.is_active and debt.current_balance > 0:
