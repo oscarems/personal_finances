@@ -3,9 +3,16 @@
 {% block title %}Simulador de Inversiones - Personal Finances{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <h2 class="text-3xl font-bold text-gray-800">Simulador de Inversiones</h2>
-    <p class="text-gray-600 mt-2">Proyecta pagos periódicos, promedios históricos y valorización de la inversión.</p>
+<div class="page-header">
+    <div>
+        <div class="flex items-center gap-4 mb-3">
+            <div class="page-icon bg-gradient-to-br from-accent-400 to-accent-600">
+                <span class="text-2xl">💹</span>
+            </div>
+            <h2 class="page-title">Simulador de Inversiones</h2>
+        </div>
+        <p class="page-subtitle ml-16">Proyecta pagos periódicos, promedios históricos y valorización de la inversión.</p>
+    </div>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -16,16 +23,16 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Monto inicial</label>
                     <input type="number" id="initialAmount" value="50000000" step="100000" min="0" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-card">
+                           class="input-field">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Plazo (años)</label>
                     <input type="number" id="investmentYears" value="5" min="1" max="50" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-card">
+                           class="input-field">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Frecuencia de pago</label>
-                    <select id="paymentFrequency" class="w-full px-4 py-2 border border-gray-300 rounded-card">
+                    <select id="paymentFrequency" class="input-field">
                         <option value="monthly">Mensual</option>
                         <option value="bimonthly">Bimensual</option>
                         <option value="quarterly">Trimestral</option>
@@ -36,7 +43,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de pago</label>
-                    <select id="paymentType" class="w-full px-4 py-2 border border-gray-300 rounded-card">
+                    <select id="paymentType" class="input-field">
                         <option value="fixed">Fijo (monto)</option>
                         <option value="percentage">Porcentaje</option>
                         <option value="historical">Promedio histórico</option>
@@ -45,7 +52,7 @@
                 <div id="fixedAmountField">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pago fijo</label>
                     <input type="number" id="paymentAmount" value="250000" step="10000" min="0"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-card">
+                           class="input-field">
                 </div>
                 <div id="percentageField" class="hidden">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pago porcentual (%) por período</label>
@@ -58,18 +65,18 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Valorización anual (%)</label>
                     <input type="number" id="annualValuationRate" value="6" step="0.1" min="0"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-card">
+                           class="input-field">
                     <p class="text-xs text-gray-500 mt-1">Crecimiento esperado del valor de la inversión.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha de inicio</label>
                     <input type="date" id="investmentStartDate" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-card">
+                           class="input-field">
                 </div>
                 <div class="border-t pt-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Pagos históricos (máx. 12)</label>
                     <div class="overflow-hidden border border-gray-200 rounded-card">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <table class="table table--compact">
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Mes</th>
@@ -81,84 +88,84 @@
                                     <td class="px-3 py-2 text-gray-700">Mes -1</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="1"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -2</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="2"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -3</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="3"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -4</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="4"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -5</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="5"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -6</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="6"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -7</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="7"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -8</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="8"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -9</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="9"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -10</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="10"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -11</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="11"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700">Mes -12</td>
                                     <td class="px-3 py-2">
                                         <input type="number" min="0" step="1" data-historical-payment="12"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-card text-right">
+                                               class="input-field text-right">
                                     </td>
                                 </tr>
                             </tbody>
@@ -225,7 +232,7 @@
                     <p class="text-sm text-gray-500 mt-1">Pagos por período según la frecuencia seleccionada.</p>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <table class="table">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
