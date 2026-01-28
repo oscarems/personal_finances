@@ -55,7 +55,8 @@ def _build_assumed_payments(debt: Debt, payments: List[DebtPayment]) -> List[dic
     if balance_after_first is None:
         balance_after_first = debt.current_balance
 
-    balance_before_first = max(0.0, balance_after_first + first_payment.amount)
+    principal_amount = _payment_principal_amount(first_payment)
+    balance_before_first = max(0.0, balance_after_first + principal_amount)
     starting_balance = balance_before_first + debt.monthly_payment * len(assumed_dates)
     balance = starting_balance
 
@@ -76,6 +77,17 @@ def _build_assumed_payments(debt: Debt, payments: List[DebtPayment]) -> List[dic
         })
 
     return assumed_payments
+
+
+def _payment_principal_amount(payment: DebtPayment) -> float:
+    if payment.principal is not None:
+        return max(0.0, payment.principal)
+    if payment.amount is None:
+        return 0.0
+    interest = payment.interest or 0.0
+    fees = payment.fees or 0.0
+    principal = payment.amount - interest - fees
+    return max(0.0, principal)
 
 
 def _build_category_payments(debt: Debt, payments: List[DebtPayment], db: Session) -> List[dict]:
