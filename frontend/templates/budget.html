@@ -124,6 +124,27 @@
     </div>
 </div>
 
+<!-- Smart Alerts Panel -->
+<div class="card-hover-lift p-6 mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h3 class="text-xl font-bold text-neutral-800">Panel de Alertas Inteligentes</h3>
+            <p id="budgetAlertsMeta" class="text-sm text-neutral-500 mt-1">-</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Filtro</span>
+            <select id="budgetAlertFilter" class="input-field text-sm py-2 px-3">
+                <option value="ALL">Todas</option>
+                <option value="CRITICAL">Críticas</option>
+                <option value="RISK">Riesgo</option>
+                <option value="WARNING">Advertencia</option>
+            </select>
+        </div>
+    </div>
+    <div id="budgetAlertsList" class="space-y-3 mt-4"></div>
+    <p id="budgetAlertsEmpty" class="text-sm text-neutral-500 mt-4 hidden">Sin alertas nuevas en este periodo.</p>
+</div>
+
 <!-- Budget Groups -->
 <div id="budgetGroups" class="space-y-6">
     <!-- Budget groups will be loaded here -->
@@ -434,6 +455,27 @@
     let budgetDataByCurrency = { COP: null, USD: null };
     let categoryBudgetMap = {};
     let overspendingContext = null;
+    let budgetAlertStates = {};
+    let budgetAlertsPayload = null;
+
+    const ALERT_SEVERITY_ORDER = {
+        CRITICAL: 3,
+        RISK: 2,
+        WARNING: 1,
+        OK: 0
+    };
+
+    const ALERT_BADGE_CLASSES = {
+        CRITICAL: 'badge-danger',
+        RISK: 'badge-warning',
+        WARNING: 'badge-accent'
+    };
+
+    const ALERT_LABELS = {
+        CRITICAL: 'Crítico',
+        RISK: 'Riesgo',
+        WARNING: 'Advertencia'
+    };
 
     // Exchange rates (will be loaded from API)
     let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
@@ -456,6 +498,10 @@
             const [year, month] = e.target.value.split('-');
             currentMonth = new Date(year, month - 1, 1);
             loadBudget();
+        });
+
+        document.getElementById('budgetAlertFilter').addEventListener('change', function() {
+            renderBudgetAlertsPanel(budgetAlertsPayload);
         });
 
         // Event listener for new category form
@@ -585,17 +631,40 @@
             const dataCOP = await resCOP.json();
             const dataUSD = await resUSD.json();
 
-            displayBudget(dataCOP, dataUSD);
+            const alertsPayload = await loadBudgetAlerts(year, month);
+            displayBudget(dataCOP, dataUSD, alertsPayload);
         } catch (error) {
             console.error('Error loading budget:', error);
         }
     }
 
-    function displayBudget(dataCOP, dataUSD) {
+    async function loadBudgetAlerts(year, month) {
+        const monthValue = String(month).padStart(2, '0');
+        const monthStr = `${year}-${monthValue}-01`;
+
+        try {
+            const res = await fetch(`/api/alerts/budget?month=${monthStr}&currency_code=COP`);
+            if (!res.ok) {
+                return null;
+            }
+            return await res.json();
+        } catch (error) {
+            console.error('Error loading budget alerts:', error);
+            return null;
+        }
+    }
+
+    function displayBudget(dataCOP, dataUSD, alertsPayload = null) {
         if (!dataCOP || !dataUSD) return;
 
         budgetDataByCurrency = { COP: dataCOP, USD: dataUSD };
         buildCategoryBudgetMap(dataCOP, dataUSD);
+        budgetAlertsPayload = alertsPayload;
+        budgetAlertStates = (alertsPayload?.category_states || []).reduce((acc, entry) => {
+            acc[entry.category_id] = entry.state;
+            return acc;
+        }, {});
+        renderBudgetAlertsPanel(alertsPayload);
 
         // Display Ready to Assign total in both currencies (combined)
         document.getElementById('readyToAssignTotalCOP').textContent =
@@ -694,15 +763,21 @@
                             const hasNoActivity = Math.abs(cat.activity) === 0;
                             const showResetHint = cat.rollover_type === 'reset' && hasNoActivity && cat.assigned > 0;
                             const isOverspent = cat.available < 0;
+                            const alertState = budgetAlertStates[cat.category_id] || 'OK';
+                            const alertClass = alertState !== 'OK' ? `budget-alert-highlight ${alertState.toLowerCase()}` : 'budget-alert-highlight';
+                            const alertBadge = alertState !== 'OK'
+                                ? `<span class="badge ${ALERT_BADGE_CLASSES[alertState]} text-[0.65rem]">${ALERT_LABELS[alertState]}</span>`
+                                : '';
 
                             return `
-                                <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer"
+                                <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer ${alertClass}"
                                      onclick='openAssignModal(${JSON.stringify(cat).replace(/'/g, "&apos;")})'>
                                     <div class="grid grid-cols-4 gap-4 items-center">
                                         <div class="col-span-1">
                                             <div class="flex items-center space-x-2">
                                                 <div class="flex items-center space-x-2">
                                                     <p class="font-medium text-gray-800">${cat.category_name}</p>
+                                                    ${alertBadge}
                                                     <button onclick="event.stopPropagation(); editCategoryName(${cat.category_id}, '${cat.category_name.replace(/'/g, "&apos;")}')"
                                                             class="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
                                                             title="Renombrar categoría">
@@ -782,6 +857,7 @@
             group.categories.forEach(cat => {
                 if (cat.assigned > 0) {  // Only include categories with assigned budget
                     categoryData.push({
+                        id: cat.category_id,
                         name: cat.category_name,
                         amount: cat.assigned,
                         color: null  // Will be assigned below
@@ -861,15 +937,65 @@
         legendContainer.innerHTML = categoryData.map((cat, index) => {
             const percentage = ((cat.amount / total) * 100).toFixed(1);
             const color = backgroundColors[index];
+            const alertState = budgetAlertStates[cat.id] || 'OK';
+            const alertClass = alertState !== 'OK' ? `budget-alert-item ${alertState.toLowerCase()}` : 'budget-alert-item';
+            const alertBadge = alertState !== 'OK'
+                ? `<span class="badge ${ALERT_BADGE_CLASSES[alertState]} text-[0.6rem] ml-2">${ALERT_LABELS[alertState]}</span>`
+                : '';
             return `
-                <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded">
+                <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded ${alertClass}">
                     <div class="flex items-center space-x-3">
                         <div class="w-4 h-4 rounded flex-shrink-0" style="background-color: ${color}"></div>
                         <span class="text-sm font-medium text-gray-700">${cat.name}</span>
+                        ${alertBadge}
                     </div>
                     <div class="text-right">
                         <p class="text-sm font-semibold text-gray-800">$${formatAmount(cat.amount, 0)}</p>
                         <p class="text-xs text-gray-500">${percentage}%</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderBudgetAlertsPanel(payload) {
+        const listEl = document.getElementById('budgetAlertsList');
+        const emptyEl = document.getElementById('budgetAlertsEmpty');
+        const metaEl = document.getElementById('budgetAlertsMeta');
+        const filterValue = document.getElementById('budgetAlertFilter').value;
+
+        if (!payload) {
+            listEl.innerHTML = '';
+            emptyEl.classList.remove('hidden');
+            metaEl.textContent = 'Alertas no disponibles por el momento.';
+            return;
+        }
+
+        metaEl.textContent = `Periodo ${payload.month} · Progreso esperado ${payload.expected_percent?.toFixed(0) || 0}% · Cooldown ${payload.cooldown_days} días`;
+
+        let alerts = payload.alerts || [];
+        alerts = alerts.sort((a, b) => ALERT_SEVERITY_ORDER[b.state] - ALERT_SEVERITY_ORDER[a.state]);
+
+        if (filterValue !== 'ALL') {
+            alerts = alerts.filter(alert => alert.state === filterValue);
+        }
+
+        if (!alerts.length) {
+            listEl.innerHTML = '';
+            emptyEl.classList.remove('hidden');
+            return;
+        }
+
+        emptyEl.classList.add('hidden');
+        listEl.innerHTML = alerts.map(alert => {
+            const itemClass = `budget-alert-item ${alert.state.toLowerCase()}`;
+            const badgeClass = ALERT_BADGE_CLASSES[alert.state] || 'badge-warning';
+            const badgeLabel = ALERT_LABELS[alert.state] || alert.state;
+            return `
+                <div class="${itemClass}">
+                    <div class="flex items-center justify-between gap-4">
+                        <p class="text-sm text-neutral-700">${alert.message}</p>
+                        <span class="badge ${badgeClass}">${badgeLabel}</span>
                     </div>
                 </div>
             `;
