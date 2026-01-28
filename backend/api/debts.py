@@ -213,6 +213,49 @@ def _calculate_mortgage_current_balance(debt: Debt, db: Session) -> float:
     return balance
 
 
+def _build_mortgage_payment_breakdown(debt: Debt, payments: List[dict]) -> List[dict]:
+    if debt.debt_type != "mortgage":
+        return payments
+
+    if not payments:
+        return payments
+
+    annual_rate = (debt.interest_rate or 0.0) / 100
+    monthly_rate = (1 + annual_rate) ** (1 / 12) - 1 if annual_rate > 0 else 0.0
+
+    base_payment = None
+    if debt.has_insurance and debt.original_amount and debt.loan_years:
+        base_payment = calculate_monthly_payment(debt.original_amount, annual_rate, debt.loan_years)
+
+    balance = debt.original_amount or debt.current_balance or 0.0
+
+    for payment in payments:
+        payment_amount = payment.get("amount") or 0.0
+        fees = payment.get("fees") or 0.0
+
+        interest = payment.get("interest")
+        if interest is None:
+            interest = balance * monthly_rate
+
+        insurance_amount = 0.0
+        if base_payment:
+            insurance_amount = max(0.0, payment_amount - base_payment)
+
+        principal = payment.get("principal")
+        if principal is None:
+            principal = payment_amount - insurance_amount - fees - interest
+        principal = max(0.0, principal)
+
+        balance = max(0.0, balance - principal)
+
+        payment["interest"] = interest
+        payment["principal"] = principal
+        if payment.get("balance_after") is None:
+            payment["balance_after"] = balance
+
+    return payments
+
+
 def _debt_to_dict_with_calculated_balance(
     debt: Debt,
     db: Session,
