@@ -9,6 +9,7 @@ from backend.models.exchange_rate import ExchangeRate
 from backend.models.debt import Debt, DebtPayment
 from backend.models.ynab_category_mapping import YnabCategoryMapping
 from backend.models.alert import AlertRule
+from backend.models.budget_alert_state import BudgetAlertState
 from backend.models.reconciliation import ReconciliationSession
 from backend.models.wealth_asset import WealthAsset
 
@@ -26,6 +27,7 @@ __all__ = [
     'DebtPayment',
     'YnabCategoryMapping',
     'AlertRule',
+    'BudgetAlertState',
     'ReconciliationSession',
     'WealthAsset'
 ]
