@@ -77,6 +77,31 @@ def _payment_principal(payment: DebtPayment) -> float:
     return 0.0
 
 
+def _calculate_debt_balance(debt: Debt, month_end: date, today: date) -> float:
+    if debt.start_date and debt.start_date > month_end:
+        return 0.0
+
+    if month_end >= today and debt.current_balance is not None:
+        balance = debt.current_balance
+    else:
+        payments = sorted(
+            [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
+            key=lambda p: p.payment_date
+        )
+
+        if payments:
+            last_payment = payments[-1]
+            if last_payment.balance_after is not None:
+                balance = last_payment.balance_after
+            else:
+                principal_paid = sum(_payment_principal(payment) for payment in payments)
+                balance = (debt.original_amount or 0) - principal_paid
+        else:
+            balance = debt.original_amount or 0
+
+    return max(balance, 0.0)
+
+
 def _build_mortgage_balance_map(debt: Debt, end_date: date, today: date) -> Optional[dict]:
     if not debt.start_date or debt.original_amount is None or not debt.monthly_payment:
         return None
@@ -627,48 +652,32 @@ def get_debt_balance_history(
     currency_map = {currency.code: currency.id for currency in currencies}
 
     monthly_totals = []
+    debt_types = sorted({debt.debt_type or 'Sin tipo' for debt in debts})
     current_date = start_date_obj
 
     while current_date <= end_date_obj:
         month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
         total_debt = 0.0
+        debt_by_type = {debt_type: 0.0 for debt_type in debt_types}
 
         for debt in debts:
-            if debt.start_date and debt.start_date > month_end:
-                continue
-
-            balance = None
-            if month_end >= today and debt.current_balance is not None:
-                balance = debt.current_balance
-            else:
-                payments = sorted(
-                    [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
-                    key=lambda p: p.payment_date
-                )
-
-                if payments:
-                    last_payment = payments[-1]
-                    if last_payment.balance_after is not None:
-                        balance = last_payment.balance_after
-                    else:
-                        principal_paid = sum(_payment_principal(payment) for payment in payments)
-                        balance = (debt.original_amount or 0) - principal_paid
-                else:
-                    balance = debt.original_amount or 0
-
-            balance = max(balance, 0)
+            balance = _calculate_debt_balance(debt, month_end, today)
             debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-            total_debt += convert_to_currency(
+            converted_balance = convert_to_currency(
                 balance,
                 debt_currency_id,
                 currency_id,
                 exchange_rate
             )
+            total_debt += converted_balance
+            debt_type = debt.debt_type or 'Sin tipo'
+            debt_by_type[debt_type] = debt_by_type.get(debt_type, 0.0) + converted_balance
 
         monthly_totals.append({
             'month': current_date.strftime('%Y-%m'),
             'month_name': current_date.strftime('%b %Y'),
-            'total_debt': round(total_debt, 2)
+            'total_debt': round(total_debt, 2),
+            'debt_by_type': {key: round(value, 2) for key, value in debt_by_type.items()}
         })
 
         current_date += relativedelta(months=1)
@@ -678,6 +687,7 @@ def get_debt_balance_history(
     return {
         'monthly': monthly_totals,
         'current_total_debt': monthly_totals[-1]['total_debt'] if monthly_totals else 0,
+        'debt_types': debt_types,
         'currency': currency.to_dict() if currency else None
     }
 
@@ -1416,8 +1426,8 @@ def get_net_worth(
     """
     Calculate net worth (Assets - Liabilities) over time
     Defaults to January 2026 onwards if no dates provided
-    Assets: checking, savings, cash, CDT, investment accounts (positive balances)
-    Liabilities: credit cards, loans, mortgages (negative balances or debt accounts)
+    Assets: wealth assets (material assets, real estate, investments)
+    Liabilities: active debts (principal only)
     """
     # Default to January 2026 if not specified
     if not start_date:
@@ -1430,17 +1440,15 @@ def get_net_worth(
 
     exchange_rate = get_exchange_rate(db)
 
-    # Get all accounts
-    accounts = db.query(Account).filter(Account.is_closed == False).all()
     wealth_assets = db.query(WealthAsset).all()
+    debts = db.query(Debt).filter(Debt.is_active == True).all()
 
-    # Asset account types
-    asset_types = ['checking', 'savings', 'cash', 'cdt', 'investment']
-    # Liability account types
-    liability_types = ['credit_card', 'credit_loan', 'mortgage']
+    currencies = db.query(Currency).all()
+    currency_map = {currency.code: currency.id for currency in currencies}
 
     monthly_net_worth = []
     current_date = start_date_obj.replace(day=1)
+    today = date.today()
 
     while current_date <= end_date_obj:
         month_start = current_date
@@ -1448,49 +1456,6 @@ def get_net_worth(
 
         assets = 0
         liabilities = 0
-
-        for account in accounts:
-            # Skip accounts created after this month
-            if account.created_at and account.created_at.date() > month_end:
-                continue
-
-            # Calculate account balance at end of this month
-            # Start with current balance
-            current_balance = account.balance
-
-            # Subtract all transactions after month_end
-            future_transactions = db.query(
-                Transaction.amount,
-                Transaction.currency_id
-            ).filter(
-                and_(
-                    Transaction.account_id == account.id,
-                    Transaction.date > month_end
-                )
-            ).all()
-
-            balance_at_month_end = convert_to_currency(
-                current_balance,
-                account.currency_id,
-                currency_id,
-                exchange_rate
-            )
-
-            for txn in future_transactions:
-                balance_at_month_end -= convert_to_currency(
-                    txn.amount,
-                    txn.currency_id,
-                    currency_id,
-                    exchange_rate
-                )
-
-            # Categorize as asset or liability
-            if account.type in asset_types:
-                assets += balance_at_month_end
-            elif account.type in liability_types:
-                # For credit cards/loans, negative balance = owe money
-                # So we add absolute value to liabilities
-                liabilities += abs(balance_at_month_end)
 
         additional_assets = 0
         for asset in wealth_assets:
@@ -1523,6 +1488,15 @@ def get_net_worth(
             )
 
         assets += additional_assets
+        for debt in debts:
+            balance = _calculate_debt_balance(debt, month_end, today)
+            debt_currency_id = currency_map.get(debt.currency_code, currency_id)
+            liabilities += convert_to_currency(
+                balance,
+                debt_currency_id,
+                currency_id,
+                exchange_rate
+            )
 
         net_worth = assets - liabilities
 

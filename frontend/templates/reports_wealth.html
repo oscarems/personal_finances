@@ -170,20 +170,36 @@
             debtBalanceChart.destroy();
         }
 
+        const palette = ['#b64854', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0f766e'];
+        const debtTypes = Array.isArray(window.debtTypes) ? window.debtTypes : [];
+        const datasets = [
+            {
+                label: 'Deuda total',
+                data: totals,
+                borderColor: palette[0],
+                backgroundColor: 'rgba(182, 72, 84, 0.12)',
+                tension: 0.3,
+                fill: true
+            }
+        ];
+
+        debtTypes.forEach((debtType, index) => {
+            const color = palette[(index + 1) % palette.length];
+            datasets.push({
+                label: debtType,
+                data: monthly.map(item => item.debt_by_type?.[debtType] || 0),
+                borderColor: color,
+                backgroundColor: `${color}22`,
+                tension: 0.3,
+                fill: false
+            });
+        });
+
         debtBalanceChart = new Chart(document.getElementById('debtBalanceChart').getContext('2d'), {
             type: 'line',
             data: {
                 labels,
-                datasets: [
-                    {
-                        label: 'Deuda total',
-                        data: totals,
-                        borderColor: '#b64854',
-                        backgroundColor: 'rgba(182, 72, 84, 0.12)',
-                        tension: 0.3,
-                        fill: true
-                    }
-                ]
+                datasets
             },
             options: {
                 responsive: true,
@@ -229,6 +245,7 @@
             document.getElementById('netWorthChangePct').textContent = `${netWorthData.change_percentage || 0}%`;
             document.getElementById('totalDebtCurrent').textContent = formatCurrency(debtData.current_total_debt || 0);
 
+            window.debtTypes = debtData.debt_types || [];
             renderNetWorthChart(netWorthData.monthly || []);
             renderDebtChart(debtData.monthly || []);
         } catch (error) {
