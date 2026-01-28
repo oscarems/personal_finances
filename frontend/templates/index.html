@@ -135,6 +135,7 @@
                     <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Beneficiario</th>
                     <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Categoría</th>
                     <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Cuenta</th>
+                    <th class="px-6 py-4 text-left text-xs font-bold text-neutral-700 uppercase tracking-wider">Tipo</th>
                     <th class="px-6 py-4 text-right text-xs font-bold text-neutral-700 uppercase tracking-wider">Monto</th>
                 </tr>
             </thead>
@@ -577,7 +578,7 @@
         const tbody = document.getElementById('recentTransactions');
 
         if (transactions.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No hay transacciones</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No hay transacciones</td></tr>';
             return;
         }
 
@@ -602,6 +603,9 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-sm text-neutral-600">${t.account_name}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="badge ${typeBadgeClass}">${typeLabel}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${amountClass} ${bgClass}">
