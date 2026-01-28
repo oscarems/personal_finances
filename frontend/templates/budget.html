@@ -121,6 +121,31 @@
     </div>
 </div>
 
+<!-- Spending Distribution Bar Chart -->
+<div class="card-hover-lift p-8 mb-10">
+    <div class="flex items-center space-x-4 mb-8">
+        <div class="relative">
+            <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
+            <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
+                <span class="text-2xl">💸</span>
+            </div>
+        </div>
+        <h3 class="text-2xl font-bold text-neutral-800">
+            Distribución del Gasto por Categoría
+        </h3>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Chart Canvas -->
+        <div class="chart-panel flex items-center justify-center bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6">
+            <canvas id="budgetSpendingChart"></canvas>
+        </div>
+        <!-- Legend -->
+        <div id="budgetSpendingLegend" class="chart-legend overflow-y-auto bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6 border border-neutral-100">
+            <!-- Legend items will be populated here -->
+        </div>
+    </div>
+</div>
+
 <!-- Overallocated Alert con diseño mejorado -->
 <div id="budgetOverallocatedAlert" class="hidden alert alert-danger mb-8">
     <div class="flex items-start space-x-4">
@@ -467,7 +492,8 @@
     let currentMonth = new Date();
     let selectedCategory = null;
     let selectedCategoryData = null;
-    let budgetBarChart = null;  // Chart.js instance for bar chart
+    let budgetBarChart = null;  // Chart.js instance for budget bar chart
+    let budgetSpendingChart = null;  // Chart.js instance for spending bar chart
     let budgetDataByCurrency = { COP: null, USD: null };
     let categoryBudgetMap = {};
     let overspendingContext = null;
@@ -864,50 +890,104 @@
             `;
         }).join('');
 
-        // Render the bar chart after displaying the budget
+        // Render the bar charts after displaying the budget
         renderBudgetBarChart(dataCOP);
+        renderSpendingBarChart(dataCOP);
     }
 
-    function renderBudgetBarChart(budgetData) {
-        if (!budgetData || !budgetData.groups) return;
+    function buildCategoryChartData(budgetData, valueSelector, maxItems = 12) {
+        if (!budgetData || !budgetData.groups) return { categories: [], colors: [] };
 
-        // Collect all categories with their assigned amounts
         const categoryData = [];
         budgetData.groups.forEach(group => {
-            if (group.is_income) return; // Skip income groups
+            if (group.is_income) return;
 
             group.categories.forEach(cat => {
-                if (cat.assigned > 0) {  // Only include categories with assigned budget
+                const amount = valueSelector(cat);
+                if (amount > 0) {
                     categoryData.push({
                         id: cat.category_id,
                         name: cat.category_name,
-                        amount: cat.assigned,
-                        color: null  // Will be assigned below
+                        amount: amount
                     });
                 }
             });
         });
 
-        // Sort by amount (descending) to show largest categories first
         categoryData.sort((a, b) => b.amount - a.amount);
 
-        // Generate colors for each category
-        const colors = [
+        const palette = [
             '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
             '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
-            '#06B6D4', '#F43F5E', '#8B5CF6', '#A78BFA', '#34D399'
+            '#06B6D4', '#F43F5E', '#A78BFA', '#34D399'
         ];
 
-        const labels = categoryData.map(c => c.name);
-        const amounts = categoryData.map(c => c.amount);
-        const backgroundColors = categoryData.map((_, index) => colors[index % colors.length]);
+        const topCategories = categoryData.slice(0, maxItems);
+        const remaining = categoryData.slice(maxItems);
+        const otherTotal = remaining.reduce((sum, item) => sum + item.amount, 0);
 
-        // Destroy previous chart if it exists
+        if (otherTotal > 0) {
+            topCategories.push({
+                id: 'others',
+                name: 'Otros',
+                amount: otherTotal,
+                isOther: true
+            });
+        }
+
+        const colors = topCategories.map((item, index) => {
+            if (item.isOther) {
+                return '#9CA3AF';
+            }
+            return palette[index % palette.length];
+        });
+
+        return { categories: topCategories, colors };
+    }
+
+    function renderCategoryLegend(containerId, categoryData, colors, showAlerts = true) {
+        const legendContainer = document.getElementById(containerId);
+        const total = categoryData.reduce((sum, item) => sum + item.amount, 0);
+
+        if (!categoryData.length) {
+            legendContainer.innerHTML = '<p class="text-sm text-neutral-500">Sin datos para mostrar.</p>';
+            return;
+        }
+
+        legendContainer.innerHTML = categoryData.map((cat, index) => {
+            const percentage = total > 0 ? ((cat.amount / total) * 100).toFixed(1) : 0;
+            const color = colors[index];
+            const alertState = showAlerts ? (budgetAlertStates[cat.id] || 'OK') : 'OK';
+            const showAlert = showAlerts && !cat.isOther && alertState !== 'OK';
+            const alertClass = showAlert ? `budget-alert-item ${alertState.toLowerCase()}` : 'budget-alert-item';
+            const alertBadge = showAlert
+                ? `<span class="badge ${ALERT_BADGE_CLASSES[alertState]} text-[0.6rem] ml-2">${ALERT_LABELS[alertState]}</span>`
+                : '';
+            return `
+                <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded ${alertClass}">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-4 h-4 rounded flex-shrink-0" style="background-color: ${color}"></div>
+                        <span class="text-sm font-medium text-gray-700">${cat.name}</span>
+                        ${alertBadge}
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-gray-800">$${formatAmount(cat.amount, 0)}</p>
+                        <p class="text-xs text-gray-500">${percentage}%</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderBudgetBarChart(budgetData) {
+        const chartData = buildCategoryChartData(budgetData, cat => cat.assigned);
+        const labels = chartData.categories.map(c => c.name);
+        const amounts = chartData.categories.map(c => c.amount);
+
         if (budgetBarChart) {
             budgetBarChart.destroy();
         }
 
-        // Create new bar chart
         const ctx = document.getElementById('budgetBarChart').getContext('2d');
         budgetBarChart = new Chart(ctx, {
             type: 'bar',
@@ -915,7 +995,7 @@
                 labels: labels,
                 datasets: [{
                     data: amounts,
-                    backgroundColor: backgroundColors,
+                    backgroundColor: chartData.colors,
                     borderWidth: 1,
                     borderColor: '#fff'
                 }]
@@ -952,32 +1032,63 @@
             }
         });
 
-        // Create custom legend
-        const legendContainer = document.getElementById('budgetChartLegend');
-        const total = amounts.reduce((a, b) => a + b, 0);
+        renderCategoryLegend('budgetChartLegend', chartData.categories, chartData.colors, true);
+    }
 
-        legendContainer.innerHTML = categoryData.map((cat, index) => {
-            const percentage = ((cat.amount / total) * 100).toFixed(1);
-            const color = backgroundColors[index];
-            const alertState = budgetAlertStates[cat.id] || 'OK';
-            const alertClass = alertState !== 'OK' ? `budget-alert-item ${alertState.toLowerCase()}` : 'budget-alert-item';
-            const alertBadge = alertState !== 'OK'
-                ? `<span class="badge ${ALERT_BADGE_CLASSES[alertState]} text-[0.6rem] ml-2">${ALERT_LABELS[alertState]}</span>`
-                : '';
-            return `
-                <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded ${alertClass}">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-4 h-4 rounded flex-shrink-0" style="background-color: ${color}"></div>
-                        <span class="text-sm font-medium text-gray-700">${cat.name}</span>
-                        ${alertBadge}
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-semibold text-gray-800">$${formatAmount(cat.amount, 0)}</p>
-                        <p class="text-xs text-gray-500">${percentage}%</p>
-                    </div>
-                </div>
-            `;
-        }).join('');
+    function renderSpendingBarChart(budgetData) {
+        const chartData = buildCategoryChartData(budgetData, cat => Math.abs(cat.activity));
+        const labels = chartData.categories.map(c => c.name);
+        const amounts = chartData.categories.map(c => c.amount);
+
+        if (budgetSpendingChart) {
+            budgetSpendingChart.destroy();
+        }
+
+        const ctx = document.getElementById('budgetSpendingChart').getContext('2d');
+        budgetSpendingChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: amounts,
+                    backgroundColor: chartData.colors,
+                    borderWidth: 1,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        ticks: {
+                            callback: function(value) {
+                                return `$${formatAmount(value, 0)}`;
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed.x || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: $${formatAmount(value, 0)} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        renderCategoryLegend('budgetSpendingLegend', chartData.categories, chartData.colors, false);
     }
 
     function renderBudgetAlertsPanel(payload) {
