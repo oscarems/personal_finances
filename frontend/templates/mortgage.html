@@ -50,7 +50,15 @@
                     </label>
                     <input type="number" id="annualRate" value="12.5" step="0.1" required
                            class="input-field">
-                    <p class="text-xs text-neutral-500 mt-1">Tasa efectiva anual</p>
+                    <p class="text-xs text-neutral-500 mt-1">Tasa efectiva anual (EA)</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-neutral-700 mb-2">
+                        Tasa de Interés Mensual (%)
+                    </label>
+                    <input type="text" id="monthlyRate" readonly
+                           class="input-field bg-gray-50 text-gray-700">
+                    <p class="text-xs text-neutral-500 mt-1">Equivalente mensual vencido (M.V)</p>
                 </div>
 
                 <div>
@@ -222,6 +230,7 @@
         // Set today as default start date
         const today = new Date().toISOString().split('T')[0];
         document.getElementById('startDate').value = today;
+        updateMonthlyRate();
         loadMortgageAccounts();
     });
 
@@ -275,6 +284,7 @@
         }
         if (interestRate) {
             document.getElementById('annualRate').value = interestRate;
+            updateMonthlyRate();
         }
         if (loanYears) {
             document.getElementById('termYears').value = loanYears;
@@ -302,6 +312,23 @@
             infoDiv.classList.add('hidden');
         }
     });
+
+    document.getElementById('annualRate').addEventListener('input', function() {
+        updateMonthlyRate();
+    });
+
+    function updateMonthlyRate() {
+        const annualRateValue = parseFloat(document.getElementById('annualRate').value);
+        const monthlyRateField = document.getElementById('monthlyRate');
+
+        if (!annualRateValue || annualRateValue < 0) {
+            monthlyRateField.value = '';
+            return;
+        }
+
+        const monthlyRate = (1 + annualRateValue / 100) ** (1 / 12) - 1;
+        monthlyRateField.value = (monthlyRate * 100).toFixed(4);
+    }
 
     document.getElementById('mortgageForm').addEventListener('submit', async function(e) {
         e.preventDefault();
