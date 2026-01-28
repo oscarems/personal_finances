@@ -334,12 +334,14 @@
 
         const totalAccounts = budgetData.totals?.in_accounts || 0;
         const totalBudgetAvailable = budgetData.totals?.available || 0;
+        const totalBudgetSpent = budgetData.totals?.activity || 0;
         const totalReadyToAssign = budgetData.ready_to_assign || 0;
         const missingRate = !rateValue && primaryCurrency !== 'COP' && primaryCurrency !== 'USD';
 
         const symbol = budgetData.currency.symbol || (primaryCurrency === 'USD' ? 'US$' : '$');
         const totalAccountsFormatted = formatCurrency(totalAccounts, primaryCurrency, symbol);
         const totalBudgetAvailableFormatted = formatCurrency(totalBudgetAvailable, primaryCurrency, symbol);
+        const totalBudgetSpentFormatted = formatCurrency(totalBudgetSpent, primaryCurrency, symbol);
         const totalReadyToAssignFormatted = formatCurrency(totalReadyToAssign, primaryCurrency, symbol);
         const assignedCardClass = [
             'rounded-card',
@@ -394,6 +396,10 @@
                         <span class="text-3xl">📊</span>
                     </div>
                     <p class="text-4xl font-extrabold text-white">${totalBudgetAvailableFormatted}</p>
+                    <div class="mt-3 pt-3 border-t border-white/30 flex items-center justify-between text-sm text-white/90 font-semibold">
+                        <span>Total gastado</span>
+                        <span>${totalBudgetSpentFormatted}</span>
+                    </div>
                 </div>
                 <div class="${availableCardClass}">
                     <div class="flex items-center justify-between mb-3">
