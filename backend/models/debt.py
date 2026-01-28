@@ -18,6 +18,7 @@ class Debt(Base):
 
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey('accounts.id'), nullable=False)
+    category_id = Column(Integer, ForeignKey('categories.id'))
 
     # Información básica
     name = Column(String(200), nullable=False)  # Nombre descriptivo de la deuda
@@ -51,6 +52,7 @@ class Debt(Base):
 
     # Relaciones
     account = relationship('Account', back_populates='debts')
+    category = relationship('Category')
     currency = relationship('Currency')
     payments = relationship('DebtPayment', back_populates='debt',
                            lazy=True, cascade='all, delete-orphan')
@@ -63,6 +65,8 @@ class Debt(Base):
         data = {
             'id': self.id,
             'account_id': self.account_id,
+            'category_id': self.category_id,
+            'category_name': self.category.name if self.category else None,
             'name': self.name,
             'debt_type': self.debt_type,
             'currency_code': self.currency_code,

@@ -340,6 +340,12 @@ def init_db(engine_override=None):
         engine_override=active_engine
     )
     ensure_sqlite_column(
+        table_name="debts",
+        column_name="category_id",
+        column_definition="category_id INTEGER",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
         table_name="wealth_assets",
         column_name="return_rate",
         column_definition="return_rate FLOAT",
