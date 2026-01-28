@@ -42,6 +42,7 @@ class RecurringTransactionUpdate(BaseModel):
     description: Optional[str] = None
     amount: Optional[float] = None
     transaction_type: Optional[str] = None
+    currency_id: Optional[int] = None
     frequency: Optional[str] = None
     interval: Optional[int] = None
     start_date: Optional[date] = None
@@ -148,6 +149,7 @@ def update_recurring_transaction(
     # Update fields
     update_fields = {
         'account_id', 'category_id', 'description', 'amount', 'transaction_type',
+        'currency_id',
         'frequency', 'interval', 'start_date', 'end_date',
         'day_of_week', 'day_of_month', 'is_active'
     }

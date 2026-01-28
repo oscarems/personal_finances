@@ -178,7 +178,7 @@ def _calculate_mortgage_current_balance(debt: Debt, db: Session) -> float:
         return debt.current_balance
     if not debt.original_amount or debt.original_amount <= 0:
         return debt.current_balance
-    if debt.interest_rate is None:
+    if not debt.interest_rate:
         return debt.current_balance
 
     payments = _build_mortgage_balance_payments(debt, db)
@@ -211,48 +211,6 @@ def _calculate_mortgage_current_balance(debt: Debt, db: Session) -> float:
         balance = max(0.0, balance - principal)
 
     return balance
-
-
-def _build_mortgage_payment_breakdown(debt: Debt, payments: List[dict]) -> List[dict]:
-    if not payments:
-        return []
-    if not debt.original_amount or debt.original_amount <= 0:
-        return payments
-    if debt.interest_rate is None:
-        return payments
-
-    annual_rate = debt.interest_rate / 100
-    monthly_rate = (1 + annual_rate) ** (1 / 12) - 1
-    base_payment = None
-    if debt.has_insurance and debt.loan_years:
-        base_payment = calculate_monthly_payment(debt.original_amount, annual_rate, debt.loan_years)
-
-    balance = debt.original_amount
-    enriched_payments = []
-    for payment in payments:
-        payment_amount = payment.get("amount") or 0.0
-        fees = payment.get("fees") or 0.0
-        interest = payment.get("interest")
-        if interest is None:
-            interest = balance * monthly_rate
-
-        insurance_amount = 0.0
-        if debt.has_insurance and base_payment:
-            insurance_amount = max(0.0, payment_amount - base_payment)
-
-        principal = payment.get("principal")
-        if principal is None:
-            principal = payment_amount - insurance_amount - fees - interest
-        principal = max(0.0, principal)
-        balance = max(0.0, balance - principal)
-
-        enriched = {**payment}
-        enriched["interest"] = interest
-        enriched["principal"] = principal
-        enriched["balance_after"] = balance
-        enriched_payments.append(enriched)
-
-    return enriched_payments
 
 
 def _debt_to_dict_with_calculated_balance(

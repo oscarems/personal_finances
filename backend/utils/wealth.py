@@ -17,7 +17,7 @@ def apply_expected_appreciation(
     if reference_date <= as_of_date:
         return value
 
-    years_elapsed = (reference_date - as_of_date).days // 365
+    years_elapsed = reference_date.year - as_of_date.year
     if years_elapsed <= 0:
         return value
 
