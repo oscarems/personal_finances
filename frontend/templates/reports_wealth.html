@@ -214,7 +214,7 @@
         try {
             const [netWorthRes, debtRes] = await Promise.all([
                 fetch(`/api/reports/net-worth?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`),
-                fetch(`/api/reports/debt-balance-history?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`)
+                fetch(`/api/reports/debt-balance-history?currency_id=${currencyId}&projection_months=12&include_full_history=true`)
             ]);
 
             const netWorthData = await netWorthRes.json();
