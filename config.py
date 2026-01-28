@@ -36,6 +36,32 @@ DEFAULT_EXCHANGE_RATES = {
     'USD': 4000.0    # 1 USD = 4000 COP (actualizar manualmente)
 }
 
+# Budget alert settings
+# Thresholds are percentage of budget consumed (0-100 scale).
+BUDGET_ALERT_DEFAULT_THRESHOLDS = {
+    'warning': 60,
+    'risk': 80,
+    'critical': 100
+}
+
+# Pacing margins are percentage points above expected spend for the period.
+BUDGET_ALERT_DEFAULT_PACING_MARGINS = {
+    'warning': 10,
+    'risk': 20,
+    'critical': 30
+}
+
+# Optional per-category overrides. Keys can be category IDs or names.
+# Example:
+# BUDGET_ALERT_CATEGORY_OVERRIDES = {
+#     12: {"thresholds": {"warning": 55, "risk": 75, "critical": 100}},
+#     "Transporte": {"pacing_margins": {"warning": 8, "risk": 18, "critical": 28}}
+# }
+BUDGET_ALERT_CATEGORY_OVERRIDES = {}
+
+# Cooldown in days to repeat the same alert state if it persists.
+BUDGET_ALERT_COOLDOWN_DAYS = int(os.getenv('BUDGET_ALERT_COOLDOWN_DAYS', '3'))
+
 # Budget categories (YNAB style - basado en tu exportación de YNAB)
 # rollover_type: 'reset' = dinero sobrante vuelve a Ready to Assign cada mes
 #                'accumulate' = dinero sobrante pasa al siguiente mes

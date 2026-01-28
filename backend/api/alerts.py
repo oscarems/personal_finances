@@ -83,14 +83,26 @@ def delete_alert_rule(rule_id: int, db: Session = Depends(get_db)):
 def get_budget_alerts_endpoint(
     month: Optional[date] = None,
     include_unconfigured: bool = True,
+    currency_code: str = "COP",
     db: Session = Depends(get_db)
 ):
     if not month:
         today = date.today()
         month = date(today.year, today.month, 1)
-    alerts = get_budget_alerts(db, month, include_unconfigured=include_unconfigured)
+    payload = get_budget_alerts(
+        db,
+        month,
+        include_unconfigured=include_unconfigured,
+        currency_code=currency_code
+    )
+    alerts = payload["alerts"]
     return {
         "month": month.isoformat(),
         "count": len(alerts),
-        "alerts": alerts
+        "currency_code": currency_code,
+        "alerts": alerts,
+        "category_states": payload["category_states"],
+        "expected_percent": payload["expected_percent"],
+        "days_remaining": payload["days_remaining"],
+        "cooldown_days": payload["cooldown_days"]
     }
