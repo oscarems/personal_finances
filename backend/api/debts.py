@@ -55,7 +55,8 @@ def _build_assumed_payments(debt: Debt, payments: List[DebtPayment]) -> List[dic
     if balance_after_first is None:
         balance_after_first = debt.current_balance
 
-    balance_before_first = max(0.0, balance_after_first + first_payment.amount)
+    principal_amount = _payment_principal_amount(first_payment)
+    balance_before_first = max(0.0, balance_after_first + principal_amount)
     starting_balance = balance_before_first + debt.monthly_payment * len(assumed_dates)
     balance = starting_balance
 
@@ -76,6 +77,17 @@ def _build_assumed_payments(debt: Debt, payments: List[DebtPayment]) -> List[dic
         })
 
     return assumed_payments
+
+
+def _payment_principal_amount(payment: DebtPayment) -> float:
+    if payment.principal is not None:
+        return max(0.0, payment.principal)
+    if payment.amount is None:
+        return 0.0
+    interest = payment.interest or 0.0
+    fees = payment.fees or 0.0
+    principal = payment.amount - interest - fees
+    return max(0.0, principal)
 
 
 def _build_category_payments(debt: Debt, payments: List[DebtPayment], db: Session) -> List[dict]:
@@ -118,6 +130,15 @@ def _build_category_payments(debt: Debt, payments: List[DebtPayment], db: Sessio
         })
 
     return category_payments
+
+
+def _calculate_principal_amount(payment: DebtPaymentCreate) -> float:
+    if payment.principal is not None:
+        return max(0.0, payment.principal)
+    interest = payment.interest or 0.0
+    fees = payment.fees or 0.0
+    principal = payment.amount - interest - fees
+    return max(0.0, principal)
 
 
 # Pydantic Schemas
@@ -500,8 +521,9 @@ def create_debt_payment(debt_id: int, payment_data: DebtPaymentCreate, db: Sessi
     if not debt:
         raise HTTPException(status_code=404, detail="Debt not found")
 
-    # Calculate balance after payment
-    balance_after = debt.current_balance - payment_data.amount
+    principal_amount = _calculate_principal_amount(payment_data)
+    # Calculate balance after payment (solo capital)
+    balance_after = debt.current_balance - principal_amount
 
     # Create payment record
     new_payment = DebtPayment(
@@ -556,8 +578,15 @@ def delete_debt_payment(debt_id: int, payment_id: int, db: Session = Depends(get
 
     debt = db.query(Debt).filter_by(id=debt_id).first()
 
-    # Restore debt balance
-    debt.current_balance += payment.amount
+    principal_amount = payment.principal
+    if principal_amount is None and payment.amount is not None:
+        interest = payment.interest or 0.0
+        fees = payment.fees or 0.0
+        principal_amount = payment.amount - interest - fees
+    principal_amount = max(0.0, principal_amount or 0.0)
+
+    # Restore debt balance (solo capital)
+    debt.current_balance += principal_amount
 
     # Reactivate debt if it was marked as paid
     if not debt.is_active and debt.current_balance > 0:
