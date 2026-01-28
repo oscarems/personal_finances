@@ -286,6 +286,12 @@ def init_db(engine_override=None):
         engine_override=active_engine
     )
     ensure_sqlite_column(
+        table_name="categories",
+        column_name="alerts_enabled",
+        column_definition="alerts_enabled BOOLEAN DEFAULT 1",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
         table_name="transactions",
         column_name="is_adjustment",
         column_definition="is_adjustment BOOLEAN DEFAULT 0",
