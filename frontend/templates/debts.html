@@ -104,9 +104,14 @@
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Monto Original</label>
                     <input type="number" name="original_amount" required step="0.01" class="input-field text-xl" placeholder="0.00">
                 </div>
-                <div>
+                <div data-debt-type="credit_card credit_loan">
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Saldo Actual</label>
                     <input type="number" name="current_balance" required step="0.01" class="input-field text-xl" placeholder="0.00">
+                </div>
+                <div data-debt-type="mortgage" class="flex items-center">
+                    <p class="text-sm text-neutral-600">
+                        El saldo actual de la hipoteca se calcula automáticamente según los pagos y la tasa de interés.
+                    </p>
                 </div>
             </div>
 
@@ -124,6 +129,14 @@
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Plazo (años)</label>
                     <input type="number" name="loan_years" min="1" step="1" class="input-field" placeholder="Ej: 20">
                 </div>
+            </div>
+
+            <div data-debt-type="mortgage">
+                <label class="flex items-center space-x-3 text-sm font-bold text-neutral-700 uppercase tracking-wide">
+                    <input type="checkbox" name="has_insurance" class="h-4 w-4 text-primary-600 border-neutral-300 rounded">
+                    <span>La cuota incluye seguros</span>
+                </label>
+                <p class="text-xs text-neutral-500 mt-2">Si la cuota incluye seguros, el saldo se calcula solo con capital e intereses.</p>
             </div>
 
             <!-- Fecha e Institución -->
@@ -436,12 +449,16 @@
             document.querySelector('[name="currency_code"]').value = debt.currency_code;
             document.querySelector('[name="category_id"]').value = debt.category_id || '';
             document.querySelector('[name="original_amount"]').value = debt.original_amount;
-            document.querySelector('[name="current_balance"]').value = debt.current_balance;
+            const currentBalanceInput = document.querySelector('[name="current_balance"]');
+            if (currentBalanceInput) {
+                currentBalanceInput.value = debt.current_balance;
+            }
             if (debt.interest_rate) document.querySelector('[name="interest_rate"]').value = debt.interest_rate;
             if (debt.monthly_payment) document.querySelector('[name="monthly_payment"]').value = debt.monthly_payment;
             if (debt.loan_years) document.querySelector('[name="loan_years"]').value = debt.loan_years;
             document.querySelector('[name="start_date"]').value = debt.start_date;
             if (debt.institution) document.querySelector('[name="institution"]').value = debt.institution;
+            document.querySelector('[name="has_insurance"]').checked = !!debt.has_insurance;
 
             document.getElementById('debtModal').classList.remove('hidden');
             toggleDebtTypeFields(debt.debt_type);
@@ -478,16 +495,23 @@
         const debtId = data.debt_id;
         delete data.debt_id;
 
+        const selectedDebtType = document.querySelector('[name="debt_type"]').value;
+
         // Convert numbers
         if (!debtId) {
             data.account_id = parseInt(data.account_id);
             data.original_amount = parseFloat(data.original_amount);
         }
-        data.current_balance = parseFloat(data.current_balance);
+        if (selectedDebtType !== 'mortgage') {
+            data.current_balance = parseFloat(data.current_balance);
+        } else {
+            delete data.current_balance;
+        }
         if (data.interest_rate) data.interest_rate = parseFloat(data.interest_rate);
         if (data.monthly_payment) data.monthly_payment = parseFloat(data.monthly_payment);
         if (data.loan_years) data.loan_years = parseInt(data.loan_years, 10);
         data.category_id = data.category_id ? parseInt(data.category_id, 10) : null;
+        data.has_insurance = selectedDebtType === 'mortgage' && document.querySelector('[name="has_insurance"]').checked;
 
         // Remove empty values for updates
         if (debtId) {
@@ -502,6 +526,9 @@
             delete data.debt_type;
             delete data.currency_code;
             delete data.original_amount;
+            if (selectedDebtType !== 'mortgage') {
+                delete data.has_insurance;
+            }
         }
 
         try {
@@ -684,6 +711,15 @@
                         ${debt.is_active ? '✅ Activa' : '❌ Inactiva'}
                     </p>
                 </div>
+                ${debt.debt_type === 'mortgage' ? `
+                    <div>
+                        <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Cuota con Seguros</p>
+                        <div class="flex items-center space-x-2 text-xl font-extrabold text-neutral-900">
+                            <input type="checkbox" ${debt.has_insurance ? 'checked' : ''} disabled class="h-4 w-4 text-primary-600 border-neutral-300 rounded">
+                            <span>${debt.has_insurance ? 'Sí' : 'No'}</span>
+                        </div>
+                    </div>
+                ` : ''}
             </div>
 
             ${debt.notes ? `
@@ -759,7 +795,17 @@
             if (!isVisible) {
                 const input = field.querySelector('input, select, textarea');
                 if (input) {
-                    input.value = '';
+                    if (input.type === 'checkbox') {
+                        input.checked = false;
+                    } else {
+                        input.value = '';
+                    }
+                    input.disabled = true;
+                }
+            } else {
+                const input = field.querySelector('input, select, textarea');
+                if (input) {
+                    input.disabled = false;
                 }
             }
         });

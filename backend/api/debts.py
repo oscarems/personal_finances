@@ -13,6 +13,7 @@ from dateutil.relativedelta import relativedelta
 
 from backend.database import get_db
 from backend.models import Debt, DebtPayment, Account, Transaction
+from backend.services.mortgage_service import calculate_monthly_payment
 
 router = APIRouter()
 
@@ -143,6 +144,91 @@ def _calculate_principal_amount(payment: DebtPaymentCreate) -> float:
     return max(0.0, principal)
 
 
+def _build_mortgage_balance_payments(debt: Debt, db: Session) -> List[dict]:
+    payment_rows = db.query(DebtPayment).filter_by(
+        debt_id=debt.id
+    ).order_by(DebtPayment.payment_date.asc()).all()
+
+    payment_dicts = [
+        {
+            "payment_date": payment.payment_date,
+            "amount": payment.amount,
+            "principal": payment.principal,
+            "interest": payment.interest,
+            "fees": payment.fees,
+        }
+        for payment in payment_rows
+    ]
+
+    category_payments = _build_category_payments(debt, payment_rows, db)
+    for payment in category_payments:
+        payment_dicts.append({
+            "payment_date": date.fromisoformat(payment["payment_date"]),
+            "amount": payment["amount"],
+            "principal": None,
+            "interest": None,
+            "fees": payment.get("fees", 0.0),
+        })
+
+    return sorted(payment_dicts, key=lambda payment: payment["payment_date"])
+
+
+def _calculate_mortgage_current_balance(debt: Debt, db: Session) -> float:
+    if debt.debt_type != "mortgage":
+        return debt.current_balance
+    if not debt.original_amount or debt.original_amount <= 0:
+        return debt.current_balance
+    if not debt.interest_rate:
+        return debt.current_balance
+
+    payments = _build_mortgage_balance_payments(debt, db)
+    if not payments:
+        return debt.current_balance or debt.original_amount
+
+    annual_rate = debt.interest_rate / 100
+    monthly_rate = (1 + annual_rate) ** (1 / 12) - 1
+
+    base_payment = None
+    if debt.has_insurance and debt.loan_years:
+        base_payment = calculate_monthly_payment(debt.original_amount, annual_rate, debt.loan_years)
+
+    balance = debt.original_amount
+    for payment in payments:
+        payment_amount = payment["amount"] or 0.0
+        fees = payment.get("fees") or 0.0
+        interest = payment.get("interest")
+        if interest is None:
+            interest = balance * monthly_rate
+
+        insurance_amount = 0.0
+        if debt.has_insurance and base_payment:
+            insurance_amount = max(0.0, payment_amount - base_payment)
+
+        principal = payment.get("principal")
+        if principal is None:
+            principal = payment_amount - insurance_amount - fees - interest
+        principal = max(0.0, principal)
+        balance = max(0.0, balance - principal)
+
+    return balance
+
+
+def _debt_to_dict_with_calculated_balance(
+    debt: Debt,
+    db: Session,
+    include_payments: bool = False
+) -> dict:
+    data = debt.to_dict(include_payments=include_payments)
+    if debt.debt_type != "mortgage":
+        return data
+
+    calculated_balance = _calculate_mortgage_current_balance(debt, db)
+    data["current_balance"] = calculated_balance
+    if debt.original_amount and debt.original_amount > 0:
+        data["paid_percentage"] = ((debt.original_amount - calculated_balance) / debt.original_amount) * 100
+    return data
+
+
 # Pydantic Schemas
 class DebtCreate(BaseModel):
     """Schema for creating a debt"""
@@ -152,7 +238,7 @@ class DebtCreate(BaseModel):
     category_id: Optional[int] = None
     currency_code: str = 'COP'
     original_amount: float
-    current_balance: float
+    current_balance: Optional[float] = None
     credit_limit: Optional[float] = None
     interest_rate: Optional[float] = None
     monthly_payment: Optional[float] = None
@@ -164,6 +250,7 @@ class DebtCreate(BaseModel):
     institution: Optional[str] = None
     account_number: Optional[str] = None
     notes: Optional[str] = None
+    has_insurance: Optional[bool] = False
 
 
 class DebtUpdate(BaseModel):
@@ -184,6 +271,7 @@ class DebtUpdate(BaseModel):
     notes: Optional[str] = None
     is_active: Optional[bool] = None
     is_consolidated: Optional[bool] = None
+    has_insurance: Optional[bool] = None
 
 
 class DebtPaymentCreate(BaseModel):
@@ -223,7 +311,7 @@ def get_debts(
 
     debts = query.all()
 
-    return [debt.to_dict() for debt in debts]
+    return [_debt_to_dict_with_calculated_balance(debt, db) for debt in debts]
 
 
 @router.get("/summary")
@@ -256,7 +344,8 @@ def get_debts_summary(db: Session = Depends(get_db)):
     interest_count = 0
 
     for debt in debts:
-        debt_dict = debt.to_dict()
+        debt_dict = _debt_to_dict_with_calculated_balance(debt, db)
+        current_balance = debt_dict["current_balance"]
 
         # Group by type
         if debt.debt_type not in summary['by_type']:
@@ -266,7 +355,7 @@ def get_debts_summary(db: Session = Depends(get_db)):
                 'total_original': 0
             }
         summary['by_type'][debt.debt_type]['count'] += 1
-        summary['by_type'][debt.debt_type]['total_balance'] += debt.current_balance
+        summary['by_type'][debt.debt_type]['total_balance'] += current_balance
         summary['by_type'][debt.debt_type]['total_original'] += debt.original_amount
 
         # Group by currency
@@ -276,7 +365,7 @@ def get_debts_summary(db: Session = Depends(get_db)):
                 'total_balance': 0
             }
         summary['by_currency'][debt.currency_code]['count'] += 1
-        summary['by_currency'][debt.currency_code]['total_balance'] += debt.current_balance
+        summary['by_currency'][debt.currency_code]['total_balance'] += current_balance
 
         # Totals by currency
         if debt.currency_code not in summary['total_original']:
@@ -286,8 +375,8 @@ def get_debts_summary(db: Session = Depends(get_db)):
             summary['total_monthly_payment'][debt.currency_code] = 0
 
         summary['total_original'][debt.currency_code] += debt.original_amount
-        summary['total_current'][debt.currency_code] += debt.current_balance
-        summary['total_paid'][debt.currency_code] += (debt.original_amount - debt.current_balance)
+        summary['total_current'][debt.currency_code] += current_balance
+        summary['total_paid'][debt.currency_code] += (debt.original_amount - current_balance)
 
         if debt.monthly_payment:
             summary['total_monthly_payment'][debt.currency_code] += debt.monthly_payment
@@ -302,7 +391,7 @@ def get_debts_summary(db: Session = Depends(get_db)):
             summary['debts_near_payoff'].append({
                 'id': debt.id,
                 'name': debt.name,
-                'remaining': debt.current_balance,
+                'remaining': current_balance,
                 'percentage': debt_dict['paid_percentage']
             })
 
@@ -312,7 +401,7 @@ def get_debts_summary(db: Session = Depends(get_db)):
                 'id': debt.id,
                 'name': debt.name,
                 'interest_rate': debt.interest_rate,
-                'balance': debt.current_balance
+                'balance': current_balance
             })
 
     if interest_count > 0:
@@ -337,7 +426,7 @@ def get_debt(debt_id: int, include_payments: bool = False, db: Session = Depends
     if not debt:
         raise HTTPException(status_code=404, detail="Debt not found")
 
-    return debt.to_dict(include_payments=include_payments)
+    return _debt_to_dict_with_calculated_balance(debt, db, include_payments=include_payments)
 
 
 @router.post("/")
@@ -365,6 +454,12 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
         )
 
     # Create debt
+    current_balance = debt_data.current_balance
+    if debt_data.debt_type == "mortgage" and current_balance is None:
+        current_balance = debt_data.original_amount
+    if debt_data.debt_type != "mortgage" and current_balance is None:
+        raise HTTPException(status_code=400, detail="Current balance is required for this debt type.")
+
     new_debt = Debt(
         account_id=debt_data.account_id,
         name=debt_data.name,
@@ -372,7 +467,7 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
         category_id=debt_data.category_id,
         currency_code=debt_data.currency_code,
         original_amount=debt_data.original_amount,
-        current_balance=debt_data.current_balance,
+        current_balance=current_balance,
         credit_limit=debt_data.credit_limit,
         interest_rate=debt_data.interest_rate,
         monthly_payment=debt_data.monthly_payment,
@@ -384,6 +479,7 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
         institution=debt_data.institution,
         account_number=debt_data.account_number,
         notes=debt_data.notes,
+        has_insurance=debt_data.has_insurance or False,
         is_active=True
     )
 
@@ -424,6 +520,8 @@ def update_debt(debt_id: int, debt_update: DebtUpdate, db: Session = Depends(get
 
     # Update fields
     update_data = debt_update.dict(exclude_unset=True)
+    if debt.debt_type == "mortgage" and "current_balance" in update_data:
+        update_data.pop("current_balance")
     for field, value in update_data.items():
         setattr(debt, field, value)
 
@@ -444,7 +542,7 @@ def update_debt(debt_id: int, debt_update: DebtUpdate, db: Session = Depends(get
     db.commit()
     db.refresh(debt)
 
-    return debt.to_dict()
+    return _debt_to_dict_with_calculated_balance(debt, db)
 
 
 @router.delete("/{debt_id}")
@@ -540,21 +638,26 @@ def create_debt_payment(debt_id: int, payment_data: DebtPaymentCreate, db: Sessi
         transaction_id=payment_data.transaction_id
     )
 
+    db.add(new_payment)
+    db.flush()
+
     # Update debt balance
-    debt.current_balance = balance_after
+    if debt.debt_type == "mortgage":
+        debt.current_balance = _calculate_mortgage_current_balance(debt, db)
+    else:
+        debt.current_balance = balance_after
 
     # If debt is fully paid, mark as inactive
-    if balance_after <= 0:
+    if debt.current_balance <= 0:
         debt.is_active = False
 
-    db.add(new_payment)
     db.commit()
     db.refresh(new_payment)
     db.refresh(debt)
 
     return {
         "payment": new_payment.to_dict(),
-        "debt": debt.to_dict()
+        "debt": _debt_to_dict_with_calculated_balance(debt, db)
     }
 
 
@@ -587,14 +690,19 @@ def delete_debt_payment(debt_id: int, payment_id: int, db: Session = Depends(get
         principal_amount = payment.amount - interest - fees
     principal_amount = max(0.0, principal_amount or 0.0)
 
+    db.delete(payment)
+    db.flush()
+
     # Restore debt balance (solo capital)
-    debt.current_balance += principal_amount
+    if debt.debt_type == "mortgage":
+        debt.current_balance = _calculate_mortgage_current_balance(debt, db)
+    else:
+        debt.current_balance += principal_amount
 
     # Reactivate debt if it was marked as paid
     if not debt.is_active and debt.current_balance > 0:
         debt.is_active = True
 
-    db.delete(payment)
     db.commit()
 
     return {
