@@ -78,12 +78,55 @@ def _build_assumed_payments(debt: Debt, payments: List[DebtPayment]) -> List[dic
     return assumed_payments
 
 
+def _build_category_payments(debt: Debt, payments: List[DebtPayment], db: Session) -> List[dict]:
+    if not debt.category_id:
+        return []
+
+    linked_transaction_ids = {
+        payment.transaction_id for payment in payments if payment.transaction_id
+    }
+
+    transactions = db.query(Transaction).filter(
+        Transaction.category_id == debt.category_id,
+        Transaction.amount < 0
+    ).order_by(Transaction.date.desc()).all()
+
+    category_payments = []
+    for transaction in transactions:
+        if transaction.id in linked_transaction_ids:
+            continue
+
+        raw_amount = transaction.original_amount if transaction.original_amount is not None else transaction.amount
+        amount = abs(raw_amount)
+        notes_parts = ["Pago desde presupuesto"]
+        if transaction.payee and transaction.payee.name:
+            notes_parts.append(transaction.payee.name)
+        if transaction.memo:
+            notes_parts.append(transaction.memo)
+
+        category_payments.append({
+            "id": None,
+            "debt_id": debt.id,
+            "transaction_id": transaction.id,
+            "payment_date": transaction.date.isoformat(),
+            "amount": amount,
+            "principal": None,
+            "interest": None,
+            "fees": 0.0,
+            "balance_after": None,
+            "notes": " · ".join(notes_parts)
+        })
+
+    return category_payments
+
+
 # Pydantic Schemas
 class DebtCreate(BaseModel):
     """Schema for creating a debt"""
     account_id: int
     name: str
     debt_type: str  # 'credit_card', 'credit_loan', 'mortgage'
+    category_id: Optional[int] = None
     currency_code: str = 'COP'
     original_amount: float
     current_balance: float
@@ -103,6 +146,7 @@ class DebtCreate(BaseModel):
 class DebtUpdate(BaseModel):
     """Schema for updating a debt"""
     name: Optional[str] = None
+    category_id: Optional[int] = None
     current_balance: Optional[float] = None
     credit_limit: Optional[float] = None
     interest_rate: Optional[float] = None
@@ -302,6 +346,7 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
         account_id=debt_data.account_id,
         name=debt_data.name,
         debt_type=debt_data.debt_type,
+        category_id=debt_data.category_id,
         currency_code=debt_data.currency_code,
         original_amount=debt_data.original_amount,
         current_balance=debt_data.current_balance,
@@ -425,8 +470,9 @@ def get_debt_payments(debt_id: int, db: Session = Depends(get_db)):
     ).all()
 
     assumed_payments = _build_assumed_payments(debt, payments)
+    category_payments = _build_category_payments(debt, payments, db)
     payment_dicts = [payment.to_dict() for payment in payments]
-    all_payments = payment_dicts + assumed_payments
+    all_payments = payment_dicts + assumed_payments + category_payments
 
     if not all_payments:
         return []
