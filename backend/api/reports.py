@@ -623,13 +623,6 @@ def get_debt_balance_history(
     currencies = db.query(Currency).all()
     currency_map = {currency.code: currency.id for currency in currencies}
 
-    mortgage_balance_maps = {}
-    for debt in debts:
-        if debt.debt_type == "mortgage":
-            balance_map = _build_mortgage_balance_map(debt, end_date_obj, today)
-            if balance_map:
-                mortgage_balance_maps[debt.id] = balance_map
-
     monthly_totals = []
     current_date = start_date_obj
 
@@ -642,44 +635,23 @@ def get_debt_balance_history(
                 continue
 
             balance = None
-            if debt.debt_type == "mortgage" and debt.id in mortgage_balance_maps:
-                balance = mortgage_balance_maps[debt.id].get(month_end)
-
-            if balance is None:
-                all_payments = sorted(
-                    [p for p in debt.payments if p.payment_date],
+            if month_end >= today and debt.current_balance is not None:
+                balance = debt.current_balance
+            else:
+                payments = sorted(
+                    [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
                     key=lambda p: p.payment_date
                 )
-                first_payment = all_payments[0] if all_payments else None
 
-                if first_payment and month_end < first_payment.payment_date:
-                    if first_payment.balance_after is not None:
-                        balance = first_payment.balance_after
+                if payments:
+                    last_payment = payments[-1]
+                    if last_payment.balance_after is not None:
+                        balance = last_payment.balance_after
                     else:
-                        balance = debt.original_amount or 0
-                        first_amount = first_payment.principal if first_payment.principal is not None else first_payment.amount
-                        if first_amount:
-                            balance -= first_amount
+                        principal_paid = sum(_payment_principal(payment) for payment in payments)
+                        balance = (debt.original_amount or 0) - principal_paid
                 else:
-                    payments = sorted(
-                        [p for p in debt.payments if p.payment_date and p.payment_date <= month_end],
-                        key=lambda p: p.payment_date
-                    )
-
-                    if payments:
-                        last_payment = payments[-1]
-                        if last_payment.balance_after is not None:
-                            balance = last_payment.balance_after
-                        else:
-                            balance = debt.original_amount
-                            for payment in payments:
-                                payment_amount = payment.principal if payment.principal is not None else payment.amount
-                                balance -= payment_amount
-                    else:
-                        balance = debt.original_amount
-
-                if month_end >= today and debt.current_balance is not None:
-                    balance = debt.current_balance
+                    balance = debt.original_amount or 0
 
             balance = max(balance, 0)
             debt_currency_id = currency_map.get(debt.currency_code, currency_id)
