@@ -109,6 +109,20 @@
     </div>
 </div>
 
+<!-- Last manual transactions per account -->
+<div class="card-hover-lift p-6 mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+        <h3 class="text-lg font-bold text-neutral-800 flex items-center">
+            <span class="text-xl mr-2">🕒</span>
+            Última transacción manual por cuenta
+        </h3>
+        <p class="text-xs text-neutral-500">Se excluyen transacciones automáticas.</p>
+    </div>
+    <div id="lastManualTransactions" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="text-sm text-neutral-500">Cargando información...</div>
+    </div>
+</div>
+
 <!-- Transactions Table -->
 <div class="card overflow-hidden">
     <div class="overflow-x-auto">
@@ -458,11 +472,13 @@
     let currencies = [];
     let investmentAssets = [];
     let outlookCandidates = [];
+    let lastManualTransactions = {};
     let editingTransactionId = null;
     let editingTransactionOriginal = null;
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadAccounts();
+        await loadLastManualTransactions();
         await loadCategories();
         await loadCurrencies();
         await loadInvestmentAssets();
@@ -493,9 +509,55 @@
             accounts.forEach(acc => {
                 formSelect.innerHTML += `<option value="${acc.id}" data-currency="${acc.currency.id}">${acc.name} (${acc.currency.code})</option>`;
             });
+
+            renderLastManualTransactions();
         } catch (error) {
             console.error('Error loading accounts:', error);
         }
+    }
+
+    async function loadLastManualTransactions() {
+        try {
+            const res = await fetch('/api/transactions/last-manual');
+            const data = await res.json();
+            lastManualTransactions = data.reduce((acc, item) => {
+                acc[item.account_id] = item;
+                return acc;
+            }, {});
+            renderLastManualTransactions();
+        } catch (error) {
+            console.error('Error loading last manual transactions:', error);
+        }
+    }
+
+    function renderLastManualTransactions() {
+        const container = document.getElementById('lastManualTransactions');
+        if (!container) return;
+
+        if (accounts.length === 0) {
+            container.innerHTML = '<div class="text-sm text-neutral-500">No hay cuentas registradas.</div>';
+            return;
+        }
+
+        container.innerHTML = accounts.map(account => {
+            const lastEntry = lastManualTransactions[account.id];
+            const lastCreatedAt = lastEntry?.last_manual_created_at
+                ? formatDateTime(lastEntry.last_manual_created_at)
+                : 'Sin transacciones manuales';
+
+            return `
+                <div class="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
+                    <div>
+                        <p class="text-sm font-semibold text-neutral-800">${account.name}</p>
+                        <p class="text-xs text-neutral-500">${account.type.replace('_', ' ')} • ${account.currency.code}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-neutral-500 uppercase tracking-wide">Última manual</p>
+                        <p class="text-sm font-semibold text-neutral-800">${lastCreatedAt}</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     async function loadCategories() {
@@ -727,6 +789,18 @@
         return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
+    function formatDateTime(dateTimeString) {
+        if (!dateTimeString) return '-';
+        const date = new Date(dateTimeString);
+        return date.toLocaleString('es-CO', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
     function openCreateModal() {
         editingTransactionId = null;
         editingTransactionOriginal = null;
@@ -872,6 +946,7 @@
             if (res.ok) {
                 closeTransactionModal();
                 await loadTransactions();
+                await loadLastManualTransactions();
             } else {
                 let errorMessage = 'Error desconocido';
                 try {
@@ -908,6 +983,7 @@
 
             if (res.ok) {
                 await loadTransactions();
+                await loadLastManualTransactions();
             } else {
                 alert('Error al eliminar la transacción');
             }
@@ -1027,6 +1103,7 @@
             if (res.ok) {
                 closeTransferModal();
                 await loadTransactions();
+                await loadLastManualTransactions();
                 alert('Transferencia creada exitosamente');
             } else {
                 const error = await res.json();
@@ -1267,6 +1344,7 @@
             alert(`✅ Importadas ${data.count} transacciones.`);
             closeOutlookModal();
             await loadTransactions();
+            await loadLastManualTransactions();
         } catch (error) {
             alert(`Error al importar: ${error.message}`);
         }

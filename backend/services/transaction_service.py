@@ -3,7 +3,7 @@ Transaction service for CRUD operations
 """
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from backend.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment
@@ -237,6 +237,33 @@ def get_transactions(db: Session, account_id=None, category_id=None, start_date=
         query = query.limit(limit)
 
     return query.all()
+
+
+def get_last_manual_transactions_by_account(db: Session):
+    memo_value = func.coalesce(Transaction.memo, '')
+    results = (
+        db.query(
+            Transaction.account_id,
+            func.max(Transaction.created_at).label("last_manual_created_at")
+        )
+        .filter(
+            Transaction.import_id.is_(None),
+            Transaction.is_adjustment.is_(False),
+            memo_value != "Transacción automática",
+            ~memo_value.ilike("Auto:%")
+        )
+        .group_by(Transaction.account_id)
+        .all()
+    )
+
+    return [
+        {
+            "account_id": account_id,
+            "last_manual_created_at": last_manual_created_at.isoformat()
+            if last_manual_created_at else None
+        }
+        for account_id, last_manual_created_at in results
+    ]
 
 
 def get_transaction_by_id(db: Session, transaction_id):

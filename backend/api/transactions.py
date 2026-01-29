@@ -10,7 +10,8 @@ from datetime import date
 from backend.database import get_db
 from backend.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
-    update_transaction, delete_transaction, create_transfer, create_adjustment
+    update_transaction, delete_transaction, create_transfer, create_adjustment,
+    get_last_manual_transactions_by_account
 )
 
 router = APIRouter()
@@ -78,6 +79,12 @@ def list_transactions(
         limit=limit
     )
     return [t.to_dict() for t in transactions]
+
+
+@router.get("/last-manual")
+def last_manual_transactions(db: Session = Depends(get_db)):
+    """Get last manual transaction creation date by account."""
+    return get_last_manual_transactions_by_account(db)
 
 
 @router.get("/{transaction_id}")
