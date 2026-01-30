@@ -352,6 +352,42 @@ def init_db(engine_override=None):
         engine_override=active_engine
     )
     ensure_sqlite_column(
+        table_name="debts",
+        column_name="principal_balance",
+        column_definition="principal_balance NUMERIC(18, 6)",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="debts",
+        column_name="interest_balance",
+        column_definition="interest_balance NUMERIC(18, 6)",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="debts",
+        column_name="annual_interest_rate",
+        column_definition="annual_interest_rate NUMERIC(10, 6)",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="debts",
+        column_name="term_months",
+        column_definition="term_months INTEGER",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="debts",
+        column_name="next_due_date",
+        column_definition="next_due_date DATE",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="debts",
+        column_name="last_accrual_date",
+        column_definition="last_accrual_date DATE",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
         table_name="wealth_assets",
         column_name="return_rate",
         column_definition="return_rate FLOAT",
