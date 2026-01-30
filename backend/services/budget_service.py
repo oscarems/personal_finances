@@ -2,12 +2,42 @@
 Budget service - YNAB style "Give every dollar a job"
 """
 from datetime import date, datetime
+from typing import Optional
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, extract
 from sqlalchemy.orm import Session, joinedload
 from backend.models import BudgetMonth, Category, CategoryGroup, Transaction, Account, Currency
 from backend.services.transaction_service import get_monthly_activity
 from backend.services.exchange_rate_service import get_current_exchange_rate, convert_currency
+
+
+def build_spent_transactions_query(
+    db: Session,
+    start_date: date,
+    end_date: date,
+    category_id: Optional[int] = None
+):
+    """
+    Construye el query base para transacciones de gasto.
+
+    - Solo gastos (montos negativos)
+    - Excluye transferencias y ajustes de balance
+    - Excluye categorías de ingreso
+    - Rango de fechas con fin exclusivo [start_date, end_date)
+    """
+    query = db.query(Transaction).join(Category).join(CategoryGroup).filter(
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.amount < 0,
+        Transaction.transfer_account_id.is_(None),
+        Transaction.is_adjustment.is_(False),
+        CategoryGroup.is_income.is_(False)
+    )
+
+    if category_id is not None:
+        query = query.filter(Transaction.category_id == category_id)
+
+    return query
 
 
 def get_assigned_totals_by_currency(db: Session, month_date):
@@ -704,13 +734,8 @@ def calculate_spent_to_date(db: Session, month_date, currency_id):
     else:
         end_date = today + relativedelta(days=1)
 
-    transactions = db.query(Transaction).join(Category).join(CategoryGroup).options(
+    transactions = build_spent_transactions_query(db, start_date, end_date).options(
         joinedload(Transaction.currency)
-    ).filter(
-        Transaction.date >= start_date,
-        Transaction.date < end_date,
-        Transaction.amount < 0,
-        CategoryGroup.is_income == False
     ).all()
 
     total_spent = 0.0
@@ -751,16 +776,11 @@ def get_spent_transactions_to_date(db: Session, month_date, currency_id):
     else:
         end_date = today + relativedelta(days=1)
 
-    transactions = db.query(Transaction).join(Category).join(CategoryGroup).options(
+    transactions = build_spent_transactions_query(db, start_date, end_date).options(
         joinedload(Transaction.currency),
         joinedload(Transaction.account),
         joinedload(Transaction.payee),
         joinedload(Transaction.category)
-    ).filter(
-        Transaction.date >= start_date,
-        Transaction.date < end_date,
-        Transaction.amount < 0,
-        CategoryGroup.is_income == False
     ).order_by(Transaction.date.desc()).all()
 
     detailed = []
