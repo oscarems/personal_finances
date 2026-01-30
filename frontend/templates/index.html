@@ -490,10 +490,11 @@
         container.innerHTML = html;
     }
 
-    function getCurrentMonthRange() {
+    function getLastCalendarMonthRange() {
         const now = new Date();
-        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const startDate = new Date(previousMonthDate.getFullYear(), previousMonthDate.getMonth(), 1);
+        const endDate = new Date(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1, 0);
         const toIsoDate = date =>
             date.toISOString().split('T')[0];
 
@@ -503,12 +504,12 @@
             label: new Intl.DateTimeFormat('es-CO', {
                 month: 'long',
                 year: 'numeric'
-            }).format(now)
+            }).format(previousMonthDate)
         };
     }
 
     async function fetchMonthlyTransactions() {
-        const range = getCurrentMonthRange();
+        const range = getLastCalendarMonthRange();
         const params = new URLSearchParams({
             start_date: range.start,
             end_date: range.end,
@@ -524,7 +525,7 @@
     function displayMonthlySpending(transactions) {
         const totalsContainer = document.getElementById('monthlySpendingTotals');
         const periodLabel = document.getElementById('monthlySpendingPeriod');
-        const range = getCurrentMonthRange();
+        const range = getLastCalendarMonthRange();
         periodLabel.textContent = `Total de gastos en ${range.label}`;
 
         const totals = {};
@@ -544,7 +545,7 @@
         const entries = Object.entries(totals);
         if (!entries.length) {
             totalsContainer.innerHTML = `
-                <p class="text-neutral-500 text-sm">No hay gastos registrados en este mes.</p>
+                <p class="text-neutral-500 text-sm">No hay gastos registrados en el último mes calendario.</p>
             `;
             return;
         }
