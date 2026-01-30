@@ -480,6 +480,8 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
     # Calculate "Ready to Assign" - money not assigned to any category
     budget_data['ready_to_assign'] = calculate_ready_to_assign(db, month_date, currency.id)
     budget_data['totals']['in_accounts'] = calculate_total_in_accounts(db, currency.id)
+    budget_data['totals']['assigned'] = calculate_assigned_this_month(db, month_date, currency.id)
+    budget_data['totals']['activity'] = calculate_spent_to_date(db, month_date, currency.id)
 
     return budget_data
 
@@ -625,6 +627,105 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
 
     # Ready to Assign = Money in accounts - Money available in categories
     return total_in_accounts - total_available
+
+
+def calculate_assigned_this_month(db: Session, month_date, currency_id):
+    """
+    Calcula el total asignado durante el mes actual sin contar asignaciones heredadas
+    de meses anteriores.
+
+    Se calcula como la diferencia entre el asignado del mes actual y el asignado del
+    mes anterior por categoría/moneda.
+    """
+    target_currency = db.query(Currency).get(currency_id)
+    if not target_currency:
+        return 0.0
+
+    exchange_rate_usd_cop = get_current_exchange_rate(db)
+
+    def convert_with_cache(amount, from_currency_code):
+        if from_currency_code == target_currency.code:
+            return amount
+        if from_currency_code == 'USD' and target_currency.code == 'COP':
+            return amount * exchange_rate_usd_cop
+        if from_currency_code == 'COP' and target_currency.code == 'USD':
+            return amount / exchange_rate_usd_cop
+        return amount
+
+    previous_month = month_date - relativedelta(months=1)
+
+    budgets = db.query(BudgetMonth).options(
+        joinedload(BudgetMonth.category).joinedload(Category.category_group),
+        joinedload(BudgetMonth.currency)
+    ).filter_by(month=month_date).all()
+
+    total_assigned = 0.0
+    for budget in budgets:
+        if not budget.category or not budget.category.category_group:
+            continue
+        if budget.category.category_group.is_income:
+            continue
+
+        prev_budget = db.query(BudgetMonth).filter_by(
+            category_id=budget.category_id,
+            currency_id=budget.currency_id,
+            month=previous_month
+        ).first()
+
+        previous_assigned = prev_budget.assigned if prev_budget else 0.0
+        delta_assigned = (budget.assigned or 0.0) - (previous_assigned or 0.0)
+
+        budget_currency = budget.currency
+        if not budget_currency:
+            continue
+
+        total_assigned += convert_with_cache(delta_assigned, budget_currency.code)
+
+    return total_assigned
+
+
+def calculate_spent_to_date(db: Session, month_date, currency_id):
+    """
+    Calcula el total gastado desde el primer día del mes hasta hoy (inclusive).
+    Solo considera transacciones de gasto (montos negativos) y excluye ingresos.
+    """
+    target_currency = db.query(Currency).get(currency_id)
+    if not target_currency:
+        return 0.0
+
+    start_date = month_date
+    end_of_month = month_date + relativedelta(months=1)
+    today = date.today()
+
+    if today < start_date:
+        end_date = start_date
+    elif today >= end_of_month:
+        end_date = end_of_month
+    else:
+        end_date = today + relativedelta(days=1)
+
+    transactions = db.query(Transaction).join(Category).join(CategoryGroup).options(
+        joinedload(Transaction.currency)
+    ).filter(
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.amount < 0,
+        CategoryGroup.is_income == False
+    ).all()
+
+    total_spent = 0.0
+    for tx in transactions:
+        tx_currency = tx.currency.code if tx.currency else target_currency.code
+        converted_amount = convert_currency(
+            abs(tx.amount),
+            tx_currency,
+            target_currency.code,
+            db,
+            rate_date=tx.date
+        )
+        total_spent += converted_amount
+
+    return total_spent
 
 
 def get_budget_overview(db: Session, currency_code='COP'):
