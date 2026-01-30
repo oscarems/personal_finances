@@ -728,6 +728,65 @@ def calculate_spent_to_date(db: Session, month_date, currency_id):
     return total_spent
 
 
+def get_spent_transactions_to_date(db: Session, month_date, currency_id):
+    """
+    Obtiene las transacciones usadas para calcular "Gastado este mes".
+
+    Retorna una lista de transacciones de gasto (montos negativos) desde el primer
+    día del mes hasta hoy (inclusive), junto con el monto convertido a la moneda
+    objetivo para facilitar el detalle en la UI.
+    """
+    target_currency = db.query(Currency).get(currency_id)
+    if not target_currency:
+        return {"error": "Currency not found"}
+
+    start_date = month_date
+    end_of_month = month_date + relativedelta(months=1)
+    today = date.today()
+
+    if today < start_date:
+        end_date = start_date
+    elif today >= end_of_month:
+        end_date = end_of_month
+    else:
+        end_date = today + relativedelta(days=1)
+
+    transactions = db.query(Transaction).join(Category).join(CategoryGroup).options(
+        joinedload(Transaction.currency),
+        joinedload(Transaction.account),
+        joinedload(Transaction.payee),
+        joinedload(Transaction.category)
+    ).filter(
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.amount < 0,
+        CategoryGroup.is_income == False
+    ).order_by(Transaction.date.desc()).all()
+
+    detailed = []
+    total_spent = 0.0
+    for tx in transactions:
+        tx_currency = tx.currency.code if tx.currency else target_currency.code
+        converted_amount = convert_currency(
+            abs(tx.amount),
+            tx_currency,
+            target_currency.code,
+            db,
+            rate_date=tx.date
+        )
+        total_spent += converted_amount
+        tx_data = tx.to_dict()
+        tx_data["spent_converted"] = converted_amount
+        tx_data["spent_currency_code"] = target_currency.code
+        detailed.append(tx_data)
+
+    return {
+        "currency_code": target_currency.code,
+        "total_spent": total_spent,
+        "transactions": detailed
+    }
+
+
 def get_budget_overview(db: Session, currency_code='COP'):
     """
     Get budget overview for current month
