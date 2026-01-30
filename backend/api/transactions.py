@@ -3,8 +3,9 @@ Transactions API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel
+from decimal import Decimal
 from datetime import date
 
 from backend.database import get_db
@@ -18,6 +19,19 @@ router = APIRouter()
 
 
 # Pydantic schemas
+class MortgageAllocation(BaseModel):
+    loan_id: int
+    payment_date: Optional[date] = None
+    mode: Literal["manual", "auto"] = "auto"
+    interest_paid: Optional[Decimal] = None
+    principal_paid: Optional[Decimal] = None
+    fees_paid: Optional[Decimal] = None
+    escrow_paid: Optional[Decimal] = None
+    extra_principal_paid: Optional[Decimal] = None
+    period: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class TransactionCreate(BaseModel):
     account_id: int
     date: date
@@ -28,6 +42,7 @@ class TransactionCreate(BaseModel):
     amount: float
     currency_id: int
     cleared: bool = False
+    mortgage_allocation: Optional[MortgageAllocation] = None
 
 
 class TransferCreate(BaseModel):
@@ -100,7 +115,10 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
 def create_new_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     """Create a new transaction"""
     data = transaction.dict()
-    new_transaction = create_transaction(db, data)
+    try:
+        new_transaction = create_transaction(db, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return new_transaction.to_dict()
 
 
@@ -119,7 +137,10 @@ def update_existing_transaction(
             data["date"] = date.fromisoformat(data["date"])
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.") from exc
-    updated_transaction = update_transaction(db, transaction_id, data)
+    try:
+        updated_transaction = update_transaction(db, transaction_id, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not updated_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return updated_transaction.to_dict()

@@ -7,6 +7,7 @@ from backend.models.budget import BudgetMonth
 from backend.models.recurring_transaction import RecurringTransaction
 from backend.models.exchange_rate import ExchangeRate
 from backend.models.debt import Debt, DebtPayment
+from backend.models.mortgage_payment_allocation import MortgagePaymentAllocation
 from backend.models.ynab_category_mapping import YnabCategoryMapping
 from backend.models.alert import AlertRule
 from backend.models.budget_alert_state import BudgetAlertState
@@ -25,6 +26,7 @@ __all__ = [
     'ExchangeRate',
     'Debt',
     'DebtPayment',
+    'MortgagePaymentAllocation',
     'YnabCategoryMapping',
     'AlertRule',
     'BudgetAlertState',

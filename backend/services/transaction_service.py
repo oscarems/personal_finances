@@ -6,7 +6,11 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
-from backend.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment
+from backend.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment, MortgagePaymentAllocation
+from backend.services.mortgage_allocation_service import (
+    apply_mortgage_payment_allocation,
+    rebuild_mortgage_balances
+)
 from backend.services.exchange_rate_service import convert_currency, get_rate_for_date
 
 
@@ -151,59 +155,66 @@ def create_transaction(db: Session, data):
     Returns:
         Transaction object
     """
-    # Get or create payee
-    payee = None
-    if data.get('payee_name'):
-        payee = db.query(Payee).filter_by(name=data['payee_name']).first()
-        if not payee:
-            payee = Payee(name=data['payee_name'])
-            db.add(payee)
-            db.flush()
+    mortgage_allocation = data.pop('mortgage_allocation', None)
 
-    transaction_date = data.get('date', date.today())
-    account = db.query(Account).get(data['account_id'])
-    normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
-        db,
-        data['amount'],
-        data['currency_id'],
-        account,
-        transaction_date
-    )
-    base_amount, base_currency_id = build_transaction_audit_fields(
-        db,
-        data['amount'],
-        data['currency_id'],
-        transaction_date
-    )
-    # Create transaction
-    transaction = Transaction(
-        account_id=data['account_id'],
-        date=transaction_date,
-        payee_id=payee.id if payee else None,
-        category_id=data.get('category_id'),
-        memo=data.get('memo', ''),
-        amount=normalized_amount,
-        currency_id=normalized_currency_id,
-        original_amount=data['amount'],
-        original_currency_id=data['currency_id'],
-        fx_rate=fx_rate,
-        base_amount=base_amount,
-        base_currency_id=base_currency_id,
-        cleared=data.get('cleared', False),
-        approved=data.get('approved', True),
-        transfer_account_id=data.get('transfer_account_id'),
-        investment_asset_id=data.get('investment_asset_id')
-    )
+    transaction_context = db.begin_nested() if db.in_transaction() else db.begin()
+    with transaction_context:
+        # Get or create payee
+        payee = None
+        if data.get('payee_name'):
+            payee = db.query(Payee).filter_by(name=data['payee_name']).first()
+            if not payee:
+                payee = Payee(name=data['payee_name'])
+                db.add(payee)
+                db.flush()
 
-    db.add(transaction)
+        transaction_date = data.get('date', date.today())
+        account = db.query(Account).get(data['account_id'])
+        normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
+            db,
+            data['amount'],
+            data['currency_id'],
+            account,
+            transaction_date
+        )
+        base_amount, base_currency_id = build_transaction_audit_fields(
+            db,
+            data['amount'],
+            data['currency_id'],
+            transaction_date
+        )
+        # Create transaction
+        transaction = Transaction(
+            account_id=data['account_id'],
+            date=transaction_date,
+            payee_id=payee.id if payee else None,
+            category_id=data.get('category_id'),
+            memo=data.get('memo', ''),
+            amount=normalized_amount,
+            currency_id=normalized_currency_id,
+            original_amount=data['amount'],
+            original_currency_id=data['currency_id'],
+            fx_rate=fx_rate,
+            base_amount=base_amount,
+            base_currency_id=base_currency_id,
+            cleared=data.get('cleared', False),
+            approved=data.get('approved', True),
+            transfer_account_id=data.get('transfer_account_id'),
+            investment_asset_id=data.get('investment_asset_id')
+        )
 
-    # Update account balance
-    if account and transaction_affects_balance(account, transaction_date):
-        account.balance += normalized_amount
+        db.add(transaction)
+        db.flush()
 
-    _apply_debt_impact(db, transaction, account)
+        # Update account balance
+        if account and transaction_affects_balance(account, transaction_date):
+            account.balance += normalized_amount
 
-    db.commit()
+        if mortgage_allocation:
+            apply_mortgage_payment_allocation(db, transaction, mortgage_allocation)
+        else:
+            _apply_debt_impact(db, transaction, account)
+
     return transaction
 
 
@@ -277,13 +288,21 @@ def update_transaction(db: Session, transaction_id, data):
     if not transaction:
         return None
 
+    has_mortgage_allocation = db.query(MortgagePaymentAllocation).filter_by(
+        transaction_id=transaction.id
+    ).first() is not None
+    if has_mortgage_allocation:
+        if any(field in data for field in {"amount", "currency_id", "date", "account_id"}):
+            raise ValueError("Cannot update mortgage-linked transaction amount or date.")
+
     # Store old amount to update balance
     old_amount = transaction.amount
     old_account_id = transaction.account_id
     old_date = transaction.date
     old_account = db.query(Account).get(old_account_id)
 
-    _reverse_debt_impact(db, transaction, old_account)
+    if not has_mortgage_allocation:
+        _reverse_debt_impact(db, transaction, old_account)
 
     # Update payee if needed
     if data.get('payee_name'):
@@ -331,7 +350,8 @@ def update_transaction(db: Session, transaction_id, data):
     if new_account and transaction_affects_balance(new_account, transaction.date):
         new_account.balance += transaction.amount
 
-    _apply_debt_impact(db, transaction, new_account)
+    if not has_mortgage_allocation:
+        _apply_debt_impact(db, transaction, new_account)
 
     db.commit()
     return transaction
@@ -362,11 +382,19 @@ def delete_transaction(db: Session, transaction_id):
             _reverse_debt_impact(db, linked_transaction, linked_account)
             db.delete(linked_transaction)
 
+    mortgage_allocation = db.query(MortgagePaymentAllocation).filter_by(transaction_id=transaction.id).first()
+
     # Update account balance
     account = db.query(Account).get(transaction.account_id)
     if account and transaction_affects_balance(account, transaction.date):
         account.balance -= transaction.amount
-    _reverse_debt_impact(db, transaction, account)
+    if mortgage_allocation:
+        loan = db.query(Debt).filter_by(id=mortgage_allocation.loan_id).with_for_update().one_or_none()
+        db.delete(mortgage_allocation)
+        if loan:
+            rebuild_mortgage_balances(db, loan)
+    else:
+        _reverse_debt_impact(db, transaction, account)
 
     db.delete(transaction)
     db.commit()
