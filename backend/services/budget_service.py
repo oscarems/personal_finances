@@ -684,10 +684,14 @@ def calculate_assigned_this_month(db: Session, month_date, currency_id):
     return total_assigned
 
 
-def _get_spent_transactions_to_date(db: Session, month_date, currency_id):
+def calculate_spent_to_date(db: Session, month_date, currency_id):
+    """
+    Calcula el total gastado desde el primer día del mes hasta hoy (inclusive).
+    Solo considera transacciones de gasto (montos negativos) y excluye ingresos.
+    """
     target_currency = db.query(Currency).get(currency_id)
     if not target_currency:
-        return [], 0.0
+        return 0.0
 
     start_date = month_date
     end_of_month = month_date + relativedelta(months=1)
@@ -701,10 +705,7 @@ def _get_spent_transactions_to_date(db: Session, month_date, currency_id):
         end_date = today + relativedelta(days=1)
 
     transactions = db.query(Transaction).join(Category).join(CategoryGroup).options(
-        joinedload(Transaction.currency),
-        joinedload(Transaction.account),
-        joinedload(Transaction.category),
-        joinedload(Transaction.payee)
+        joinedload(Transaction.currency)
     ).filter(
         Transaction.date >= start_date,
         Transaction.date < end_date,
@@ -713,7 +714,6 @@ def _get_spent_transactions_to_date(db: Session, month_date, currency_id):
     ).all()
 
     total_spent = 0.0
-    response_rows = []
     for tx in transactions:
         tx_currency = tx.currency.code if tx.currency else target_currency.code
         converted_amount = convert_currency(
@@ -724,42 +724,7 @@ def _get_spent_transactions_to_date(db: Session, month_date, currency_id):
             rate_date=tx.date
         )
         total_spent += converted_amount
-        response_rows.append({
-            "id": tx.id,
-            "date": tx.date.isoformat(),
-            "amount": abs(tx.amount),
-            "currency_code": tx_currency,
-            "converted_amount": converted_amount,
-            "converted_currency": target_currency.code,
-            "account": tx.account.name if tx.account else None,
-            "category": tx.category.name if tx.category else None,
-            "payee": tx.payee.name if tx.payee else None,
-            "memo": tx.memo
-        })
 
-    return response_rows, total_spent
-
-
-def get_spent_transactions_to_date(db: Session, month_date, currency_id):
-    """
-    Devuelve el detalle de transacciones usadas para "Gastado este mes"
-    y el total convertido a la moneda objetivo.
-    """
-    rows, total_spent = _get_spent_transactions_to_date(db, month_date, currency_id)
-    return {
-        "month": month_date.isoformat(),
-        "total": total_spent,
-        "currency_id": currency_id,
-        "transactions": rows
-    }
-
-
-def calculate_spent_to_date(db: Session, month_date, currency_id):
-    """
-    Calcula el total gastado desde el primer día del mes hasta hoy (inclusive).
-    Solo considera transacciones de gasto (montos negativos) y excluye ingresos.
-    """
-    _, total_spent = _get_spent_transactions_to_date(db, month_date, currency_id)
     return total_spent
 
 
