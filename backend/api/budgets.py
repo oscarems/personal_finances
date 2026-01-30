@@ -13,7 +13,8 @@ from backend.services.budget_service import (
     assign_money_to_category,
     get_budget_overview,
     get_assigned_totals_by_currency,
-    calculate_available
+    calculate_available,
+    get_spent_transactions_to_date
 )
 from backend.models import BudgetMonth, Currency, Category
 
@@ -48,6 +49,27 @@ def assigned_totals(year: Optional[int] = None, month: Optional[int] = None, db:
         "month": month_date.isoformat(),
         "totals": get_assigned_totals_by_currency(db, month_date)
     }
+
+
+@router.get("/spent-transactions")
+def spent_transactions(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    currency_code: str = 'COP',
+    db: Session = Depends(get_db)
+):
+    """Get transactions used to calculate 'Gastado este mes'."""
+    if year and month:
+        month_date = date(year, month, 1)
+    else:
+        today = date.today()
+        month_date = date(today.year, today.month, 1)
+
+    currency = db.query(Currency).filter_by(code=currency_code).first()
+    if not currency:
+        return {"error": "Currency not found"}
+
+    return get_spent_transactions_to_date(db, month_date, currency.id)
 
 
 @router.get("/month/{year}/{month}")
