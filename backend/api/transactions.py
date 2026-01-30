@@ -1,14 +1,18 @@
 """
 Transactions API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional, Literal
 from pydantic import BaseModel
 from decimal import Decimal
 from datetime import date
+import csv
+import io
 
 from backend.database import get_db
+from backend.models import Currency
+from backend.services.exchange_rate_service import convert_currency
 from backend.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
     update_transaction, delete_transaction, create_transfer, create_adjustment,
@@ -94,6 +98,97 @@ def list_transactions(
         limit=limit
     )
     return [t.to_dict() for t in transactions]
+
+
+@router.get("/export")
+def export_transactions(
+    account_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    limit: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Export transactions as CSV with optional filters."""
+    transactions = get_transactions(
+        db,
+        account_id=account_id,
+        category_id=category_id,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    cop_currency = db.query(Currency).filter_by(code="COP").first()
+    usd_currency = db.query(Currency).filter_by(code="USD").first()
+
+    writer.writerow([
+        "Fecha",
+        "Cuenta",
+        "Beneficiario",
+        "Categoría",
+        "COP",
+        "USD",
+        "Tipo"
+    ])
+
+    for transaction in transactions:
+        is_transfer = transaction.transfer_account_id is not None
+        is_inflow = transaction.amount >= 0
+        tipo = "Transferencia" if is_transfer else ("Ingreso" if is_inflow else "Gasto")
+        original_amount = transaction.original_amount
+        original_currency_id = transaction.original_currency_id
+        transaction_date = transaction.date
+
+        cop_amount = None
+        usd_amount = None
+
+        if original_currency_id and transaction_date:
+            original_currency = db.query(Currency).get(original_currency_id)
+            original_currency_code = original_currency.code if original_currency else None
+            if cop_currency:
+                if original_currency_id == cop_currency.id:
+                    cop_amount = original_amount
+                elif original_currency_code:
+                    cop_amount = convert_currency(
+                        amount=original_amount,
+                        from_currency=original_currency_code,
+                        to_currency="COP",
+                        db=db,
+                        rate_date=transaction_date
+                    )
+            if usd_currency:
+                if original_currency_id == usd_currency.id:
+                    usd_amount = original_amount
+                elif original_currency_code:
+                    usd_amount = convert_currency(
+                        amount=original_amount,
+                        from_currency=original_currency_code,
+                        to_currency="USD",
+                        db=db,
+                        rate_date=transaction_date
+                    )
+
+        writer.writerow([
+            transaction.date.isoformat() if transaction.date else "",
+            transaction.account.name if transaction.account else "",
+            transaction.payee.name if transaction.payee else "",
+            transaction.category.name if transaction.category else "",
+            f"{cop_amount:.2f}" if cop_amount is not None else "",
+            f"{usd_amount:.2f}" if usd_amount is not None else "",
+            tipo
+        ])
+
+    filename = f"transacciones_{date.today().isoformat()}.csv"
+    return Response(
+        output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
 
 
 @router.get("/last-manual")
