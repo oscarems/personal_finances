@@ -1,7 +1,7 @@
 """
 Debt Model - Gestión de deudas (tarjetas de crédito, préstamos, hipotecas)
 """
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date, Numeric
 from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import date
@@ -40,6 +40,7 @@ class Debt(Base):
     start_date = Column(Date, nullable=False)  # Fecha de inicio de la deuda
     due_date = Column(Date)  # Fecha de vencimiento total del préstamo
     payment_day = Column(Integer)  # Día del mes para pago (1-31)
+    last_accrual_date = Column(Date)  # Fecha del último cálculo de intereses
 
     # Información adicional
     institution = Column(String(200))  # Entidad financiera
@@ -50,6 +51,13 @@ class Debt(Base):
     is_active = Column(Boolean, default=True)  # Si la deuda está activa
     is_consolidated = Column(Boolean, default=False)  # Si fue consolidada en otra deuda
     has_insurance = Column(Boolean, default=False)  # Si la cuota incluye seguros
+
+    # Saldos detallados (opcional para préstamos/hipotecas)
+    principal_balance = Column(Numeric(18, 6))
+    interest_balance = Column(Numeric(18, 6))
+    annual_interest_rate = Column(Numeric(10, 6))  # Decimal (0.12) o porcentaje (12)
+    term_months = Column(Integer)
+    next_due_date = Column(Date)
 
     # Relaciones
     account = relationship('Account', back_populates='debts')
