@@ -210,11 +210,11 @@
 
             // Load monthly spending (current month only)
             try {
-                const monthlyTransactions = await fetchMonthlyTransactions();
+                const monthlyTransactions = await fetchMonthlyTransactions(dashboardState.primaryCurrency);
                 displayMonthlySpending(monthlyTransactions);
             } catch (monthlyError) {
                 console.warn('No se pudo cargar el gasto mensual:', monthlyError);
-                displayMonthlySpending([]);
+                displayMonthlySpending({ transactions: [] });
             }
 
         } catch (error) {
@@ -490,11 +490,10 @@
         container.innerHTML = html;
     }
 
-    function getLastCalendarMonthRange() {
+    function getCurrentMonthRange() {
         const now = new Date();
-        const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const startDate = new Date(previousMonthDate.getFullYear(), previousMonthDate.getMonth(), 1);
-        const endDate = new Date(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1, 0);
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         const toIsoDate = date =>
             date.toISOString().split('T')[0];
 
@@ -504,30 +503,31 @@
             label: new Intl.DateTimeFormat('es-CO', {
                 month: 'long',
                 year: 'numeric'
-            }).format(previousMonthDate)
+            }).format(now)
         };
     }
 
-    async function fetchMonthlyTransactions() {
-        const range = getLastCalendarMonthRange();
+    async function fetchMonthlyTransactions(currencyCode) {
+        const range = getCurrentMonthRange();
         const params = new URLSearchParams({
-            start_date: range.start,
-            end_date: range.end,
-            limit: '10000'
+            year: range.start.split('-')[0],
+            month: range.start.split('-')[1],
+            currency_code: currencyCode || 'COP'
         });
-        const response = await fetch(`/api/transactions/?${params.toString()}`);
+        const response = await fetch(`/api/budgets/spent-transactions?${params.toString()}`);
         if (!response.ok) {
             throw new Error('No se pudieron cargar las transacciones del mes');
         }
         return response.json();
     }
 
-    function displayMonthlySpending(transactions) {
+    function displayMonthlySpending(spendingPayload) {
         const totalsContainer = document.getElementById('monthlySpendingTotals');
         const periodLabel = document.getElementById('monthlySpendingPeriod');
-        const range = getLastCalendarMonthRange();
+        const range = getCurrentMonthRange();
         periodLabel.textContent = `Total de gastos en ${range.label}`;
 
+        const transactions = spendingPayload?.transactions || [];
         const totals = {};
         transactions.forEach(t => {
             if (t.amount >= 0 || t.is_adjustment || t.transfer_account_id) {
@@ -545,16 +545,16 @@
         const entries = Object.entries(totals);
         if (!entries.length) {
             totalsContainer.innerHTML = `
-                <p class="text-neutral-500 text-sm">No hay gastos registrados en el último mes calendario.</p>
+                <p class="text-neutral-500 text-sm">No hay gastos registrados en el mes actual.</p>
             `;
             return;
         }
 
-        const targetCurrency = dashboardState.primaryCurrency || getPrimaryCurrency(totals);
+        const targetCurrency = spendingPayload?.currency_code || dashboardState.primaryCurrency || getPrimaryCurrency(totals);
         const targetSymbol = targetCurrency === 'USD' ? 'US$' : '$';
-        const rateValue = dashboardState.exchangeRate ? dashboardState.exchangeRate.rate : null;
-        const { sum: convertedTotal, missing: missingRate } = sumConvertedTotals(totals, targetCurrency, rateValue);
         const totalDecimals = targetCurrency === 'USD' ? 2 : 0;
+        const convertedTotal = spendingPayload?.total_spent ?? 0;
+        const missingRate = spendingPayload?.total_spent == null;
 
         totalsContainer.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-${Math.min(entries.length + 1, 3)} gap-6">
@@ -566,7 +566,7 @@
                         ${targetSymbol}${convertedTotal.toLocaleString('en-US', {minimumFractionDigits: totalDecimals, maximumFractionDigits: totalDecimals})}
                     </p>
                     <p class="text-xs text-neutral-500 mt-2">
-                        ${missingRate ? 'No se pudo convertir una moneda por falta de tasa.' : 'Sumatoria total en una sola moneda.'}
+                        ${missingRate ? 'No se pudo calcular el total en la moneda principal.' : 'Sumatoria total en una sola moneda.'}
                     </p>
                 </div>
                 ${entries.map(([currency, info]) => {
