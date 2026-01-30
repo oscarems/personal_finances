@@ -15,7 +15,7 @@ from backend.api import transactions, accounts, budgets, categories, import_rout
 app = FastAPI(
     title="Personal Finances",
     description="YNAB-style personal finance manager",
-    version="1.0.0"
+    version="1.0.1"
 )
 
 # CORS middleware
