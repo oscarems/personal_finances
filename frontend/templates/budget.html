@@ -1197,10 +1197,11 @@
     }
 
     function formatAmount(amount, decimals = 0) {
-        return Math.abs(amount).toLocaleString('en-US', {
+        const sign = amount < 0 ? '-' : '';
+        return `${sign}${Math.abs(amount).toLocaleString('en-US', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
-        });
+        })}`;
     }
 
     function buildCategoryBudgetMap(dataCOP, dataUSD) {
