@@ -59,7 +59,7 @@
         <span class="text-2xl mr-3">🔍</span>
         Filtros de Búsqueda
     </h3>
-    <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-8 gap-4">
         <div>
             <label class="block text-sm font-bold text-neutral-700 mb-2">Cuenta</label>
             <select id="filterAccount" onchange="loadTransactions()" class="input-field">
@@ -104,6 +104,11 @@
         <div class="flex items-end">
             <button onclick="clearFilters()" class="btn-secondary w-full">
                 Limpiar Filtros
+            </button>
+        </div>
+        <div class="flex items-end">
+            <button onclick="exportTransactions()" class="btn-primary w-full">
+                Exportar CSV
             </button>
         </div>
     </div>
@@ -1001,6 +1006,25 @@
         document.getElementById('filterLimit').value = '100';
         document.getElementById('filterSort').value = 'date_desc';
         loadTransactions();
+    }
+
+    function exportTransactions() {
+        const accountId = document.getElementById('filterAccount').value;
+        const categoryId = document.getElementById('filterCategory').value;
+        const limit = document.getElementById('filterLimit').value;
+        const startDate = document.getElementById('filterStartDate').value;
+        const endDate = document.getElementById('filterEndDate').value;
+
+        const params = new URLSearchParams();
+        if (limit) params.set('limit', limit);
+        if (accountId) params.set('account_id', accountId);
+        if (categoryId) params.set('category_id', categoryId);
+        if (startDate) params.set('start_date', startDate);
+        if (endDate) params.set('end_date', endDate);
+
+        const queryString = params.toString();
+        const url = `/api/transactions/export${queryString ? `?${queryString}` : ''}`;
+        window.location.href = url;
     }
 
     // Transfer modal functions
