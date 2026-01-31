@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from backend.database import init_db, get_db, default_database_name, ensure_database_initialized
+from backend.database import init_db, get_db, default_database_name, ensure_database_initialized, get_session_factory
+from backend.services.recurring_service import generate_due_transactions
 from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets, investment_simulator
 
 # Create FastAPI app
@@ -61,7 +62,14 @@ app.include_router(wealth_assets.router, prefix="/api/wealth-assets", tags=["wea
 async def startup_event():
     """Initialize database on startup"""
     init_db()
-    ensure_database_initialized(default_database_name())
+    default_name = default_database_name()
+    ensure_database_initialized(default_name)
+    session_factory = get_session_factory(default_name)
+    db = session_factory()
+    try:
+        generate_due_transactions(db)
+    finally:
+        db.close()
     print("✓ Database initialized")
 
 
