@@ -508,10 +508,9 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
     db.commit()
 
     # Calculate "Ready to Assign" - money not assigned to any category
-    budget_data['ready_to_assign'] = calculate_ready_to_assign(db, month_date, currency.id)
-    budget_data['totals']['in_accounts'] = calculate_total_in_accounts(db, currency.id)
-    budget_data['totals']['assigned'] = calculate_assigned_this_month(db, month_date, currency.id)
-    budget_data['totals']['activity'] = calculate_spent_to_date(db, month_date, currency.id)
+    total_in_accounts = calculate_total_in_accounts(db, currency.id)
+    budget_data['totals']['in_accounts'] = total_in_accounts
+    budget_data['ready_to_assign'] = total_in_accounts - budget_data['totals']['available']
 
     return budget_data
 
