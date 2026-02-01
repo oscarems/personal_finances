@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from sqlalchemy.orm import Session
 
+from backend.database import init_db, get_db, default_database_name, ensure_database_initialized
+from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets, investment_simulator, telegram
 from backend.database import init_db, get_db, default_database_name, ensure_database_initialized, get_session_factory
 from backend.services.recurring_service import generate_due_transactions
 from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets, investment_simulator
@@ -56,6 +58,7 @@ app.include_router(ynab_mappings.router, prefix="/api/ynab-mappings", tags=["yna
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(reconciliation.router, prefix="/api/reconciliation", tags=["reconciliation"])
 app.include_router(wealth_assets.router, prefix="/api/wealth-assets", tags=["wealth-assets"])
+app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
 
 
 @app.on_event("startup")
@@ -67,15 +70,7 @@ async def startup_event():
     session_factory = get_session_factory(default_name)
     db = session_factory()
     try:
-        stats = generate_due_transactions(db)
-        if stats.get("errors"):
-            print(f"⚠️ Recurring generation errors: {stats['errors']}")
-        print(
-            "✓ Recurring transactions checked: "
-            f"{stats.get('checked', 0)} | "
-            f"generated: {stats.get('generated', 0)} | "
-            f"skipped: {stats.get('skipped', 0)}"
-        )
+        generate_due_transactions(db)
     finally:
         db.close()
     print("✓ Database initialized")
