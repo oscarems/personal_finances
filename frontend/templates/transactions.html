@@ -104,18 +104,6 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Normalizar con LLM</label>
-                <select id="telegramLlmEnabled" class="input-field">
-                    <option value="false">Desactivado</option>
-                    <option value="true">Activado</option>
-                </select>
-                <p class="text-xs text-neutral-500 mt-2">Requiere un servicio local (Ollama) configurado.</p>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Modelo LLM</label>
-                <input type="text" id="telegramLlmModel" class="input-field" placeholder="Ej: llama3.2:3b">
-            </div>
-            <div>
                 <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta origen (transferencia)</label>
                 <select id="telegramTransferFromAccount" class="input-field">
                     <option value="">Selecciona cuenta origen</option>
@@ -149,7 +137,6 @@
 
         <div class="flex items-center gap-4">
             <button onclick="saveTelegramSettings()" class="btn-primary">Guardar configuración</button>
-            <button onclick="pollTelegramUpdates()" class="btn-secondary">Sincronizar ahora</button>
             <p id="telegramStatus" class="text-sm text-neutral-500"></p>
         </div>
     </div>
@@ -791,8 +778,6 @@
             const transferFrom = document.getElementById('telegramTransferFromAccount');
             const transferTo = document.getElementById('telegramTransferToAccount');
             const isActive = document.getElementById('telegramIsActive');
-            const llmEnabled = document.getElementById('telegramLlmEnabled');
-            const llmModel = document.getElementById('telegramLlmModel');
 
             if (botTokenInput) botTokenInput.value = telegramSettings.bot_token || '';
             if (chatIdInput) chatIdInput.value = telegramSettings.chat_id || '';
@@ -802,26 +787,13 @@
             if (transferFrom) transferFrom.value = telegramSettings.default_transfer_from_account_id || '';
             if (transferTo) transferTo.value = telegramSettings.default_transfer_to_account_id || '';
             if (isActive) isActive.value = telegramSettings.is_active ? 'true' : 'false';
-            if (llmEnabled) llmEnabled.value = telegramSettings.llm_enabled ? 'true' : 'false';
-            if (llmModel) llmModel.value = telegramSettings.llm_model || '';
 
             updateTelegramWebhookUrl();
             botTokenInput?.addEventListener('input', updateTelegramWebhookUrl);
-            renderTelegramStatus();
         } catch (error) {
             console.error('Error loading Telegram settings:', error);
             updateTelegramWebhookUrl();
         }
-    }
-
-    function renderTelegramStatus(message = '') {
-        const statusEl = document.getElementById('telegramStatus');
-        if (!statusEl) return;
-        const lastUpdate = telegramSettings?.last_update_id
-            ? `Último update_id: ${telegramSettings.last_update_id}`
-            : 'Sin sincronizar';
-        statusEl.textContent = message ? `${message} • ${lastUpdate}` : lastUpdate;
-        statusEl.className = 'text-sm text-neutral-500';
     }
 
     async function saveTelegramSettings() {
@@ -838,9 +810,7 @@
             default_currency_id: parseInt(document.getElementById('telegramDefaultCurrency')?.value || '', 10) || null,
             default_transfer_from_account_id: parseInt(document.getElementById('telegramTransferFromAccount')?.value || '', 10) || null,
             default_transfer_to_account_id: parseInt(document.getElementById('telegramTransferToAccount')?.value || '', 10) || null,
-            is_active: document.getElementById('telegramIsActive')?.value === 'true',
-            llm_enabled: document.getElementById('telegramLlmEnabled')?.value === 'true',
-            llm_model: document.getElementById('telegramLlmModel')?.value || null
+            is_active: document.getElementById('telegramIsActive')?.value === 'true'
         };
 
         try {
@@ -859,41 +829,8 @@
                 statusEl.className = 'text-sm text-success-600';
             }
             updateTelegramWebhookUrl();
-            renderTelegramStatus('Configuración guardada');
         } catch (error) {
             console.error('Error saving Telegram settings:', error);
-            if (statusEl) {
-                statusEl.textContent = `Error: ${error.message}`;
-                statusEl.className = 'text-sm text-danger-600';
-            }
-        }
-    }
-
-    async function pollTelegramUpdates() {
-        const statusEl = document.getElementById('telegramStatus');
-        if (statusEl) {
-            statusEl.textContent = 'Sincronizando...';
-            statusEl.className = 'text-sm text-neutral-500';
-        }
-        try {
-            const res = await fetch('/api/telegram/poll', { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'No se pudo sincronizar.');
-            }
-            telegramSettings = {
-                ...telegramSettings,
-                last_update_id: data.last_update_id
-            };
-            const summary = `Procesadas: ${data.processed}, omitidas: ${data.skipped}, errores: ${data.errors?.length || 0}`;
-            if (statusEl) {
-                statusEl.textContent = summary;
-                statusEl.className = 'text-sm text-success-600';
-            }
-            renderTelegramStatus(summary);
-            await loadTransactions();
-        } catch (error) {
-            console.error('Error polling Telegram:', error);
             if (statusEl) {
                 statusEl.textContent = `Error: ${error.message}`;
                 statusEl.className = 'text-sm text-danger-600';

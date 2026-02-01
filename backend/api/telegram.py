@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.services.telegram_service import (
     build_transaction_from_message,
-    fetch_updates,
     get_or_create_settings,
     parse_message,
     update_settings,
@@ -24,8 +23,6 @@ class TelegramSettingsPayload(BaseModel):
     default_transfer_from_account_id: int | None = None
     default_transfer_to_account_id: int | None = None
     is_active: bool | None = None
-    llm_enabled: bool | None = None
-    llm_model: str | None = None
 
 
 @router.get("/settings")
@@ -75,19 +72,3 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
         }
 
     return {"status": "ok", "transaction": result.to_dict()}
-
-
-@router.post("/poll")
-def poll_updates(db: Session = Depends(get_db), limit: int = 100):
-    settings = get_or_create_settings(db)
-    if not settings.is_active:
-        raise HTTPException(status_code=400, detail="Integración Telegram desactivada.")
-
-    try:
-        result = fetch_updates(db, settings, limit=limit)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="Error al consultar Telegram.") from exc
-
-    return {"status": "ok", **result}

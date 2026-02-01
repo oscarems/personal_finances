@@ -4,7 +4,6 @@ import re
 from datetime import date, datetime
 from typing import Optional, Tuple
 
-import requests
 from sqlalchemy.orm import Session
 
 from backend.models import Account, Category, Currency, TelegramSettings
@@ -53,8 +52,6 @@ def update_settings(db: Session, payload: dict) -> TelegramSettings:
         "default_transfer_from_account_id",
         "default_transfer_to_account_id",
         "is_active",
-        "llm_enabled",
-        "llm_model",
     ):
         if field in payload:
             setattr(settings, field, payload[field])
@@ -224,66 +221,3 @@ def build_transaction_from_message(db: Session, settings: TelegramSettings, mess
         return "transfer", create_transfer(db, payload)
 
     raise ValueError("Tipo no reconocido. Usa gasto, ingreso o transferencia.")
-
-
-def fetch_updates(db: Session, settings: TelegramSettings, limit: int = 100) -> dict:
-    if not settings.bot_token:
-        raise ValueError("Configura el bot token antes de sincronizar.")
-
-    offset = (settings.last_update_id or 0) + 1 if settings.last_update_id else None
-    params = {"limit": limit}
-    if offset:
-        params["offset"] = offset
-
-    response = requests.get(
-        f"https://api.telegram.org/bot{settings.bot_token}/getUpdates",
-        params=params,
-        timeout=15
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if not payload.get("ok"):
-        raise ValueError("Telegram no respondió correctamente.")
-
-    updates = payload.get("result", [])
-    processed = 0
-    skipped = 0
-    errors = []
-    max_update_id = settings.last_update_id or 0
-
-    for update in updates:
-        update_id = update.get("update_id")
-        if update_id and update_id > max_update_id:
-            max_update_id = update_id
-        message = update.get("message") or update.get("edited_message")
-        if not message or "text" not in message:
-            skipped += 1
-            continue
-
-        if settings.chat_id:
-            incoming_chat_id = str(message.get("chat", {}).get("id", ""))
-            if incoming_chat_id != str(settings.chat_id):
-                skipped += 1
-                continue
-
-        try:
-            message_type, data = parse_message(message.get("text", ""))
-            if message_type == "help":
-                skipped += 1
-                continue
-            build_transaction_from_message(db, settings, message_type, data)
-            processed += 1
-        except ValueError as exc:
-            errors.append({"update_id": update_id, "error": str(exc)})
-
-    if updates:
-        settings.last_update_id = max_update_id
-        db.commit()
-        db.refresh(settings)
-
-    return {
-        "processed": processed,
-        "skipped": skipped,
-        "errors": errors,
-        "last_update_id": settings.last_update_id,
-    }
