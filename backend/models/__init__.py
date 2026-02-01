@@ -13,6 +13,7 @@ from backend.models.alert import AlertRule
 from backend.models.budget_alert_state import BudgetAlertState
 from backend.models.reconciliation import ReconciliationSession
 from backend.models.wealth_asset import WealthAsset
+from backend.models.telegram_settings import TelegramSettings
 
 __all__ = [
     'Currency',
@@ -31,5 +32,6 @@ __all__ = [
     'AlertRule',
     'BudgetAlertState',
     'ReconciliationSession',
-    'WealthAsset'
+    'WealthAsset',
+    'TelegramSettings'
 ]

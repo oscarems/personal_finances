@@ -53,6 +53,108 @@
     </div>
 </div>
 
+<!-- Telegram Integration -->
+<div class="card-hover-lift p-8 mb-8" id="telegramIntegration">
+    <div class="flex flex-col gap-6">
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
+                <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
+                    <span class="text-2xl">📲</span>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-2xl font-bold text-neutral-800">Conexión con Telegram</h3>
+                <p class="text-sm text-neutral-500">Registra gastos, ingresos o transferencias desde Telegram.</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Bot Token</label>
+                <input type="password" id="telegramBotToken" class="input-field" placeholder="123456:ABCDEF...">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Chat ID</label>
+                <input type="text" id="telegramChatId" class="input-field" placeholder="Ej: 123456789">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta por defecto</label>
+                <select id="telegramDefaultAccount" class="input-field">
+                    <option value="">Selecciona una cuenta</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Categoría por defecto</label>
+                <select id="telegramDefaultCategory" class="input-field">
+                    <option value="">Selecciona una categoría</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Moneda por defecto</label>
+                <select id="telegramDefaultCurrency" class="input-field">
+                    <option value="">Selecciona una moneda</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Estado</label>
+                <select id="telegramIsActive" class="input-field">
+                    <option value="true">Activo</option>
+                    <option value="false">Inactivo</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Normalizar con LLM</label>
+                <select id="telegramLlmEnabled" class="input-field">
+                    <option value="false">Desactivado</option>
+                    <option value="true">Activado</option>
+                </select>
+                <p class="text-xs text-neutral-500 mt-2">Requiere un servicio local (Ollama) configurado.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Modelo LLM</label>
+                <input type="text" id="telegramLlmModel" class="input-field" placeholder="Ej: llama3.2:3b">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta origen (transferencia)</label>
+                <select id="telegramTransferFromAccount" class="input-field">
+                    <option value="">Selecciona cuenta origen</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta destino (transferencia)</label>
+                <select id="telegramTransferToAccount" class="input-field">
+                    <option value="">Selecciona cuenta destino</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 space-y-4">
+            <div>
+                <p class="text-sm font-semibold text-neutral-700 mb-2">Webhook para Telegram</p>
+                <div class="text-xs font-mono text-neutral-700 bg-white border border-neutral-200 rounded-lg p-3" id="telegramWebhookUrl">
+                    Generando URL...
+                </div>
+                <p class="text-xs text-neutral-500 mt-2">Configura tu bot con <span class="font-mono">setWebhook</span> usando este URL.</p>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-neutral-700 mb-2">Ejemplos de mensajes</p>
+                <ul class="text-sm text-neutral-600 space-y-1 list-disc list-inside">
+                    <li><span class="font-mono">gasto 12000 COP cuenta:Cuenta Corriente categoria:Comida memo:Almuerzo</span></li>
+                    <li><span class="font-mono">ingreso 2500000 COP cuenta:Cuenta Nómina categoria:Salario memo:Pago</span></li>
+                    <li><span class="font-mono">transferencia 300 USD desde:Cuenta USD hacia:Cuenta COP memo:Cambio</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <button onclick="saveTelegramSettings()" class="btn-primary">Guardar configuración</button>
+            <button onclick="pollTelegramUpdates()" class="btn-secondary">Sincronizar ahora</button>
+            <p id="telegramStatus" class="text-sm text-neutral-500"></p>
+        </div>
+    </div>
+</div>
+
 <!-- Filters moderno -->
 <div class="card-hover-lift p-8 mb-8">
     <h3 class="text-xl font-bold text-neutral-800 mb-6 flex items-center">
@@ -480,12 +582,14 @@
     let lastManualTransactions = {};
     let editingTransactionId = null;
     let editingTransactionOriginal = null;
+    let telegramSettings = null;
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadAccounts();
         await loadLastManualTransactions();
         await loadCategories();
         await loadCurrencies();
+        await loadTelegramSettings();
         await loadInvestmentAssets();
         await loadTransactions();
         setDefaultDate();
@@ -516,6 +620,7 @@
             });
 
             renderLastManualTransactions();
+            populateTelegramAccountOptions();
         } catch (error) {
             console.error('Error loading accounts:', error);
         }
@@ -611,6 +716,8 @@
                 });
                 formSelect.innerHTML += '</optgroup>';
             });
+
+            populateTelegramCategoryOptions();
         } catch (error) {
             console.error('Error loading categories:', error);
         }
@@ -620,8 +727,177 @@
         try {
             const res = await fetch('/api/currencies');
             currencies = await res.json();
+            populateTelegramCurrencyOptions();
         } catch (error) {
             console.error('Error loading currencies:', error);
+        }
+    }
+
+    function populateTelegramAccountOptions() {
+        const defaultAccount = document.getElementById('telegramDefaultAccount');
+        const transferFrom = document.getElementById('telegramTransferFromAccount');
+        const transferTo = document.getElementById('telegramTransferToAccount');
+        if (!defaultAccount || !transferFrom || !transferTo) return;
+
+        const options = ['<option value="">Selecciona una cuenta</option>']
+            .concat(accounts.map(acc => `<option value="${acc.id}">${acc.name} (${acc.currency.code})</option>`));
+
+        defaultAccount.innerHTML = options.join('');
+        transferFrom.innerHTML = options.join('');
+        transferTo.innerHTML = options.join('');
+    }
+
+    function populateTelegramCategoryOptions() {
+        const defaultCategory = document.getElementById('telegramDefaultCategory');
+        if (!defaultCategory) return;
+        defaultCategory.innerHTML = '<option value="">Selecciona una categoría</option>';
+        categories.forEach(cat => {
+            defaultCategory.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+        });
+    }
+
+    function populateTelegramCurrencyOptions() {
+        const defaultCurrency = document.getElementById('telegramDefaultCurrency');
+        if (!defaultCurrency) return;
+        defaultCurrency.innerHTML = '<option value="">Selecciona una moneda</option>';
+        currencies.forEach(curr => {
+            defaultCurrency.innerHTML += `<option value="${curr.id}">${curr.code}</option>`;
+        });
+    }
+
+    function updateTelegramWebhookUrl() {
+        const webhookEl = document.getElementById('telegramWebhookUrl');
+        const token = document.getElementById('telegramBotToken')?.value;
+        if (!webhookEl) return;
+        const baseUrl = `${window.location.origin}/api/telegram/webhook`;
+        const webhookText = token
+            ? `https://api.telegram.org/bot${token}/setWebhook?url=${baseUrl}`
+            : baseUrl;
+        webhookEl.textContent = webhookText;
+    }
+
+    async function loadTelegramSettings() {
+        try {
+            const res = await fetch('/api/telegram/settings');
+            if (!res.ok) {
+                throw new Error('No se pudo cargar Telegram.');
+            }
+            telegramSettings = await res.json();
+            const botTokenInput = document.getElementById('telegramBotToken');
+            const chatIdInput = document.getElementById('telegramChatId');
+            const defaultAccount = document.getElementById('telegramDefaultAccount');
+            const defaultCategory = document.getElementById('telegramDefaultCategory');
+            const defaultCurrency = document.getElementById('telegramDefaultCurrency');
+            const transferFrom = document.getElementById('telegramTransferFromAccount');
+            const transferTo = document.getElementById('telegramTransferToAccount');
+            const isActive = document.getElementById('telegramIsActive');
+            const llmEnabled = document.getElementById('telegramLlmEnabled');
+            const llmModel = document.getElementById('telegramLlmModel');
+
+            if (botTokenInput) botTokenInput.value = telegramSettings.bot_token || '';
+            if (chatIdInput) chatIdInput.value = telegramSettings.chat_id || '';
+            if (defaultAccount) defaultAccount.value = telegramSettings.default_account_id || '';
+            if (defaultCategory) defaultCategory.value = telegramSettings.default_category_id || '';
+            if (defaultCurrency) defaultCurrency.value = telegramSettings.default_currency_id || '';
+            if (transferFrom) transferFrom.value = telegramSettings.default_transfer_from_account_id || '';
+            if (transferTo) transferTo.value = telegramSettings.default_transfer_to_account_id || '';
+            if (isActive) isActive.value = telegramSettings.is_active ? 'true' : 'false';
+            if (llmEnabled) llmEnabled.value = telegramSettings.llm_enabled ? 'true' : 'false';
+            if (llmModel) llmModel.value = telegramSettings.llm_model || '';
+
+            updateTelegramWebhookUrl();
+            botTokenInput?.addEventListener('input', updateTelegramWebhookUrl);
+            renderTelegramStatus();
+        } catch (error) {
+            console.error('Error loading Telegram settings:', error);
+            updateTelegramWebhookUrl();
+        }
+    }
+
+    function renderTelegramStatus(message = '') {
+        const statusEl = document.getElementById('telegramStatus');
+        if (!statusEl) return;
+        const lastUpdate = telegramSettings?.last_update_id
+            ? `Último update_id: ${telegramSettings.last_update_id}`
+            : 'Sin sincronizar';
+        statusEl.textContent = message ? `${message} • ${lastUpdate}` : lastUpdate;
+        statusEl.className = 'text-sm text-neutral-500';
+    }
+
+    async function saveTelegramSettings() {
+        const statusEl = document.getElementById('telegramStatus');
+        if (statusEl) {
+            statusEl.textContent = 'Guardando...';
+            statusEl.className = 'text-sm text-neutral-500';
+        }
+        const payload = {
+            bot_token: document.getElementById('telegramBotToken')?.value || null,
+            chat_id: document.getElementById('telegramChatId')?.value || null,
+            default_account_id: parseInt(document.getElementById('telegramDefaultAccount')?.value || '', 10) || null,
+            default_category_id: parseInt(document.getElementById('telegramDefaultCategory')?.value || '', 10) || null,
+            default_currency_id: parseInt(document.getElementById('telegramDefaultCurrency')?.value || '', 10) || null,
+            default_transfer_from_account_id: parseInt(document.getElementById('telegramTransferFromAccount')?.value || '', 10) || null,
+            default_transfer_to_account_id: parseInt(document.getElementById('telegramTransferToAccount')?.value || '', 10) || null,
+            is_active: document.getElementById('telegramIsActive')?.value === 'true',
+            llm_enabled: document.getElementById('telegramLlmEnabled')?.value === 'true',
+            llm_model: document.getElementById('telegramLlmModel')?.value || null
+        };
+
+        try {
+            const res = await fetch('/api/telegram/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || 'No se pudo guardar.');
+            }
+            telegramSettings = await res.json();
+            if (statusEl) {
+                statusEl.textContent = 'Configuración guardada.';
+                statusEl.className = 'text-sm text-success-600';
+            }
+            updateTelegramWebhookUrl();
+            renderTelegramStatus('Configuración guardada');
+        } catch (error) {
+            console.error('Error saving Telegram settings:', error);
+            if (statusEl) {
+                statusEl.textContent = `Error: ${error.message}`;
+                statusEl.className = 'text-sm text-danger-600';
+            }
+        }
+    }
+
+    async function pollTelegramUpdates() {
+        const statusEl = document.getElementById('telegramStatus');
+        if (statusEl) {
+            statusEl.textContent = 'Sincronizando...';
+            statusEl.className = 'text-sm text-neutral-500';
+        }
+        try {
+            const res = await fetch('/api/telegram/poll', { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'No se pudo sincronizar.');
+            }
+            telegramSettings = {
+                ...telegramSettings,
+                last_update_id: data.last_update_id
+            };
+            const summary = `Procesadas: ${data.processed}, omitidas: ${data.skipped}, errores: ${data.errors?.length || 0}`;
+            if (statusEl) {
+                statusEl.textContent = summary;
+                statusEl.className = 'text-sm text-success-600';
+            }
+            renderTelegramStatus(summary);
+            await loadTransactions();
+        } catch (error) {
+            console.error('Error polling Telegram:', error);
+            if (statusEl) {
+                statusEl.textContent = `Error: ${error.message}`;
+                statusEl.className = 'text-sm text-danger-600';
+            }
         }
     }
 

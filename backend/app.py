@@ -9,7 +9,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from backend.database import init_db, get_db, default_database_name, ensure_database_initialized
-from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets, investment_simulator
+from backend.api import transactions, accounts, budgets, categories, import_routes, mortgage, reports, recurring, exchange_rates, admin, debts, emergency_fund, ynab_mappings, outlook_import, alerts, reconciliation, wealth_assets, investment_simulator, telegram
 
 # Create FastAPI app
 app = FastAPI(
@@ -55,6 +55,7 @@ app.include_router(ynab_mappings.router, prefix="/api/ynab-mappings", tags=["yna
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(reconciliation.router, prefix="/api/reconciliation", tags=["reconciliation"])
 app.include_router(wealth_assets.router, prefix="/api/wealth-assets", tags=["wealth-assets"])
+app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
 
 
 @app.on_event("startup")

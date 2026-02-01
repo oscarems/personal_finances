@@ -262,7 +262,8 @@ def init_db(engine_override=None):
     from backend.models import (
         Currency, Account, CategoryGroup, Category,
         Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate,
-        Debt, DebtPayment, YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession, WealthAsset
+        Debt, DebtPayment, YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession, WealthAsset,
+        TelegramSettings
     )
 
     active_engine = engine_override or engine
@@ -439,6 +440,24 @@ def init_db(engine_override=None):
         table_name="wealth_assets",
         column_name="mortgage_debt_id",
         column_definition="mortgage_debt_id INTEGER",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="telegram_settings",
+        column_name="last_update_id",
+        column_definition="last_update_id INTEGER",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="telegram_settings",
+        column_name="llm_enabled",
+        column_definition="llm_enabled BOOLEAN DEFAULT 0",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="telegram_settings",
+        column_name="llm_model",
+        column_definition="llm_model VARCHAR(120)",
         engine_override=active_engine
     )
     print("✓ Database tables created")
