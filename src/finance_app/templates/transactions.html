@@ -70,13 +70,11 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Bot Token</label>
-                <input type="password" id="telegramBotToken" class="input-field" placeholder="123456:ABCDEF...">
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Chat ID</label>
-                <input type="text" id="telegramChatId" class="input-field" placeholder="Ej: 123456789">
+            <div class="md:col-span-2">
+                <p class="text-sm text-neutral-500">
+                    Credenciales configuradas vía <span class="font-semibold">.env</span>.
+                    <span id="telegramEnvStatus" class="font-semibold text-neutral-700"></span>
+                </p>
             </div>
             <div>
                 <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta por defecto</label>
@@ -571,6 +569,7 @@
         await loadCategories();
         await loadCurrencies();
         await loadTelegramSettings();
+        await loadTelegramStatus();
         await loadInvestmentAssets();
         await loadTransactions();
         setDefaultDate();
@@ -753,8 +752,6 @@
                 throw new Error('No se pudo cargar Telegram.');
             }
             telegramSettings = await res.json();
-            const botTokenInput = document.getElementById('telegramBotToken');
-            const chatIdInput = document.getElementById('telegramChatId');
             const defaultAccount = document.getElementById('telegramDefaultAccount');
             const defaultCategory = document.getElementById('telegramDefaultCategory');
             const defaultCurrency = document.getElementById('telegramDefaultCurrency');
@@ -762,8 +759,6 @@
             const transferTo = document.getElementById('telegramTransferToAccount');
             const isActive = document.getElementById('telegramIsActive');
 
-            if (botTokenInput) botTokenInput.value = telegramSettings.bot_token || '';
-            if (chatIdInput) chatIdInput.value = telegramSettings.chat_id || '';
             if (defaultAccount) defaultAccount.value = telegramSettings.default_account_id || '';
             if (defaultCategory) defaultCategory.value = telegramSettings.default_category_id || '';
             if (defaultCurrency) defaultCurrency.value = telegramSettings.default_currency_id || '';
@@ -776,6 +771,28 @@
         }
     }
 
+    async function loadTelegramStatus() {
+        const statusEl = document.getElementById('telegramEnvStatus');
+        if (!statusEl) return;
+        try {
+            const res = await fetch('/api/telegram/status');
+            if (!res.ok) {
+                throw new Error('No se pudo cargar el estado de Telegram.');
+            }
+            const status = await res.json();
+            if (status.configured) {
+                statusEl.textContent = 'Configurado por .env';
+                statusEl.className = 'font-semibold text-success-600';
+            } else {
+                statusEl.textContent = 'Falta configurar .env';
+                statusEl.className = 'font-semibold text-danger-600';
+            }
+        } catch (error) {
+            statusEl.textContent = 'Estado no disponible';
+            statusEl.className = 'font-semibold text-neutral-500';
+        }
+    }
+
     async function saveTelegramSettings() {
         const statusEl = document.getElementById('telegramStatus');
         if (statusEl) {
@@ -783,8 +800,6 @@
             statusEl.className = 'text-sm text-neutral-500';
         }
         const payload = {
-            bot_token: document.getElementById('telegramBotToken')?.value || null,
-            chat_id: document.getElementById('telegramChatId')?.value || null,
             default_account_id: parseInt(document.getElementById('telegramDefaultAccount')?.value || '', 10) || null,
             default_category_id: parseInt(document.getElementById('telegramDefaultCategory')?.value || '', 10) || null,
             default_currency_id: parseInt(document.getElementById('telegramDefaultCurrency')?.value || '', 10) || null,
