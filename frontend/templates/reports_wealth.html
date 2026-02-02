@@ -60,9 +60,23 @@
         </div>
     </div>
     <div class="bg-white rounded-card shadow-soft p-6">
-        <h3 class="text-lg font-semibold text-neutral-800 mb-4">Progreso de pago de deudas</h3>
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+            <h3 class="text-lg font-semibold text-neutral-800">Progreso de pago de deudas</h3>
+            <label class="flex items-center text-sm text-neutral-600 gap-2">
+                <input id="toggleDebtProjection" type="checkbox" class="h-4 w-4" checked>
+                Mostrar proyección
+            </label>
+        </div>
         <div class="h-96">
             <canvas id="debtBalanceChart"></canvas>
+        </div>
+        <div class="mt-6 overflow-x-auto">
+            <table class="min-w-full text-sm text-left text-neutral-600">
+                <thead class="bg-neutral-50 text-neutral-700">
+                    <tr id="debtTableHeader"></tr>
+                </thead>
+                <tbody id="debtTableBody" class="divide-y divide-neutral-200 bg-white"></tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -166,37 +180,70 @@
         });
     }
 
-    function renderDebtChart(monthly) {
+    function renderDebtChart(monthly, debtMeta, showProjection) {
         const labels = monthly.map(item => item.month_name);
-        const totals = monthly.map(item => item.total_debt);
+        const actualTotals = monthly.map(item => item.is_projection ? null : (item.total_principal_end || 0));
+        const projectionTotals = monthly.map(item => item.is_projection ? (item.total_principal_end || 0) : null);
 
         if (debtBalanceChart) {
             debtBalanceChart.destroy();
         }
 
         const palette = ['#b64854', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0f766e'];
-        const debtTypes = Array.isArray(window.debtTypes) ? window.debtTypes : [];
+        const debts = Array.isArray(debtMeta) ? debtMeta : [];
         const datasets = [
             {
-                label: 'Deuda total',
-                data: totals,
+                label: 'Deuda total (real)',
+                data: actualTotals,
                 borderColor: palette[0],
                 backgroundColor: 'rgba(182, 72, 84, 0.12)',
                 tension: 0.3,
-                fill: true
+                fill: true,
+                isProjection: false,
+                isTotal: true
+            },
+            {
+                label: 'Deuda total (proyección)',
+                data: projectionTotals,
+                borderColor: palette[0],
+                backgroundColor: 'rgba(182, 72, 84, 0.08)',
+                tension: 0.3,
+                fill: true,
+                borderDash: [6, 4],
+                isProjection: true,
+                isTotal: true
             }
         ];
 
-        debtTypes.forEach((debtType, index) => {
+        debts.forEach((debt, index) => {
             const color = palette[(index + 1) % palette.length];
             datasets.push({
-                label: debtType,
-                data: monthly.map(item => item.debt_by_type?.[debtType] || 0),
+                label: `${debt.name} (real)`,
+                data: monthly.map(item => item.is_projection ? null : (item.debts?.[debt.id]?.principal_end || 0)),
                 borderColor: color,
                 backgroundColor: `${color}22`,
                 tension: 0.3,
-                fill: false
+                fill: false,
+                isProjection: false,
+                debtId: String(debt.id)
             });
+            datasets.push({
+                label: `${debt.name} (proyección)`,
+                data: monthly.map(item => item.is_projection ? (item.debts?.[debt.id]?.principal_end || 0) : null),
+                borderColor: color,
+                backgroundColor: `${color}10`,
+                tension: 0.3,
+                fill: false,
+                borderDash: [6, 4],
+                isProjection: true,
+                debtId: String(debt.id)
+            });
+        });
+
+        datasets.forEach(dataset => {
+            if (dataset.isProjection) {
+                dataset.hidden = !showProjection;
+            }
         });
 
         debtBalanceChart = new Chart(document.getElementById('debtBalanceChart').getContext('2d'), {
@@ -212,7 +259,23 @@
                     legend: { position: 'bottom' },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`
+                            label: (context) => {
+                                const dataset = context.dataset || {};
+                                const monthData = monthly[context.dataIndex] || {};
+                                if (dataset.debtId) {
+                                    const detail = monthData.debts?.[dataset.debtId];
+                                    if (detail) {
+                                        return [
+                                            `${dataset.label}: ${formatCurrency(context.parsed.y)}`,
+                                            `Inicio: ${formatCurrency(detail.principal_start || 0)}`,
+                                            `Interés: ${formatCurrency(detail.interest_accrued || 0)}`,
+                                            `Pago: ${formatCurrency(detail.payment_applied || 0)}`,
+                                            `Fin: ${formatCurrency(detail.principal_end || 0)}`
+                                        ];
+                                    }
+                                }
+                                return `${dataset.label}: ${formatCurrency(context.parsed.y)}`;
+                            }
                         }
                     }
                 },
@@ -227,14 +290,52 @@
         });
     }
 
+    function renderDebtTable(monthly, debtMeta, showProjection) {
+        const header = document.getElementById('debtTableHeader');
+        const body = document.getElementById('debtTableBody');
+        const debts = Array.isArray(debtMeta) ? debtMeta : [];
+        header.innerHTML = `
+            <th class="px-4 py-2 font-semibold">Mes</th>
+            <th class="px-4 py-2 font-semibold text-right">Total</th>
+            ${debts.map(debt => `<th class="px-4 py-2 font-semibold text-right">${debt.name}</th>`).join('')}
+        `;
+
+        const rows = (monthly || [])
+            .filter(item => showProjection || !item.is_projection)
+            .map(item => {
+                const rowClass = item.is_projection ? 'text-neutral-400 italic' : 'text-neutral-700';
+                return `
+                    <tr class="${rowClass}">
+                        <td class="px-4 py-2 whitespace-nowrap">${item.month_name}</td>
+                        <td class="px-4 py-2 text-right">${formatCurrency(item.total_principal_end || 0)}</td>
+                        ${debts.map(debt => `
+                            <td class="px-4 py-2 text-right">
+                                ${formatCurrency(item.debts?.[debt.id]?.principal_end || 0)}
+                            </td>
+                        `).join('')}
+                    </tr>
+                `;
+            })
+            .join('');
+
+        body.innerHTML = rows || `
+            <tr>
+                <td class="px-4 py-4 text-center text-neutral-400" colspan="${debts.length + 2}">
+                    Sin datos de deudas no revolving para mostrar.
+                </td>
+            </tr>
+        `;
+    }
+
     async function loadWealthReport() {
         const currencyId = document.getElementById('currencyFilter').value;
         const dateRange = getDateRange();
+        const showProjection = document.getElementById('toggleDebtProjection').checked;
 
         try {
             const [netWorthRes, debtRes] = await Promise.all([
                 fetch(`/api/reports/net-worth?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`),
-                fetch(`/api/reports/debt-balance-history?currency_id=${currencyId}&projection_months=12&include_full_history=true`)
+                fetch(`/api/reports/debt-principal-timeline?currency_id=${currencyId}&projection_months=12&include_full_history=true&include_projection=${showProjection}`)
             ]);
 
             const netWorthData = await netWorthRes.json();
@@ -247,13 +348,13 @@
             document.getElementById('netWorthCurrent').textContent = formatCurrency(netWorthData.current_net_worth || 0);
             document.getElementById('netWorthChange').textContent = formatCurrency(netWorthData.change || 0);
             document.getElementById('netWorthChangePct').textContent = `${netWorthData.change_percentage || 0}%`;
-            document.getElementById('totalDebtCurrent').textContent = formatCurrency(debtData.current_total_debt || 0);
-            document.getElementById('totalDebtStart').textContent = formatCurrency(debtData.starting_total_debt || 0);
-            document.getElementById('totalDebtProjected').textContent = formatCurrency(debtData.projected_total_debt || 0);
+            document.getElementById('totalDebtCurrent').textContent = formatCurrency(debtData.current_total_principal || 0);
+            document.getElementById('totalDebtStart').textContent = formatCurrency(debtData.starting_total_principal || 0);
+            document.getElementById('totalDebtProjected').textContent = formatCurrency(debtData.projected_total_principal || 0);
 
-            window.debtTypes = debtData.debt_types || [];
             renderNetWorthChart(netWorthData.monthly || []);
-            renderDebtChart(debtData.monthly || []);
+            renderDebtChart(debtData.monthly || [], debtData.debts || [], showProjection);
+            renderDebtTable(debtData.monthly || [], debtData.debts || [], showProjection);
         } catch (error) {
             console.error('Error loading wealth report:', error);
         }
@@ -262,6 +363,7 @@
     document.getElementById('applyWealthFilters').addEventListener('click', loadWealthReport);
     document.getElementById('currencyFilter').addEventListener('change', loadWealthReport);
     document.getElementById('monthsFilter').addEventListener('change', loadWealthReport);
+    document.getElementById('toggleDebtProjection').addEventListener('change', loadWealthReport);
 
     (async () => {
         await loadCurrencies();
