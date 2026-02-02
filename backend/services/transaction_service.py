@@ -576,6 +576,13 @@ def create_transfer(db: Session, data):
         - La función se encarga de hacerlo negativo para la salida
         - Para transferencias multi-moneda usa convert_currency() internamente
     """
+    if data['from_account_id'] == data['to_account_id']:
+        raise ValueError("Cannot transfer to the same account")
+
+    transfer_amount = abs(data.get('amount') or 0)
+    if transfer_amount <= 0:
+        raise ValueError("Transfer amount must be positive")
+
     # Get accounts
     from_account = db.query(Account).get(data['from_account_id'])
     to_account = db.query(Account).get(data['to_account_id'])
@@ -584,26 +591,30 @@ def create_transfer(db: Session, data):
         raise ValueError("Invalid account IDs")
 
     # Get currencies
-    from_currency = db.query(Currency).get(data['from_currency_id'])
-    to_currency = db.query(Currency).get(data['to_currency_id'])
+    from_currency_id = data.get('from_currency_id') or from_account.currency_id
+    to_currency_id = data.get('to_currency_id') or to_account.currency_id
+    from_currency = db.query(Currency).get(from_currency_id)
+    to_currency = db.query(Currency).get(to_currency_id)
+    if not from_currency or not to_currency:
+        raise ValueError("Invalid currency IDs")
 
     transfer_date = data.get('date', date.today())
     # Calculate amounts
-    from_amount = -abs(data['amount'])  # Negative (outflow)
+    from_amount = -transfer_amount  # Negative (outflow)
     fx_rate = None
 
     # If different currencies, convert
     if from_currency.code != to_currency.code:
         fx_rate = get_rate_for_date(db, transfer_date)
         to_amount = convert_currency(
-            amount=abs(data['amount']),
+            amount=transfer_amount,
             from_currency=from_currency.code,
             to_currency=to_currency.code,
             db=db,
             rate_date=transfer_date
         )
     else:
-        to_amount = abs(data['amount'])  # Positive (inflow)
+        to_amount = transfer_amount  # Positive (inflow)
 
     # Create payee for transfer
     transfer_payee_from = f"Transfer to: {to_account.name}"
@@ -624,13 +635,13 @@ def create_transfer(db: Session, data):
     from_base_amount, from_base_currency_id = build_transaction_audit_fields(
         db,
         from_amount,
-        data['from_currency_id'],
+        from_currency_id,
         transfer_date
     )
     to_base_amount, to_base_currency_id = build_transaction_audit_fields(
         db,
         to_amount,
-        data['to_currency_id'],
+        to_currency_id,
         transfer_date
     )
 
@@ -642,9 +653,9 @@ def create_transfer(db: Session, data):
         category_id=None,  # Transfers don't have categories
         memo=data.get('memo', ''),
         amount=from_amount,
-        currency_id=data['from_currency_id'],
+        currency_id=from_currency_id,
         original_amount=from_amount,
-        original_currency_id=data['from_currency_id'],
+        original_currency_id=from_currency_id,
         fx_rate=fx_rate,
         base_amount=from_base_amount,
         base_currency_id=from_base_currency_id,
@@ -661,9 +672,9 @@ def create_transfer(db: Session, data):
         category_id=None,  # Transfers don't have categories
         memo=data.get('memo', ''),
         amount=to_amount,
-        currency_id=data['to_currency_id'],
+        currency_id=to_currency_id,
         original_amount=to_amount,
-        original_currency_id=data['to_currency_id'],
+        original_currency_id=to_currency_id,
         fx_rate=fx_rate,
         base_amount=to_base_amount,
         base_currency_id=to_base_currency_id,
