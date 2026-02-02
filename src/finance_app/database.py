@@ -335,6 +335,24 @@ def init_db(engine_override=None):
         engine_override=active_engine
     )
     ensure_sqlite_column(
+        table_name="transactions",
+        column_name="source",
+        column_definition="source VARCHAR(50)",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="transactions",
+        column_name="source_id",
+        column_definition="source_id VARCHAR(120)",
+        engine_override=active_engine
+    )
+    ensure_sqlite_index(
+        index_name="uq_transactions_source_source_id",
+        index_definition="CREATE UNIQUE INDEX IF NOT EXISTS "
+                         "uq_transactions_source_source_id ON transactions (source, source_id)",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
         table_name="debts",
         column_name="loan_years",
         column_definition="loan_years INTEGER",
@@ -482,3 +500,20 @@ def ensure_sqlite_column(
             return
         connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}"))
         # No need for explicit commit() - context manager handles it
+
+
+def ensure_sqlite_index(
+    index_name: str,
+    index_definition: str,
+    engine_override=None
+) -> None:
+    active_engine = engine_override or engine
+    if active_engine.url.drivername != "sqlite":
+        return
+
+    with active_engine.begin() as connection:
+        indexes = connection.execute(text("PRAGMA index_list(transactions)")).fetchall()
+        existing_names = {row[1] for row in indexes}
+        if index_name in existing_names:
+            return
+        connection.execute(text(index_definition))
