@@ -520,6 +520,32 @@
             tooltipText: window.getThemeColor('--chart-tooltip-text')
         });
 
+        window.updateThemeToggle = (theme) => {
+            const themeToggleIcon = document.getElementById('themeToggleIcon');
+            const themeToggleLabel = document.getElementById('themeToggleLabel');
+            if (!themeToggleIcon || !themeToggleLabel) return;
+            const isDark = theme === 'dark';
+            themeToggleIcon.textContent = isDark ? '☀️' : '🌙';
+            themeToggleLabel.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
+        };
+
+        window.setTheme = (theme, persist = true) => {
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.style.colorScheme = theme;
+            if (persist) {
+                localStorage.setItem('theme', theme);
+            }
+            window.updateThemeToggle(theme);
+            window.applyChartTheme();
+            window.refreshChartsForTheme();
+        };
+
+        window.toggleTheme = () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            window.setTheme(nextTheme);
+        };
+
         window.applyChartTheme = () => {
             if (!window.Chart) return;
             const theme = window.getChartTheme();
@@ -568,6 +594,12 @@
         };
 
         window.applyChartTheme();
+        document.addEventListener('click', (event) => {
+            const toggleButton = event.target.closest('#themeToggle');
+            if (!toggleButton) return;
+            event.preventDefault();
+            window.toggleTheme();
+        });
     </script>
 
     {% block scripts %}{% endblock %}
@@ -599,43 +631,13 @@
             const openDbModalButton = document.getElementById('openDbModalButton');
             const dbModal = document.getElementById('dbModal');
             const dbModalCloseButtons = document.querySelectorAll('[data-db-modal-close]');
-            const themeToggle = document.getElementById('themeToggle');
-            const themeToggleIcon = document.getElementById('themeToggleIcon');
-            const themeToggleLabel = document.getElementById('themeToggleLabel');
             const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-
-            const updateThemeToggle = (theme) => {
-                if (!themeToggleIcon || !themeToggleLabel) return;
-                const isDark = theme === 'dark';
-                themeToggleIcon.textContent = isDark ? '☀️' : '🌙';
-                themeToggleLabel.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
-            };
-
-            const applyTheme = (theme, persist = true) => {
-                document.documentElement.setAttribute('data-theme', theme);
-                document.documentElement.style.colorScheme = theme;
-                if (persist) {
-                    localStorage.setItem('theme', theme);
-                }
-                updateThemeToggle(theme);
-                window.applyChartTheme();
-                window.refreshChartsForTheme();
-            };
-
-            updateThemeToggle(document.documentElement.getAttribute('data-theme') || 'light');
-
-            if (themeToggle) {
-                themeToggle.addEventListener('click', () => {
-                    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-                    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                    applyTheme(nextTheme);
-                });
-            }
+            window.updateThemeToggle(document.documentElement.getAttribute('data-theme') || 'light');
 
             if (themeMediaQuery) {
                 themeMediaQuery.addEventListener('change', (event) => {
                     if (localStorage.getItem('theme')) return;
-                    applyTheme(event.matches ? 'dark' : 'light', false);
+                    window.setTheme(event.matches ? 'dark' : 'light', false);
                 });
             }
 
