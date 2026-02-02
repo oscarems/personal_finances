@@ -4,9 +4,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.database import Base
-from backend.api import reports
-from backend.models import Currency, ExchangeRate, Debt, DebtPayment
+from finance_app.database import Base
+from finance_app.api import reports
+from finance_app.models import Currency, ExchangeRate, Debt, DebtPayment
 
 
 def _make_session():

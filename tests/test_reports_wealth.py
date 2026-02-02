@@ -3,9 +3,9 @@ from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.database import Base
-from backend.api import reports
-from backend.models import Currency, ExchangeRate, WealthAsset, Debt, DebtPayment, Transaction
+from finance_app.database import Base
+from finance_app.api import reports
+from finance_app.models import Currency, ExchangeRate, WealthAsset, Debt, DebtPayment, Transaction
 
 
 def _make_session():
