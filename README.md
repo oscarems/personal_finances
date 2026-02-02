@@ -413,6 +413,12 @@ python backend/init_db.py
 python run.py
 ```
 
+### Mantenimiento
+
+Las tareas de mantenimiento deben ejecutarse desde los endpoints administrativos o los
+scripts activos dentro de `backend/`, ya que se retiraron scripts y notas ad-hoc antiguas
+para mantener el repositorio enfocado y libre de utilidades obsoletas.
+
 ### Ver Logs
 
 ```bash
