@@ -68,7 +68,7 @@ python src/finance_app/scripts/init_db.py
 ```
 
 Esto creará:
-- ✅ Base de datos SQLite en `src/finance_app/data/finances.db`
+- ✅ Base de datos SQLite en `data/finances.db`
 - ✅ Monedas (COP y USD)
 - ✅ Categorías YNAB predefinidas (Needs, Hogar, Deudas, Streaming, etc.)
 - ✅ Grupos de categorías organizados
@@ -82,12 +82,12 @@ Puedes levantar una versión demo que usa **otra base de datos** y se crea sola 
 DEMO_MODE=true python run.py
 ```
 
-Esto usará `src/finance_app/data/finances_demo.db` y no toca `src/finance_app/data/finances.db`. Si el archivo demo no existe, se inicializa automáticamente con datos base.
+Esto usará `data/finances_demo.db` y no toca `data/finances.db`. Si el archivo demo no existe, se inicializa automáticamente con datos base.
 
 #### 🗂️ Múltiples bases locales (personal, pareja, amigo)
 
 Desde el selector "Base de datos" en el sidebar puedes elegir o crear nuevas bases locales sin variables de entorno.
-Cada nombre crea un archivo SQLite en `src/finance_app/data/<nombre>.db` (ej: `src/finance_app/data/pareja.db`). Si no hay ninguna base,
+Cada nombre crea un archivo SQLite en `data/<nombre>.db` (ej: `data/pareja.db`). Si no hay ninguna base,
 la app crea y usa automáticamente la demo.
 
 #### 🔐 Conectar a otra base usando credenciales
@@ -171,6 +171,7 @@ personal_finances/
 ├── web_scrapping_email.py  # Script intocable
 ├── config.py               # Configuración + ACCOUNT_TYPES
 ├── requirements.txt        # Dependencias
+├── data/                   # SQLite + uploads
 ├── src/
 │   └── finance_app/
 │       ├── app.py             # App FastAPI principal
@@ -180,7 +181,6 @@ personal_finances/
 │       ├── utils/             # Utilidades
 │       ├── templates/         # Templates Jinja2
 │       ├── static/            # Assets estáticos
-│       ├── data/              # SQLite + uploads
 │       └── scripts/           # Scripts de mantenimiento
 ├── docs/                   # Documentación del proyecto
 └── tests/                  # Pruebas automatizadas
@@ -381,7 +381,7 @@ POST   /api/import/ynab            # Importar CSV YNAB
 del data\finances.db
 
 # Linux/Mac
-rm src/finance_app/data/finances.db
+rm data/finances.db
 
 # Luego
 python src/finance_app/scripts/init_db.py
@@ -454,7 +454,7 @@ payees             -- Beneficiarios
 
 **Solución:**
 ```bash
-del src/finance_app/data/finances.db  # Borra DB
+del data/finances.db  # Borra DB
 python src/finance_app/scripts/init_db.py  # Recrea con nuevo schema
 ```
 

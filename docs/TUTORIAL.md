@@ -520,8 +520,8 @@ Tablas principales:
 **Solución:**
 ```bash
 # CUIDADO: Borra todos los datos
-del src/finance_app/data/finances.db  # Windows
-rm src/finance_app/data/finances.db   # Linux/Mac
+del data/finances.db  # Windows
+rm data/finances.db   # Linux/Mac
 
 python src/finance_app/scripts/init_db.py
 ```

@@ -15,7 +15,7 @@ build/
 *.db
 *.sqlite
 *.sqlite3
-src/finance_app/data/*.db
+data/*.db
 
 # IDE
 .vscode/
@@ -28,8 +28,8 @@ src/finance_app/data/*.db
 .env.local
 
 # Uploads
-src/finance_app/data/uploads/*
-!src/finance_app/data/uploads/.gitkeep
+data/uploads/*
+!data/uploads/.gitkeep
 
 # Logs
 *.log

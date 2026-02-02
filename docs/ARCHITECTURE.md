@@ -10,6 +10,7 @@ personal_finances/
 ├── web_scrapping_email.py   # Script intocable
 ├── config.py                # Configuración global (tipos de cuenta, APIs)
 ├── requirements.txt         # Dependencias de Python
+├── data/                    # Base de datos SQLite + uploads
 ├── src/
 │   └── finance_app/          # Backend + frontend empaquetados
 │       ├── app.py            # Aplicación FastAPI principal
@@ -19,7 +20,6 @@ personal_finances/
 │       ├── utils/            # Utilidades
 │       ├── templates/        # Plantillas HTML (Jinja2)
 │       ├── static/           # Archivos estáticos (CSS, JS, imágenes)
-│       ├── data/             # Base de datos SQLite + uploads
 │       └── scripts/          # Scripts de mantenimiento
 ├── docs/                     # Documentación del proyecto
 └── tests/                    # Pruebas automatizadas
@@ -987,7 +987,7 @@ class Category(Base):
 **4. Recrear base de datos**
 
 ```bash
-rm src/finance_app/data/finances.db
+rm data/finances.db
 python src/finance_app/scripts/init_db.py
 ```
 
@@ -1137,7 +1137,7 @@ EXCHANGE_RATE_API = {
 }
 
 # Configuración de base de datos
-DATABASE_PATH = 'src/finance_app/data/finances.db'
+DATABASE_PATH = 'data/finances.db'
 ```
 
 ---
@@ -1165,7 +1165,7 @@ console.error('Error:', error);
 
 **2. SQLite Browser** - Para ver base de datos directamente
    - Descargar DB Browser for SQLite
-   - Abrir `src/finance_app/data/finances.db`
+   - Abrir `data/finances.db`
 
 ---
 
@@ -1290,7 +1290,7 @@ async function fetchData() {
 python run.py
 
 # Recrear base de datos
-rm src/finance_app/data/finances.db
+rm data/finances.db
 python src/finance_app/scripts/init_db.py
 
 # Instalar dependencias
