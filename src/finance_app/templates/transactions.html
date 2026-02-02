@@ -119,18 +119,12 @@
 
         <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 space-y-4">
             <div>
-                <p class="text-sm font-semibold text-neutral-700 mb-2">Webhook para Telegram</p>
-                <div class="text-xs font-mono text-neutral-700 bg-white border border-neutral-200 rounded-lg p-3" id="telegramWebhookUrl">
-                    Generando URL...
-                </div>
-                <p class="text-xs text-neutral-500 mt-2">Configura tu bot con <span class="font-mono">setWebhook</span> usando este URL.</p>
-            </div>
-            <div>
                 <p class="text-sm font-semibold text-neutral-700 mb-2">Ejemplos de mensajes</p>
                 <ul class="text-sm text-neutral-600 space-y-1 list-disc list-inside">
-                    <li><span class="font-mono">gasto 12000 COP cuenta:Cuenta Corriente categoria:Comida memo:Almuerzo</span></li>
-                    <li><span class="font-mono">ingreso 2500000 COP cuenta:Cuenta Nómina categoria:Salario memo:Pago</span></li>
-                    <li><span class="font-mono">transferencia 300 USD desde:Cuenta USD hacia:Cuenta COP memo:Cambio</span></li>
+                    <li><span class="font-mono">-28500 cop uber transporte</span></li>
+                    <li><span class="font-mono">-12.50 usd starbucks cafe</span></li>
+                    <li><span class="font-mono">2026-02-01 -18000 cop cine</span></li>
+                    <li><span class="font-mono">-28500 cop @davivienda uber transporte</span></li>
                 </ul>
             </div>
         </div>
@@ -752,17 +746,6 @@
         });
     }
 
-    function updateTelegramWebhookUrl() {
-        const webhookEl = document.getElementById('telegramWebhookUrl');
-        const token = document.getElementById('telegramBotToken')?.value;
-        if (!webhookEl) return;
-        const baseUrl = `${window.location.origin}/api/telegram/webhook`;
-        const webhookText = token
-            ? `https://api.telegram.org/bot${token}/setWebhook?url=${baseUrl}`
-            : baseUrl;
-        webhookEl.textContent = webhookText;
-    }
-
     async function loadTelegramSettings() {
         try {
             const res = await fetch('/api/telegram/settings');
@@ -788,11 +771,8 @@
             if (transferTo) transferTo.value = telegramSettings.default_transfer_to_account_id || '';
             if (isActive) isActive.value = telegramSettings.is_active ? 'true' : 'false';
 
-            updateTelegramWebhookUrl();
-            botTokenInput?.addEventListener('input', updateTelegramWebhookUrl);
         } catch (error) {
             console.error('Error loading Telegram settings:', error);
-            updateTelegramWebhookUrl();
         }
     }
 
@@ -828,7 +808,6 @@
                 statusEl.textContent = 'Configuración guardada.';
                 statusEl.className = 'text-sm text-success-600';
             }
-            updateTelegramWebhookUrl();
         } catch (error) {
             console.error('Error saving Telegram settings:', error);
             if (statusEl) {
