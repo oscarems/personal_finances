@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -10,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from finance_app.database import default_database_name, ensure_database_initialized, get_session_factory
+from finance_app.config import get_settings, get_telegram_config
 from finance_app.models import Account, Category, Currency, TelegramSettings, Transaction
 from finance_app.services.transaction_service import create_transaction
 
@@ -183,19 +183,18 @@ def _get_default_currency(db: Session, default_currency_code: str) -> Optional[C
 def sync_telegram_messages() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    allowed_chat_id = os.getenv("TELEGRAM_ALLOWED_CHAT_ID")
-    default_currency_code = os.getenv("TELEGRAM_DEFAULT_CURRENCY")
-    default_account_name = os.getenv("TELEGRAM_DEFAULT_ACCOUNT")
+    settings = get_settings()
+    config = get_telegram_config()
+    default_currency_code = settings.telegram_default_currency
+    default_account_name = settings.telegram_default_account
 
-    if not token or not allowed_chat_id:
-        LOGGER.error("Faltan TELEGRAM_BOT_TOKEN o TELEGRAM_ALLOWED_CHAT_ID.")
+    if not config:
         return 1
 
     try:
-        allowed_chat_id_int = int(allowed_chat_id)
+        allowed_chat_id_int = int(config.chat_id)
     except ValueError:
-        LOGGER.error("TELEGRAM_ALLOWED_CHAT_ID debe ser numérico.")
+        LOGGER.error("TELEGRAM_CHAT_ID debe ser numérico.")
         return 1
 
     db_name = default_database_name()
@@ -226,7 +225,7 @@ def sync_telegram_messages() -> int:
         settings = _load_settings(db)
         offset = settings.last_update_id + 1 if settings.last_update_id is not None else None
 
-        updates = _get_updates(token, offset)
+        updates = _get_updates(config.token, offset)
         total_updates = len(updates)
         inserted = 0
         ignored = 0

@@ -111,6 +111,18 @@ La aplicación estará disponible en:
 - **API Docs**: http://localhost:8000/docs
 - **Dashboard**: http://localhost:8000/
 
+### 4. Integración con Telegram (opcional)
+
+Configura tus credenciales en un archivo `.env` (no se guardan en la base de datos ni se solicitan en la UI):
+
+```bash
+TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
+TELEGRAM_CHAT_ID="123456789"
+```
+
+> Compatibilidad: si ya usas `BOT_TOKEN`, `CHAT_ID` o `TELEGRAM_ALLOWED_CHAT_ID`, seguirán funcionando,
+> pero el nombre recomendado es `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID`.
+
 ---
 
 ## 📖 Documentación

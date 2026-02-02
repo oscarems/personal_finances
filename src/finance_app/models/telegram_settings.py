@@ -26,8 +26,6 @@ class TelegramSettings(Base):
     def to_dict(self):
         return {
             "id": self.id,
-            "bot_token": self.bot_token,
-            "chat_id": self.chat_id,
             "default_account_id": self.default_account_id,
             "default_category_id": self.default_category_id,
             "default_currency_id": self.default_currency_id,

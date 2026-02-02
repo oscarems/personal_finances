@@ -13,7 +13,7 @@ Este módulo permite registrar transacciones enviando mensajes a un bot de Teleg
 
 ```bash
 export TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
-export TELEGRAM_ALLOWED_CHAT_ID="123456789"
+export TELEGRAM_CHAT_ID="123456789"
 export TELEGRAM_DEFAULT_CURRENCY="COP"
 export TELEGRAM_DEFAULT_ACCOUNT="Bancolombia"
 ```
@@ -36,7 +36,7 @@ python -m finance_app.sync.telegram
 
 El comando:
 - Lee mensajes con `getUpdates` usando `offset`.
-- Filtra por `TELEGRAM_ALLOWED_CHAT_ID`.
+- Filtra por `TELEGRAM_CHAT_ID` (compatible con `TELEGRAM_ALLOWED_CHAT_ID`).
 - Inserta transacciones con `source="telegram"` y `source_id=<update_id>`.
 - Guarda el último `update_id` en la tabla `telegram_settings`.
 

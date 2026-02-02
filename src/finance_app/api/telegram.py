@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from finance_app.config import get_telegram_config, get_telegram_status
 from finance_app.database import get_db
 from finance_app.services.telegram_service import (
     build_transaction_from_message,
@@ -15,6 +16,8 @@ router = APIRouter()
 
 
 class TelegramSettingsPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     bot_token: str | None = None
     chat_id: str | None = None
     default_account_id: int | None = None
@@ -33,13 +36,32 @@ def get_settings(db: Session = Depends(get_db)):
 
 @router.post("/settings")
 def save_settings(payload: TelegramSettingsPayload, db: Session = Depends(get_db)):
-    settings = update_settings(db, payload.dict(exclude_unset=True))
+    raw_payload = payload.model_dump(exclude_unset=True)
+    if "bot_token" in raw_payload or "chat_id" in raw_payload:
+        raise HTTPException(status_code=400, detail="No se permiten secretos en la configuración.")
+    settings = update_settings(db, raw_payload)
     return settings.to_dict()
+
+
+@router.get("/status")
+def telegram_status(db: Session = Depends(get_db)):
+    status = get_telegram_status()
+    settings = get_or_create_settings(db)
+    return {
+        "configured": status["configured"],
+        "active": settings.is_active if settings else False,
+        "message": status["message"],
+        "masked_token": status["masked_token"],
+        "chat_id": status["masked_chat_id"],
+    }
 
 
 @router.post("/webhook")
 async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
     settings = get_or_create_settings(db)
+    env_config = get_telegram_config()
+    if not env_config:
+        raise HTTPException(status_code=400, detail="Integración Telegram no configurada.")
     if not settings.is_active:
         raise HTTPException(status_code=400, detail="Integración Telegram desactivada.")
 
@@ -48,9 +70,9 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
     if not message or "text" not in message:
         return {"status": "ignored"}
 
-    if settings.chat_id:
+    if env_config.chat_id:
         incoming_chat_id = str(message.get("chat", {}).get("id", ""))
-        if incoming_chat_id != str(settings.chat_id):
+        if incoming_chat_id != str(env_config.chat_id):
             raise HTTPException(status_code=403, detail="Chat no autorizado.")
 
     try:

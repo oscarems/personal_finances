@@ -44,8 +44,6 @@ def get_or_create_settings(db: Session) -> TelegramSettings:
 def update_settings(db: Session, payload: dict) -> TelegramSettings:
     settings = get_or_create_settings(db)
     for field in (
-        "bot_token",
-        "chat_id",
         "default_account_id",
         "default_category_id",
         "default_currency_id",
