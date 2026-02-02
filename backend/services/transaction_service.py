@@ -363,6 +363,10 @@ def delete_transaction(db: Session, transaction_id):
     if not transaction:
         return False
 
+    delete_reason = transaction.delete_block_reason()
+    if delete_reason:
+        raise ValueError(delete_reason)
+
     # If this is a transfer, also delete the linked transaction
     if transaction.transfer_account_id:
         # Find the linked transaction

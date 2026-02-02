@@ -244,7 +244,10 @@ def update_existing_transaction(
 @router.delete("/{transaction_id}")
 def remove_transaction(transaction_id: int, db: Session = Depends(get_db)):
     """Delete a transaction"""
-    success = delete_transaction(db, transaction_id)
+    try:
+        success = delete_transaction(db, transaction_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return {"success": True}
