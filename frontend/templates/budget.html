@@ -35,6 +35,13 @@
                 <div>
                     <p class="text-4xl font-extrabold text-white mb-2" id="readyToAssignTotalCOP">$0</p>
                     <p class="text-base font-semibold text-white/90" id="readyToAssignTotalUSD">US$0.00</p>
+                    <div class="mt-3 space-y-1 text-xs text-white/80">
+                        <p id="readyToAssignBreakdownCOP">En cuentas: $0 · Disponible: $0</p>
+                        <p id="readyToAssignBreakdownUSD">En cuentas: US$0.00 · Disponible: US$0.00</p>
+                        <p id="readyToAssignNegativeNote" class="hidden text-white/90">
+                            Negativo cuando lo disponible supera el dinero en cuentas.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -732,6 +739,17 @@
             `$${formatAmount(readyToAssignCOP, 0)}`;
         document.getElementById('readyToAssignTotalUSD').textContent =
             `US$${formatAmount(readyToAssignUSD, 2)}`;
+        document.getElementById('readyToAssignBreakdownCOP').textContent =
+            `En cuentas: $${formatAmount(dataCOP.totals.in_accounts || 0, 0)} · Disponible: $${formatAmount(dataCOP.totals.available || 0, 0)}`;
+        document.getElementById('readyToAssignBreakdownUSD').textContent =
+            `En cuentas: US$${formatAmount(dataUSD.totals.in_accounts || 0, 2)} · Disponible: US$${formatAmount(dataUSD.totals.available || 0, 2)}`;
+
+        const negativeNote = document.getElementById('readyToAssignNegativeNote');
+        if (readyToAssignCOP < 0 || readyToAssignUSD < 0) {
+            negativeNote.classList.remove('hidden');
+        } else {
+            negativeNote.classList.add('hidden');
+        }
 
         // Display Total Assigned (sum) in both currencies
         document.getElementById('totalAssignedTotalCOP').textContent =
