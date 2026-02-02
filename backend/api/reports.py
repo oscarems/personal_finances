@@ -4,7 +4,7 @@ Reports and Analytics API
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Iterable, List, Dict
 from datetime import date, datetime
 import calendar
 from dateutil.relativedelta import relativedelta
@@ -180,6 +180,158 @@ def _calculate_debt_balance(debt: Debt, month_end: date, today: date) -> float:
         balance = max(0.0, balance - monthly_payment)
 
     return max(balance, 0.0)
+
+
+def _annual_rate_decimal(debt: Debt) -> float:
+    if debt.annual_interest_rate is not None:
+        try:
+            rate = float(debt.annual_interest_rate)
+        except (TypeError, ValueError):
+            rate = 0.0
+        return rate / 100 if rate > 1 else rate
+    if debt.interest_rate:
+        return debt.interest_rate / 100
+    return 0.0
+
+
+def _month_start(day: date) -> date:
+    return day.replace(day=1)
+
+
+def _iter_months(start_month: date, end_month: date) -> Iterable[date]:
+    current = start_month
+    while current <= end_month:
+        yield current
+        current = current + relativedelta(months=1)
+
+
+def _month_key(day: date) -> Tuple[int, int]:
+    return day.year, day.month
+
+
+def _infer_monthly_payment(
+    payments_by_month: Dict[Tuple[int, int], Dict[str, float]],
+    today: date,
+    months: int = 6,
+) -> float:
+    end_month = _month_start(today) - relativedelta(months=1)
+    totals = []
+    for offset in range(months):
+        month = end_month - relativedelta(months=offset)
+        total = payments_by_month.get(_month_key(month), {}).get("amount", 0.0)
+        if total > 0:
+            totals.append(total)
+    if not totals:
+        return 0.0
+    return sum(totals) / len(totals)
+
+
+def build_debt_principal_timeline(
+    start_month: date,
+    end_month: date,
+    debts: List[Debt],
+    include_projection: bool = True,
+    currency_id: int = 1,
+    exchange_rate: float = 1.0,
+    currency_map: Optional[Dict[str, int]] = None,
+    today: Optional[date] = None,
+) -> List[dict]:
+    if today is None:
+        today = date.today()
+    current_month = _month_start(today)
+    if not include_projection and end_month > current_month:
+        end_month = current_month
+
+    debt_states: Dict[int, float] = {}
+    payment_lookup: Dict[int, Dict[Tuple[int, int], Dict[str, float]]] = {}
+    inferred_payments: Dict[int, float] = {}
+
+    for debt in debts:
+        payments_by_month: Dict[Tuple[int, int], Dict[str, float]] = {}
+        for payment in debt.payments:
+            if not payment.payment_date:
+                continue
+            key = _month_key(payment.payment_date)
+            bucket = payments_by_month.setdefault(key, {"amount": 0.0, "principal": 0.0})
+            bucket["amount"] += payment.amount or 0.0
+            if payment.principal:
+                bucket["principal"] += payment.principal
+        payment_lookup[debt.id] = payments_by_month
+        inferred_payments[debt.id] = _infer_monthly_payment(payments_by_month, today)
+
+    timeline = []
+    for month_start in _iter_months(start_month, end_month):
+        month_end = month_start + relativedelta(months=1) - relativedelta(days=1)
+        is_projection = month_start > current_month
+        month_entry = {
+            "month": month_start.strftime("%Y-%m"),
+            "month_name": month_start.strftime("%b %Y"),
+            "is_projection": is_projection,
+            "debts": {},
+            "total_principal_end": 0.0,
+        }
+
+        for debt in debts:
+            if debt.debt_type == "credit_card":
+                continue
+            if debt.start_date and month_end < debt.start_date:
+                month_entry["debts"][str(debt.id)] = {
+                    "principal_start": 0.0,
+                    "interest_accrued": 0.0,
+                    "payment_applied": 0.0,
+                    "principal_paid": 0.0,
+                    "principal_end": 0.0,
+                }
+                continue
+
+            if debt.id not in debt_states:
+                initial_balance = debt.original_amount if debt.original_amount is not None else debt.current_balance or 0.0
+                debt_states[debt.id] = max(0.0, initial_balance)
+
+            principal_start = debt_states[debt.id]
+            annual_rate = _annual_rate_decimal(debt)
+            interest_accrued = principal_start * (annual_rate / 12) if annual_rate else 0.0
+
+            if is_projection and include_projection:
+                payment_applied = debt.monthly_payment or inferred_payments.get(debt.id, 0.0)
+                interest_paid = min(interest_accrued, payment_applied) if payment_applied else 0.0
+                principal_paid = max(0.0, payment_applied - interest_paid)
+            else:
+                month_key = _month_key(month_start)
+                payment_data = payment_lookup.get(debt.id, {}).get(month_key, {})
+                payment_applied = payment_data.get("amount", 0.0)
+                explicit_principal = payment_data.get("principal", 0.0)
+                if explicit_principal > 0:
+                    principal_paid = min(explicit_principal, principal_start)
+                else:
+                    interest_paid = min(interest_accrued, payment_applied) if payment_applied else 0.0
+                    principal_paid = max(0.0, payment_applied - interest_paid)
+
+            principal_paid = min(principal_paid, principal_start)
+            principal_end = max(0.0, principal_start - principal_paid)
+
+            debt_states[debt.id] = principal_end
+
+            debt_currency_id = currency_map.get(debt.currency_code, currency_id) if currency_map else currency_id
+            principal_start_conv = convert_to_currency(principal_start, debt_currency_id, currency_id, exchange_rate)
+            interest_conv = convert_to_currency(interest_accrued, debt_currency_id, currency_id, exchange_rate)
+            payment_conv = convert_to_currency(payment_applied, debt_currency_id, currency_id, exchange_rate)
+            principal_paid_conv = convert_to_currency(principal_paid, debt_currency_id, currency_id, exchange_rate)
+            principal_end_conv = convert_to_currency(principal_end, debt_currency_id, currency_id, exchange_rate)
+
+            month_entry["debts"][str(debt.id)] = {
+                "principal_start": round(principal_start_conv, 2),
+                "interest_accrued": round(interest_conv, 2),
+                "payment_applied": round(payment_conv, 2),
+                "principal_paid": round(principal_paid_conv, 2),
+                "principal_end": round(principal_end_conv, 2),
+            }
+            month_entry["total_principal_end"] += principal_end_conv
+
+        month_entry["total_principal_end"] = round(month_entry["total_principal_end"], 2)
+        timeline.append(month_entry)
+
+    return timeline
 
 
 def _build_mortgage_balance_map(debt: Debt, end_date: date, today: date) -> Optional[dict]:
@@ -804,6 +956,92 @@ def get_debt_balance_history(
         'projected_total_debt': monthly_totals[-1]['total_debt'] if monthly_totals else 0,
         'debt_types': debt_types,
         'currency': currency.to_dict() if currency else None
+    }
+
+
+@router.get("/debt-principal-timeline")
+def get_debt_principal_timeline(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    projection_months: int = 12,
+    include_full_history: bool = False,
+    include_projection: bool = True,
+    currency_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """
+    Get monthly principal timeline for non-revolving debts (loans/mortgages).
+    """
+    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
+    if not debts:
+        return {
+            "monthly": [],
+            "debts": [],
+            "currency": None,
+            "current_total_principal": 0,
+        }
+
+    today = date.today()
+    if not end_date:
+        end_date_obj = today
+    else:
+        end_date_obj = date.fromisoformat(end_date)
+
+    if include_full_history or not start_date:
+        earliest_dates = []
+        for debt in debts:
+            if debt.start_date:
+                earliest_dates.append(debt.start_date)
+            if debt.payments:
+                earliest_dates.append(min(p.payment_date for p in debt.payments if p.payment_date))
+        start_date_obj = min(earliest_dates) if earliest_dates else today
+    else:
+        start_date_obj = date.fromisoformat(start_date)
+
+    start_month = start_date_obj.replace(day=1)
+    end_month = end_date_obj.replace(day=1)
+    if projection_months and projection_months > 0 and include_projection:
+        end_month = end_month + relativedelta(months=projection_months)
+
+    exchange_rate = get_exchange_rate(db)
+    currencies = db.query(Currency).all()
+    currency_map = {currency.code: currency.id for currency in currencies}
+
+    timeline = build_debt_principal_timeline(
+        start_month,
+        end_month,
+        debts,
+        include_projection=include_projection,
+        currency_id=currency_id,
+        exchange_rate=exchange_rate,
+        currency_map=currency_map,
+        today=today,
+    )
+
+    currency = db.query(Currency).get(currency_id)
+    debt_meta = [
+        {
+            "id": debt.id,
+            "name": debt.name,
+            "debt_type": debt.debt_type,
+            "currency_code": debt.currency_code,
+        }
+        for debt in debts
+    ]
+
+    current_month_key = date.today().strftime('%Y-%m')
+    current_total = next(
+        (item["total_principal_end"] for item in timeline if item["month"] == current_month_key),
+        timeline[-1]["total_principal_end"] if timeline else 0,
+    )
+
+    return {
+        "monthly": timeline,
+        "debts": debt_meta,
+        "current_total_principal": current_total,
+        "starting_total_principal": timeline[0]["total_principal_end"] if timeline else 0,
+        "projected_total_principal": timeline[-1]["total_principal_end"] if timeline else 0,
+        "currency": currency.to_dict() if currency else None,
     }
 
 
