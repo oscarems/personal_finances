@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from finance_app.database import Base
 from datetime import datetime
@@ -9,6 +9,9 @@ _PROTECTED_AUTO_KEYWORDS = ("hipoteca", "eps", "pensión", "pension")
 
 class Transaction(Base):
     __tablename__ = 'transactions'
+    __table_args__ = (
+        UniqueConstraint('source', 'source_id', name='uq_transactions_source_source_id'),
+    )
 
     id = Column(Integer, primary_key=True)
     account_id = Column(Integer, ForeignKey('accounts.id'), nullable=False)
@@ -29,6 +32,8 @@ class Transaction(Base):
     investment_asset_id = Column(Integer, ForeignKey('wealth_assets.id'), nullable=True)
     is_adjustment = Column(Boolean, default=False)  # Balance adjustment transaction
     import_id = Column(String(100))  # YNAB import ID to avoid duplicates
+    source = Column(String(50))
+    source_id = Column(String(120))
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -85,6 +90,8 @@ class Transaction(Base):
             'investment_asset_name': self.investment_asset.name if self.investment_asset else None,
             'is_adjustment': self.is_adjustment,
             'import_id': self.import_id,
+            'source': self.source,
+            'source_id': self.source_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'can_delete': delete_reason is None,
             'delete_reason': delete_reason

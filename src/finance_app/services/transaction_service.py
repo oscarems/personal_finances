@@ -156,6 +156,8 @@ def create_transaction(db: Session, data):
         Transaction object
     """
     mortgage_allocation = data.pop('mortgage_allocation', None)
+    source = data.get('source')
+    source_id = data.get('source_id')
 
     transaction_context = db.begin_nested() if db.in_transaction() else db.begin()
     with transaction_context:
@@ -200,7 +202,9 @@ def create_transaction(db: Session, data):
             cleared=data.get('cleared', False),
             approved=data.get('approved', True),
             transfer_account_id=data.get('transfer_account_id'),
-            investment_asset_id=data.get('investment_asset_id')
+            investment_asset_id=data.get('investment_asset_id'),
+            source=source,
+            source_id=source_id
         )
 
         db.add(transaction)
