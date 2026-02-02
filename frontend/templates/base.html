@@ -228,6 +228,16 @@
         }
     </script>
 
+    <script>
+        (function() {
+            const storedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = storedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.style.colorScheme = theme;
+        })();
+    </script>
+
     <link rel="stylesheet" href="/static/styles/design-system.css">
 
     <!-- Chart.js -->
@@ -417,6 +427,12 @@
 
             <!-- Footer del sidebar con estilo -->
             <div class="relative p-6 border-t border-white/10 bg-gradient-to-t from-black/30 to-transparent">
+                <div class="theme-toggle">
+                    <button id="themeToggle" class="theme-toggle__button" type="button" aria-live="polite">
+                        <span class="theme-toggle__icon" id="themeToggleIcon" aria-hidden="true">🌙</span>
+                        <span class="theme-toggle__label" id="themeToggleLabel">Modo oscuro</span>
+                    </button>
+                </div>
                 <div class="flex items-center justify-between text-xs text-slate-400">
                     <div class="flex items-center space-x-2">
                         <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
@@ -493,6 +509,67 @@
         </main>
     </div>
 
+    <script>
+        window.getThemeColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+        window.getChartTheme = () => ({
+            text: window.getThemeColor('--chart-text'),
+            grid: window.getThemeColor('--chart-grid'),
+            border: window.getThemeColor('--chart-border'),
+            tooltipBg: window.getThemeColor('--chart-tooltip-bg'),
+            tooltipText: window.getThemeColor('--chart-tooltip-text')
+        });
+
+        window.applyChartTheme = () => {
+            if (!window.Chart) return;
+            const theme = window.getChartTheme();
+            Chart.defaults.color = theme.text;
+            Chart.defaults.borderColor = theme.grid;
+            if (Chart.defaults.scale) {
+                Chart.defaults.scale.grid.color = theme.grid;
+                Chart.defaults.scale.border.color = theme.grid;
+                Chart.defaults.scale.ticks.color = theme.text;
+            }
+            if (Chart.defaults.plugins && Chart.defaults.plugins.legend && Chart.defaults.plugins.legend.labels) {
+                Chart.defaults.plugins.legend.labels.color = theme.text;
+            }
+            if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
+                Chart.defaults.plugins.tooltip.backgroundColor = theme.tooltipBg;
+                Chart.defaults.plugins.tooltip.titleColor = theme.tooltipText;
+                Chart.defaults.plugins.tooltip.bodyColor = theme.tooltipText;
+            }
+        };
+
+        window.refreshChartsForTheme = () => {
+            if (!window.Chart || !Chart.instances) return;
+            const charts = Chart.instances instanceof Map
+                ? Array.from(Chart.instances.values())
+                : Object.values(Chart.instances);
+            const theme = window.getChartTheme();
+            charts.forEach(chart => {
+                if (!chart) return;
+                if (chart.options.scales) {
+                    Object.values(chart.options.scales).forEach(scale => {
+                        if (scale.ticks) scale.ticks.color = theme.text;
+                        if (scale.grid) scale.grid.color = theme.grid;
+                        if (scale.border) scale.border.color = theme.grid;
+                    });
+                }
+                if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                    chart.options.plugins.legend.labels.color = theme.text;
+                }
+                if (chart.options.plugins && chart.options.plugins.tooltip) {
+                    chart.options.plugins.tooltip.backgroundColor = theme.tooltipBg;
+                    chart.options.plugins.tooltip.titleColor = theme.tooltipText;
+                    chart.options.plugins.tooltip.bodyColor = theme.tooltipText;
+                }
+                chart.update();
+            });
+        };
+
+        window.applyChartTheme();
+    </script>
+
     {% block scripts %}{% endblock %}
 
     <script>
@@ -522,6 +599,45 @@
             const openDbModalButton = document.getElementById('openDbModalButton');
             const dbModal = document.getElementById('dbModal');
             const dbModalCloseButtons = document.querySelectorAll('[data-db-modal-close]');
+            const themeToggle = document.getElementById('themeToggle');
+            const themeToggleIcon = document.getElementById('themeToggleIcon');
+            const themeToggleLabel = document.getElementById('themeToggleLabel');
+            const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+            const updateThemeToggle = (theme) => {
+                if (!themeToggleIcon || !themeToggleLabel) return;
+                const isDark = theme === 'dark';
+                themeToggleIcon.textContent = isDark ? '☀️' : '🌙';
+                themeToggleLabel.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
+            };
+
+            const applyTheme = (theme, persist = true) => {
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.style.colorScheme = theme;
+                if (persist) {
+                    localStorage.setItem('theme', theme);
+                }
+                updateThemeToggle(theme);
+                window.applyChartTheme();
+                window.refreshChartsForTheme();
+            };
+
+            updateThemeToggle(document.documentElement.getAttribute('data-theme') || 'light');
+
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                    applyTheme(nextTheme);
+                });
+            }
+
+            if (themeMediaQuery) {
+                themeMediaQuery.addEventListener('change', (event) => {
+                    if (localStorage.getItem('theme')) return;
+                    applyTheme(event.matches ? 'dark' : 'light', false);
+                });
+            }
 
             const openDbModal = () => {
                 if (!dbModal) return;

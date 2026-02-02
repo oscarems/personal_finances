@@ -1017,6 +1017,7 @@
     }
 
     function renderBudgetBarChart(budgetData) {
+        const chartTheme = getChartTheme();
         const chartData = buildCategoryChartData(budgetData, cat => cat.assigned);
         const labels = chartData.categories.map(c => c.name);
         const amounts = chartData.categories.map(c => c.amount);
@@ -1034,7 +1035,7 @@
                     data: amounts,
                     backgroundColor: chartData.colors,
                     borderWidth: 1,
-                    borderColor: '#fff'
+                    borderColor: chartTheme.border
                 }]
             },
             options: {
@@ -1073,6 +1074,7 @@
     }
 
     function renderSpendingBarChart(budgetData) {
+        const chartTheme = getChartTheme();
         const chartData = buildCategoryChartData(budgetData, cat => Math.abs(cat.activity));
         const labels = chartData.categories.map(c => c.name);
         const amounts = chartData.categories.map(c => c.amount);
@@ -1090,7 +1092,7 @@
                     data: amounts,
                     backgroundColor: chartData.colors,
                     borderWidth: 1,
-                    borderColor: '#fff'
+                    borderColor: chartTheme.border
                 }]
             },
             options: {

@@ -160,6 +160,7 @@
     }
 
     function renderInvestmentsChart(series) {
+        const chartTheme = getChartTheme();
         const labels = series.map(item => item.month_name);
         const values = series.map(item => item.total_value);
         const gains = series.map(item => item.total_return_amount);
@@ -196,7 +197,7 @@
                         type: 'line',
                         label: 'Ganancia %',
                         data: gainsPct,
-                        borderColor: '#6b7280',
+                        borderColor: chartTheme.text,
                         borderDash: [4, 4],
                         tension: 0.3,
                         yAxisID: 'y1'
