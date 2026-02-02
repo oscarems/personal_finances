@@ -610,6 +610,15 @@
                 ? 'badge-info'
                 : (isInflow ? 'badge-success' : 'badge-danger');
 
+            const deleteDisabled = t.can_delete === false;
+            const deleteReason = t.delete_reason || 'No se puede eliminar esta transacción.';
+            const deleteButtonClasses = deleteDisabled
+                ? 'inline-flex items-center gap-1 text-sm font-semibold text-gray-400 cursor-not-allowed'
+                : 'inline-flex items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700';
+            const deleteButtonAttributes = deleteDisabled
+                ? `disabled aria-disabled="true" title="${escapeHtml(deleteReason)}"`
+                : `onclick="deleteRecentTransaction(${t.id})"`;
+
             return `
                 <tr class="hover:bg-neutral-50 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap">
@@ -636,8 +645,8 @@
                         </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center">
-                        <button onclick="deleteRecentTransaction(${t.id})"
-                                class="inline-flex items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700">
+                        <button ${deleteButtonAttributes}
+                                class="${deleteButtonClasses}">
                             <span aria-hidden="true">🗑️</span>
                             <span>Eliminar</span>
                         </button>
@@ -648,7 +657,7 @@
     }
 
     async function deleteRecentTransaction(transactionId) {
-        if (!confirm('¿Seguro que quieres eliminar esta transacción?')) return;
+        if (!confirm('¿Seguro que deseas eliminar esta transacción? Esta acción no se puede deshacer.')) return;
 
         try {
             const res = await fetch(`/api/transactions/${transactionId}`, {
@@ -658,7 +667,16 @@
             if (res.ok) {
                 await loadDashboard();
             } else {
-                alert('Error al eliminar la transacción');
+                let errorMessage = 'Error al eliminar la transacción';
+                try {
+                    const data = await res.json();
+                    if (data?.detail) {
+                        errorMessage = data.detail;
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing delete response:', parseError);
+                }
+                alert(errorMessage);
             }
         } catch (error) {
             console.error('Error:', error);
@@ -670,6 +688,17 @@
         if (!dateString) return '-';
         const date = new Date(`${dateString}T00:00:00`);
         return date.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function escapeHtml(value) {
+        if (!value) return '';
+        return value
+            .toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function displayDebtsSummary(data) {

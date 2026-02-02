@@ -3,6 +3,10 @@ from sqlalchemy.orm import relationship
 from backend.database import Base
 from datetime import datetime
 
+_AUTO_MEMO_PREFIX = "auto:"
+_AUTO_MEMO_DEFAULT = "transacción automática"
+_PROTECTED_AUTO_KEYWORDS = ("hipoteca", "eps", "pensión", "pension")
+
 class Transaction(Base):
     __tablename__ = 'transactions'
 
@@ -38,7 +42,25 @@ class Transaction(Base):
     def __repr__(self):
         return f'<Transaction {self.date} {self.amount}>'
 
+    def delete_block_reason(self):
+        if self.is_adjustment:
+            return "No se puede eliminar un ajuste de balance."
+
+        memo = (self.memo or "").strip()
+        memo_lower = memo.lower()
+        is_auto_generated = memo_lower == _AUTO_MEMO_DEFAULT or memo_lower.startswith(_AUTO_MEMO_PREFIX)
+
+        if is_auto_generated:
+            payee_name = (self.payee.name if self.payee else "").lower()
+            if any(keyword in memo_lower for keyword in _PROTECTED_AUTO_KEYWORDS) or any(
+                keyword in payee_name for keyword in _PROTECTED_AUTO_KEYWORDS
+            ):
+                return "Transacción automática crítica (hipoteca/EPS/pensión)."
+
+        return None
+
     def to_dict(self):
+        delete_reason = self.delete_block_reason()
         return {
             'id': self.id,
             'account_id': self.account_id,
@@ -63,5 +85,7 @@ class Transaction(Base):
             'investment_asset_name': self.investment_asset.name if self.investment_asset else None,
             'is_adjustment': self.is_adjustment,
             'import_id': self.import_id,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'can_delete': delete_reason is None,
+            'delete_reason': delete_reason
         }
