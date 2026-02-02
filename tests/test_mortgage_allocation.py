@@ -5,9 +5,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.database import Base
-from backend.models import Account, Currency, Debt, Transaction, MortgagePaymentAllocation, ExchangeRate
-from backend.services.transaction_service import create_transaction
+from finance_app.database import Base
+from finance_app.models import Account, Currency, Debt, Transaction, MortgagePaymentAllocation, ExchangeRate
+from finance_app.services.transaction_service import create_transaction
 
 
 def _make_session():

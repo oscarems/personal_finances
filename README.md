@@ -64,7 +64,7 @@ pip install -r requirements.txt
 ### 2. Inicializar Base de Datos
 
 ```bash
-python backend/init_db.py
+python src/finance_app/scripts/init_db.py
 ```
 
 Esto creará:
@@ -167,42 +167,23 @@ El objetivo es llevar esto a $0 asignando cada peso a una categoría.
 
 ```
 personal_finances/
-├── backend/
-│   ├── models/             # Modelos SQLAlchemy
-│   │   ├── account.py      # Cuentas con campos opcionales
-│   │   ├── transaction.py  # Transacciones con transfers
-│   │   ├── category.py     # Categorías con rollover
-│   │   ├── budget.py       # Presupuestos mensuales
-│   │   └── exchange_rate.py # Tasas históricas
-│   ├── services/           # Lógica de negocio
-│   │   ├── budget_service.py       # OPTIMIZADO
-│   │   ├── transaction_service.py  # Con transferencias
-│   │   └── exchange_rate_service.py # Fallback inteligente
-│   ├── api/               # Endpoints REST
-│   │   ├── transactions.py # + endpoint /transfer
-│   │   ├── accounts.py     # + campos opcionales
-│   │   ├── budgets.py      # Presupuesto unificado
-│   │   └── exchange_rates.py # APIs de tasas
-│   ├── utils/             # Utilidades
-│   │   └── ynab_importer.py # Importador YNAB
-│   ├── app.py             # App FastAPI principal
-│   ├── database.py        # Config DB
-│   └── init_db.py         # Script inicialización
-├── frontend/
-│   └── templates/         # Templates Jinja2
-│       ├── index.html     # Dashboard
-│       ├── accounts.html  # Gestión cuentas
-│       ├── budget.html    # Presupuesto (MEJORADO)
-│       ├── transactions.html # + Modal transferencias
-│       └── reports.html   # Reportes
-├── data/
-│   ├── finances.db        # SQLite database
-│   └── uploads/           # CSVs importados
-├── config.py              # Configuración + ACCOUNT_TYPES
-├── requirements.txt       # Dependencias (+ requests)
-├── TUTORIAL.md           # 📚 Tutorial completo
-├── YNAB_FEATURES_COMPARISON.md # 🔍 Comparación YNAB
-└── run.py                # Ejecutar app
+├── run.py                  # Ejecutar app
+├── web_scrapping_email.py  # Script intocable
+├── config.py               # Configuración + ACCOUNT_TYPES
+├── requirements.txt        # Dependencias
+├── data/                   # SQLite + uploads
+├── src/
+│   └── finance_app/
+│       ├── app.py             # App FastAPI principal
+│       ├── api/               # Endpoints REST
+│       ├── models/            # Modelos SQLAlchemy
+│       ├── services/          # Lógica de negocio
+│       ├── utils/             # Utilidades
+│       ├── templates/         # Templates Jinja2
+│       ├── static/            # Assets estáticos
+│       └── scripts/           # Scripts de mantenimiento
+├── docs/                   # Documentación del proyecto
+└── tests/                  # Pruebas automatizadas
 ```
 
 ---
@@ -403,7 +384,7 @@ del data\finances.db
 rm data/finances.db
 
 # Luego
-python backend/init_db.py
+python src/finance_app/scripts/init_db.py
 ```
 
 ### Ejecutar en Modo Debug
@@ -474,14 +455,14 @@ payees             -- Beneficiarios
 **Solución:**
 ```bash
 del data/finances.db  # Borra DB
-python backend/init_db.py  # Recrea con nuevo schema
+python src/finance_app/scripts/init_db.py  # Recrea con nuevo schema
 ```
 
-### "No module named backend"
+### "No module named finance_app"
 
 **Solución:**
 - Ejecuta desde la raíz del proyecto
-- Verifica que `backend/` tenga `__init__.py`
+- Verifica que `src/finance_app/` tenga `__init__.py`
 - Instala dependencias: `pip install -r requirements.txt`
 
 ### Gráficos no cargan

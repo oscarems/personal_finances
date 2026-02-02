@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from test_csv_reader import read_ynab_csv
+from finance_app.scripts.test_csv_reader import read_ynab_csv
 
 
 def _write_csv(path: Path, rows):

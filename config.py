@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 # Base directory
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).resolve().parent
 
 # Database
 DEMO_MODE = os.getenv('DEMO_MODE', '').lower() in {'1', 'true', 'yes', 'on'}
