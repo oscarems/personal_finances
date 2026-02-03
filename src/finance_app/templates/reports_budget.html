@@ -70,6 +70,7 @@
                     <th class="px-4 py-3 text-right">Presupuesto</th>
                     <th class="px-4 py-3 text-right">Ingresos</th>
                     <th class="px-4 py-3 text-right">Gastos</th>
+                    <th class="px-4 py-3 text-right">Balance neto</th>
                 </tr>
             </thead>
             <tbody id="budgetTrendTable" class="divide-y divide-neutral-200"></tbody>
@@ -213,17 +214,20 @@
         const table = document.getElementById('budgetTrendTable');
         table.innerHTML = '';
         if (!data.length) {
-            table.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-center text-neutral-500">Sin datos disponibles.</td></tr>';
+            table.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-neutral-500">Sin datos disponibles.</td></tr>';
             return;
         }
 
         data.forEach(item => {
             const row = document.createElement('tr');
+            const netBalance = item.net_balance ?? (item.income - item.expenses);
+            const netClass = netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700';
             row.innerHTML = `
                 <td class="px-4 py-3 text-neutral-700">${item.month_name}</td>
                 <td class="px-4 py-3 text-right text-neutral-700 font-medium">${formatCurrency(item.budget)}</td>
                 <td class="px-4 py-3 text-right text-emerald-600 font-semibold">${formatCurrency(item.income)}</td>
                 <td class="px-4 py-3 text-right text-rose-600 font-semibold">${formatCurrency(item.expenses)}</td>
+                <td class="px-4 py-3 text-right font-semibold ${netClass}">${formatCurrency(netBalance)}</td>
             `;
             table.appendChild(row);
         });
