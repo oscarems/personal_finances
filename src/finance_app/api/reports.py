@@ -13,6 +13,7 @@ from finance_app.database import get_db
 from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset
 from finance_app.utils.wealth import apply_expected_appreciation, apply_depreciation
 from finance_app.services.mortgage_service import calculate_monthly_payment
+from finance_app.services.real_estate_wealth_service import build_real_estate_wealth_timeline
 from finance_app.services.budget_service import build_spent_transactions_query
 
 router = APIRouter()
@@ -1888,6 +1889,38 @@ def get_net_worth(
         },
         'currency': currency.to_dict() if currency else None
     }
+
+
+@router.get("/real-estate-wealth")
+def get_real_estate_wealth(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    projection_months: int = Query(12, ge=0, le=36),
+    currency_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    today = date.today()
+    if not end_date:
+        end_date = today.isoformat()
+    if not start_date:
+        start_date = (today.replace(day=1) - relativedelta(months=11)).isoformat()
+
+    start_date_obj = date.fromisoformat(start_date)
+    end_date_obj = date.fromisoformat(end_date)
+
+    if start_date_obj > end_date_obj:
+        raise HTTPException(status_code=400, detail="start_date must be <= end_date")
+
+    try:
+        return build_real_estate_wealth_timeline(
+            db=db,
+            start_date=start_date_obj,
+            end_date=end_date_obj,
+            projection_months=projection_months,
+            currency_id=currency_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/debt-summary")
