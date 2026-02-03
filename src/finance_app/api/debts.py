@@ -12,11 +12,15 @@ import calendar
 from dateutil.relativedelta import relativedelta
 
 from finance_app.database import get_db
-from finance_app.models import Debt, DebtPayment, Account, Transaction
+from finance_app.models import Debt, DebtAmortizationMonthly, DebtPayment, Account, Transaction
 from finance_app.services.mortgage_service import calculate_monthly_payment
 from finance_app.services.debt_balance_service import calculate_debt_balance_as_of
-from domain.debts.service import get_debts_principal
-from domain.debts.projection import project_debt_principal
+from finance_app.services.debt_amortization_service import (
+    ensure_debt_amortization_records,
+    fetch_amortization_for_month,
+    fetch_amortization_range,
+)
+from domain.fx.service import convert_to_cop
 
 router = APIRouter()
 
@@ -206,13 +210,26 @@ def _build_mortgage_payment_breakdown(debt: Debt, payments: List[dict]) -> List[
 def _debt_to_dict_with_calculated_balance(
     debt: Debt,
     db: Session,
-    include_payments: bool = False
+    include_payments: bool = False,
+    amortization_map: dict[int, DebtAmortizationMonthly] | None = None,
 ) -> dict:
     data = debt.to_dict(include_payments=include_payments)
-    if debt.debt_type != "mortgage":
+    if debt.debt_type == "credit_card":
         return data
 
-    calculated_balance = _calculate_mortgage_current_balance(debt, db)
+    today = date.today()
+    current_month = today.replace(day=1)
+    current_record = None
+    if amortization_map is not None:
+        current_record = amortization_map.get(debt.id)
+    else:
+        ensure_debt_amortization_records(db, current_month, current_month)
+        amortization_map = fetch_amortization_for_month(db, current_month, [debt.id])
+        current_record = amortization_map.get(debt.id)
+    if current_record:
+        calculated_balance = current_record.principal_remaining
+    else:
+        calculated_balance = _calculate_mortgage_current_balance(debt, db)
     data["current_balance"] = calculated_balance
     if debt.original_amount and debt.original_amount > 0:
         data["paid_percentage"] = ((debt.original_amount - calculated_balance) / debt.original_amount) * 100
@@ -300,8 +317,18 @@ def get_debts(
         query = query.filter(Debt.debt_type == debt_type)
 
     debts = query.all()
+    today = date.today()
+    current_month = today.replace(day=1)
+    debt_ids = [debt.id for debt in debts if debt.debt_type != "credit_card"]
+    amortization_map: dict[int, DebtAmortizationMonthly] = {}
+    if debt_ids:
+        ensure_debt_amortization_records(db, current_month, current_month)
+        amortization_map = fetch_amortization_for_month(db, current_month, debt_ids)
 
-    return [_debt_to_dict_with_calculated_balance(debt, db) for debt in debts]
+    return [
+        _debt_to_dict_with_calculated_balance(debt, db, amortization_map=amortization_map)
+        for debt in debts
+    ]
 
 
 @router.get("/summary")
@@ -313,10 +340,14 @@ def get_debts_summary(db: Session = Depends(get_db)):
         Summary with totals, averages, and statistics
     """
     debts = db.query(Debt).filter(Debt.is_active == True).all()
-    principal_records = {record.debt_id: record for record in get_debts_principal(db, date.today())}
+    today = date.today()
+    current_month = today.replace(day=1)
+    ensure_debt_amortization_records(db, current_month, current_month)
+    amortization_map = fetch_amortization_for_month(db, current_month)
+    eligible_debts = [debt for debt in debts if debt.debt_type != "credit_card"]
 
     summary = {
-        'total_debts': len(debts),
+        'total_debts': len(eligible_debts),
         'by_type': {},
         'by_currency': {},
         'total_original': {},
@@ -328,15 +359,15 @@ def get_debts_summary(db: Session = Depends(get_db)):
         'high_interest_debts': []  # Deudas con interés alto (> 20%)
     }
 
-    if not debts:
+    if not eligible_debts:
         return summary
 
     total_interest_sum = 0
     interest_count = 0
 
-    for debt in debts:
-        record = principal_records.get(debt.id)
-        current_balance = float(record.principal_original) if record else 0.0
+    for debt in eligible_debts:
+        record = amortization_map.get(debt.id)
+        current_balance = float(record.principal_remaining) if record else (debt.current_balance or 0.0)
 
         # Group by type
         if debt.debt_type not in summary['by_type']:
@@ -421,7 +452,18 @@ def get_debt(debt_id: int, include_payments: bool = False, db: Session = Depends
     if not debt:
         raise HTTPException(status_code=404, detail="Debt not found")
 
-    return _debt_to_dict_with_calculated_balance(debt, db, include_payments=include_payments)
+    amortization_map = None
+    if debt.debt_type != "credit_card":
+        today = date.today()
+        current_month = today.replace(day=1)
+        ensure_debt_amortization_records(db, current_month, current_month)
+        amortization_map = fetch_amortization_for_month(db, current_month, [debt.id])
+    return _debt_to_dict_with_calculated_balance(
+        debt,
+        db,
+        include_payments=include_payments,
+        amortization_map=amortization_map,
+    )
 
 
 @router.post("/")
@@ -599,20 +641,12 @@ def get_debt_timeline(
     months = _iter_months(start_month, end_month)
 
     current_month = today.replace(day=1)
-    canonical_records_by_month = {
-        month: get_debts_principal(db, month)
-        for month in months
-        if month <= current_month
-    }
+    ensure_debt_amortization_records(db, start_month, end_month)
 
-    projected_timeline = []
-    if include_projected and end_month > current_month:
-        projection_start = max(current_month, start_month)
-        projected_timeline = project_debt_principal(db, projection_start, end_month)
+    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
+    debt_ids = [debt.id for debt in debts]
+    amortization_records = fetch_amortization_range(db, start_month, end_month, debt_ids)
 
-    projected_by_month = {entry["as_of_date"]: entry for entry in projected_timeline}
-
-    debts = db.query(Debt).all()
     per_debt = {
         str(debt.id): {
             "name": debt.name,
@@ -628,27 +662,19 @@ def get_debt_timeline(
 
     for month in months:
         month_labels.append(month.strftime("%Y-%m"))
-        if month <= current_month:
-            records = canonical_records_by_month.get(month, [])
-        else:
-            entry = projected_by_month.get(month)
-            records = entry["records"] if entry else []
-
         total_cop = 0.0
-        record_by_id = {record.debt_id: record for record in records}
-
         for debt in debts:
-            record = record_by_id.get(debt.id)
-            if record and record.status == "open":
-                principal_cop = float(record.principal_cop)
-                principal_original = float(record.principal_original)
+            record = amortization_records.get((debt.id, month))
+            if record:
+                principal_original = float(record.principal_remaining)
+                principal_cop = float(convert_to_cop(principal_original, debt.currency_code, month, db=db))
                 total_cop += principal_cop
             else:
-                principal_cop = 0.0
                 principal_original = 0.0
+                principal_cop = 0.0
 
-            per_debt[str(debt.id)]["principal_cop_by_month"].append(principal_cop)
-            per_debt[str(debt.id)]["principal_original_by_month"].append(principal_original)
+            per_debt[str(debt.id)]["principal_cop_by_month"].append(round(principal_cop, 2))
+            per_debt[str(debt.id)]["principal_original_by_month"].append(round(principal_original, 2))
 
         totals_cop_by_month.append(round(total_cop, 2))
 
