@@ -262,7 +262,8 @@ def init_db(engine_override=None):
     from finance_app.models import (
         Currency, Account, CategoryGroup, Category,
         Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate,
-        Debt, DebtPayment, YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession, WealthAsset,
+        Debt, DebtPayment, DebtCategoryAllocation, DebtSnapshotMonthly, DebtSnapshotProjectedMonthly,
+        YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession, WealthAsset,
         TelegramSettings
     )
 

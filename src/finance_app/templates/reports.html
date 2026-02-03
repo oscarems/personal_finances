@@ -273,6 +273,29 @@
     </div>
 </div>
 
+<!-- Debt Principal Timeline -->
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Capital de deuda mes a mes</h3>
+    <p class="text-sm text-gray-500 mb-4">
+        Totales en COP con pagos programados para meses futuros.
+    </p>
+    <div class="overflow-x-auto">
+        <table class="table">
+            <thead class="bg-gray-50" id="debtTimelineHeader">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mes</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total (COP)</th>
+                </tr>
+            </thead>
+            <tbody id="debtTimelineTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="2" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <!-- Debt Payoff Projection -->
 <div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Proyección de pago de deuda</h3>
@@ -411,7 +434,8 @@
             loadSpendingTrends(),
             loadSavingsRate(),
             loadBudgetVsActual(),
-            loadDebtSummary()
+            loadDebtSummary(),
+            loadDebtTimeline()
         ]);
     }
 
@@ -890,6 +914,65 @@
             }
         } catch (error) {
             console.error('Error loading debt summary:', error);
+        }
+    }
+
+    async function loadDebtTimeline() {
+        try {
+            const today = new Date();
+            const start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 6, 1);
+            const startStr = start.toISOString().slice(0, 7);
+            const endStr = end.toISOString().slice(0, 7);
+
+            const res = await fetch(`/api/debts/timeline?start=${startStr}&end=${endStr}&include_projected=true`);
+            const data = await res.json();
+
+            const tableBody = document.getElementById('debtTimelineTable');
+            const header = document.getElementById('debtTimelineHeader');
+
+            const debtEntries = Object.entries(data.per_debt || {});
+            header.innerHTML = '';
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = `
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mes</th>
+                ${debtEntries.map(([_, debt]) => `
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">${debt.name}</th>
+                `).join('')}
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total (COP)</th>
+            `;
+            header.appendChild(headerRow);
+
+            if (!data.months || data.months.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="${2 + debtEntries.length}" class="px-6 py-4 text-center text-sm text-gray-500">
+                            No hay datos disponibles.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            data.months.forEach((month, index) => {
+                const row = document.createElement('tr');
+                const totals = data.totals_cop_by_month || [];
+
+                const debtCells = debtEntries.map(([_, debt]) => {
+                    const value = debt.principal_cop_by_month?.[index] || 0;
+                    return `<td class="px-6 py-4 text-right text-sm text-gray-700">${formatCurrency(value)}</td>`;
+                }).join('');
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${month}</td>
+                    ${debtCells}
+                    <td class="px-6 py-4 text-right text-sm font-semibold text-gray-900">${formatCurrency(totals[index] || 0)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error loading debt timeline:', error);
         }
     }
 
