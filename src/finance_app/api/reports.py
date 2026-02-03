@@ -17,8 +17,12 @@ from finance_app.services.debt_balance_service import calculate_debt_balance_as_
 from finance_app.services.mortgage_service import calculate_monthly_payment
 from finance_app.services.real_estate_wealth_service import build_real_estate_wealth_timeline
 from finance_app.services.budget_service import build_income_transactions_query, build_spent_transactions_query
-from domain.debts.service import get_debts_principal, get_total_debt_principal_cop
-from domain.debts.projection import project_debt_principal
+from finance_app.services.debt_amortization_service import (
+    ensure_debt_amortization_records,
+    fetch_amortization_for_month,
+    fetch_amortization_range,
+)
+from domain.fx.service import convert_to_cop
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -740,7 +744,7 @@ def get_debt_balance_history(
     """
     Get total debt balance over time using debt payments history.
     """
-    debts = db.query(Debt).all()
+    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
     if not debts:
         return {
             'monthly': [],
@@ -775,27 +779,25 @@ def get_debt_balance_history(
     current_date = start_date_obj
     current_month = today.replace(day=1)
 
-    projected_timeline = []
-    if end_date_obj > current_month:
-        projection_start = max(current_month, start_date_obj)
-        projected_timeline = project_debt_principal(db, projection_start, end_date_obj)
-    projected_by_month = {entry["as_of_date"]: entry for entry in projected_timeline}
+    ensure_debt_amortization_records(db, start_date_obj, end_date_obj)
+    amortization_records = fetch_amortization_range(
+        db,
+        start_date_obj,
+        end_date_obj,
+        [debt.id for debt in debts],
+    )
 
     while current_date <= end_date_obj:
         debt_by_type = {debt_type: 0.0 for debt_type in debt_types}
         total_debt = 0.0
 
-        if current_date <= current_month:
-            records = get_debts_principal(db, current_date)
-        else:
-            entry = projected_by_month.get(current_date)
-            records = entry["records"] if entry else []
-
-        for record in records:
-            if record.status != "open":
+        for debt in debts:
+            record = amortization_records.get((debt.id, current_date))
+            if not record:
                 continue
-            total_debt += float(record.principal_cop)
-            debt_by_type[record.debt_type] = debt_by_type.get(record.debt_type, 0.0) + float(record.principal_cop)
+            principal_cop = float(convert_to_cop(record.principal_remaining, debt.currency_code, current_date, db=db))
+            total_debt += principal_cop
+            debt_by_type[debt.debt_type] = debt_by_type.get(debt.debt_type, 0.0) + principal_cop
 
         monthly_totals.append({
             'month': current_date.strftime('%Y-%m'),
@@ -807,7 +809,9 @@ def get_debt_balance_history(
         current_date += relativedelta(months=1)
 
     legacy_total = sum(_calculate_debt_balance(db, debt, today, today) for debt in debts)
-    canonical_total = float(get_total_debt_principal_cop(db, today))
+    ensure_debt_amortization_records(db, current_month, current_month)
+    amortization_map = fetch_amortization_for_month(db, current_month, [debt.id for debt in debts])
+    canonical_total = sum(entry.principal_remaining for entry in amortization_map.values())
     _log_debt_mismatch("debt-balance-history", legacy_total, canonical_total)
 
     currency = db.query(Currency).filter_by(code="COP").first()
@@ -1608,7 +1612,7 @@ def get_net_worth(
     exchange_rate = get_exchange_rate(db)
 
     wealth_assets = db.query(WealthAsset).all()
-    debts = db.query(Debt).all()
+    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
 
     assets_by_id = {asset.id: asset for asset in wealth_assets}
     asset_transactions = db.query(Transaction).filter(
@@ -1622,6 +1626,14 @@ def get_net_worth(
 
     currencies = db.query(Currency).all()
     currency_map = {currency.code: currency.id for currency in currencies}
+
+    ensure_debt_amortization_records(db, start_date_obj, end_date_obj)
+    amortization_records = fetch_amortization_range(
+        db,
+        start_date_obj,
+        end_date_obj,
+        [debt.id for debt in debts],
+    )
 
     monthly_net_worth = []
     current_date = start_date_obj.replace(day=1)
@@ -1656,11 +1668,18 @@ def get_net_worth(
             totals_by_category[category] += converted_value
 
         assets = sum(totals_by_category.values())
-        records = get_debts_principal(db, month_start)
-        liabilities_cop = sum(
-            float(record.principal_cop) for record in records if record.status == "open"
-        )
-        liabilities = convert_to_currency(liabilities_cop, 1, currency_id, exchange_rate)
+        liabilities = 0.0
+        for debt in debts:
+            record = amortization_records.get((debt.id, month_start))
+            if not record:
+                continue
+            debt_currency_id = currency_map.get(debt.currency_code, currency_id)
+            liabilities += convert_to_currency(
+                record.principal_remaining,
+                debt_currency_id,
+                currency_id,
+                exchange_rate,
+            )
 
         net_worth = assets - liabilities
 
@@ -1689,7 +1708,10 @@ def get_net_worth(
         change_percentage = 0
 
     legacy_total = sum(_calculate_debt_balance(db, debt, today, today) for debt in debts)
-    canonical_total = float(get_total_debt_principal_cop(db, today))
+    current_month = today.replace(day=1)
+    ensure_debt_amortization_records(db, current_month, current_month)
+    amortization_map = fetch_amortization_for_month(db, current_month, [debt.id for debt in debts])
+    canonical_total = sum(entry.principal_remaining for entry in amortization_map.values())
     _log_debt_mismatch("net-worth", legacy_total, canonical_total)
 
     currency = db.query(Currency).get(currency_id)
@@ -1759,7 +1781,10 @@ def get_debt_summary(
     exchange_rate = get_exchange_rate(db)
 
     # Get all active debts
-    debts = db.query(Debt).filter(Debt.is_active == True).all()
+    debts = db.query(Debt).filter(
+        Debt.is_active == True,
+        Debt.debt_type != "credit_card",
+    ).all()
     currencies = db.query(Currency).all()
     currency_map = {currency.code: currency.id for currency in currencies}
 
@@ -1771,26 +1796,30 @@ def get_debt_summary(
     projected_total = 0
     today = date.today()
     projection_end = today + relativedelta(months=12)
-    principal_records = {record.debt_id: record for record in get_debts_principal(db, today)}
+    current_month = today.replace(day=1)
     projection_end_month = projection_end.replace(day=1)
-    projected_records = {}
-    if projection_end_month >= today.replace(day=1):
-        projected_timeline = project_debt_principal(db, today.replace(day=1), projection_end_month)
-        if projected_timeline:
-            projected_records = {
-                record.debt_id: record for record in projected_timeline[-1]["records"]
-            }
+    ensure_debt_amortization_records(db, current_month, projection_end_month)
+    amortization_map = fetch_amortization_for_month(db, current_month)
+    projected_map = fetch_amortization_for_month(db, projection_end_month)
 
     for debt in debts:
         debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-        record = principal_records.get(debt.id)
-        current_balance_cop = float(record.principal_cop) if record else 0.0
-        projected_record = projected_records.get(debt.id)
-        projected_balance_cop = float(projected_record.principal_cop) if projected_record else current_balance_cop
+        record = amortization_map.get(debt.id)
+        debt_currency_id = currency_map.get(debt.currency_code, currency_id)
+        current_balance_original = float(record.principal_remaining) if record else (debt.current_balance or 0.0)
+        projected_record = projected_map.get(debt.id)
+        projected_balance_original = (
+            float(projected_record.principal_remaining) if projected_record else current_balance_original
+        )
         original_amount_raw = debt.original_amount or 0
 
         # Convert amounts to selected currency
-        current_balance = convert_to_currency(current_balance_cop, 1, currency_id, exchange_rate)
+        current_balance = convert_to_currency(
+            current_balance_original,
+            debt_currency_id,
+            currency_id,
+            exchange_rate,
+        )
 
         monthly_payment = convert_to_currency(
             debt.monthly_payment or 0,
@@ -1804,7 +1833,12 @@ def get_debt_summary(
             currency_id,
             exchange_rate
         )
-        projected_balance = convert_to_currency(projected_balance_cop, 1, currency_id, exchange_rate)
+        projected_balance = convert_to_currency(
+            projected_balance_original,
+            debt_currency_id,
+            currency_id,
+            exchange_rate
+        )
 
         # Calculate interest paid (from debt_payments table)
         debt_payments = db.query(DebtPayment).filter(
@@ -1859,7 +1893,9 @@ def get_debt_summary(
     debt_details.sort(key=lambda x: x['current_balance'], reverse=True)
 
     legacy_total = sum(_calculate_debt_balance(db, debt, today, today) for debt in debts)
-    canonical_total = float(get_total_debt_principal_cop(db, today))
+    ensure_debt_amortization_records(db, current_month, current_month)
+    amortization_map = fetch_amortization_for_month(db, current_month, [debt.id for debt in debts])
+    canonical_total = sum(entry.principal_remaining for entry in amortization_map.values())
     _log_debt_mismatch("debt-summary", legacy_total, canonical_total)
 
     currency = db.query(Currency).get(currency_id)
