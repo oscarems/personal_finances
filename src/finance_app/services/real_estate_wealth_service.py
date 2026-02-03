@@ -12,7 +12,11 @@ from finance_app.models import (
     ExchangeRate,
     WealthAsset,
 )
-from finance_app.services.debt_balance_service import build_debt_balance_map
+from finance_app.services.debt_amortization_service import (
+    ensure_debt_amortization_records,
+    fetch_amortization_for_month,
+    fetch_amortization_range,
+)
 
 
 def _get_exchange_rate(db: Session) -> float:
@@ -110,10 +114,9 @@ def build_real_estate_wealth_timeline(
     end_month = _month_start(end_date) + relativedelta(months=projection_months)
     today = date.today()
 
-    debt_balance_maps = {
-        debt.id: build_debt_balance_map(db, debt, end_month)
-        for debt in debts
-    }
+    ensure_debt_amortization_records(db, start_month, end_month)
+    debt_ids = [debt.id for debt in debts]
+    amortization_records = fetch_amortization_range(db, start_month, end_month, debt_ids)
     debt_currency_map = {debt.id: debt.currency_code for debt in debts if debt.currency_code}
     currency_map = {currency.code: currency.id for currency in db.query(Currency).all()}
 
@@ -137,10 +140,8 @@ def build_real_estate_wealth_timeline(
 
             debt_balance = 0.0
             if asset.mortgage_debt_id:
-                debt_balance = debt_balance_maps.get(asset.mortgage_debt_id, {}).get(
-                    month_end,
-                    0.0,
-                )
+                amortization = amortization_records.get((asset.mortgage_debt_id, month_start))
+                debt_balance = float(amortization.principal_remaining) if amortization else 0.0
                 debt_currency_id = currency_map.get(
                     debt_currency_map.get(asset.mortgage_debt_id, ""),
                     currency_id,
@@ -174,6 +175,8 @@ def build_real_estate_wealth_timeline(
     current_property_value = 0.0
     current_debt_total = 0.0
     current_properties = []
+    current_month = _month_start(today)
+    current_amortization = fetch_amortization_for_month(db, current_month, debt_ids)
     for asset in properties:
         value = _property_value_at_date(asset, today)
         converted_value = _convert_to_currency(
@@ -184,10 +187,8 @@ def build_real_estate_wealth_timeline(
         )
         debt_balance = 0.0
         if asset.mortgage_debt_id:
-            debt_balance = debt_balance_maps.get(asset.mortgage_debt_id, {}).get(
-                _month_end(today),
-                0.0,
-            )
+            amortization = current_amortization.get(asset.mortgage_debt_id)
+            debt_balance = float(amortization.principal_remaining) if amortization else 0.0
             debt_currency_id = currency_map.get(
                 debt_currency_map.get(asset.mortgage_debt_id, ""),
                 currency_id,

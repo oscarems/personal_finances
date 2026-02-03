@@ -128,6 +128,32 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente en wealth_assets")
 
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='debt_amortization_monthly'")
+        if cursor.fetchone():
+            print("✓ La tabla 'debt_amortization_monthly' ya existe")
+        else:
+            print("🔧 Creando tabla 'debt_amortization_monthly'...")
+            cursor.execute("""
+                CREATE TABLE debt_amortization_monthly (
+                    id INTEGER PRIMARY KEY,
+                    debt_id INTEGER NOT NULL,
+                    snapshot_month VARCHAR(7) NOT NULL,
+                    as_of_date DATE NOT NULL,
+                    currency_code VARCHAR(3) NOT NULL,
+                    principal_payment FLOAT NOT NULL DEFAULT 0.0,
+                    interest_payment FLOAT NOT NULL DEFAULT 0.0,
+                    total_payment FLOAT NOT NULL DEFAULT 0.0,
+                    principal_remaining FLOAT NOT NULL DEFAULT 0.0,
+                    interest_rate_calculated FLOAT NOT NULL DEFAULT 0.0,
+                    status VARCHAR(20) NOT NULL,
+                    created_at DATETIME,
+                    CONSTRAINT uq_debt_amortization_monthly UNIQUE (debt_id, as_of_date),
+                    FOREIGN KEY(debt_id) REFERENCES debts(id) ON DELETE CASCADE
+                )
+            """)
+            conn.commit()
+            print("✅ Tabla creada exitosamente en debt_amortization_monthly")
+
         conn.close()
         print("\n✓ Migración completada. Ahora puedes ejecutar 'python init_db.py'")
 
