@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     )
     telegram_default_currency: str | None = Field(default=None, validation_alias="TELEGRAM_DEFAULT_CURRENCY")
     telegram_default_account: str | None = Field(default=None, validation_alias="TELEGRAM_DEFAULT_ACCOUNT")
+    email_panama_account: str | None = Field(default=None, validation_alias="EMAIL_PANAMA_ACCOUNT")
+    email_colombia_account: str | None = Field(default=None, validation_alias="EMAIL_COLOMBIA_ACCOUNT")
+    email_mastercard_black_account: str | None = Field(
+        default=None,
+        validation_alias="EMAIL_MASTERCARD_BLACK_ACCOUNT",
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

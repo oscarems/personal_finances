@@ -143,19 +143,13 @@ def _calculate_month_entry(
     if month_start <= current_month:
         total_payment = payment_data.total if payment_data else 0.0
         interest_payment = payment_data.interest if payment_data else 0.0
+        if not payment_data and total_payment <= 0:
+            interest_payment = 0.0
+        if payment_data and interest_payment <= 0 and accrue_interest and total_payment > 0:
+            interest_payment = min(total_payment, interest_accrued)
         principal_payment = payment_data.principal if payment_data else 0.0
-
-        if total_payment <= 0 and (debt.monthly_payment or inferred_payment):
-            total_payment = debt.monthly_payment or inferred_payment or 0.0
-            interest_payment = interest_accrued if accrue_interest else 0.0
-            principal_payment = (
-                max(0.0, total_payment - interest_payment) if accrue_interest else total_payment
-            )
-        else:
-            if payment_data and interest_payment <= 0 and accrue_interest and total_payment > 0:
-                interest_payment = min(total_payment, interest_accrued)
-            if principal_payment <= 0 and total_payment > 0:
-                principal_payment = max(0.0, total_payment - interest_payment)
+        if principal_payment <= 0 and total_payment > 0:
+            principal_payment = max(0.0, total_payment - interest_payment)
         status = "pagado"
     else:
         payment_total = debt.monthly_payment or inferred_payment or 0.0
@@ -198,7 +192,6 @@ def ensure_debt_amortization_records(
     end_month: date,
     months_ahead: int = 12,
     today: Optional[date] = None,
-    rebuild_past: bool = True,
 ) -> None:
     today = today or date.today()
     current_month = _month_start(today)
@@ -217,14 +210,6 @@ def ensure_debt_amortization_records(
         annual_rate = _annual_rate_decimal(debt)
         accrue_interest = debt.debt_type != "mortgage"
         monthly_rate = _monthly_rate(annual_rate) if accrue_interest else 0.0
-
-        if rebuild_past:
-            db.query(DebtAmortizationMonthly).filter(
-                DebtAmortizationMonthly.debt_id == debt.id,
-                DebtAmortizationMonthly.as_of_date >= start_month,
-                DebtAmortizationMonthly.as_of_date <= current_month,
-            ).delete(synchronize_session=False)
-            db.flush()
 
         existing = db.query(DebtAmortizationMonthly).filter(
             DebtAmortizationMonthly.debt_id == debt.id,
@@ -251,8 +236,7 @@ def ensure_debt_amortization_records(
             )
             if month_start < start_month:
                 continue
-            existing_entry = existing_by_date.get(month_start)
-            if existing_entry:
+            if month_start in existing_by_date:
                 continue
             db.add(DebtAmortizationMonthly(
                 debt_id=debt.id,
