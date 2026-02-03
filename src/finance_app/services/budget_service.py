@@ -40,6 +40,35 @@ def build_spent_transactions_query(
     return query
 
 
+def build_income_transactions_query(
+    db: Session,
+    start_date: date,
+    end_date: date,
+    category_id: Optional[int] = None
+):
+    """
+    Construye el query base para transacciones de ingreso.
+
+    - Solo ingresos (montos positivos)
+    - Excluye transferencias y ajustes de balance
+    - Solo categorías de ingreso
+    - Rango de fechas con fin exclusivo [start_date, end_date)
+    """
+    query = db.query(Transaction).join(Category).join(CategoryGroup).filter(
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.amount > 0,
+        Transaction.transfer_account_id.is_(None),
+        Transaction.is_adjustment.is_(False),
+        CategoryGroup.is_income.is_(True)
+    )
+
+    if category_id is not None:
+        query = query.filter(Transaction.category_id == category_id)
+
+    return query
+
+
 def get_assigned_totals_by_currency(db: Session, month_date):
     """
     Obtiene el total asignado por moneda para un mes específico.
