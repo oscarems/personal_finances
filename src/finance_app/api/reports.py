@@ -11,7 +11,8 @@ from dateutil.relativedelta import relativedelta
 
 from finance_app.database import get_db
 from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset
-from finance_app.utils.wealth import apply_expected_appreciation, apply_depreciation
+from finance_app.utils.wealth import apply_annual_appreciation_on_january, apply_depreciation
+from finance_app.services.debt_balance_service import calculate_debt_balance_as_of
 from finance_app.services.mortgage_service import calculate_monthly_payment
 from finance_app.services.real_estate_wealth_service import build_real_estate_wealth_timeline
 from finance_app.services.budget_service import build_spent_transactions_query
@@ -69,27 +70,24 @@ def _adjust_to_payment_day(base_date: date, payment_day: Optional[int]) -> date:
     return base_date.replace(day=min(payment_day, last_day))
 
 
-def _payment_principal(payment: DebtPayment) -> float:
-    if payment.principal is not None:
-        return abs(payment.principal)
-    if payment.amount is not None:
-        interest = abs(payment.interest or 0.0)
-        fees = abs(payment.fees or 0.0)
-        principal = abs(payment.amount) - interest - fees
-        return max(0.0, principal)
-    return 0.0
-
-
-def _payment_amount(payment: DebtPayment) -> float:
-    return payment.amount or 0.0
-
-
-def _calculate_months_between(start_date: date, end_date: date) -> int:
-    return max(0, (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month))
-
-
 def _month_end(day: date) -> date:
     return day.replace(day=1) + relativedelta(months=1) - relativedelta(days=1)
+
+
+def _calculate_debt_balance(
+    db: Session,
+    debt: Debt,
+    as_of_date: date,
+    today: date,
+    include_projection: bool = True
+) -> float:
+    return calculate_debt_balance_as_of(
+        db=db,
+        debt=debt,
+        as_of_date=as_of_date,
+        today=today,
+        include_projection=include_projection,
+    )
 
 
 def _monthly_rate(annual_rate: float) -> float:
@@ -98,89 +96,6 @@ def _monthly_rate(annual_rate: float) -> float:
     return (1 + annual_rate) ** (1 / 12) - 1
 
 
-def _calculate_debt_balance_from_origin(debt: Debt, end_date: date) -> float:
-    if debt.start_date and debt.start_date > end_date:
-        return 0.0
-    if not debt.original_amount:
-        return 0.0
-
-    annual_rate = (debt.interest_rate or 0) / 100
-    monthly_rate = _monthly_rate(annual_rate)
-    balance = debt.original_amount
-
-    payments = [
-        payment for payment in debt.payments
-        if payment.payment_date and payment.payment_date >= debt.start_date and payment.payment_date <= end_date
-    ]
-    payments_by_month = {}
-    for payment in payments:
-        key = (payment.payment_date.year, payment.payment_date.month)
-        payments_by_month.setdefault(key, []).append(payment)
-
-    start_month = debt.start_date.replace(day=1)
-    end_month = end_date.replace(day=1)
-    current_month = start_month
-    end_month_is_complete = end_date == _month_end(end_date)
-
-    while current_month < end_month:
-        month_key = (current_month.year, current_month.month)
-        if current_month >= start_month:
-            balance += balance * monthly_rate
-            for payment in payments_by_month.get(month_key, []):
-                balance -= _payment_amount(payment)
-            balance = max(0.0, balance)
-        current_month += relativedelta(months=1)
-
-    if end_month_is_complete:
-        month_key = (end_month.year, end_month.month)
-        balance += balance * monthly_rate
-        for payment in payments_by_month.get(month_key, []):
-            balance -= _payment_amount(payment)
-    else:
-        month_key = (end_month.year, end_month.month)
-        for payment in payments_by_month.get(month_key, []):
-            if payment.payment_date and payment.payment_date <= end_date:
-                balance -= _payment_amount(payment)
-
-    return max(balance, 0.0)
-
-
-def _calculate_mortgage_balance(debt: Debt, month_end: date, today: date) -> float:
-    return _calculate_debt_balance(debt, month_end, today)
-
-
-def _calculate_debt_balance(debt: Debt, month_end: date, today: date) -> float:
-    if debt.start_date and debt.start_date > month_end:
-        return 0.0
-
-    if not debt.original_amount:
-        return 0.0
-
-    effective_end = min(month_end, today)
-    if effective_end >= debt.start_date:
-        balance = _calculate_debt_balance_from_origin(debt, effective_end)
-    else:
-        balance = 0.0
-
-    if month_end <= today:
-        return max(balance, 0.0)
-
-    if balance == 0.0 and debt.start_date and debt.start_date > effective_end:
-        balance = debt.original_amount
-
-    monthly_payment = debt.monthly_payment or 0.0
-    annual_rate = (debt.interest_rate or 0) / 100
-    monthly_rate = _monthly_rate(annual_rate)
-    current_month_end = _month_end(today)
-    months_ahead = _calculate_months_between(current_month_end, month_end)
-
-    for _ in range(months_ahead):
-        if monthly_payment <= 0:
-            break
-        balance += balance * monthly_rate
-        balance = max(0.0, balance - monthly_payment)
-
-    return max(balance, 0.0)
 
 
 def _annual_rate_decimal(debt: Debt) -> float:
@@ -335,69 +250,6 @@ def build_debt_principal_timeline(
     return timeline
 
 
-def _build_mortgage_balance_map(debt: Debt, end_date: date, today: date) -> Optional[dict]:
-    if not debt.start_date or debt.original_amount is None or not debt.monthly_payment:
-        return None
-
-    annual_rate = (debt.interest_rate or 0) / 100
-    monthly_rate = _monthly_rate(annual_rate)
-
-    extra_by_month = {}
-    for payment in debt.payments:
-        if not payment.payment_date:
-            continue
-        if payment.payment_date < debt.start_date:
-            continue
-        if payment.payment_date > end_date:
-            continue
-        key = (payment.payment_date.year, payment.payment_date.month)
-        extra_by_month[key] = extra_by_month.get(key, 0.0) + _payment_principal(payment)
-
-    balance_map = {}
-    balance = debt.original_amount or 0.0
-    start_month = debt.start_date.replace(day=1)
-    end_month = end_date.replace(day=1)
-    current_month = start_month
-    projection_balance = None
-
-    while current_month <= end_month:
-        month_end = current_month + relativedelta(months=1) - relativedelta(days=1)
-        month_key = (current_month.year, current_month.month)
-        payment_date = _adjust_to_payment_day(current_month, debt.payment_day or debt.start_date.day)
-
-        if month_end < today:
-            if month_end >= debt.start_date and payment_date >= debt.start_date:
-                interest = balance * monthly_rate
-                principal = max(0.0, debt.monthly_payment - interest)
-                balance -= principal
-            balance -= extra_by_month.get(month_key, 0.0)
-            balance = max(0.0, balance)
-            balance_map[month_end] = balance
-        else:
-            if projection_balance is None:
-                projection_balance = _calculate_debt_balance_from_origin(debt, today)
-
-            current_month_end = date(today.year, today.month, 1) + relativedelta(months=1) - relativedelta(days=1)
-
-            if month_end == current_month_end:
-                balance_map[month_end] = max(0.0, projection_balance)
-            else:
-                if debt.monthly_payment and projection_balance > 0:
-                    interest = projection_balance * monthly_rate
-                    principal = max(0.0, debt.monthly_payment - interest)
-                    projection_balance -= principal
-                projection_balance -= extra_by_month.get(month_key, 0.0)
-                projection_balance = max(0.0, projection_balance)
-                balance_map[month_end] = projection_balance
-
-        if balance <= 0 and projection_balance is None:
-            balance = 0.0
-
-        current_month += relativedelta(months=1)
-
-    return balance_map
-
-
 def _asset_category(asset: WealthAsset) -> Optional[str]:
     if asset.asset_class in {"inmueble", "activo"}:
         return "bienes"
@@ -416,7 +268,7 @@ def _asset_value_for_month(
         return None
 
     if asset.asset_class == "inmueble":
-        base_value = apply_expected_appreciation(
+        base_value = apply_annual_appreciation_on_january(
             asset.value,
             asset.expected_appreciation_rate,
             asset.as_of_date,
@@ -921,7 +773,7 @@ def get_debt_balance_history(
         debt_by_type = {debt_type: 0.0 for debt_type in debt_types}
 
         for debt in debts:
-            balance = _calculate_debt_balance(debt, month_end, today)
+            balance = _calculate_debt_balance(db, debt, month_end, today)
             debt_currency_id = currency_map.get(debt.currency_code, currency_id)
             converted_balance = convert_to_currency(
                 balance,
@@ -1833,7 +1685,7 @@ def get_net_worth(
 
         assets = sum(totals_by_category.values())
         for debt in debts:
-            balance = _calculate_debt_balance(debt, month_end, today)
+            balance = _calculate_debt_balance(db, debt, month_end, today)
             debt_currency_id = currency_map.get(debt.currency_code, currency_id)
             liabilities += convert_to_currency(
                 balance,
@@ -1950,8 +1802,8 @@ def get_debt_summary(
 
     for debt in debts:
         debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-        current_balance_raw = _calculate_debt_balance(debt, today, today)
-        projected_balance_raw = _calculate_debt_balance(debt, projection_end, today)
+        current_balance_raw = _calculate_debt_balance(db, debt, today, today)
+        projected_balance_raw = _calculate_debt_balance(db, debt, projection_end, today)
         original_amount_raw = debt.original_amount or 0
 
         # Convert amounts to selected currency

@@ -24,6 +24,29 @@ def apply_expected_appreciation(
     return value * ((1 + (expected_rate / 100)) ** years_elapsed)
 
 
+def apply_annual_appreciation_on_january(
+    value: float,
+    expected_rate: float | None,
+    as_of_date: date | None,
+    reference_date: date | None = None
+) -> float:
+    if value is None:
+        return 0.0
+
+    if not expected_rate or not as_of_date:
+        return value
+
+    reference_date = reference_date or date.today()
+    if reference_date <= as_of_date:
+        return value
+
+    years_elapsed = max(0, reference_date.year - as_of_date.year)
+    if years_elapsed <= 0:
+        return value
+
+    return value * ((1 + (expected_rate / 100)) ** years_elapsed)
+
+
 def apply_depreciation(
     value: float,
     method: str | None,

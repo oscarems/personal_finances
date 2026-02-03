@@ -14,6 +14,7 @@ from dateutil.relativedelta import relativedelta
 from finance_app.database import get_db
 from finance_app.models import Debt, DebtPayment, Account, Transaction
 from finance_app.services.mortgage_service import calculate_monthly_payment
+from finance_app.services.debt_balance_service import calculate_debt_balance_as_of
 
 router = APIRouter()
 
@@ -144,73 +145,17 @@ def _calculate_principal_amount(payment: DebtPaymentCreate) -> float:
     return max(0.0, principal)
 
 
-def _build_mortgage_balance_payments(debt: Debt, db: Session) -> List[dict]:
-    payment_rows = db.query(DebtPayment).filter_by(
-        debt_id=debt.id
-    ).order_by(DebtPayment.payment_date.asc()).all()
-
-    payment_dicts = [
-        {
-            "payment_date": payment.payment_date,
-            "amount": payment.amount,
-            "principal": payment.principal,
-            "interest": payment.interest,
-            "fees": payment.fees,
-        }
-        for payment in payment_rows
-    ]
-
-    category_payments = _build_category_payments(debt, payment_rows, db)
-    for payment in category_payments:
-        payment_dicts.append({
-            "payment_date": date.fromisoformat(payment["payment_date"]),
-            "amount": payment["amount"],
-            "principal": None,
-            "interest": None,
-            "fees": payment.get("fees", 0.0),
-        })
-
-    return sorted(payment_dicts, key=lambda payment: payment["payment_date"])
-
-
 def _calculate_mortgage_current_balance(debt: Debt, db: Session) -> float:
     if debt.debt_type != "mortgage":
         return debt.current_balance
-    if not debt.original_amount or debt.original_amount <= 0:
-        return debt.current_balance
-    if not debt.interest_rate:
-        return debt.current_balance
-
-    payments = _build_mortgage_balance_payments(debt, db)
-    if not payments:
-        return debt.current_balance or debt.original_amount
-
-    annual_rate = debt.interest_rate / 100
-    monthly_rate = (1 + annual_rate) ** (1 / 12) - 1
-
-    base_payment = None
-    if debt.has_insurance and debt.loan_years:
-        base_payment = calculate_monthly_payment(debt.original_amount, annual_rate, debt.loan_years)
-
-    balance = debt.original_amount
-    for payment in payments:
-        payment_amount = payment["amount"] or 0.0
-        fees = payment.get("fees") or 0.0
-        interest = payment.get("interest")
-        if interest is None:
-            interest = balance * monthly_rate
-
-        insurance_amount = 0.0
-        if debt.has_insurance and base_payment:
-            insurance_amount = max(0.0, payment_amount - base_payment)
-
-        principal = payment.get("principal")
-        if principal is None:
-            principal = payment_amount - insurance_amount - fees - interest
-        principal = max(0.0, principal)
-        balance = max(0.0, balance - principal)
-
-    return balance
+    today = date.today()
+    return calculate_debt_balance_as_of(
+        db=db,
+        debt=debt,
+        as_of_date=today,
+        today=today,
+        include_projection=False,
+    )
 
 
 def _build_mortgage_payment_breakdown(debt: Debt, payments: List[dict]) -> List[dict]:

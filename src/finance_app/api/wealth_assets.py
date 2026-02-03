@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from finance_app.database import get_db
 from finance_app.models import WealthAsset, Currency, Debt
 from finance_app.api.reports import get_exchange_rate, convert_to_currency
-from finance_app.utils.wealth import apply_expected_appreciation, apply_depreciation
+from finance_app.utils.wealth import apply_annual_appreciation_on_january, apply_depreciation
 
 router = APIRouter()
 
@@ -95,7 +95,7 @@ def list_wealth_assets(
 
     for asset in assets:
         if asset.asset_class == "inmueble":
-            effective_value = apply_expected_appreciation(
+            effective_value = apply_annual_appreciation_on_january(
                 asset.value,
                 asset.expected_appreciation_rate,
                 asset.as_of_date,
