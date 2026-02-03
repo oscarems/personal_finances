@@ -265,7 +265,7 @@ def init_db(engine_override=None):
         Debt, DebtPayment, DebtCategoryAllocation, DebtAmortizationMonthly,
         DebtSnapshotMonthly, DebtSnapshotProjectedMonthly,
         YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession, WealthAsset,
-        TelegramSettings
+        TelegramSettings, EmailScrapeTransaction
     )
 
     active_engine = engine_override or engine
