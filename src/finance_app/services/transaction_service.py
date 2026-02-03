@@ -722,11 +722,15 @@ def get_monthly_activity(
     start_date = date(year, month, 1)
     end_date = start_date + relativedelta(months=1)
 
+    category = db.query(Category).options(joinedload(Category.category_group)).get(category_id)
+
     filters = [
         Transaction.category_id == category_id,
         Transaction.date >= start_date,
         Transaction.date < end_date
     ]
+    if category and category.category_group and category.category_group.is_income:
+        filters.append(Transaction.amount > 0)
     if not include_all_currencies:
         filters.append(Transaction.currency_id == currency_id)
 
