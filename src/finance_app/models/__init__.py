@@ -7,6 +7,8 @@ from finance_app.models.budget import BudgetMonth
 from finance_app.models.recurring_transaction import RecurringTransaction
 from finance_app.models.exchange_rate import ExchangeRate
 from finance_app.models.debt import Debt, DebtPayment
+from finance_app.models.debt_category_allocation import DebtCategoryAllocation
+from finance_app.models.debt_snapshot import DebtSnapshotMonthly, DebtSnapshotProjectedMonthly
 from finance_app.models.mortgage_payment_allocation import MortgagePaymentAllocation
 from finance_app.models.ynab_category_mapping import YnabCategoryMapping
 from finance_app.models.alert import AlertRule
@@ -27,6 +29,9 @@ __all__ = [
     'ExchangeRate',
     'Debt',
     'DebtPayment',
+    'DebtCategoryAllocation',
+    'DebtSnapshotMonthly',
+    'DebtSnapshotProjectedMonthly',
     'MortgagePaymentAllocation',
     'YnabCategoryMapping',
     'AlertRule',

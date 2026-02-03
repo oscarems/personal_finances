@@ -1,6 +1,7 @@
 """
 Reports and Analytics API
 """
+import logging
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, and_
@@ -16,8 +17,11 @@ from finance_app.services.debt_balance_service import calculate_debt_balance_as_
 from finance_app.services.mortgage_service import calculate_monthly_payment
 from finance_app.services.real_estate_wealth_service import build_real_estate_wealth_timeline
 from finance_app.services.budget_service import build_income_transactions_query, build_spent_transactions_query
+from domain.debts.service import get_debts_principal, get_total_debt_principal_cop
+from domain.debts.projection import project_debt_principal
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def get_exchange_rate(db: Session) -> float:
@@ -61,6 +65,16 @@ def convert_to_currency(amount: float, from_currency_id: int, to_currency_id: in
         return amount / exchange_rate
 
     return amount
+
+
+def _log_debt_mismatch(context: str, legacy_total: float, canonical_total: float) -> None:
+    if abs(legacy_total - canonical_total) > 0.01:
+        logger.error(
+            "Debt principal mismatch in %s: legacy=%s canonical=%s",
+            context,
+            round(legacy_total, 2),
+            round(canonical_total, 2),
+        )
 
 
 def get_income_total(
@@ -241,13 +255,11 @@ def build_debt_principal_timeline(
                 debt_states[debt.id] = max(0.0, initial_balance)
 
             principal_start = debt_states[debt.id]
-            annual_rate = _annual_rate_decimal(debt)
-            interest_accrued = principal_start * (annual_rate / 12) if annual_rate else 0.0
+            interest_accrued = 0.0
 
             if is_projection and include_projection:
                 payment_applied = debt.monthly_payment or inferred_payments.get(debt.id, 0.0)
-                interest_paid = min(interest_accrued, payment_applied) if payment_applied else 0.0
-                principal_paid = max(0.0, payment_applied - interest_paid)
+                principal_paid = max(0.0, payment_applied)
             else:
                 month_key = _month_key(month_start)
                 payment_data = payment_lookup.get(debt.id, {}).get(month_key, {})
@@ -256,8 +268,7 @@ def build_debt_principal_timeline(
                 if explicit_principal > 0:
                     principal_paid = min(explicit_principal, principal_start)
                 else:
-                    interest_paid = min(interest_accrued, payment_applied) if payment_applied else 0.0
-                    principal_paid = max(0.0, payment_applied - interest_paid)
+                    principal_paid = max(0.0, payment_applied)
 
             principal_paid = min(principal_paid, principal_start)
             principal_end = max(0.0, principal_start - principal_paid)
@@ -759,31 +770,32 @@ def get_debt_balance_history(
     if projection_months and projection_months > 0:
         end_date_obj = end_date_obj + relativedelta(months=projection_months)
 
-    exchange_rate = get_exchange_rate(db)
-    currencies = db.query(Currency).all()
-    currency_map = {currency.code: currency.id for currency in currencies}
-
     monthly_totals = []
     debt_types = sorted({debt.debt_type or 'Sin tipo' for debt in debts})
     current_date = start_date_obj
+    current_month = today.replace(day=1)
+
+    projected_timeline = []
+    if end_date_obj > current_month:
+        projection_start = max(current_month, start_date_obj)
+        projected_timeline = project_debt_principal(db, projection_start, end_date_obj)
+    projected_by_month = {entry["as_of_date"]: entry for entry in projected_timeline}
 
     while current_date <= end_date_obj:
-        month_end = current_date + relativedelta(months=1)
-        total_debt = 0.0
         debt_by_type = {debt_type: 0.0 for debt_type in debt_types}
+        total_debt = 0.0
 
-        for debt in debts:
-            balance = _calculate_debt_balance(db, debt, month_end, today)
-            debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-            converted_balance = convert_to_currency(
-                balance,
-                debt_currency_id,
-                currency_id,
-                exchange_rate
-            )
-            total_debt += converted_balance
-            debt_type = debt.debt_type or 'Sin tipo'
-            debt_by_type[debt_type] = debt_by_type.get(debt_type, 0.0) + converted_balance
+        if current_date <= current_month:
+            records = get_debts_principal(db, current_date)
+        else:
+            entry = projected_by_month.get(current_date)
+            records = entry["records"] if entry else []
+
+        for record in records:
+            if record.status != "open":
+                continue
+            total_debt += float(record.principal_cop)
+            debt_by_type[record.debt_type] = debt_by_type.get(record.debt_type, 0.0) + float(record.principal_cop)
 
         monthly_totals.append({
             'month': current_date.strftime('%Y-%m'),
@@ -794,7 +806,11 @@ def get_debt_balance_history(
 
         current_date += relativedelta(months=1)
 
-    currency = db.query(Currency).get(currency_id)
+    legacy_total = sum(_calculate_debt_balance(db, debt, today, today) for debt in debts)
+    canonical_total = float(get_total_debt_principal_cop(db, today))
+    _log_debt_mismatch("debt-balance-history", legacy_total, canonical_total)
+
+    currency = db.query(Currency).filter_by(code="COP").first()
 
     current_month_key = date.today().strftime('%Y-%m')
     current_total = next(
@@ -1640,15 +1656,11 @@ def get_net_worth(
             totals_by_category[category] += converted_value
 
         assets = sum(totals_by_category.values())
-        for debt in debts:
-            balance = _calculate_debt_balance(db, debt, month_end, today)
-            debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-            liabilities += convert_to_currency(
-                balance,
-                debt_currency_id,
-                currency_id,
-                exchange_rate
-            )
+        records = get_debts_principal(db, month_start)
+        liabilities_cop = sum(
+            float(record.principal_cop) for record in records if record.status == "open"
+        )
+        liabilities = convert_to_currency(liabilities_cop, 1, currency_id, exchange_rate)
 
         net_worth = assets - liabilities
 
@@ -1675,6 +1687,10 @@ def get_net_worth(
     else:
         change = 0
         change_percentage = 0
+
+    legacy_total = sum(_calculate_debt_balance(db, debt, today, today) for debt in debts)
+    canonical_total = float(get_total_debt_principal_cop(db, today))
+    _log_debt_mismatch("net-worth", legacy_total, canonical_total)
 
     currency = db.query(Currency).get(currency_id)
 
@@ -1755,20 +1771,26 @@ def get_debt_summary(
     projected_total = 0
     today = date.today()
     projection_end = today + relativedelta(months=12)
+    principal_records = {record.debt_id: record for record in get_debts_principal(db, today)}
+    projection_end_month = projection_end.replace(day=1)
+    projected_records = {}
+    if projection_end_month >= today.replace(day=1):
+        projected_timeline = project_debt_principal(db, today.replace(day=1), projection_end_month)
+        if projected_timeline:
+            projected_records = {
+                record.debt_id: record for record in projected_timeline[-1]["records"]
+            }
 
     for debt in debts:
         debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-        current_balance_raw = _calculate_debt_balance(db, debt, today, today)
-        projected_balance_raw = _calculate_debt_balance(db, debt, projection_end, today)
+        record = principal_records.get(debt.id)
+        current_balance_cop = float(record.principal_cop) if record else 0.0
+        projected_record = projected_records.get(debt.id)
+        projected_balance_cop = float(projected_record.principal_cop) if projected_record else current_balance_cop
         original_amount_raw = debt.original_amount or 0
 
         # Convert amounts to selected currency
-        current_balance = convert_to_currency(
-            current_balance_raw,
-            debt_currency_id,
-            currency_id,
-            exchange_rate
-        )
+        current_balance = convert_to_currency(current_balance_cop, 1, currency_id, exchange_rate)
 
         monthly_payment = convert_to_currency(
             debt.monthly_payment or 0,
@@ -1782,12 +1804,7 @@ def get_debt_summary(
             currency_id,
             exchange_rate
         )
-        projected_balance = convert_to_currency(
-            projected_balance_raw,
-            debt_currency_id,
-            currency_id,
-            exchange_rate
-        )
+        projected_balance = convert_to_currency(projected_balance_cop, 1, currency_id, exchange_rate)
 
         # Calculate interest paid (from debt_payments table)
         debt_payments = db.query(DebtPayment).filter(
@@ -1840,6 +1857,10 @@ def get_debt_summary(
 
     # Sort by balance descending
     debt_details.sort(key=lambda x: x['current_balance'], reverse=True)
+
+    legacy_total = sum(_calculate_debt_balance(db, debt, today, today) for debt in debts)
+    canonical_total = float(get_total_debt_principal_cop(db, today))
+    _log_debt_mismatch("debt-summary", legacy_total, canonical_total)
 
     currency = db.query(Currency).get(currency_id)
 
