@@ -733,7 +733,7 @@ def get_monthly_activity(
         if category.category_group.is_income:
             filters.append(Transaction.amount > 0)
         else:
-            filters.append(Transaction.amount < 0)
+            filters.append(Transaction.amount != 0)
     if not include_all_currencies:
         filters.append(Transaction.currency_id == currency_id)
 
