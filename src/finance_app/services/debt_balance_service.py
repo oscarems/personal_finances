@@ -49,6 +49,10 @@ def _annual_rate_decimal(debt: Debt) -> float:
     return 0.0
 
 
+def _should_accrue_interest(debt: Debt) -> bool:
+    return debt.debt_type != "mortgage"
+
+
 def _payment_principal_from_debt_payment(payment: DebtPayment) -> float:
     if payment.principal is not None:
         return payment.principal
@@ -121,8 +125,9 @@ def calculate_debt_balance_as_of(
     if as_of_date < debt.start_date:
         return 0.0
 
-    annual_rate = _annual_rate_decimal(debt)
-    monthly_rate = _monthly_rate(annual_rate)
+    accrue_interest = _should_accrue_interest(debt)
+    annual_rate = _annual_rate_decimal(debt) if accrue_interest else 0.0
+    monthly_rate = _monthly_rate(annual_rate) if accrue_interest else 0.0
     payments = _collect_principal_payments(db, debt)
     payments_by_month = _payments_by_month(payments)
 
@@ -139,7 +144,8 @@ def calculate_debt_balance_as_of(
         month_key = (month_start.year, month_start.month)
 
         if month_start < end_month or actual_end == month_end:
-            balance += balance * monthly_rate
+            if accrue_interest:
+                balance += balance * monthly_rate
             principal_paid = sum(
                 entry.principal for entry in payments_by_month.get(month_key, [])
             )
@@ -162,11 +168,15 @@ def calculate_debt_balance_as_of(
     monthly_payment = debt.monthly_payment or 0.0
 
     for _ in range(months_ahead):
-        interest = balance * monthly_rate
-        balance += interest
-        if monthly_payment > 0:
-            principal_paid = max(0.0, monthly_payment - interest)
-            balance = max(0.0, balance - principal_paid)
+        if accrue_interest:
+            interest = balance * monthly_rate
+            balance += interest
+            if monthly_payment > 0:
+                principal_paid = max(0.0, monthly_payment - interest)
+                balance = max(0.0, balance - principal_paid)
+        else:
+            if monthly_payment > 0:
+                balance = max(0.0, balance - monthly_payment)
 
     return max(0.0, balance)
 
@@ -185,8 +195,9 @@ def build_debt_balance_map(
     if not debt.original_amount or not debt.start_date:
         return {}
 
-    annual_rate = _annual_rate_decimal(debt)
-    monthly_rate = _monthly_rate(annual_rate)
+    accrue_interest = _should_accrue_interest(debt)
+    annual_rate = _annual_rate_decimal(debt) if accrue_interest else 0.0
+    monthly_rate = _monthly_rate(annual_rate) if accrue_interest else 0.0
     payments = _collect_principal_payments(db, debt)
     payments_by_month = _payments_by_month(payments)
     start_month = _month_start(debt.start_date)
@@ -200,18 +211,23 @@ def build_debt_balance_map(
             continue
 
         if month_end <= today:
-            balance += balance * monthly_rate
+            if accrue_interest:
+                balance += balance * monthly_rate
             month_key = (month_start.year, month_start.month)
             principal_paid = sum(
                 entry.principal for entry in payments_by_month.get(month_key, [])
             )
             balance = max(0.0, balance - principal_paid)
         else:
-            interest = balance * monthly_rate
-            balance += interest
-            if debt.monthly_payment and balance > 0:
-                principal_paid = max(0.0, debt.monthly_payment - interest)
-                balance = max(0.0, balance - principal_paid)
+            if accrue_interest:
+                interest = balance * monthly_rate
+                balance += interest
+                if debt.monthly_payment and balance > 0:
+                    principal_paid = max(0.0, debt.monthly_payment - interest)
+                    balance = max(0.0, balance - principal_paid)
+            else:
+                if debt.monthly_payment and balance > 0:
+                    balance = max(0.0, balance - debt.monthly_payment)
 
         balance_map[month_end] = max(0.0, balance)
 
