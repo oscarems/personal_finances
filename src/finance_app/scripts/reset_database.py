@@ -8,7 +8,7 @@ from finance_app.database import SessionLocal, engine, Base
 from finance_app.models import (
     Transaction, Category, CategoryGroup, BudgetMonth,
     RecurringTransaction, Account, Payee, ExchangeRate,
-    Debt, DebtPayment
+    Debt, DebtPayment, DebtAmortizationMonthly
 )
 from sqlalchemy import text
 import sys
@@ -56,6 +56,11 @@ def reset_database(keep_accounts=True, keep_categories=True):
         deleted_debt_payments = db.query(DebtPayment).delete()
         db.commit()
         print(f"    ✓ {deleted_debt_payments} pagos de deudas eliminados")
+
+        print("  → Eliminando amortizaciones de deudas...")
+        deleted_debt_amortizations = db.query(DebtAmortizationMonthly).delete()
+        db.commit()
+        print(f"    ✓ {deleted_debt_amortizations} amortizaciones eliminadas")
 
         print("  → Eliminando deudas...")
         deleted_debts = db.query(Debt).delete()
@@ -108,6 +113,7 @@ def reset_database(keep_accounts=True, keep_categories=True):
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='payees'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='debts'"))
         db.execute(text("DELETE FROM sqlite_sequence WHERE name='debt_payments'"))
+        db.execute(text("DELETE FROM sqlite_sequence WHERE name='debt_amortization_monthly'"))
         if not keep_accounts:
             db.execute(text("DELETE FROM sqlite_sequence WHERE name='accounts'"))
         if not keep_categories:
@@ -124,6 +130,7 @@ def reset_database(keep_accounts=True, keep_categories=True):
         print(f"  • Payees eliminados: {deleted_payees}")
         print(f"  • Deudas eliminadas: {deleted_debts}")
         print(f"  • Pagos de deudas eliminados: {deleted_debt_payments}")
+        print(f"  • Amortizaciones de deudas eliminadas: {deleted_debt_amortizations}")
         if keep_accounts:
             print(f"  • Cuentas reseteadas: {len(accounts)}")
         else:
