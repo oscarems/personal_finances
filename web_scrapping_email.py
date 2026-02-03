@@ -32,8 +32,9 @@ MAILBOX = "INBOX"
 OUTPUT_CSV = "compras.csv"
 LAST_N_EMAILS = 100  # leer últimos 100 correos
 
-if not EMAIL_ACCOUNT or not APP_PASSWORD:
-    raise RuntimeError("Faltan variables de entorno GMAIL_EMAIL / GMAIL_APP_PASSWORD")
+def _validate_env() -> None:
+    if not EMAIL_ACCOUNT or not APP_PASSWORD:
+        raise RuntimeError("Faltan variables de entorno GMAIL_EMAIL / GMAIL_APP_PASSWORD")
 
 # =========================
 # HELPERS
@@ -153,6 +154,44 @@ def parse_colombia_movimiento_fields(text: str):
 
     return None
 
+# -------- Mastercard Black --------
+def parse_mastercard_black_fields(text: str):
+    """
+    Busca compras de la tarjeta Mastercard Black.
+    """
+    t = " ".join(text.split())
+
+    if not re.search(r"master\s*card\s*black|mastercard\s*black|mc\s*black", t, re.IGNORECASE):
+        return None
+
+    m_amount = re.search(
+        r"(?:por|monto|valor)\s*[:\-]?\s*(?:US\$\s*|\$\s*)([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?)",
+        t,
+        re.IGNORECASE,
+    )
+    amount = normalize_amount(m_amount.group(1)) if m_amount else None
+
+    m_place = re.search(
+        r"(?:en|comercio|establecimiento|merchant)\s*[:\-]?\s*([A-Za-z0-9].+?)(?:,|\.|$)",
+        t,
+        re.IGNORECASE,
+    )
+    place = m_place.group(1).strip() if m_place else None
+
+    currency = "USD" if re.search(r"\bUSD\b|US\$", t, re.IGNORECASE) else "COP"
+
+    if place and amount is not None:
+        return {
+            "pais": "MASTERCARD_BLACK",
+            "cuenta": "MASTERCARD_BLACK",
+            "moneda": currency,
+            "valor": amount,
+            "clase_movimiento": "",
+            "lugar_transaccion": place,
+        }
+
+    return None
+
 # -------- Fechas --------
 def parse_datetime_from_fecha_hora(text: str):
     m_fecha = re.search(r"(?im)^\s*Fecha\s*:\s*([0-9]{4}/[0-9]{2}/[0-9]{2})\s*$", text)
@@ -218,6 +257,11 @@ def parse_any_transaction(body_text: str):
     if tx:
         return tx
 
+    # 2) Mastercard Black
+    tx = parse_mastercard_black_fields(body_text)
+    if tx:
+        return tx
+
     # 2) Panamá (compra)
     tx = parse_panama_compra_fields(body_text)
     if tx:
@@ -225,23 +269,30 @@ def parse_any_transaction(body_text: str):
 
     return None
 
-# =========================
-# MAIN
-# =========================
-def main():
-    logger.info("Leyendo últimos %s correos de Gmail", LAST_N_EMAILS)
+
+def _imap_search(imap, since_date: datetime | None):
+    if since_date:
+        date_str = since_date.strftime("%d-%b-%Y")
+        status, data = imap.search(None, "SINCE", date_str)
+    else:
+        status, data = imap.search(None, "ALL")
+    return status, data
+
+
+def fetch_transactions(since_date: datetime | None = None, max_emails: int = LAST_N_EMAILS):
+    _validate_env()
 
     imap = imaplib.IMAP4_SSL(IMAP_SERVER)
     imap.login(EMAIL_ACCOUNT, APP_PASSWORD)
     imap.select(MAILBOX)
 
-    status, data = imap.search(None, "ALL")
+    status, data = _imap_search(imap, since_date)
     if status != "OK":
-        logger.error("Error buscando correos")
-        return
+        imap.logout()
+        raise RuntimeError("Error buscando correos")
 
     ids = data[0].split()
-    ids = ids[-LAST_N_EMAILS:] if len(ids) > LAST_N_EMAILS else ids
+    ids = ids[-max_emails:] if len(ids) > max_emails else ids
 
     rows = []
 
@@ -268,6 +319,7 @@ def main():
             continue
 
         dt = parse_any_datetime(msg, body)
+        message_id = msg.get("Message-ID") or mail_id.decode(errors="ignore")
 
         rows.append({
             "fecha": dt.isoformat() if dt else "",
@@ -276,13 +328,30 @@ def main():
             "cuenta": tx["cuenta"],
             "clase_movimiento": tx["clase_movimiento"],
             "lugar_transaccion": tx["lugar_transaccion"],
+            "message_id": message_id,
         })
 
     imap.logout()
+    return rows
+
+# =========================
+# MAIN
+# =========================
+def main():
+    logger.info("Leyendo últimos %s correos de Gmail", LAST_N_EMAILS)
+    rows = fetch_transactions()
 
     logger.info("Guardando CSV (%s filas)", len(rows))
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
-        fieldnames = ["fecha", "valor", "moneda", "cuenta", "clase_movimiento", "lugar_transaccion"]
+        fieldnames = [
+            "fecha",
+            "valor",
+            "moneda",
+            "cuenta",
+            "clase_movimiento",
+            "lugar_transaccion",
+            "message_id",
+        ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
