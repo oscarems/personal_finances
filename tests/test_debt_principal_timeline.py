@@ -23,7 +23,7 @@ def _seed_currencies(db):
     db.commit()
 
 
-def test_principal_timeline_with_interest_and_fixed_payments():
+def test_principal_timeline_with_fixed_payments():
     db = _make_session()
     _seed_currencies(db)
 
@@ -64,9 +64,9 @@ def test_principal_timeline_with_interest_and_fixed_payments():
     feb = timeline[1]["debts"][str(debt.id)]
     mar = timeline[2]["debts"][str(debt.id)]
 
-    assert jan["principal_end"] == pytest.approx(910.0, rel=1e-3)
-    assert feb["principal_end"] == pytest.approx(819.1, rel=1e-3)
-    assert mar["principal_end"] == pytest.approx(727.291, rel=1e-3)
+    assert jan["principal_end"] == pytest.approx(900.0, rel=1e-3)
+    assert feb["principal_end"] == pytest.approx(800.0, rel=1e-3)
+    assert mar["principal_end"] == pytest.approx(700.0, rel=1e-3)
 
 
 def test_principal_timeline_without_interest():

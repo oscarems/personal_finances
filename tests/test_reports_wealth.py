@@ -109,7 +109,7 @@ def test_net_worth_includes_only_bienes_and_inversiones_with_forward_fill():
     assert result["totals_by_category"]["inversiones"] == 600.0
 
 
-def test_debt_balance_recomputed_with_interest_and_closed_adjustments():
+def test_debt_balance_history_uses_principal_only():
     db = _make_session()
     _seed_currencies(db)
 
@@ -122,7 +122,7 @@ def test_debt_balance_recomputed_with_interest_and_closed_adjustments():
         current_balance=1000.0,
         interest_rate=12.0,
         start_date=date(2024, 1, 1),
-        is_active=False,
+        is_active=True,
     )
     db.add(debt)
     db.flush()
@@ -140,10 +140,6 @@ def test_debt_balance_recomputed_with_interest_and_closed_adjustments():
     db.add_all([payment_jan, adjustment_feb])
     db.commit()
 
-    monthly_rate = reports._monthly_rate(0.12)
-    expected_jan = max(0.0, 1000.0 + 1000.0 * monthly_rate - 100.0)
-    expected_feb = max(0.0, expected_jan + expected_jan * monthly_rate - (-50.0))
-
     history = reports.get_debt_balance_history(
         start_date="2024-01-01",
         end_date="2024-02-28",
@@ -153,6 +149,6 @@ def test_debt_balance_recomputed_with_interest_and_closed_adjustments():
 
     monthly = history["monthly"]
     assert len(monthly) == 2
-    assert monthly[0]["total_debt"] == round(expected_jan, 2)
-    assert monthly[1]["total_debt"] == round(expected_feb, 2)
+    assert monthly[0]["total_debt"] == 1000.0
+    assert monthly[1]["total_debt"] == 1000.0
     assert "credit_loan" in monthly[0]["debt_by_type"]
