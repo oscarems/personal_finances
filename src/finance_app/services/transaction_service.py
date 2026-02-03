@@ -757,6 +757,54 @@ def get_monthly_activity(
     )
 
 
+def get_monthly_spent(
+    db: Session,
+    category_id,
+    month,
+    year,
+    currency_id,
+    include_all_currencies: bool = True
+):
+    """
+    Calculate total spending for a category in a month.
+    Returns a negative number representing outflows only.
+    """
+    start_date = date(year, month, 1)
+    end_date = start_date + relativedelta(months=1)
+
+    category = db.query(Category).options(joinedload(Category.category_group)).get(category_id)
+    if category and category.category_group and category.category_group.is_income:
+        return 0.0
+
+    filters = [
+        Transaction.category_id == category_id,
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.amount < 0
+    ]
+    if not include_all_currencies:
+        filters.append(Transaction.currency_id == currency_id)
+
+    transactions = db.query(Transaction).options(joinedload(Transaction.currency)).filter(
+        and_(*filters)
+    ).all()
+
+    target_currency = db.query(Currency).get(currency_id)
+
+    if not target_currency:
+        return sum(t.amount for t in transactions)
+
+    return sum(
+        convert_currency(
+            t.amount,
+            t.currency.code if t.currency else target_currency.code,
+            target_currency.code,
+            db
+        )
+        for t in transactions
+    )
+
+
 def get_account_summary(db: Session):
     """
     Get summary of all accounts with total balances
