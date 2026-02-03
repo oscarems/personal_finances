@@ -5,8 +5,10 @@ import re
 import csv
 import logging
 import os
+from datetime import datetime
 from dateutil import parser as dateparser
 from dotenv import load_dotenv
+from email.utils import parsedate_to_datetime
 
 # =========================
 # ENV & LOGGING
@@ -37,6 +39,7 @@ if not EMAIL_ACCOUNT or not APP_PASSWORD:
 # HELPERS
 # =========================
 def extract_text_from_message(msg: Message) -> str:
+    """Extrae texto plano; si no hay, convierte html simple a texto."""
     if msg.is_multipart():
         for part in msg.walk():
             ctype = part.get_content_type()
@@ -63,52 +66,164 @@ def extract_text_from_message(msg: Message) -> str:
 
     return ""
 
-def parse_compra_fields(body_text: str):
-    text = " ".join(body_text.split())
+def normalize_amount(raw: str) -> float:
+    raw = raw.strip()
+    raw = re.sub(r"[^\d,.\-]", "", raw)
+
+    if "," in raw and "." not in raw:
+        if re.search(r",\d{1,2}$", raw):      # decimal
+            raw = raw.replace(",", ".")
+        elif re.search(r",\d{3}$", raw):      # miles
+            raw = raw.replace(",", "")
+        else:
+            raw = raw.replace(",", "")
+    elif "," in raw and "." in raw:
+        if raw.rfind(",") > raw.rfind("."):
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
+
+    return float(raw)
+
+# -------- Panamá (Davivienda Panamá) --------
+def parse_panama_compra_fields(text: str):
+    """
+    Ej:
+    Se registró COMPRAS ... en 5814JUAN VALDEZ ..., por $ 7.08.
+    """
+    t = " ".join(text.split())
 
     m_amount = re.search(
         r"por\s+\$\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?)",
-        text,
+        t,
         re.IGNORECASE,
     )
+    amount = normalize_amount(m_amount.group(1)) if m_amount else None
 
-    amount = None
-    if m_amount:
-        raw = m_amount.group(1)
-        if raw.count(",") > 0 and raw.count(".") == 0:
-            raw = raw.replace(",", ".")
-        elif raw.count(",") > 0 and raw.count(".") > 0:
-            if raw.rfind(",") > raw.rfind("."):
-                raw = raw.replace(".", "").replace(",", ".")
-            else:
-                raw = raw.replace(",", "")
-        amount = float(raw)
-
-    m_place = re.search(r"\ben\s+(.+?),\s+por\s+\$", text, re.IGNORECASE)
+    m_place = re.search(r"\ben\s+(.+?)\s*,\s*por\s+\$", t, re.IGNORECASE)
     place = m_place.group(1).strip() if m_place else None
 
-    return place, amount
+    if place and amount is not None:
+        return {
+            "pais": "PANAMA",
+            "cuenta": "PANAMA",
+            "moneda": "USD",
+            "valor": amount,
+            "clase_movimiento": "",
+            "lugar_transaccion": place,
+        }
 
-def parse_email_date_from_body(body_text: str):
+    return None
+
+# -------- Colombia (Davivienda Colombia) --------
+def parse_colombia_movimiento_fields(text: str):
     """
-    Extrae fecha desde una línea tipo:
-    Sent: 03 December 2025 11:12 PM
+    Ej:
+    Clase de Movimiento: Descuento en Internet,
+    Lugar de Transacción: PSE ...
+    Valor Transacción: $583,000
     """
-    match = re.search(
-        r"Sent:\s*([0-9]{2}\s+[A-Za-z]+\s+[0-9]{4}\s+[0-9]{1,2}:[0-9]{2}\s+[AP]M)",
-        body_text,
-        re.IGNORECASE,
+    m_amount = re.search(
+        r"(?im)^\s*Valor\s*Transacci[oó]n\s*:\s*\$?\s*([0-9][0-9.,]*)\s*$",
+        text
     )
+    amount = normalize_amount(m_amount.group(1)) if m_amount else None
 
-    if not match:
+    m_place = re.search(
+        r"(?im)^\s*Lugar\s+de\s+Transacci[oó]n\s*:\s*(.+?)\s*$",
+        text
+    )
+    place = m_place.group(1).strip() if m_place else None
+
+    m_class = re.search(
+        r"(?im)^\s*Clase\s+de\s+Movimiento\s*:\s*(.+?)\s*$",
+        text
+    )
+    clase = m_class.group(1).strip().rstrip(",") if m_class else None
+
+    if place and amount is not None:
+        return {
+            "pais": "COLOMBIA",
+            "cuenta": "COLOMBIA",
+            "moneda": "COP",
+            "valor": amount,
+            "clase_movimiento": clase or "",
+            "lugar_transaccion": place,
+        }
+
+    return None
+
+# -------- Fechas --------
+def parse_datetime_from_fecha_hora(text: str):
+    m_fecha = re.search(r"(?im)^\s*Fecha\s*:\s*([0-9]{4}/[0-9]{2}/[0-9]{2})\s*$", text)
+    m_hora = re.search(r"(?im)^\s*Hora\s*:\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\s*$", text)
+
+    if not m_fecha:
         return None
 
-    raw_date = match.group(1)
+    fecha = m_fecha.group(1).strip()
+    hora = m_hora.group(1).strip() if m_hora else "00:00:00"
 
     try:
-        return dateparser.parse(raw_date)
+        return datetime.strptime(f"{fecha} {hora}", "%Y/%m/%d %H:%M:%S")
     except Exception:
         return None
+
+def parse_datetime_from_sent_line(text: str):
+    m = re.search(r"(?im)^\s*Sent:\s*(.+?)\s*$", text)
+    if not m:
+        return None
+
+    raw = m.group(1).strip()
+    raw = re.sub(r"\s*\([^)]*\)", "", raw).strip()
+
+    m2 = re.search(
+        r"^(?:[A-Za-z]+,\s*)?\d{1,2}\s+[A-Za-z]+\s+\d{4}\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s+[AP]M)?",
+        raw
+    )
+    if m2:
+        raw = m2.group(0)
+
+    try:
+        return dateparser.parse(raw, fuzzy=True)
+    except Exception:
+        return None
+
+def parse_datetime_from_headers(msg: Message):
+    hdr = msg.get("Date")
+    if not hdr:
+        return None
+    try:
+        return parsedate_to_datetime(hdr)
+    except Exception:
+        return None
+
+def parse_any_datetime(msg: Message, body_text: str):
+    dt = parse_datetime_from_fecha_hora(body_text)
+    if dt:
+        return dt
+    dt = parse_datetime_from_sent_line(body_text)
+    if dt:
+        return dt
+    return parse_datetime_from_headers(msg)
+
+# -------- Router: detecta formato --------
+def parse_any_transaction(body_text: str):
+    """
+    Devuelve dict con:
+    pais, cuenta, moneda, valor, clase_movimiento, lugar_transaccion
+    """
+    # 1) Colombia (porque es más estructurado)
+    tx = parse_colombia_movimiento_fields(body_text)
+    if tx:
+        return tx
+
+    # 2) Panamá (compra)
+    tx = parse_panama_compra_fields(body_text)
+    if tx:
+        return tx
+
+    return None
 
 # =========================
 # MAIN
@@ -143,25 +258,32 @@ def main():
         if not body:
             continue
 
-        # 🚫 EXCLUIR MENSAJES CON "pending" (may/min)
+        # 🚫 EXCLUIR "pending"
         if re.search(r"\bpending\b", body, re.IGNORECASE):
             logger.info("Correo ignorado (estado pending)")
             continue
 
-        place, amount = parse_compra_fields(body)
-        if place and amount is not None:
-            dt = parse_email_date_from_body(body)  # ✅ AQUÍ el fix
-            rows.append({
-                "fecha": dt.isoformat() if dt else "",
-                "valor": amount,
-                "lugar": place,
-            })
+        tx = parse_any_transaction(body)
+        if not tx:
+            continue
+
+        dt = parse_any_datetime(msg, body)
+
+        rows.append({
+            "fecha": dt.isoformat() if dt else "",
+            "valor": tx["valor"],
+            "moneda": tx["moneda"],
+            "cuenta": tx["cuenta"],
+            "clase_movimiento": tx["clase_movimiento"],
+            "lugar_transaccion": tx["lugar_transaccion"],
+        })
 
     imap.logout()
 
     logger.info("Guardando CSV (%s filas)", len(rows))
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["fecha", "valor", "lugar"])
+        fieldnames = ["fecha", "valor", "moneda", "cuenta", "clase_movimiento", "lugar_transaccion"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
