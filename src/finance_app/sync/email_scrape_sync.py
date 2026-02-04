@@ -13,6 +13,7 @@ import web_scrapping_email
 
 LOGGER = logging.getLogger("finance_app.sync.email_scrape")
 EMAIL_SOURCE = "email_scrape"
+SCRAPE_MIN_DATE = datetime(2026, 2, 3)
 
 
 def _normalize_name(value: str) -> str:
@@ -42,13 +43,13 @@ def _resolve_account(
     currency_id: int | None,
     settings,
 ) -> Account | None:
-    label = account_label.upper()
+    normalized_label = _normalize_name(account_label)
     account_name = None
-    if label == "PANAMA":
+    if normalized_label in {"panama", "pnama", "ahorros usd"}:
         account_name = settings.email_panama_account
-    elif label == "COLOMBIA":
+    elif normalized_label in {"colombia", "cuenta corriente cop"}:
         account_name = settings.email_colombia_account
-    elif label == "MASTERCARD_BLACK":
+    elif normalized_label == "mastercard_black":
         account_name = settings.email_mastercard_black_account
 
     account = _find_account_by_name(db, account_name)
@@ -65,6 +66,35 @@ def _last_scraped_datetime(db: Session) -> datetime | None:
     if last_date:
         return datetime.combine(last_date, datetime.min.time())
     return None
+
+
+def _effective_since_datetime(last_dt: datetime | None) -> datetime:
+    if last_dt:
+        since_dt = last_dt - timedelta(days=1)
+    else:
+        since_dt = SCRAPE_MIN_DATE
+    if since_dt < SCRAPE_MIN_DATE:
+        return SCRAPE_MIN_DATE
+    return since_dt
+
+
+def _cleanup_legacy_email_scrape_records(db: Session) -> None:
+    cutoff_date = SCRAPE_MIN_DATE.date()
+    email_deleted = db.query(EmailScrapeTransaction).filter(
+        EmailScrapeTransaction.transaction_date < cutoff_date
+    ).delete(synchronize_session=False)
+    tx_deleted = db.query(Transaction).filter(
+        Transaction.source == EMAIL_SOURCE,
+        Transaction.date < cutoff_date,
+    ).delete(synchronize_session=False)
+    if email_deleted or tx_deleted:
+        db.commit()
+        LOGGER.info(
+            "Eliminadas transacciones previas al %s: email=%s, movimientos=%s",
+            cutoff_date.isoformat(),
+            email_deleted,
+            tx_deleted,
+        )
 
 
 def _ensure_transaction_source_columns(db: Session) -> bool:
@@ -94,9 +124,11 @@ def sync_email_transactions() -> int:
             )
             return 1
 
+        _cleanup_legacy_email_scrape_records(db)
+
         currency_map = _get_currency_map(db)
         last_dt = _last_scraped_datetime(db)
-        since_dt = last_dt - timedelta(days=1) if last_dt else None
+        since_dt = _effective_since_datetime(last_dt)
         rows = web_scrapping_email.fetch_transactions(since_date=since_dt)
 
         inserted = 0
