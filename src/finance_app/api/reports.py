@@ -4,14 +4,14 @@ Reports and Analytics API
 import logging
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract, and_
+from sqlalchemy import func, extract, and_, or_
 from typing import Optional, Tuple, Iterable, List, Dict
 from datetime import date, datetime
 import calendar
 from dateutil.relativedelta import relativedelta
 
 from finance_app.database import get_db
-from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset
+from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset, Payee
 from finance_app.utils.wealth import apply_annual_appreciation_on_january, apply_depreciation
 from finance_app.services.debt_balance_service import calculate_debt_balance_as_of
 from finance_app.services.mortgage_service import calculate_monthly_payment
@@ -115,6 +115,32 @@ def get_monthly_income(
     month_start = date(year, month, 1)
     month_end = month_start + relativedelta(months=1)
     return get_income_total(db, month_start, month_end, currency_id, exchange_rate)
+
+
+def get_budget_report_income_total(
+    db: Session,
+    start_date: date,
+    end_date: date,
+    currency_id: int,
+    exchange_rate: float,
+    excluded_payee_name: str = "Balance Adjustment",
+) -> float:
+    income_transactions = db.query(Transaction).outerjoin(Payee).filter(
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.amount > 0,
+        Transaction.transfer_account_id.is_(None),
+        Transaction.is_adjustment.is_(False),
+        or_(Payee.name.is_(None), Payee.name != excluded_payee_name),
+    ).with_entities(
+        Transaction.amount,
+        Transaction.currency_id,
+    ).all()
+
+    return sum(
+        convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+        for t in income_transactions
+    )
 
 
 def _adjust_to_payment_day(base_date: date, payment_day: Optional[int]) -> date:
@@ -517,10 +543,10 @@ def get_income_vs_expenses(
         month_start = current_date
         month_end = current_date + relativedelta(months=1)
 
-        income = get_monthly_income(
+        income = get_budget_report_income_total(
             db,
-            month_start.year,
-            month_start.month,
+            month_start,
+            month_end,
             currency_id,
             exchange_rate
         )
@@ -602,10 +628,10 @@ def get_budget_income_expenses(
         month_start = current_date
         month_end = current_date + relativedelta(months=1)
 
-        income = get_monthly_income(
+        income = get_budget_report_income_total(
             db,
-            month_start.year,
-            month_start.month,
+            month_start,
+            month_end,
             currency_id,
             exchange_rate
         )
