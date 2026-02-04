@@ -92,23 +92,15 @@ def build_real_estate_wealth_timeline(
     for asset in assets:
         if asset.mortgage_debt_id:
             mortgage = debt_by_id.get(asset.mortgage_debt_id)
-            if not mortgage:
-                raise ValueError(
-                    f"El inmueble '{asset.name}' referencia una hipoteca inexistente."
-                )
-            if asset.mortgage_debt_id in linked_debt_ids:
-                raise ValueError(
-                    f"La hipoteca '{mortgage.name}' está asociada a más de un inmueble."
-                )
-            linked_debt_ids.add(asset.mortgage_debt_id)
+            if mortgage:
+                if asset.mortgage_debt_id in linked_debt_ids:
+                    raise ValueError(
+                        f"La hipoteca '{mortgage.name}' está asociada a más de un inmueble."
+                    )
+                linked_debt_ids.add(asset.mortgage_debt_id)
         properties.append(asset)
 
     orphan_mortgages = [debt for debt in debts if debt.id not in linked_debt_ids]
-    if orphan_mortgages:
-        orphan_names = ", ".join(debt.name for debt in orphan_mortgages)
-        raise ValueError(
-            "Existen hipotecas sin inmueble asociado: " + orphan_names
-        )
 
     start_month = _month_start(start_date)
     end_month = _month_start(end_date) + relativedelta(months=projection_months)
@@ -130,7 +122,10 @@ def build_real_estate_wealth_timeline(
         property_details = []
 
         for asset in properties:
-            value = _property_value_at_date(asset, month_end)
+            try:
+                value = _property_value_at_date(asset, month_end)
+            except ValueError:
+                continue
             converted_value = _convert_to_currency(
                 value,
                 asset.currency_id,
@@ -163,6 +158,28 @@ def build_real_estate_wealth_timeline(
                 "net_worth": round(converted_value - debt_balance, 2),
             })
 
+        for mortgage in orphan_mortgages:
+            amortization = amortization_records.get((mortgage.id, month_start))
+            debt_balance = float(amortization.principal_remaining) if amortization else 0.0
+            debt_currency_id = currency_map.get(
+                debt_currency_map.get(mortgage.id, ""),
+                currency_id,
+            )
+            debt_balance = _convert_to_currency(
+                debt_balance,
+                debt_currency_id,
+                currency_id,
+                exchange_rate,
+            )
+            debt_total += debt_balance
+            property_details.append({
+                "id": f"mortgage-{mortgage.id}",
+                "name": f"Hipoteca sin inmueble: {mortgage.name}",
+                "property_value": 0.0,
+                "real_estate_debt": round(debt_balance, 2),
+                "net_worth": round(-debt_balance, 2),
+            })
+
         monthly.append({
             "date": month_start.isoformat(),
             "property_value": round(property_value_total, 2),
@@ -178,7 +195,10 @@ def build_real_estate_wealth_timeline(
     current_month = _month_start(today)
     current_amortization = fetch_amortization_for_month(db, current_month, debt_ids)
     for asset in properties:
-        value = _property_value_at_date(asset, today)
+        try:
+            value = _property_value_at_date(asset, today)
+        except ValueError:
+            continue
         converted_value = _convert_to_currency(
             value,
             asset.currency_id,
@@ -208,6 +228,28 @@ def build_real_estate_wealth_timeline(
             "property_value": round(converted_value, 2),
             "real_estate_debt": round(debt_balance, 2),
             "net_worth": round(converted_value - debt_balance, 2),
+        })
+
+    for mortgage in orphan_mortgages:
+        amortization = current_amortization.get(mortgage.id)
+        debt_balance = float(amortization.principal_remaining) if amortization else 0.0
+        debt_currency_id = currency_map.get(
+            debt_currency_map.get(mortgage.id, ""),
+            currency_id,
+        )
+        debt_balance = _convert_to_currency(
+            debt_balance,
+            debt_currency_id,
+            currency_id,
+            exchange_rate,
+        )
+        current_debt_total += debt_balance
+        current_properties.append({
+            "id": f"mortgage-{mortgage.id}",
+            "name": f"Hipoteca sin inmueble: {mortgage.name}",
+            "property_value": 0.0,
+            "real_estate_debt": round(debt_balance, 2),
+            "net_worth": round(-debt_balance, 2),
         })
 
     real_months = [entry for entry in monthly if entry["type"] == "real"]

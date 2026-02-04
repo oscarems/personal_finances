@@ -744,7 +744,7 @@ def get_debt_balance_history(
     """
     Get total debt balance over time using debt payments history.
     """
-    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
+    debts = db.query(Debt).all()
     if not debts:
         return {
             'monthly': [],
@@ -845,7 +845,7 @@ def get_debt_principal_timeline(
     """
     Get monthly principal timeline for non-revolving debts (loans/mortgages).
     """
-    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
+    debts = db.query(Debt).all()
     if not debts:
         return {
             "monthly": [],
@@ -1612,7 +1612,7 @@ def get_net_worth(
     exchange_rate = get_exchange_rate(db)
 
     wealth_assets = db.query(WealthAsset).all()
-    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
+    debts = db.query(Debt).all()
 
     assets_by_id = {asset.id: asset for asset in wealth_assets}
     asset_transactions = db.query(Transaction).filter(
@@ -1671,15 +1671,22 @@ def get_net_worth(
         liabilities = 0.0
         for debt in debts:
             record = amortization_records.get((debt.id, month_start))
-            if not record:
-                continue
             debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-            liabilities += convert_to_currency(
-                record.principal_remaining,
-                debt_currency_id,
-                currency_id,
-                exchange_rate,
-            )
+            if record:
+                liabilities += convert_to_currency(
+                    record.principal_remaining,
+                    debt_currency_id,
+                    currency_id,
+                    exchange_rate,
+                )
+                continue
+            if debt.debt_type == "credit_card":
+                liabilities += convert_to_currency(
+                    debt.current_balance or 0.0,
+                    debt_currency_id,
+                    currency_id,
+                    exchange_rate,
+                )
 
         net_worth = assets - liabilities
 
@@ -1783,7 +1790,6 @@ def get_debt_summary(
     # Get all active debts
     debts = db.query(Debt).filter(
         Debt.is_active == True,
-        Debt.debt_type != "credit_card",
     ).all()
     currencies = db.query(Currency).all()
     currency_map = {currency.code: currency.id for currency in currencies}

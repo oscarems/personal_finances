@@ -344,7 +344,7 @@ def get_debts_summary(db: Session = Depends(get_db)):
     current_month = today.replace(day=1)
     ensure_debt_amortization_records(db, current_month, current_month)
     amortization_map = fetch_amortization_for_month(db, current_month)
-    eligible_debts = [debt for debt in debts if debt.debt_type != "credit_card"]
+    eligible_debts = debts
 
     summary = {
         'total_debts': len(eligible_debts),
