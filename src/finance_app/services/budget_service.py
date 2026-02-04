@@ -4,7 +4,7 @@ Budget service - YNAB style "Give every dollar a job"
 from datetime import date, datetime
 from typing import Optional
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import and_, extract
+from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session, joinedload
 from finance_app.models import BudgetMonth, Category, CategoryGroup, Transaction, Account, Currency
 from finance_app.services.transaction_service import get_monthly_activity, get_monthly_spent
@@ -51,16 +51,20 @@ def build_income_transactions_query(
 
     - Solo ingresos (montos positivos)
     - Excluye transferencias y ajustes de balance
-    - Solo categorías de ingreso
+    - Incluye categorías de ingreso o ingresos sin categoría
     - Rango de fechas con fin exclusivo [start_date, end_date)
     """
-    query = db.query(Transaction).join(Category).join(CategoryGroup).filter(
+    query = db.query(Transaction).outerjoin(Category).outerjoin(CategoryGroup).filter(
         Transaction.date >= start_date,
         Transaction.date < end_date,
         Transaction.amount > 0,
         Transaction.transfer_account_id.is_(None),
-        Transaction.is_adjustment.is_(False),
-        CategoryGroup.is_income.is_(True)
+        Transaction.is_adjustment.is_(False)
+    ).filter(
+        or_(
+            CategoryGroup.is_income.is_(True),
+            Transaction.category_id.is_(None)
+        )
     )
 
     if category_id is not None:
