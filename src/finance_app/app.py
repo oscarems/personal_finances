@@ -37,6 +37,7 @@ from finance_app.api import (
     telegram,
 )
 from finance_app.services.recurring_service import generate_due_transactions
+from finance_app.sync.email_scrape_sync import sync_email_transactions
 
 # Create FastAPI app
 app = FastAPI(
@@ -97,6 +98,7 @@ async def startup_event():
         generate_due_transactions(db)
     finally:
         db.close()
+    sync_email_transactions()
     print("✓ Database initialized")
 
 

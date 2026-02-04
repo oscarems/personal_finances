@@ -31,6 +31,7 @@ APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 MAILBOX = "INBOX"
 OUTPUT_CSV = "compras.csv"
 LAST_N_EMAILS = 100  # leer últimos 100 correos
+SCRAPE_MIN_DATE = datetime(2026, 2, 3)
 
 def _validate_env() -> None:
     if not EMAIL_ACCOUNT or not APP_PASSWORD:
@@ -107,7 +108,7 @@ def parse_panama_compra_fields(text: str):
     if place and amount is not None:
         return {
             "pais": "PANAMA",
-            "cuenta": "PANAMA",
+            "cuenta": "PNAMA",
             "moneda": "USD",
             "valor": amount,
             "clase_movimiento": "",
@@ -286,7 +287,10 @@ def fetch_transactions(since_date: datetime | None = None, max_emails: int = LAS
     imap.login(EMAIL_ACCOUNT, APP_PASSWORD)
     imap.select(MAILBOX)
 
-    status, data = _imap_search(imap, since_date)
+    effective_since = since_date
+    if not effective_since or effective_since < SCRAPE_MIN_DATE:
+        effective_since = SCRAPE_MIN_DATE
+    status, data = _imap_search(imap, effective_since)
     if status != "OK":
         imap.logout()
         raise RuntimeError("Error buscando correos")
@@ -320,6 +324,10 @@ def fetch_transactions(since_date: datetime | None = None, max_emails: int = LAS
 
         dt = parse_any_datetime(msg, body)
         message_id = msg.get("Message-ID") or mail_id.decode(errors="ignore")
+
+        if dt and dt < SCRAPE_MIN_DATE:
+            logger.info("Correo ignorado (fecha previa a %s)", SCRAPE_MIN_DATE.date().isoformat())
+            continue
 
         rows.append({
             "fecha": dt.isoformat() if dt else "",
