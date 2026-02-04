@@ -205,10 +205,14 @@ def ensure_debt_amortization_records(
             continue
         debt_start = debt.start_date or start_month
         calculation_start = _month_start(debt_start)
-        payments_by_month = _collect_payment_breakdown(db, debt)
-        inferred_payment = _infer_monthly_payment(payments_by_month, today)
+        if debt.debt_type == "mortgage":
+            payments_by_month = _collect_payment_breakdown(db, debt)
+            inferred_payment = _infer_monthly_payment(payments_by_month, today)
+        else:
+            payments_by_month = {}
+            inferred_payment = 0.0
         annual_rate = _annual_rate_decimal(debt)
-        accrue_interest = debt.debt_type != "mortgage"
+        accrue_interest = False
         monthly_rate = _monthly_rate(annual_rate) if accrue_interest else 0.0
 
         existing = db.query(DebtAmortizationMonthly).filter(
@@ -218,7 +222,10 @@ def ensure_debt_amortization_records(
         ).all()
         existing_by_date = {entry.as_of_date: entry for entry in existing}
 
-        balance = debt.original_amount if debt.original_amount is not None else (debt.current_balance or 0.0)
+        if debt.debt_type == "mortgage":
+            balance = debt.original_amount if debt.original_amount is not None else (debt.current_balance or 0.0)
+        else:
+            balance = debt.current_balance if debt.current_balance is not None else (debt.original_amount or 0.0)
 
         for month_start in _iter_months(calculation_start, end_month):
             month_end = _month_end(month_start)
