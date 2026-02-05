@@ -1472,6 +1472,7 @@
 
     function updateCoverOverspendingSources() {
         const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const otherCurrencyCode = currencyCode === 'USD' ? 'COP' : 'USD';
         const categoryId = overspendingContext?.categoryId;
         const sourceHint = document.getElementById('coverOverspendingSourceHint');
         const submitButton = document.getElementById('coverOverspendingSubmit');
@@ -1481,7 +1482,9 @@
         const options = Object.values(categoryBudgetMap)
             .filter(cat => cat.id !== categoryId)
             .map(cat => {
-                const available = cat.budgets?.[currencyCode]?.available || 0;
+                const availablePrimary = cat.budgets?.[currencyCode]?.available || 0;
+                const availableOther = cat.budgets?.[otherCurrencyCode]?.available || 0;
+                const available = availablePrimary + convertBalance(availableOther, otherCurrencyCode, currencyCode);
                 return {
                     id: cat.id,
                     name: cat.name,
@@ -1558,6 +1561,7 @@
 
         const categoryId = overspendingContext.categoryId;
         const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const otherCurrencyCode = currencyCode === 'USD' ? 'COP' : 'USD';
         const requestedTotal = parseFloat(document.getElementById('coverOverspendingAmount').value);
         const rows = getCoverOverspendingSourceRows();
 
@@ -1625,8 +1629,23 @@
                 if (transferAmount > 0) {
                     remainingAmount -= transferAmount;
                     totalTransfer += transferAmount;
-                    usedBySource.set(entry.sourceId, alreadyUsed + transferAmount);
-                    sourceTransfersMap.set(entry.sourceId, (sourceTransfersMap.get(entry.sourceId) || 0) + transferAmount);
+                    const takeFromPrimary = Math.min(availablePrimary, transferAmount);
+                    const remainingForOther = transferAmount - takeFromPrimary;
+                    const takeFromOther = remainingForOther > 0
+                        ? convertBalance(remainingForOther, currencyCode, otherCurrencyCode)
+                        : 0;
+                    usedBySource.set(entry.sourceId, {
+                        primary: alreadyUsed.primary + takeFromPrimary,
+                        other: alreadyUsed.other + takeFromOther
+                    });
+                    const existingTransfer = sourceTransfersMap.get(entry.sourceId) || {
+                        primary: 0,
+                        other: 0
+                    };
+                    sourceTransfersMap.set(entry.sourceId, {
+                        primary: existingTransfer.primary + takeFromPrimary,
+                        other: existingTransfer.other + takeFromOther
+                    });
                 }
             });
 
@@ -1634,7 +1653,7 @@
                 adjusted = true;
             }
 
-            const sourceTransfers = [...sourceTransfersMap.entries()].map(([sourceId, transferAmount]) => ({
+            const sourceTransfers = [...sourceTransfersMap.entries()].map(([sourceId, transfer]) => ({
                 sourceId,
                 transferAmount,
                 sourceAssigned: (sourceBudgetMap.get(sourceId) || { assigned: 0 }).assigned
@@ -1660,16 +1679,34 @@
                         currency_code: currencyCode
                     })
                 }),
-                ...sourceTransfers.map(source => fetch('/api/budgets/assign', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        category_id: source.sourceId,
-                        amount: source.sourceAssigned - source.transferAmount,
-                        month: monthDate,
-                        currency_code: currencyCode
-                    })
-                }))
+                ...sourceTransfers.flatMap(source => {
+                    const requests = [];
+                    if (source.transferPrimary > 0) {
+                        requests.push(fetch('/api/budgets/assign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                category_id: source.sourceId,
+                                amount: source.sourceAssigned - source.transferPrimary,
+                                month: monthDate,
+                                currency_code: currencyCode
+                            })
+                        }));
+                    }
+                    if (source.transferOther > 0) {
+                        requests.push(fetch('/api/budgets/assign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                category_id: source.sourceId,
+                                amount: source.sourceOtherAssigned - source.transferOther,
+                                month: monthDate,
+                                currency_code: otherCurrencyCode
+                            })
+                        }));
+                    }
+                    return requests;
+                })
             ];
 
             const responses = await Promise.all(requests);
