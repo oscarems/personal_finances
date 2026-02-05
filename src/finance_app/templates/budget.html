@@ -1546,9 +1546,11 @@
         return res.json();
     }
 
-    function getAssignedFromBudgets(budgets, currencyCode) {
-        const budget = budgets.find(entry => entry.currency_code === currencyCode);
-        return budget ? budget.assigned : 0;
+    function getBudgetEntryForCurrency(budgets, currencyCode) {
+        return budgets.find(entry => entry.currency_code === currencyCode) || {
+            assigned: 0,
+            available: 0
+        };
     }
 
     async function coverOverspending() {
@@ -1586,12 +1588,19 @@
                 ...uniqueSourceIds.map(sourceId => fetchCategoryBudgets(sourceId))
             ]);
 
-            const targetAssigned = getAssignedFromBudgets(targetBudgets, currencyCode);
-            const sourceAssignedMap = new Map(
-                uniqueSourceIds.map((sourceId, index) => [
-                    sourceId,
-                    getAssignedFromBudgets(sourceBudgetsList[index], currencyCode)
-                ])
+            const targetBudgetEntry = getBudgetEntryForCurrency(targetBudgets, currencyCode);
+            const targetAssigned = targetBudgetEntry.assigned || 0;
+            const sourceBudgetMap = new Map(
+                uniqueSourceIds.map((sourceId, index) => {
+                    const entry = getBudgetEntryForCurrency(sourceBudgetsList[index], currencyCode);
+                    return [
+                        sourceId,
+                        {
+                            assigned: entry.assigned || 0,
+                            available: entry.available || 0
+                        }
+                    ];
+                })
             );
 
             let adjusted = false;
@@ -1605,9 +1614,9 @@
                     adjusted = true;
                     return;
                 }
-                const sourceAssigned = sourceAssignedMap.get(entry.sourceId) || 0;
+                const sourceBudget = sourceBudgetMap.get(entry.sourceId) || { assigned: 0, available: 0 };
                 const alreadyUsed = usedBySource.get(entry.sourceId) || 0;
-                const available = Math.max(0, sourceAssigned - alreadyUsed);
+                const available = Math.max(0, sourceBudget.available - alreadyUsed);
                 const requested = entry.amount;
                 let transferAmount = Math.min(requested, available, remainingAmount);
                 if (transferAmount < requested) {
@@ -1628,7 +1637,7 @@
             const sourceTransfers = [...sourceTransfersMap.entries()].map(([sourceId, transferAmount]) => ({
                 sourceId,
                 transferAmount,
-                sourceAssigned: sourceAssignedMap.get(sourceId) || 0
+                sourceAssigned: (sourceBudgetMap.get(sourceId) || { assigned: 0 }).assigned
             }));
 
             if (totalTransfer <= 0) {
