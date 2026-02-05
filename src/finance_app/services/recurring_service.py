@@ -9,6 +9,7 @@ from sqlalchemy import or_
 from typing import List, Optional
 
 from finance_app.models import RecurringTransaction, Transaction, Account, Payee, Debt, DebtPayment
+from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
 from finance_app.services.transaction_service import build_transaction_audit_fields
 
 
@@ -250,9 +251,6 @@ def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
                         if debt:
                             payment_amount = abs(signed_amount)
                             if signed_amount < 0:
-                                debt.current_balance = max(0.0, debt.current_balance - payment_amount)
-                                if debt.current_balance <= 0:
-                                    debt.is_active = False
                                 payment = DebtPayment(
                                     debt_id=debt.id,
                                     transaction_id=transaction.id,
@@ -261,10 +259,21 @@ def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
                                     principal=payment_amount,
                                     interest=0.0,
                                     fees=0.0,
-                                    balance_after=debt.current_balance,
+                                    balance_after=None,
                                     notes="Pago automático"
                                 )
                                 db.add(payment)
+                                db.flush()
+                                if debt.debt_type == "mortgage":
+                                    debt.current_balance = refresh_mortgage_current_balance(
+                                        db, debt, as_of_date=check_date
+                                    )
+                                    payment.balance_after = debt.current_balance
+                                else:
+                                    debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+                                    payment.balance_after = debt.current_balance
+                                if debt.current_balance <= 0:
+                                    debt.is_active = False
                             else:
                                 debt.current_balance += payment_amount
                                 debt.is_active = True

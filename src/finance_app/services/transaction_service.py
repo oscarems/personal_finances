@@ -7,6 +7,7 @@ from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from finance_app.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment, MortgagePaymentAllocation
+from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
 from finance_app.services.mortgage_allocation_service import (
     apply_mortgage_payment_allocation,
     rebuild_mortgage_balances
@@ -99,9 +100,6 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
 
     payment_amount = abs(amount)
     if amount < 0:
-        debt.current_balance = max(0.0, debt.current_balance - payment_amount)
-        if debt.current_balance <= 0:
-            debt.is_active = False
         payment = DebtPayment(
             debt_id=debt.id,
             transaction_id=transaction.id,
@@ -110,10 +108,19 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
             principal=payment_amount,
             interest=0.0,
             fees=0.0,
-            balance_after=debt.current_balance,
+            balance_after=None,
             notes="Pago registrado desde transacción"
         )
         db.add(payment)
+        db.flush()
+        if debt.debt_type == "mortgage":
+            debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
+            payment.balance_after = debt.current_balance
+        else:
+            debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+            payment.balance_after = debt.current_balance
+        if debt.current_balance <= 0:
+            debt.is_active = False
     else:
         debt.current_balance += payment_amount
         debt.is_active = True
@@ -131,18 +138,27 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
 
     payment = db.query(DebtPayment).filter_by(transaction_id=transaction.id).first()
     if payment:
-        debt.current_balance += payment.amount
-        debt.is_active = True
         db.delete(payment)
+        if debt.debt_type == "mortgage":
+            debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
+        else:
+            debt.current_balance += payment.amount
+        debt.is_active = True
         return
 
     amount = transaction.amount or 0
     payment_amount = abs(amount)
     if amount < 0:
-        debt.current_balance += payment_amount
+        if debt.debt_type == "mortgage":
+            debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
+        else:
+            debt.current_balance += payment_amount
         debt.is_active = True
     elif amount > 0:
-        debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+        if debt.debt_type == "mortgage":
+            debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
+        else:
+            debt.current_balance = max(0.0, debt.current_balance - payment_amount)
         if debt.current_balance <= 0:
             debt.is_active = False
 

@@ -13,7 +13,10 @@ from dateutil.relativedelta import relativedelta
 from finance_app.database import get_db
 from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset, Payee
 from finance_app.utils.wealth import apply_annual_appreciation_on_january, apply_depreciation
-from finance_app.services.debt_balance_service import calculate_debt_balance_as_of
+from finance_app.services.debt_balance_service import (
+    calculate_debt_balance_as_of,
+    calculate_mortgage_principal_balance,
+)
 from finance_app.services.mortgage_service import calculate_monthly_payment
 from finance_app.services.real_estate_wealth_service import build_real_estate_wealth_timeline
 from finance_app.services.budget_service import build_income_transactions_query, build_spent_transactions_query
@@ -1696,8 +1699,18 @@ def get_net_worth(
         assets = sum(totals_by_category.values())
         liabilities = 0.0
         for debt in debts:
-            record = amortization_records.get((debt.id, month_start))
             debt_currency_id = currency_map.get(debt.currency_code, currency_id)
+            if debt.debt_type == "mortgage":
+                mortgage_balance = calculate_mortgage_principal_balance(db, debt, as_of_date=month_end)
+                liabilities += convert_to_currency(
+                    mortgage_balance,
+                    debt_currency_id,
+                    currency_id,
+                    exchange_rate,
+                )
+                continue
+
+            record = amortization_records.get((debt.id, month_start))
             if record:
                 liabilities += convert_to_currency(
                     record.principal_remaining,
@@ -1836,13 +1849,17 @@ def get_debt_summary(
 
     for debt in debts:
         debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-        record = amortization_map.get(debt.id)
         debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-        current_balance_original = float(record.principal_remaining) if record else (debt.current_balance or 0.0)
-        projected_record = projected_map.get(debt.id)
-        projected_balance_original = (
-            float(projected_record.principal_remaining) if projected_record else current_balance_original
-        )
+        if debt.debt_type == "mortgage":
+            current_balance_original = calculate_mortgage_principal_balance(db, debt, as_of_date=today)
+            projected_balance_original = current_balance_original
+        else:
+            record = amortization_map.get(debt.id)
+            current_balance_original = float(record.principal_remaining) if record else (debt.current_balance or 0.0)
+            projected_record = projected_map.get(debt.id)
+            projected_balance_original = (
+                float(projected_record.principal_remaining) if projected_record else current_balance_original
+            )
         original_amount_raw = debt.original_amount or 0
 
         # Convert amounts to selected currency
