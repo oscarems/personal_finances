@@ -745,6 +745,7 @@
                                     <th class="px-4 py-4 text-right text-xs font-extrabold text-white uppercase tracking-wider">Principal</th>
                                     <th class="px-4 py-4 text-right text-xs font-extrabold text-white uppercase tracking-wider">Interés</th>
                                     <th class="px-4 py-4 text-right text-xs font-extrabold text-white uppercase tracking-wider">Saldo Después</th>
+                                    <th class="px-4 py-4 text-left text-xs font-extrabold text-white uppercase tracking-wider">Fuente</th>
                                     <th class="px-4 py-4 text-left text-xs font-extrabold text-white uppercase tracking-wider">Notas</th>
                                 </tr>
                             </thead>
@@ -764,6 +765,7 @@
                                         <td class="px-4 py-4 text-sm text-right font-bold text-neutral-900">
                                             ${payment.balance_after !== null && payment.balance_after !== undefined ? symbol + payment.balance_after.toLocaleString('en-US', {minimumFractionDigits: decimals}) : '-'}
                                         </td>
+                                        <td class="px-4 py-4 text-sm text-neutral-700">${payment.payment_source || payment.fuente_del_pago || '-'}</td>
                                         <td class="px-4 py-4 text-sm text-neutral-600">${payment.notes || '-'}</td>
                                     </tr>
                                 `).join('')}

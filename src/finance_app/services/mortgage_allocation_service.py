@@ -108,7 +108,7 @@ def _apply_balances(
     loan.principal_balance = _quantize(principal_balance, decimals)
     loan.interest_balance = _quantize(interest_balance, decimals)
     loan.last_accrual_date = payment_date
-    loan.current_balance = float(loan.principal_balance + loan.interest_balance)
+    loan.current_balance = float(loan.principal_balance)
 
 
 def apply_mortgage_payment_allocation(

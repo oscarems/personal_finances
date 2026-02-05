@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Dict, Iterable, List, Tuple
 
 from dateutil.relativedelta import relativedelta
@@ -115,6 +116,9 @@ def calculate_debt_balance_as_of(
     today: date | None = None,
     include_projection: bool = False,
 ) -> float:
+    if debt.debt_type == "mortgage":
+        return calculate_mortgage_principal_balance(db, debt, as_of_date=as_of_date)
+
     if debt.debt_type == "credit_card":
         return debt.current_balance or 0.0
 
@@ -179,6 +183,41 @@ def calculate_debt_balance_as_of(
                 balance = max(0.0, balance - monthly_payment)
 
     return max(0.0, balance)
+
+
+def calculate_mortgage_principal_balance(
+    db: Session,
+    debt: Debt,
+    as_of_date: date | None = None,
+) -> float:
+    if debt.debt_type != "mortgage":
+        return debt.current_balance or 0.0
+
+    if not debt.original_amount:
+        return debt.current_balance or 0.0
+
+    as_of_date = as_of_date or date.today()
+    if debt.start_date and as_of_date < debt.start_date:
+        return 0.0
+    payments = _collect_principal_payments(db, debt)
+    principal_paid = sum(
+        entry.principal
+        for entry in payments
+        if entry.payment_date and entry.payment_date <= as_of_date
+    )
+    return max(0.0, float(debt.original_amount) - principal_paid)
+
+
+def refresh_mortgage_current_balance(
+    db: Session,
+    debt: Debt,
+    as_of_date: date | None = None,
+) -> float:
+    balance = calculate_mortgage_principal_balance(db, debt, as_of_date=as_of_date)
+    debt.current_balance = balance
+    if debt.debt_type == "mortgage":
+        debt.principal_balance = Decimal(str(balance))
+    return balance
 
 
 def build_debt_balance_map(
