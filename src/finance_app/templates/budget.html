@@ -1472,6 +1472,7 @@
 
     function updateCoverOverspendingSources() {
         const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const otherCurrencyCode = currencyCode === 'USD' ? 'COP' : 'USD';
         const categoryId = overspendingContext?.categoryId;
         const sourceHint = document.getElementById('coverOverspendingSourceHint');
         const submitButton = document.getElementById('coverOverspendingSubmit');
@@ -1481,7 +1482,9 @@
         const options = Object.values(categoryBudgetMap)
             .filter(cat => cat.id !== categoryId)
             .map(cat => {
-                const available = cat.budgets?.[currencyCode]?.available || 0;
+                const availablePrimary = cat.budgets?.[currencyCode]?.available || 0;
+                const availableOther = cat.budgets?.[otherCurrencyCode]?.available || 0;
+                const available = availablePrimary + convertBalance(availableOther, otherCurrencyCode, currencyCode);
                 return {
                     id: cat.id,
                     name: cat.name,
@@ -1546,9 +1549,18 @@
         return res.json();
     }
 
-    function getAssignedFromBudgets(budgets, currencyCode) {
-        const budget = budgets.find(entry => entry.currency_code === currencyCode);
-        return budget ? budget.assigned : 0;
+    function buildBudgetMap(budgets) {
+        return budgets.reduce((acc, entry) => {
+            acc[entry.currency_code] = entry;
+            return acc;
+        }, {});
+    }
+
+    function getBudgetEntryForCurrency(budgets, currencyCode) {
+        return budgets.find(entry => entry.currency_code === currencyCode) || {
+            assigned: 0,
+            available: 0
+        };
     }
 
     async function coverOverspending() {
@@ -1556,6 +1568,7 @@
 
         const categoryId = overspendingContext.categoryId;
         const currencyCode = document.getElementById('coverOverspendingCurrency').value;
+        const otherCurrencyCode = currencyCode === 'USD' ? 'COP' : 'USD';
         const requestedTotal = parseFloat(document.getElementById('coverOverspendingAmount').value);
         const rows = getCoverOverspendingSourceRows();
 
@@ -1586,12 +1599,23 @@
                 ...uniqueSourceIds.map(sourceId => fetchCategoryBudgets(sourceId))
             ]);
 
-            const targetAssigned = getAssignedFromBudgets(targetBudgets, currencyCode);
-            const sourceAssignedMap = new Map(
-                uniqueSourceIds.map((sourceId, index) => [
-                    sourceId,
-                    getAssignedFromBudgets(sourceBudgetsList[index], currencyCode)
-                ])
+            const targetBudgetEntry = getBudgetEntryForCurrency(targetBudgets, currencyCode);
+            const targetAssigned = targetBudgetEntry.assigned || 0;
+            const sourceBudgetMap = new Map(
+                uniqueSourceIds.map((sourceId, index) => {
+                    const entries = buildBudgetMap(sourceBudgetsList[index]);
+                    const entry = entries[currencyCode] || { assigned: 0, available: 0 };
+                    const otherEntry = entries[otherCurrencyCode] || { assigned: 0, available: 0 };
+                    return [
+                        sourceId,
+                        {
+                            assigned: entry.assigned || 0,
+                            available: entry.available || 0,
+                            otherAssigned: otherEntry.assigned || 0,
+                            otherAvailable: otherEntry.available || 0
+                        }
+                    ];
+                })
             );
 
             let adjusted = false;
@@ -1605,9 +1629,16 @@
                     adjusted = true;
                     return;
                 }
-                const sourceAssigned = sourceAssignedMap.get(entry.sourceId) || 0;
-                const alreadyUsed = usedBySource.get(entry.sourceId) || 0;
-                const available = Math.max(0, sourceAssigned - alreadyUsed);
+                const sourceBudget = sourceBudgetMap.get(entry.sourceId) || {
+                    assigned: 0,
+                    available: 0,
+                    otherAssigned: 0,
+                    otherAvailable: 0
+                };
+                const alreadyUsed = usedBySource.get(entry.sourceId) || { primary: 0, other: 0 };
+                const availablePrimary = Math.max(0, sourceBudget.available - alreadyUsed.primary);
+                const availableOther = Math.max(0, sourceBudget.otherAvailable - alreadyUsed.other);
+                const available = availablePrimary + convertBalance(availableOther, otherCurrencyCode, currencyCode);
                 const requested = entry.amount;
                 let transferAmount = Math.min(requested, available, remainingAmount);
                 if (transferAmount < requested) {
@@ -1616,8 +1647,23 @@
                 if (transferAmount > 0) {
                     remainingAmount -= transferAmount;
                     totalTransfer += transferAmount;
-                    usedBySource.set(entry.sourceId, alreadyUsed + transferAmount);
-                    sourceTransfersMap.set(entry.sourceId, (sourceTransfersMap.get(entry.sourceId) || 0) + transferAmount);
+                    const takeFromPrimary = Math.min(availablePrimary, transferAmount);
+                    const remainingForOther = transferAmount - takeFromPrimary;
+                    const takeFromOther = remainingForOther > 0
+                        ? convertBalance(remainingForOther, currencyCode, otherCurrencyCode)
+                        : 0;
+                    usedBySource.set(entry.sourceId, {
+                        primary: alreadyUsed.primary + takeFromPrimary,
+                        other: alreadyUsed.other + takeFromOther
+                    });
+                    const existingTransfer = sourceTransfersMap.get(entry.sourceId) || {
+                        primary: 0,
+                        other: 0
+                    };
+                    sourceTransfersMap.set(entry.sourceId, {
+                        primary: existingTransfer.primary + takeFromPrimary,
+                        other: existingTransfer.other + takeFromOther
+                    });
                 }
             });
 
@@ -1625,10 +1671,12 @@
                 adjusted = true;
             }
 
-            const sourceTransfers = [...sourceTransfersMap.entries()].map(([sourceId, transferAmount]) => ({
+            const sourceTransfers = [...sourceTransfersMap.entries()].map(([sourceId, transfer]) => ({
                 sourceId,
-                transferAmount,
-                sourceAssigned: sourceAssignedMap.get(sourceId) || 0
+                transferPrimary: transfer.primary,
+                transferOther: transfer.other,
+                sourceAssigned: (sourceBudgetMap.get(sourceId) || { assigned: 0 }).assigned,
+                sourceOtherAssigned: (sourceBudgetMap.get(sourceId) || { otherAssigned: 0 }).otherAssigned
             }));
 
             if (totalTransfer <= 0) {
@@ -1651,16 +1699,34 @@
                         currency_code: currencyCode
                     })
                 }),
-                ...sourceTransfers.map(source => fetch('/api/budgets/assign', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        category_id: source.sourceId,
-                        amount: source.sourceAssigned - source.transferAmount,
-                        month: monthDate,
-                        currency_code: currencyCode
-                    })
-                }))
+                ...sourceTransfers.flatMap(source => {
+                    const requests = [];
+                    if (source.transferPrimary > 0) {
+                        requests.push(fetch('/api/budgets/assign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                category_id: source.sourceId,
+                                amount: source.sourceAssigned - source.transferPrimary,
+                                month: monthDate,
+                                currency_code: currencyCode
+                            })
+                        }));
+                    }
+                    if (source.transferOther > 0) {
+                        requests.push(fetch('/api/budgets/assign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                category_id: source.sourceId,
+                                amount: source.sourceOtherAssigned - source.transferOther,
+                                month: monthDate,
+                                currency_code: otherCurrencyCode
+                            })
+                        }));
+                    }
+                    return requests;
+                })
             ];
 
             const responses = await Promise.all(requests);
