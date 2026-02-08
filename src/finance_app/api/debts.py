@@ -20,6 +20,7 @@ from finance_app.models import (
 )
 from finance_app.services.debt_balance_service import (
     calculate_mortgage_principal_balance,
+    calculate_scheduled_principal_balance,
     refresh_mortgage_current_balance,
 )
 from finance_app.services.debt_amortization_service import (
@@ -55,7 +56,13 @@ def _calculate_principal_amount(payment: DebtPaymentCreate) -> float:
 def _calculate_mortgage_current_balance(debt: Debt, db: Session) -> float:
     if debt.debt_type != "mortgage":
         return debt.current_balance
-    return calculate_mortgage_principal_balance(db=db, debt=debt, as_of_date=date.today())
+    return calculate_scheduled_principal_balance(debt=debt, as_of_date=date.today())
+
+
+def _calculate_loan_current_balance(debt: Debt, db: Session) -> float:
+    if debt.debt_type not in {"mortgage", "credit_loan"}:
+        return debt.current_balance
+    return calculate_scheduled_principal_balance(debt=debt, as_of_date=date.today())
 
 
 def _payment_source_label(transaction_id: Optional[int]) -> str:
@@ -156,8 +163,8 @@ def _debt_to_dict_with_calculated_balance(
         ensure_debt_amortization_records(db, current_month, current_month)
         amortization_map = fetch_amortization_for_month(db, current_month, [debt.id])
         current_record = amortization_map.get(debt.id)
-    if debt.debt_type == "mortgage":
-        calculated_balance = _calculate_mortgage_current_balance(debt, db)
+    if debt.debt_type in {"mortgage", "credit_loan"}:
+        calculated_balance = _calculate_loan_current_balance(debt, db)
     elif current_record:
         calculated_balance = current_record.principal_remaining
     else:
@@ -298,8 +305,8 @@ def get_debts_summary(db: Session = Depends(get_db)):
     interest_count = 0
 
     for debt in eligible_debts:
-        if debt.debt_type == "mortgage":
-            current_balance = _calculate_mortgage_current_balance(debt, db)
+        if debt.debt_type in {"mortgage", "credit_loan"}:
+            current_balance = _calculate_loan_current_balance(debt, db)
         else:
             record = amortization_map.get(debt.id)
             current_balance = float(record.principal_remaining) if record else (debt.current_balance or 0.0)

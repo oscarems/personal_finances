@@ -605,13 +605,17 @@
         const progressPercent = debt.paid_percentage || 0;
         const symbol = debt.currency_code === 'USD' ? 'US$' : '$';
         const decimals = debt.currency_code === 'USD' ? 2 : 0;
+        const isAmortizedDebt = (debt.debt_type === 'mortgage' || debt.debt_type === 'credit_loan');
+        const principalLabel = isAmortizedDebt ? 'Capital pendiente hoy' : 'Saldo Actual';
+        const principalHint = isAmortizedDebt ? 'Cálculo por amortización teórica' : '';
 
         let html = `
             <!-- Summary Section con gradientes vibrantes -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="relative overflow-hidden bg-gradient-to-br from-danger-500 to-danger-600 p-6 rounded-card shadow-strong border-2 border-danger-400">
                     <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
-                    <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">Saldo Actual</p>
+                    <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">${principalLabel}</p>
+                    ${principalHint ? `<p class="text-xs text-white/80 mt-1 relative z-10">${principalHint}</p>` : ''}
                     <p class="text-4xl font-extrabold text-white mt-2 relative z-10">
                         ${symbol}${debt.current_balance.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
                     </p>

@@ -9,6 +9,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
 from finance_app.models import Debt, DebtPayment, MortgagePaymentAllocation
+from finance_app.services.mortgage_service import calculate_monthly_payment
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,83 @@ def _payments_by_month(
 
 def _calculate_months_between(start_date: date, end_date: date) -> int:
     return max(0, (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month))
+
+
+def _payments_due_by_date(start_date: date, as_of_date: date) -> int:
+    """
+    Returns how many scheduled monthly payments should have occurred by as_of_date.
+    Assumes the first payment is due on start_date and then every month.
+    """
+    if as_of_date < start_date:
+        return 0
+    months = (as_of_date.year - start_date.year) * 12 + (as_of_date.month - start_date.month)
+    if as_of_date.day >= start_date.day:
+        months += 1
+    return max(0, months)
+
+
+def _monthly_payment_from_terms(principal: float, annual_rate: float, term_months: int) -> float:
+    if term_months <= 0:
+        return 0.0
+    if annual_rate == 0:
+        return principal / term_months
+    monthly_rate = _monthly_rate(annual_rate)
+    numerator = monthly_rate * ((1 + monthly_rate) ** term_months)
+    denominator = ((1 + monthly_rate) ** term_months) - 1
+    if denominator == 0:
+        return 0.0
+    return principal * (numerator / denominator)
+
+
+def calculate_scheduled_principal_balance(
+    debt: Debt,
+    as_of_date: date,
+) -> float:
+    """
+    Calculate principal remaining based on start date, interest rate, term, and time elapsed.
+    Uses fixed-payment amortization when monthly_payment is not provided.
+    """
+    if not debt.original_amount:
+        return debt.current_balance or 0.0
+    if not debt.start_date:
+        return debt.current_balance or float(debt.original_amount)
+
+    term_months = None
+    if debt.loan_years:
+        term_months = debt.loan_years * 12
+    elif debt.term_months:
+        term_months = int(debt.term_months)
+
+    if not term_months:
+        return debt.current_balance or float(debt.original_amount)
+
+    annual_rate = _annual_rate_decimal(debt)
+    monthly_rate = _monthly_rate(annual_rate)
+    principal = float(debt.original_amount)
+    payments_due = min(term_months, _payments_due_by_date(debt.start_date, as_of_date))
+
+    monthly_payment = debt.monthly_payment
+    if not monthly_payment or monthly_payment <= 0:
+        # Prefer the mortgage calculator when terms are expressed in years.
+        if debt.loan_years:
+            monthly_payment = calculate_monthly_payment(principal, annual_rate, debt.loan_years)
+        else:
+            monthly_payment = _monthly_payment_from_terms(principal, annual_rate, term_months)
+
+    if not monthly_payment or monthly_payment <= 0:
+        return principal
+
+    balance = principal
+    for _ in range(payments_due):
+        if balance <= 0:
+            break
+        interest = balance * monthly_rate if monthly_rate > 0 else 0.0
+        principal_payment = max(0.0, monthly_payment - interest)
+        if principal_payment > balance:
+            principal_payment = balance
+        balance = max(0.0, balance - principal_payment)
+
+    return max(0.0, balance)
 
 
 def calculate_debt_balance_as_of(
