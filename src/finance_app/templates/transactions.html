@@ -15,9 +15,6 @@
         <p class="page-subtitle ml-16">Historial completo de ingresos y gastos</p>
     </div>
     <div class="page-actions">
-        <button onclick="openOutlookModal()" class="btn-secondary flex items-center shadow-strong">
-            <span class="mr-2 text-xl">📧</span> Importar Outlook
-        </button>
         <button onclick="openTransferModal()" class="btn-success flex items-center shadow-strong">
             <span class="mr-2 text-xl">⇄</span> Nueva Transferencia
         </button>
@@ -49,87 +46,6 @@
                     Ir a Presupuesto
                 </a>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- Telegram Integration -->
-<div class="card-hover-lift p-8 mb-8" id="telegramIntegration">
-    <div class="flex flex-col gap-6">
-        <div class="flex items-center space-x-4">
-            <div class="relative">
-                <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
-                <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
-                    <span class="text-2xl">📲</span>
-                </div>
-            </div>
-            <div>
-                <h3 class="text-2xl font-bold text-neutral-800">Conexión con Telegram</h3>
-                <p class="text-sm text-neutral-500">Registra gastos, ingresos o transferencias desde Telegram.</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="md:col-span-2">
-                <p class="text-sm text-neutral-500">
-                    Credenciales configuradas vía <span class="font-semibold">.env</span>.
-                    <span id="telegramEnvStatus" class="font-semibold text-neutral-700"></span>
-                </p>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta por defecto</label>
-                <select id="telegramDefaultAccount" class="input-field">
-                    <option value="">Selecciona una cuenta</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Categoría por defecto</label>
-                <select id="telegramDefaultCategory" class="input-field">
-                    <option value="">Selecciona una categoría</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Moneda por defecto</label>
-                <select id="telegramDefaultCurrency" class="input-field">
-                    <option value="">Selecciona una moneda</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Estado</label>
-                <select id="telegramIsActive" class="input-field">
-                    <option value="true">Activo</option>
-                    <option value="false">Inactivo</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta origen (transferencia)</label>
-                <select id="telegramTransferFromAccount" class="input-field">
-                    <option value="">Selecciona cuenta origen</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta destino (transferencia)</label>
-                <select id="telegramTransferToAccount" class="input-field">
-                    <option value="">Selecciona cuenta destino</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 space-y-4">
-            <div>
-                <p class="text-sm font-semibold text-neutral-700 mb-2">Ejemplos de mensajes</p>
-                <ul class="text-sm text-neutral-600 space-y-1 list-disc list-inside">
-                    <li><span class="font-mono">-28500 cop uber transporte</span></li>
-                    <li><span class="font-mono">-12.50 usd starbucks cafe</span></li>
-                    <li><span class="font-mono">2026-02-01 -18000 cop cine</span></li>
-                    <li><span class="font-mono">-28500 cop @davivienda uber transporte</span></li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="flex items-center gap-4">
-            <button onclick="saveTelegramSettings()" class="btn-primary">Guardar configuración</button>
-            <p id="telegramStatus" class="text-sm text-neutral-500"></p>
         </div>
     </div>
 </div>
@@ -448,106 +364,6 @@
     </div>
 </div>
 
-<!-- Outlook Import Modal -->
-<div id="outlookModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
-    <div class="bg-white card p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300">
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-blue-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-blue-400 to-blue-600 p-3 rounded-xl">
-                        <span class="text-2xl">📧</span>
-                    </div>
-                </div>
-                <h3 class="text-3xl font-extrabold text-neutral-900">Importar desde Outlook</h3>
-            </div>
-            <button onclick="closeOutlookModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-200 rounded-card p-4 mb-6">
-            <h4 class="font-semibold text-blue-900 mb-2">1) Conecta tu correo Outlook</h4>
-            <p class="text-sm text-blue-800 mb-3">
-                Presiona "Conectar Outlook" para recibir un código. Luego abre el enlace, ingresa el código y vuelve
-                para verificar la conexión.
-            </p>
-            <div class="flex flex-col md:flex-row gap-3">
-                <button onclick="startOutlookDeviceFlow()" class="btn-primary">
-                    🔐 Conectar Outlook
-                </button>
-                <button onclick="pollOutlookDeviceFlow()" class="btn-secondary">
-                    ✅ Ya autoricé
-                </button>
-            </div>
-            <div id="outlookDeviceFlowInfo" class="hidden mt-4 text-sm text-blue-900 bg-white border border-blue-200 rounded-card p-3"></div>
-        </div>
-
-        <div class="bg-neutral-50 border border-neutral-200 rounded-card p-4 mb-6">
-            <h4 class="font-semibold text-neutral-900 mb-2">2) Buscar correos del banco</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Dominio del banco</label>
-                    <input type="text" id="outlookBankDomain" class="input-field" placeholder="banco.com">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Días atrás</label>
-                    <input type="number" id="outlookDays" class="input-field" min="1" max="365" value="30">
-                </div>
-                <div class="flex items-end">
-                    <button onclick="fetchOutlookTransactions()" class="btn-success w-full">
-                        🔍 Buscar correos
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white border border-neutral-200 rounded-card p-4 mb-6">
-            <h4 class="font-semibold text-neutral-900 mb-4">3) Revisa y aprueba transacciones</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta destino</label>
-                    <select id="outlookAccountSelect" class="input-field"></select>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Estado</label>
-                    <p id="outlookStatus" class="text-sm text-neutral-600">Sin transacciones detectadas.</p>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="table table--compact">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-3 py-2 text-left">✅</th>
-                            <th class="px-3 py-2 text-left">Fecha</th>
-                            <th class="px-3 py-2 text-left">Comercio</th>
-                            <th class="px-3 py-2 text-left">Tipo</th>
-                            <th class="px-3 py-2 text-left">Monto</th>
-                            <th class="px-3 py-2 text-left">Moneda</th>
-                            <th class="px-3 py-2 text-left">Categoría</th>
-                            <th class="px-3 py-2 text-left">Memo</th>
-                        </tr>
-                    </thead>
-                    <tbody id="outlookTransactionsTable" class="divide-y divide-gray-200">
-                        <tr>
-                            <td colspan="8" class="px-3 py-4 text-center text-neutral-500">No hay transacciones aún.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="flex justify-end space-x-3 pt-6 border-t-2 border-neutral-100">
-                <button type="button" onclick="closeOutlookModal()" class="btn-secondary">
-                    Cancelar
-                </button>
-                <button type="button" onclick="importOutlookTransactions()" class="btn-primary">
-                    💾 Importar seleccionadas
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -557,19 +373,15 @@
     let categories = [];
     let currencies = [];
     let investmentAssets = [];
-    let outlookCandidates = [];
     let lastManualTransactions = {};
     let editingTransactionId = null;
     let editingTransactionOriginal = null;
-    let telegramSettings = null;
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadAccounts();
         await loadLastManualTransactions();
         await loadCategories();
         await loadCurrencies();
-        await loadTelegramSettings();
-        await loadTelegramStatus();
         await loadInvestmentAssets();
         await loadTransactions();
         setDefaultDate();
@@ -600,7 +412,6 @@
             });
 
             renderLastManualTransactions();
-            populateTelegramAccountOptions();
         } catch (error) {
             console.error('Error loading accounts:', error);
         }
@@ -697,7 +508,6 @@
                 formSelect.innerHTML += '</optgroup>';
             });
 
-            populateTelegramCategoryOptions();
         } catch (error) {
             console.error('Error loading categories:', error);
         }
@@ -707,128 +517,8 @@
         try {
             const res = await fetch('/api/currencies');
             currencies = await res.json();
-            populateTelegramCurrencyOptions();
         } catch (error) {
             console.error('Error loading currencies:', error);
-        }
-    }
-
-    function populateTelegramAccountOptions() {
-        const defaultAccount = document.getElementById('telegramDefaultAccount');
-        const transferFrom = document.getElementById('telegramTransferFromAccount');
-        const transferTo = document.getElementById('telegramTransferToAccount');
-        if (!defaultAccount || !transferFrom || !transferTo) return;
-
-        const options = ['<option value="">Selecciona una cuenta</option>']
-            .concat(accounts.map(acc => `<option value="${acc.id}">${acc.name} (${acc.currency.code})</option>`));
-
-        defaultAccount.innerHTML = options.join('');
-        transferFrom.innerHTML = options.join('');
-        transferTo.innerHTML = options.join('');
-    }
-
-    function populateTelegramCategoryOptions() {
-        const defaultCategory = document.getElementById('telegramDefaultCategory');
-        if (!defaultCategory) return;
-        defaultCategory.innerHTML = '<option value="">Selecciona una categoría</option>';
-        categories.forEach(cat => {
-            defaultCategory.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
-        });
-    }
-
-    function populateTelegramCurrencyOptions() {
-        const defaultCurrency = document.getElementById('telegramDefaultCurrency');
-        if (!defaultCurrency) return;
-        defaultCurrency.innerHTML = '<option value="">Selecciona una moneda</option>';
-        currencies.forEach(curr => {
-            defaultCurrency.innerHTML += `<option value="${curr.id}">${curr.code}</option>`;
-        });
-    }
-
-    async function loadTelegramSettings() {
-        try {
-            const res = await fetch('/api/telegram/settings');
-            if (!res.ok) {
-                throw new Error('No se pudo cargar Telegram.');
-            }
-            telegramSettings = await res.json();
-            const defaultAccount = document.getElementById('telegramDefaultAccount');
-            const defaultCategory = document.getElementById('telegramDefaultCategory');
-            const defaultCurrency = document.getElementById('telegramDefaultCurrency');
-            const transferFrom = document.getElementById('telegramTransferFromAccount');
-            const transferTo = document.getElementById('telegramTransferToAccount');
-            const isActive = document.getElementById('telegramIsActive');
-
-            if (defaultAccount) defaultAccount.value = telegramSettings.default_account_id || '';
-            if (defaultCategory) defaultCategory.value = telegramSettings.default_category_id || '';
-            if (defaultCurrency) defaultCurrency.value = telegramSettings.default_currency_id || '';
-            if (transferFrom) transferFrom.value = telegramSettings.default_transfer_from_account_id || '';
-            if (transferTo) transferTo.value = telegramSettings.default_transfer_to_account_id || '';
-            if (isActive) isActive.value = telegramSettings.is_active ? 'true' : 'false';
-
-        } catch (error) {
-            console.error('Error loading Telegram settings:', error);
-        }
-    }
-
-    async function loadTelegramStatus() {
-        const statusEl = document.getElementById('telegramEnvStatus');
-        if (!statusEl) return;
-        try {
-            const res = await fetch('/api/telegram/status');
-            if (!res.ok) {
-                throw new Error('No se pudo cargar el estado de Telegram.');
-            }
-            const status = await res.json();
-            if (status.configured) {
-                statusEl.textContent = 'Configurado por .env';
-                statusEl.className = 'font-semibold text-success-600';
-            } else {
-                statusEl.textContent = 'Falta configurar .env';
-                statusEl.className = 'font-semibold text-danger-600';
-            }
-        } catch (error) {
-            statusEl.textContent = 'Estado no disponible';
-            statusEl.className = 'font-semibold text-neutral-500';
-        }
-    }
-
-    async function saveTelegramSettings() {
-        const statusEl = document.getElementById('telegramStatus');
-        if (statusEl) {
-            statusEl.textContent = 'Guardando...';
-            statusEl.className = 'text-sm text-neutral-500';
-        }
-        const payload = {
-            default_account_id: parseInt(document.getElementById('telegramDefaultAccount')?.value || '', 10) || null,
-            default_category_id: parseInt(document.getElementById('telegramDefaultCategory')?.value || '', 10) || null,
-            default_currency_id: parseInt(document.getElementById('telegramDefaultCurrency')?.value || '', 10) || null,
-            default_transfer_from_account_id: parseInt(document.getElementById('telegramTransferFromAccount')?.value || '', 10) || null,
-            default_transfer_to_account_id: parseInt(document.getElementById('telegramTransferToAccount')?.value || '', 10) || null,
-            is_active: document.getElementById('telegramIsActive')?.value === 'true'
-        };
-
-        try {
-            const res = await fetch('/api/telegram/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.detail || 'No se pudo guardar.');
-            }
-            telegramSettings = await res.json();
-            if (statusEl) {
-                statusEl.textContent = 'Configuración guardada.';
-                statusEl.className = 'text-sm text-success-600';
-            }
-        } catch (error) {
-            console.error('Error saving Telegram settings:', error);
-            if (statusEl) {
-                statusEl.textContent = `Error: ${error.message}`;
-                statusEl.className = 'text-sm text-danger-600';
-            }
         }
     }
 
@@ -1411,205 +1101,5 @@
         }
     }
 
-    function openOutlookModal() {
-        document.getElementById('outlookModal').classList.remove('hidden');
-        populateOutlookAccounts();
-    }
-
-    function closeOutlookModal() {
-        document.getElementById('outlookModal').classList.add('hidden');
-    }
-
-    function populateOutlookAccounts() {
-        const select = document.getElementById('outlookAccountSelect');
-        select.innerHTML = '<option value="">Selecciona una cuenta</option>';
-        accounts.forEach(acc => {
-            select.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.currency.code})</option>`;
-        });
-    }
-
-    async function startOutlookDeviceFlow() {
-        const info = document.getElementById('outlookDeviceFlowInfo');
-        info.classList.add('hidden');
-        try {
-            const res = await fetch('/api/import/outlook/device-code', { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'No se pudo iniciar la conexión');
-            }
-            info.classList.remove('hidden');
-            info.innerHTML = `
-                <p><strong>Código:</strong> ${data.user_code}</p>
-                <p><strong>Enlace:</strong> <a href="${data.verification_uri}" target="_blank" class="text-blue-600 underline">${data.verification_uri}</a></p>
-                <p class="text-xs text-neutral-500 mt-2">${data.message || ''}</p>
-            `;
-        } catch (error) {
-            alert(`Error al iniciar conexión: ${error.message}`);
-        }
-    }
-
-    async function pollOutlookDeviceFlow() {
-        try {
-            const res = await fetch('/api/import/outlook/token', { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'No se pudo completar la conexión');
-            }
-            if (data.status === 'success') {
-                document.getElementById('outlookStatus').textContent = '✅ Conectado a Outlook';
-            } else {
-                document.getElementById('outlookStatus').textContent = '⏳ Esperando autorización...';
-            }
-        } catch (error) {
-            alert(`Error al verificar conexión: ${error.message}`);
-        }
-    }
-
-    async function fetchOutlookTransactions() {
-        const domain = document.getElementById('outlookBankDomain').value.trim();
-        const days = document.getElementById('outlookDays').value || 30;
-        if (!domain) {
-            alert('Debes ingresar el dominio del banco.');
-            return;
-        }
-        try {
-            const res = await fetch(`/api/import/outlook/transactions?domain=${encodeURIComponent(domain)}&days=${days}`);
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'No se pudieron obtener correos.');
-            }
-            outlookCandidates = data;
-            renderOutlookTransactions();
-        } catch (error) {
-            alert(`Error al buscar correos: ${error.message}`);
-        }
-    }
-
-    function renderOutlookTransactions() {
-        const table = document.getElementById('outlookTransactionsTable');
-        if (!outlookCandidates.length) {
-            table.innerHTML = `
-                <tr>
-                    <td colspan="8" class="px-3 py-4 text-center text-neutral-500">No se encontraron correos.</td>
-                </tr>
-            `;
-            document.getElementById('outlookStatus').textContent = 'No se detectaron transacciones.';
-            return;
-        }
-
-        const categoryOptions = ['<option value="">Sin categoría</option>']
-            .concat(categories.map(cat => `<option value="${cat.id}">${cat.group_name} - ${cat.name}</option>`))
-            .join('');
-
-        const currencyOptions = currencies.map(curr => `<option value="${curr.id}">${curr.code}</option>`).join('');
-
-        table.innerHTML = outlookCandidates.map((tx, index) => `
-            <tr>
-                <td class="px-3 py-2">
-                    <input type="checkbox" id="outlook-check-${index}" checked class="w-4 h-4 text-primary-600">
-                </td>
-                <td class="px-3 py-2">
-                    <input type="date" id="outlook-date-${index}" value="${tx.date || ''}" class="input-field">
-                </td>
-                <td class="px-3 py-2">
-                    <input type="text" id="outlook-payee-${index}" value="${tx.payee_name || ''}" class="input-field">
-                </td>
-                <td class="px-3 py-2">
-                    <select id="outlook-type-${index}" class="input-field">
-                        <option value="expense">Gasto</option>
-                        <option value="income">Ingreso</option>
-                    </select>
-                </td>
-                <td class="px-3 py-2">
-                    <input type="number" step="0.01" id="outlook-amount-${index}" value="${tx.amount || ''}" class="input-field">
-                </td>
-                <td class="px-3 py-2">
-                    <select id="outlook-currency-${index}" class="input-field">
-                        ${currencyOptions}
-                    </select>
-                </td>
-                <td class="px-3 py-2">
-                    <select id="outlook-category-${index}" class="input-field">
-                        ${categoryOptions}
-                    </select>
-                </td>
-                <td class="px-3 py-2">
-                    <input type="text" id="outlook-memo-${index}" value="${tx.memo || ''}" class="input-field">
-                </td>
-            </tr>
-        `).join('');
-
-        outlookCandidates.forEach((tx, index) => {
-            if (tx.currency) {
-                const matched = currencies.find(curr => curr.code === tx.currency);
-                if (matched) {
-                    document.getElementById(`outlook-currency-${index}`).value = matched.id;
-                }
-            }
-        });
-
-        document.getElementById('outlookStatus').textContent = `Detectadas ${outlookCandidates.length} transacciones.`;
-    }
-
-    async function importOutlookTransactions() {
-        const accountId = document.getElementById('outlookAccountSelect').value;
-        if (!accountId) {
-            alert('Selecciona la cuenta donde registrar las transacciones.');
-            return;
-        }
-
-        const payload = [];
-        outlookCandidates.forEach((tx, index) => {
-            const checked = document.getElementById(`outlook-check-${index}`).checked;
-            if (!checked) return;
-            const dateValue = document.getElementById(`outlook-date-${index}`).value;
-            const payeeValue = document.getElementById(`outlook-payee-${index}`).value || null;
-            const typeValue = document.getElementById(`outlook-type-${index}`).value;
-            const amountValue = parseFloat(document.getElementById(`outlook-amount-${index}`).value);
-            const currencyValue = parseInt(document.getElementById(`outlook-currency-${index}`).value, 10);
-            const categoryValue = document.getElementById(`outlook-category-${index}`).value;
-            const memoValue = document.getElementById(`outlook-memo-${index}`).value || null;
-
-            if (!dateValue || Number.isNaN(amountValue) || Number.isNaN(currencyValue)) {
-                return;
-            }
-
-            const signedAmount = typeValue === 'income' ? Math.abs(amountValue) : -Math.abs(amountValue);
-
-            payload.push({
-                account_id: parseInt(accountId, 10),
-                date: dateValue,
-                payee_name: payeeValue,
-                category_id: categoryValue ? parseInt(categoryValue, 10) : null,
-                memo: memoValue,
-                amount: signedAmount,
-                currency_id: currencyValue,
-                cleared: false
-            });
-        });
-
-        if (!payload.length) {
-            alert('No hay transacciones válidas para importar.');
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/import/outlook/transactions', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ transactions: payload })
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || 'No se pudieron importar las transacciones.');
-            }
-            alert(`✅ Importadas ${data.count} transacciones.`);
-            closeOutlookModal();
-            await loadTransactions();
-            await loadLastManualTransactions();
-        } catch (error) {
-            alert(`Error al importar: ${error.message}`);
-        }
-    }
 </script>
 {% endblock %}
