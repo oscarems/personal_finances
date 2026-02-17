@@ -445,11 +445,34 @@
                 <input type="text" id="newCategoryName" required class="input-field" placeholder="Ej: Netflix, Gasolina, etc.">
             </div>
             <div class="mb-6">
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Comportamiento</label>
+                <label id="newCategoryRolloverLabel" class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Comportamiento</label>
                 <select id="newCategoryRollover" class="input-field">
                     <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
                     <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
                 </select>
+            </div>
+            <div id="newCategoryIncomeFields" class="mb-6 hidden space-y-4">
+                <p class="text-xs font-semibold text-success-700 bg-success-100 border border-success-200 rounded-lg px-3 py-2">
+                    Esta categoría será un ingreso automático asociado a una transacción recurrente.
+                </p>
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cantidad</label>
+                    <input type="number" id="newCategoryIncomeAmount" class="input-field" step="0.01" min="0" placeholder="Ej: 2500000">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+                    <select id="newCategoryIncomeCurrency" class="input-field"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta</label>
+                    <select id="newCategoryIncomeAccount" class="input-field"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Transacción automática asociada</label>
+                    <select id="newCategoryRecurringSelect" class="input-field">
+                        <option value="">Sin asociar</option>
+                    </select>
+                </div>
             </div>
             <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
                 <button type="button" onclick="closeNewCategoryModal()" class="btn-secondary">
@@ -518,6 +541,8 @@
     let overspendingContext = null;
     let budgetAlertStates = {};
     let budgetAlertsPayload = null;
+    let recurringTransactions = [];
+    let budgetAccounts = [];
 
     const ALERT_SEVERITY_ORDER = {
         CRITICAL: 3,
@@ -547,6 +572,8 @@
         // Load exchange rate first
         await loadExchangeRate();
         await loadCurrencies();
+        await loadAccounts();
+        await loadRecurringTransactions();
 
         // Set current month
         const monthInput = document.getElementById('monthSelect');
@@ -576,6 +603,7 @@
             const groupId = parseInt(document.getElementById('newCategoryGroupId').value);
             const name = document.getElementById('newCategoryName').value.trim();
             const rolloverType = document.getElementById('newCategoryRollover').value;
+            const isIncomeGroup = document.getElementById('newCategoryModal').dataset.isIncome === 'true';
 
             if (!name) {
                 alert('El nombre de la categoría es requerido');
@@ -589,11 +617,17 @@
                     body: JSON.stringify({
                         name: name,
                         category_group_id: groupId,
-                        rollover_type: rolloverType
+                        rollover_type: isIncomeGroup ? 'reset' : rolloverType
                     })
                 });
 
                 if (response.ok) {
+                    const categoryPayload = await response.json();
+
+                    if (isIncomeGroup) {
+                        await maybeCreateOrAssociateIncomeRecurring(categoryPayload.id, name);
+                    }
+
                     closeNewCategoryModal();
                     loadBudget(); // Reload budget to show new category
                     alert('Categoría creada exitosamente');
@@ -667,6 +701,26 @@
             }, {});
         } catch (error) {
             console.error('Error loading currencies:', error);
+        }
+    }
+
+    async function loadAccounts() {
+        try {
+            const res = await fetch('/api/accounts');
+            budgetAccounts = await res.json();
+        } catch (error) {
+            console.error('Error loading accounts:', error);
+            budgetAccounts = [];
+        }
+    }
+
+    async function loadRecurringTransactions() {
+        try {
+            const res = await fetch('/api/recurring?is_active=true');
+            recurringTransactions = await res.json();
+        } catch (error) {
+            console.error('Error loading recurring transactions:', error);
+            recurringTransactions = [];
         }
     }
 
@@ -832,14 +886,28 @@
                     <!-- Categories (collapsible content) -->
                     <div id="group-${groupCOP.id}" class="divide-y divide-gray-200">
                         <div class="px-6 py-3 bg-gray-100 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                            <div class="grid grid-cols-4 gap-4">
-                                <span>Categoría</span>
-                                <span class="text-right">Asignado</span>
-                                <span class="text-right">Gastado</span>
-                                <span class="text-right">Disponible</span>
-                            </div>
+                            ${groupCOP.is_income ? `
+                                <div class="grid grid-cols-5 gap-4">
+                                    <span>Categoría</span>
+                                    <span class="text-right">Ingreso</span>
+                                    <span class="text-right">Moneda</span>
+                                    <span class="text-right">Cuenta</span>
+                                    <span class="text-right">Transacción automática</span>
+                                </div>
+                            ` : `
+                                <div class="grid grid-cols-4 gap-4">
+                                    <span>Categoría</span>
+                                    <span class="text-right">Asignado</span>
+                                    <span class="text-right">Gastado</span>
+                                    <span class="text-right">Disponible</span>
+                                </div>
+                            `}
                         </div>
                         ${groupCOP.categories.map(cat => {
+                            if (groupCOP.is_income) {
+                                return renderIncomeCategoryRow(cat);
+                            }
+
                             const percentSpent = cat.assigned > 0 ? (Math.abs(cat.activity) / cat.assigned) * 100 : 0;
                             const isOverbudget = percentSpent > 100;
                             const barColor = isOverbudget ? 'bg-red-500' : (percentSpent > 80 ? 'bg-yellow-500' : 'bg-green-500');
@@ -915,7 +983,8 @@
                         <!-- Add Category Button -->
                         <div class="px-6 py-3 bg-gray-50">
                             <button data-group-id="${groupCOP.id}" data-group-name="${groupCOP.name}"
-                                    onclick="openNewCategoryModal(this.dataset.groupId, this.dataset.groupName)"
+                                    data-group-is-income="${groupCOP.is_income}"
+                                    onclick="openNewCategoryModal(this.dataset.groupId, this.dataset.groupName, this.dataset.groupIsIncome === 'true')"
                                     class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
                                 <span class="mr-1">+</span> Agregar Categoría
                             </button>
@@ -928,6 +997,39 @@
         // Render the bar charts after displaying the budget
         renderBudgetBarChart(dataCOP);
         renderSpendingBarChart(dataCOP);
+    }
+
+    function renderIncomeCategoryRow(cat) {
+        const linkedRecurring = recurringTransactions.find(tx => tx.category_id === cat.category_id && tx.transaction_type === 'income');
+        const recurringAmount = linkedRecurring ? Math.abs(linkedRecurring.amount || 0) : 0;
+        const recurringCurrency = linkedRecurring?.currency?.code || '-';
+        const recurringAccount = linkedRecurring?.account_name || '-';
+
+        const options = ['<option value="">Sin asociar</option>']
+            .concat(
+                recurringTransactions
+                    .filter(tx => tx.transaction_type === 'income')
+                    .map(tx => `<option value="${tx.id}" ${tx.category_id === cat.category_id ? 'selected' : ''}>${tx.description || 'Ingreso automático'} · ${Math.abs(tx.amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 2 })} ${tx.currency?.code || ''}</option>`)
+            )
+            .join('');
+
+        return `
+            <div class="px-6 py-4 hover:bg-gray-50">
+                <div class="grid grid-cols-5 gap-4 items-center">
+                    <div class="col-span-1">
+                        <p class="font-medium text-gray-800">${cat.category_name}</p>
+                    </div>
+                    <div class="text-right font-semibold text-gray-800">${recurringAmount.toLocaleString('es-CO', { minimumFractionDigits: recurringCurrency === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}</div>
+                    <div class="text-right text-gray-700">${recurringCurrency}</div>
+                    <div class="text-right text-gray-700">${recurringAccount}</div>
+                    <div>
+                        <select class="input-field py-2 text-sm" onchange="associateRecurringToCategory(${cat.category_id}, this.value)">
+                            ${options}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     function buildCategoryChartData(budgetData, valueSelector, maxItems = 12) {
@@ -1832,16 +1934,122 @@
     }
 
     // New Category Modal Functions
-    function openNewCategoryModal(groupId, groupName) {
+    function openNewCategoryModal(groupId, groupName, isIncomeGroup = false) {
         document.getElementById('newCategoryGroupId').value = groupId;
         document.getElementById('newCategoryGroupName').value = groupName;
         document.getElementById('newCategoryName').value = '';
         document.getElementById('newCategoryRollover').value = 'reset';
+        document.getElementById('newCategoryModal').dataset.isIncome = isIncomeGroup ? 'true' : 'false';
+
+        const rolloverLabel = document.getElementById('newCategoryRolloverLabel');
+        const rolloverField = document.getElementById('newCategoryRollover');
+        const incomeFields = document.getElementById('newCategoryIncomeFields');
+
+        rolloverLabel.textContent = isIncomeGroup ? 'Tipo de Ingreso' : 'Comportamiento';
+        rolloverField.classList.toggle('hidden', isIncomeGroup);
+        incomeFields.classList.toggle('hidden', !isIncomeGroup);
+
+        populateIncomeCategoryFields();
+
         document.getElementById('newCategoryModal').classList.remove('hidden');
     }
 
     function closeNewCategoryModal() {
         document.getElementById('newCategoryModal').classList.add('hidden');
+    }
+
+    function populateIncomeCategoryFields() {
+        const currencySelect = document.getElementById('newCategoryIncomeCurrency');
+        const accountSelect = document.getElementById('newCategoryIncomeAccount');
+        const recurringSelect = document.getElementById('newCategoryRecurringSelect');
+
+        currencySelect.innerHTML = Object.values(currencies)
+            .map(curr => `<option value="${curr.id}">${curr.code}</option>`)
+            .join('');
+
+        accountSelect.innerHTML = budgetAccounts
+            .filter(acc => acc.is_budget && !acc.is_closed)
+            .map(acc => `<option value="${acc.id}">${acc.name}</option>`)
+            .join('');
+
+        recurringSelect.innerHTML = '<option value="">Sin asociar</option>' + recurringTransactions
+            .filter(tx => tx.transaction_type === 'income')
+            .map(tx => `<option value="${tx.id}">${tx.description || 'Ingreso automático'} · ${Math.abs(tx.amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 2 })} ${tx.currency?.code || ''}</option>`)
+            .join('');
+    }
+
+    async function maybeCreateOrAssociateIncomeRecurring(categoryId, categoryName) {
+        const selectedRecurringId = document.getElementById('newCategoryRecurringSelect').value;
+        if (selectedRecurringId) {
+            await associateRecurringToCategory(categoryId, selectedRecurringId, false);
+            return;
+        }
+
+        const amount = parseFloat(document.getElementById('newCategoryIncomeAmount').value || '0');
+        const currencyId = parseInt(document.getElementById('newCategoryIncomeCurrency').value || '0');
+        const accountId = parseInt(document.getElementById('newCategoryIncomeAccount').value || '0');
+
+        if (!amount || !currencyId || !accountId) {
+            return;
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        await fetch('/api/recurring/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                account_id: accountId,
+                category_id: categoryId,
+                description: `Ingreso automático: ${categoryName}`,
+                amount: Math.abs(amount),
+                transaction_type: 'income',
+                currency_id: currencyId,
+                frequency: 'monthly',
+                interval: 1,
+                start_date: today,
+                day_of_month: 1
+            })
+        });
+
+        await loadRecurringTransactions();
+    }
+
+    async function associateRecurringToCategory(categoryId, recurringId, reload = true) {
+        if (!recurringId) {
+            return;
+        }
+
+        const recurring = recurringTransactions.find(tx => tx.id === parseInt(recurringId));
+        if (!recurring) {
+            return;
+        }
+
+        const response = await fetch(`/api/recurring/${recurring.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                account_id: recurring.account_id,
+                category_id: categoryId,
+                description: recurring.description,
+                amount: recurring.amount,
+                transaction_type: recurring.transaction_type,
+                currency_id: recurring.currency?.id,
+                frequency: recurring.frequency,
+                interval: recurring.interval,
+                start_date: recurring.start_date,
+                end_date: recurring.end_date,
+                day_of_week: recurring.day_of_week,
+                day_of_month: recurring.day_of_month,
+                is_active: recurring.is_active
+            })
+        });
+
+        if (response.ok) {
+            await loadRecurringTransactions();
+            if (reload) {
+                await loadBudget();
+            }
+        }
     }
 
     // Group Management Functions
