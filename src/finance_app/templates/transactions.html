@@ -137,7 +137,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto (Original · COP · USD)</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
                 </tr>
@@ -673,10 +673,20 @@
                             ${typeLabel}
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${amountClass}">
-                        ${amountPrefix}${tx.currency.symbol}${Math.abs(tx.amount).toLocaleString('en-US', {
-                            minimumFractionDigits: tx.currency.decimals
-                        })}
+                    <td class="px-6 py-4 text-sm text-right">
+                        <div class="font-semibold ${amountClass}">
+                            ${formatSignedCurrencyAmount(tx.amount, tx.currency, { useCode: true })}
+                        </div>
+                        <div class="mt-1 space-y-0.5 text-xs text-neutral-500">
+                            <p class="flex justify-end gap-1">
+                                <span class="font-medium text-neutral-600">COP:</span>
+                                <span>${formatSignedCurrencyAmount(tx.cop_amount, { symbol: '$', code: 'COP', decimals: 2 })}</span>
+                            </p>
+                            <p class="flex justify-end gap-1">
+                                <span class="font-medium text-neutral-600">USD:</span>
+                                <span>${formatSignedCurrencyAmount(tx.usd_amount, { symbol: '$', code: 'USD', decimals: 2 })}</span>
+                            </p>
+                        </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
                         ${tx.cleared ? '<span class="text-green-600">✓</span>' : '<span class="text-gray-400">○</span>'}
@@ -697,6 +707,30 @@
                 </tr>
             `;
         }).join('');
+    }
+
+    function formatSignedCurrencyAmount(amountValue, currencyInfo, options = {}) {
+        if (amountValue === null || amountValue === undefined || Number.isNaN(Number(amountValue))) {
+            return '—';
+        }
+
+        const numericAmount = Number(amountValue);
+        const decimals = currencyInfo?.decimals ?? 2;
+        const symbol = currencyInfo?.symbol || '';
+        const code = currencyInfo?.code || '';
+        const useCode = Boolean(options.useCode);
+
+        const prefix = numericAmount >= 0 ? '+' : '-';
+        const absoluteAmount = Math.abs(numericAmount).toLocaleString('en-US', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+
+        if (useCode && code) {
+            return `${prefix}${code} ${absoluteAmount}`;
+        }
+
+        return `${prefix}${symbol}${absoluteAmount}`;
     }
 
     function sortTransactions(items) {
