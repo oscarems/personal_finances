@@ -296,12 +296,22 @@
                 <p class="text-xs text-neutral-500 mt-2 font-medium">Solo aplica a ingresos.</p>
             </div>
 
+
+            <div id="txCreditCardPaymentSourceGroup" class="hidden">
+                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta origen del pago</label>
+                <select id="txCreditCardPaymentSource" class="input-field">
+                    <option value="">Selecciona cuenta origen</option>
+                </select>
+                <p class="text-xs text-neutral-500 mt-2 font-medium">Se creará una transferencia desde esta cuenta hacia la tarjeta de crédito seleccionada.</p>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Tipo</label>
                     <select id="txType" required class="input-field">
                         <option value="expense">💸 Gasto</option>
                         <option value="income">💰 Ingreso</option>
+                        <option value="credit_card_payment">💳 Pago Tarjeta de Crédito</option>
                     </select>
                 </div>
 
@@ -601,6 +611,7 @@
 
             renderLastManualTransactions();
             populateTelegramAccountOptions();
+            populateCreditCardPaymentSources();
         } catch (error) {
             console.error('Error loading accounts:', error);
         }
@@ -855,14 +866,42 @@
         });
     }
 
+    function populateCreditCardPaymentSources() {
+        const sourceSelect = document.getElementById('txCreditCardPaymentSource');
+        sourceSelect.innerHTML = '<option value="">Selecciona cuenta origen</option>';
+
+        const selectableAccounts = accounts.filter(acc => acc.type !== 'credit_card');
+        selectableAccounts.forEach(acc => {
+            sourceSelect.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.currency.code})</option>`;
+        });
+    }
+
     function toggleInvestmentSelect() {
         const txType = document.getElementById('txType').value;
         const investmentGroup = document.getElementById('txInvestmentGroup');
+        const ccPaymentGroup = document.getElementById('txCreditCardPaymentSourceGroup');
+        const categoryGroup = document.getElementById('txCategory').closest('div');
+        const payeeGroup = document.getElementById('txPayee').closest('div');
+
         if (txType === 'income') {
             investmentGroup.classList.remove('hidden');
         } else {
             investmentGroup.classList.add('hidden');
             document.getElementById('txInvestment').value = '';
+        }
+
+        if (txType === 'credit_card_payment') {
+            ccPaymentGroup.classList.remove('hidden');
+            categoryGroup.classList.add('hidden');
+            payeeGroup.classList.add('hidden');
+            document.getElementById('txCategory').value = '';
+            document.getElementById('txPayee').value = '';
+            populateCreditCardPaymentSources();
+        } else {
+            ccPaymentGroup.classList.add('hidden');
+            categoryGroup.classList.remove('hidden');
+            payeeGroup.classList.remove('hidden');
+            document.getElementById('txCreditCardPaymentSource').value = '';
         }
     }
 
@@ -1101,6 +1140,7 @@
 
         const txType = document.getElementById('txType').value;
         const rawAmount = parseFloat(document.getElementById('txAmount').value);
+        const isCreditCardPayment = txType === 'credit_card_payment';
         const signedAmount = txType === 'income' ? Math.abs(rawAmount) : -Math.abs(rawAmount);
         const accountId = parseInt(document.getElementById('txAccount').value, 10);
         const currencyId = parseInt(document.getElementById('txCurrency').value, 10);
@@ -1137,9 +1177,58 @@
             cleared: clearedValue
         };
 
+        if (isCreditCardPayment && editingTransactionId) {
+            alert('Los pagos de tarjeta de crédito se registran como transferencias nuevas.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            return;
+        }
+
         try {
             let res;
-            if (editingTransactionId) {
+            if (isCreditCardPayment) {
+                const sourceAccountId = parseInt(document.getElementById('txCreditCardPaymentSource').value, 10);
+                const targetAccount = accounts.find(acc => acc.id === accountId);
+                const sourceAccount = accounts.find(acc => acc.id === sourceAccountId);
+
+                if (Number.isNaN(sourceAccountId) || !sourceAccount || !targetAccount) {
+                    alert('Selecciona una cuenta origen válida para el pago.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
+                if (targetAccount.type !== 'credit_card') {
+                    alert('Para Pago Tarjeta, la cuenta destino debe ser una tarjeta de crédito.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
+                if (sourceAccount.id === targetAccount.id) {
+                    alert('La cuenta origen y destino deben ser diferentes.');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    return;
+                }
+
+                const transferPayload = {
+                    from_account_id: sourceAccount.id,
+                    to_account_id: targetAccount.id,
+                    date: dateValue,
+                    amount: Math.abs(rawAmount),
+                    from_currency_id: sourceAccount.currency.id,
+                    to_currency_id: targetAccount.currency.id,
+                    memo: memoValue || 'Pago tarjeta de crédito',
+                    cleared: clearedValue
+                };
+
+                res = await fetch('/api/transactions/transfer', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(transferPayload)
+                });
+            } else if (editingTransactionId) {
                 const payload = {};
                 const original = editingTransactionOriginal || {};
                 const originalCurrencyId = original.original_currency_id
