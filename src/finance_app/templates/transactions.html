@@ -127,17 +127,17 @@
 
 <!-- Transactions Table -->
 <div class="card overflow-hidden">
-    <div class="overflow-x-auto">
+    <div>
         <table class="table">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuenta</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Cuenta</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Memo</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto (Original · COP · USD)</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Categoría</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Memo</th>
+                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Tipo</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
                 </tr>
@@ -152,6 +152,22 @@
         <button onclick="openCreateModal()" class="mt-4 text-blue-600 hover:text-blue-700 font-semibold">
             + Crear tu primera transacción
         </button>
+    </div>
+</div>
+
+
+<!-- Transaction Detail Modal -->
+<div id="transactionDetailModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
+    <div class="bg-white card p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-extrabold text-neutral-900">Detalle de transacción</h3>
+            <button onclick="closeTransactionDetailModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="transactionDetailContent" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"></div>
     </div>
 </div>
 
@@ -386,6 +402,7 @@
     let lastManualTransactions = {};
     let editingTransactionId = null;
     let editingTransactionOriginal = null;
+    let transactionDetailSelected = null;
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadAccounts();
@@ -656,19 +673,19 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         ${formatDate(tx.date)}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden md:table-cell">
                         ${tx.account_name || '-'}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         ${tx.payee_name || '-'}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
                         ${tx.category_name || 'Sin categoría'}
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                    <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate hidden xl:table-cell">
                         ${tx.memo || ''}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-center text-xs">
+                    <td class="px-6 py-4 whitespace-nowrap text-center text-xs hidden md:table-cell">
                         <span class="inline-flex items-center px-2 py-1 rounded-full font-semibold ${typeBadgeClass}">
                             ${typeLabel}
                         </span>
@@ -677,7 +694,7 @@
                         <div class="font-semibold ${amountClass}">
                             ${formatSignedCurrencyAmount(tx.amount, tx.currency, { useCode: true })}
                         </div>
-                        <div class="mt-1 space-y-0.5 text-xs text-neutral-500">
+                        <div class="mt-1 space-y-0.5 text-xs text-neutral-500 hidden md:block">
                             <p class="flex justify-end gap-1">
                                 <span class="font-medium text-neutral-600">COP:</span>
                                 <span>${formatSignedCurrencyAmount(tx.cop_amount, { symbol: '$', code: 'COP', decimals: 2 })}</span>
@@ -693,6 +710,10 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
                         <div class="inline-flex items-center gap-3">
+                            <button onclick="openTransactionDetailModal(${tx.id})"
+                                    class="text-neutral-600 hover:text-neutral-800 font-medium md:hidden">
+                                Ver detalle
+                            </button>
                             <button onclick="editTransaction(${tx.id})"
                                     class="text-blue-600 hover:text-blue-700 font-medium">
                                 Editar
@@ -731,6 +752,51 @@
         }
 
         return `${prefix}${symbol}${absoluteAmount}`;
+    }
+
+
+    function openTransactionDetailModal(transactionId) {
+        transactionDetailSelected = transactions.find(tx => tx.id === transactionId) || null;
+        if (!transactionDetailSelected) return;
+
+        const tx = transactionDetailSelected;
+        const detailContainer = document.getElementById('transactionDetailContent');
+        const typeLabel = tx.type === 'income'
+            ? 'Ingreso'
+            : tx.type === 'credit_card_payment'
+                ? 'Pago tarjeta de crédito'
+                : 'Gasto';
+
+        detailContainer.innerHTML = `
+            ${buildDetailItem('Fecha', formatDate(tx.date))}
+            ${buildDetailItem('Cuenta', tx.account_name || '-')}
+            ${buildDetailItem('Beneficiario', tx.payee_name || '-')}
+            ${buildDetailItem('Categoría', tx.category_name || 'Sin categoría')}
+            ${buildDetailItem('Tipo', typeLabel)}
+            ${buildDetailItem('Estado', tx.cleared ? 'Conciliada' : 'Pendiente')}
+            ${buildDetailItem('Monto original', formatSignedCurrencyAmount(tx.amount, tx.currency, { useCode: true }))}
+            ${buildDetailItem('Monto COP', formatSignedCurrencyAmount(tx.cop_amount, { symbol: '$', code: 'COP', decimals: 2 }))}
+            ${buildDetailItem('Monto USD', formatSignedCurrencyAmount(tx.usd_amount, { symbol: '$', code: 'USD', decimals: 2 }))}
+            <div class="sm:col-span-2">
+                ${buildDetailItem('Memo', tx.memo || 'Sin memo')}
+            </div>
+        `;
+
+        document.getElementById('transactionDetailModal').classList.remove('hidden');
+    }
+
+    function closeTransactionDetailModal() {
+        document.getElementById('transactionDetailModal').classList.add('hidden');
+        transactionDetailSelected = null;
+    }
+
+    function buildDetailItem(label, value) {
+        return `
+            <div class="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                <p class="text-xs uppercase tracking-wide text-neutral-500 font-semibold mb-1">${escapeHtml(label)}</p>
+                <p class="text-sm text-neutral-900 font-medium break-words">${escapeHtml(value)}</p>
+            </div>
+        `;
     }
 
     function sortTransactions(items) {
