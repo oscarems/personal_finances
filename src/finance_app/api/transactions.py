@@ -22,6 +22,50 @@ from finance_app.services.transaction_service import (
 router = APIRouter()
 
 
+def _amounts_in_cop_and_usd(transaction, db: Session, cop_currency: Optional[Currency], usd_currency: Optional[Currency]):
+    """Return transaction amount converted to COP and USD using original values/date."""
+    original_amount = transaction.original_amount
+    original_currency_id = transaction.original_currency_id
+    transaction_date = transaction.date
+
+    cop_amount = None
+    usd_amount = None
+
+    if not original_currency_id or original_amount is None or not transaction_date:
+        return cop_amount, usd_amount
+
+    original_currency = db.query(Currency).get(original_currency_id)
+    original_currency_code = original_currency.code if original_currency else None
+    if not original_currency_code:
+        return cop_amount, usd_amount
+
+    if cop_currency:
+        if original_currency_id == cop_currency.id:
+            cop_amount = original_amount
+        else:
+            cop_amount = convert_currency(
+                amount=original_amount,
+                from_currency=original_currency_code,
+                to_currency="COP",
+                db=db,
+                rate_date=transaction_date
+            )
+
+    if usd_currency:
+        if original_currency_id == usd_currency.id:
+            usd_amount = original_amount
+        else:
+            usd_amount = convert_currency(
+                amount=original_amount,
+                from_currency=original_currency_code,
+                to_currency="USD",
+                db=db,
+                rate_date=transaction_date
+            )
+
+    return cop_amount, usd_amount
+
+
 # Pydantic schemas
 class MortgageAllocation(BaseModel):
     loan_id: int
@@ -97,7 +141,18 @@ def list_transactions(
         end_date=end_date,
         limit=limit
     )
-    return [t.to_dict() for t in transactions]
+    cop_currency = db.query(Currency).filter_by(code="COP").first()
+    usd_currency = db.query(Currency).filter_by(code="USD").first()
+
+    enriched_transactions = []
+    for transaction in transactions:
+        serialized = transaction.to_dict()
+        cop_amount, usd_amount = _amounts_in_cop_and_usd(transaction, db, cop_currency, usd_currency)
+        serialized["cop_amount"] = cop_amount
+        serialized["usd_amount"] = usd_amount
+        enriched_transactions.append(serialized)
+
+    return enriched_transactions
 
 
 @router.get("/export")
@@ -138,38 +193,7 @@ def export_transactions(
         is_transfer = transaction.transfer_account_id is not None
         is_inflow = transaction.amount >= 0
         tipo = "Transferencia" if is_transfer else ("Ingreso" if is_inflow else "Gasto")
-        original_amount = transaction.original_amount
-        original_currency_id = transaction.original_currency_id
-        transaction_date = transaction.date
-
-        cop_amount = None
-        usd_amount = None
-
-        if original_currency_id and transaction_date:
-            original_currency = db.query(Currency).get(original_currency_id)
-            original_currency_code = original_currency.code if original_currency else None
-            if cop_currency:
-                if original_currency_id == cop_currency.id:
-                    cop_amount = original_amount
-                elif original_currency_code:
-                    cop_amount = convert_currency(
-                        amount=original_amount,
-                        from_currency=original_currency_code,
-                        to_currency="COP",
-                        db=db,
-                        rate_date=transaction_date
-                    )
-            if usd_currency:
-                if original_currency_id == usd_currency.id:
-                    usd_amount = original_amount
-                elif original_currency_code:
-                    usd_amount = convert_currency(
-                        amount=original_amount,
-                        from_currency=original_currency_code,
-                        to_currency="USD",
-                        db=db,
-                        rate_date=transaction_date
-                    )
+        cop_amount, usd_amount = _amounts_in_cop_and_usd(transaction, db, cop_currency, usd_currency)
 
         writer.writerow([
             transaction.date.isoformat() if transaction.date else "",
