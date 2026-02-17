@@ -98,6 +98,11 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
     if amount == 0:
         return
 
+    if debt.debt_type == "credit_card":
+        debt.current_balance = max(0.0, -(account.balance or 0.0))
+        debt.is_active = debt.current_balance > 0
+        return
+
     payment_amount = abs(amount)
     if amount < 0:
         payment = DebtPayment(
@@ -134,6 +139,11 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
 
     debt = db.query(Debt).filter_by(account_id=account.id).first()
     if not debt:
+        return
+
+    if debt.debt_type == "credit_card":
+        debt.current_balance = max(0.0, -(account.balance or 0.0))
+        debt.is_active = debt.current_balance > 0
         return
 
     payment = db.query(DebtPayment).filter_by(transaction_id=transaction.id).first()
@@ -715,6 +725,9 @@ def create_transfer(db: Session, data):
         from_account.balance += from_amount  # Subtract from source
     if transaction_affects_balance(to_account, transfer_date):
         to_account.balance += to_amount      # Add to destination
+
+    _apply_debt_impact(db, from_transaction, from_account)
+    _apply_debt_impact(db, to_transaction, to_account)
 
     db.commit()
     db.refresh(from_transaction)

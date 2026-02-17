@@ -69,6 +69,11 @@ def _payment_source_label(transaction_id: Optional[int]) -> str:
     return "transaccion" if transaction_id else "presupuesto"
 
 
+def _get_credit_card_current_balance(debt: Debt) -> float:
+    account_balance = debt.account.balance if debt.account else 0.0
+    return max(0.0, -(account_balance or 0.0))
+
+
 def _build_mortgage_payment_history(debt: Debt, db: Session) -> List[dict]:
     allocations = db.query(MortgagePaymentAllocation).filter_by(loan_id=debt.id).order_by(
         MortgagePaymentAllocation.payment_date.asc(),
@@ -152,6 +157,9 @@ def _debt_to_dict_with_calculated_balance(
 ) -> dict:
     data = debt.to_dict(include_payments=include_payments)
     if debt.debt_type == "credit_card":
+        data["current_balance"] = _get_credit_card_current_balance(debt)
+        if debt.original_amount and debt.original_amount > 0:
+            data["paid_percentage"] = ((debt.original_amount - data["current_balance"]) / debt.original_amount) * 100
         return data
 
     today = date.today()
@@ -307,6 +315,8 @@ def get_debts_summary(db: Session = Depends(get_db)):
     for debt in eligible_debts:
         if debt.debt_type in {"mortgage", "credit_loan"}:
             current_balance = _calculate_loan_current_balance(debt, db)
+        elif debt.debt_type == "credit_card":
+            current_balance = _get_credit_card_current_balance(debt)
         else:
             record = amortization_map.get(debt.id)
             current_balance = float(record.principal_remaining) if record else (debt.current_balance or 0.0)
