@@ -8,8 +8,9 @@ from pydantic import BaseModel
 from datetime import date
 
 from finance_app.database import get_db
-from finance_app.models import Account, Currency
+from finance_app.models import Account, Currency, Debt
 from finance_app.services.transaction_service import get_account_summary
+from finance_app.services.debt_balance_service import calculate_scheduled_principal_balance
 
 router = APIRouter()
 
@@ -57,7 +58,33 @@ def list_accounts(type: Optional[str] = None, db: Session = Depends(get_db)):
     if type:
         query = query.filter(Account.type == type)
     accounts = query.all()
-    return [acc.to_dict() for acc in accounts]
+
+    debt_by_account_id = {
+        debt.account_id: debt
+        for debt in db.query(Debt).filter(Debt.account_id.in_([acc.id for acc in accounts])).all()
+    } if accounts else {}
+
+    serialized_accounts = []
+    for account in accounts:
+        account_data = account.to_dict()
+        linked_debt = debt_by_account_id.get(account.id)
+
+        if linked_debt and account.type in {"credit_card", "credit_loan", "mortgage"}:
+            if account.type == "credit_card":
+                debt_balance = max(0.0, -(account.balance or 0.0))
+            else:
+                debt_balance = calculate_scheduled_principal_balance(
+                    debt=linked_debt,
+                    as_of_date=date.today(),
+                )
+
+            # La UI de cuentas muestra deudas como números rojos con valor absoluto,
+            # por eso mantenemos el signo negativo para representar obligación.
+            account_data["balance"] = -float(debt_balance)
+
+        serialized_accounts.append(account_data)
+
+    return serialized_accounts
 
 
 @router.get("/summary")
