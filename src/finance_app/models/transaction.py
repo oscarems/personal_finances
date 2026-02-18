@@ -43,6 +43,8 @@ class Transaction(Base):
     category = relationship('Category', back_populates='transactions')
     currency = relationship('Currency', foreign_keys=[currency_id], back_populates='transactions')
     investment_asset = relationship('WealthAsset')
+    tag_links = relationship('TransactionTag', back_populates='transaction', cascade='all, delete-orphan')
+    splits = relationship('TransactionSplit', back_populates='transaction', cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Transaction {self.date} {self.amount}>'
@@ -66,7 +68,7 @@ class Transaction(Base):
 
     def to_dict(self):
         delete_reason = self.delete_block_reason()
-        return {
+        data = {
             'id': self.id,
             'account_id': self.account_id,
             'account_name': self.account.name if self.account else None,
@@ -96,3 +98,6 @@ class Transaction(Base):
             'can_delete': delete_reason is None,
             'delete_reason': delete_reason
         }
+        data['tags'] = [link.tag.to_dict() for link in self.tag_links if link.tag]
+        data['splits'] = [split.to_dict() for split in self.splits]
+        return data
