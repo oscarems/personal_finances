@@ -18,6 +18,9 @@ from finance_app.models.reconciliation import ReconciliationSession
 from finance_app.models.wealth_asset import WealthAsset
 from finance_app.models.telegram_settings import TelegramSettings
 from finance_app.models.email_scrape_transaction import EmailScrapeTransaction
+from finance_app.models.tag import Tag, TransactionTag
+from finance_app.models.transaction_split import TransactionSplit
+from finance_app.models.goal import Goal, GoalContribution
 
 __all__ = [
     'Currency',
@@ -43,4 +46,9 @@ __all__ = [
     'WealthAsset',
     'TelegramSettings',
     'EmailScrapeTransaction',
+    'GoalContribution',
+    'Goal',
+    'TransactionSplit',
+    'TransactionTag',
+    'Tag',
 ]

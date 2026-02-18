@@ -6,7 +6,8 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
-from finance_app.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment, MortgagePaymentAllocation
+from finance_app.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment, MortgagePaymentAllocation, Tag, TransactionTag, TransactionSplit
+from finance_app.services.transaction_allocation_service import validate_splits_sum, validate_splits_categories_exist
 from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
 from finance_app.services.mortgage_allocation_service import (
     apply_mortgage_payment_allocation,
@@ -173,6 +174,51 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
             debt.is_active = False
 
 
+
+def _apply_tags_to_transaction(db: Session, transaction: Transaction, tag_ids: Optional[list[int]]) -> None:
+    if tag_ids is None:
+        return
+    transaction.tag_links.clear()
+    if not tag_ids:
+        return
+    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
+    found_ids = {tag.id for tag in tags}
+    missing = [tag_id for tag_id in tag_ids if tag_id not in found_ids]
+    if missing:
+        raise ValueError(f"Invalid tag IDs: {missing}")
+    for tag in tags:
+        transaction.tag_links.append(TransactionTag(tag_id=tag.id))
+
+
+def _apply_splits_to_transaction(db: Session, transaction: Transaction, splits_data: Optional[list[dict]]) -> None:
+    if splits_data is None:
+        return
+    if transaction.transfer_account_id:
+        raise ValueError("Transfer transactions cannot have splits")
+    transaction.splits.clear()
+    if not splits_data:
+        return
+
+    split_amounts = [float(split.get("amount") or 0.0) for split in splits_data]
+    if not validate_splits_sum(transaction.amount, split_amounts):
+        raise ValueError("Split amounts must add up exactly to transaction amount")
+
+    category_ids = [split.get("category_id") for split in splits_data]
+    categories = db.query(Category).filter(Category.id.in_(category_ids)).all()
+    category_map = {category.id: category for category in categories}
+    if not validate_splits_categories_exist(category_map, category_ids):
+        raise ValueError("One or more split categories are invalid")
+
+    for split in splits_data:
+        transaction.splits.append(
+            TransactionSplit(
+                category_id=split["category_id"],
+                amount=float(split["amount"]),
+                note=split.get("note"),
+            )
+        )
+
+
 def create_transaction(db: Session, data):
     """
     Create a new transaction
@@ -182,6 +228,8 @@ def create_transaction(db: Session, data):
         Transaction object
     """
     mortgage_allocation = data.pop('mortgage_allocation', None)
+    tag_ids = data.pop('tag_ids', None)
+    splits = data.pop('splits', None)
     source = data.get('source')
     source_id = data.get('source_id')
 
@@ -236,6 +284,9 @@ def create_transaction(db: Session, data):
         db.add(transaction)
         db.flush()
 
+        _apply_tags_to_transaction(db, transaction, tag_ids)
+        _apply_splits_to_transaction(db, transaction, splits)
+
         # Update account balance
         if account and transaction_affects_balance(account, transaction_date):
             account.balance += normalized_amount
@@ -248,7 +299,7 @@ def create_transaction(db: Session, data):
     return transaction
 
 
-def get_transactions(db: Session, account_id=None, category_id=None, start_date=None,
+def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None, start_date=None,
                      end_date=None, limit=None):
     """
     Get transactions with optional filters
@@ -260,6 +311,9 @@ def get_transactions(db: Session, account_id=None, category_id=None, start_date=
 
     if category_id:
         query = query.filter(Transaction.category_id == category_id)
+
+    if tag_id:
+        query = query.join(TransactionTag, TransactionTag.transaction_id == Transaction.id).filter(TransactionTag.tag_id == tag_id)
 
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -343,6 +397,9 @@ def update_transaction(db: Session, transaction_id, data):
             db.flush()
         transaction.payee_id = payee.id
 
+    tag_ids = data.pop("tag_ids", None)
+    splits = data.pop("splits", None)
+
     # Update fields
     for key, value in data.items():
         if key not in ['payee_name'] and hasattr(transaction, key):
@@ -379,6 +436,9 @@ def update_transaction(db: Session, transaction_id, data):
 
     if new_account and transaction_affects_balance(new_account, transaction.date):
         new_account.balance += transaction.amount
+
+    _apply_tags_to_transaction(db, transaction, tag_ids)
+    _apply_splits_to_transaction(db, transaction, splits)
 
     if not has_mortgage_allocation:
         _apply_debt_impact(db, transaction, new_account)

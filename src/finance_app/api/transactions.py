@@ -80,6 +80,12 @@ class MortgageAllocation(BaseModel):
     notes: Optional[str] = None
 
 
+class TransactionSplitPayload(BaseModel):
+    category_id: int
+    amount: float
+    note: Optional[str] = None
+
+
 class TransactionCreate(BaseModel):
     account_id: int
     date: date
@@ -90,6 +96,8 @@ class TransactionCreate(BaseModel):
     amount: float
     currency_id: int
     cleared: bool = False
+    tag_ids: list[int] = []
+    splits: Optional[list[TransactionSplitPayload]] = None
     mortgage_allocation: Optional[MortgageAllocation] = None
 
 
@@ -121,12 +129,15 @@ class TransactionUpdate(BaseModel):
     amount: Optional[float] = None
     currency_id: Optional[int] = None
     cleared: Optional[bool] = None
+    tag_ids: Optional[list[int]] = None
+    splits: Optional[list[TransactionSplitPayload]] = None
 
 
 @router.get("/")
 def list_transactions(
     account_id: Optional[int] = None,
     category_id: Optional[int] = None,
+    tag_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     limit: int = 100,
@@ -137,6 +148,7 @@ def list_transactions(
         db,
         account_id=account_id,
         category_id=category_id,
+        tag_id=tag_id,
         start_date=start_date,
         end_date=end_date,
         limit=limit
@@ -159,6 +171,7 @@ def list_transactions(
 def export_transactions(
     account_id: Optional[int] = None,
     category_id: Optional[int] = None,
+    tag_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     limit: int = 0,
@@ -169,6 +182,7 @@ def export_transactions(
         db,
         account_id=account_id,
         category_id=category_id,
+        tag_id=tag_id,
         start_date=start_date,
         end_date=end_date,
         limit=limit
