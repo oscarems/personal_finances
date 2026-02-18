@@ -335,13 +335,17 @@ def update_transaction(db: Session, transaction_id, data):
         _reverse_debt_impact(db, transaction, old_account)
 
     # Update payee if needed
-    if data.get('payee_name'):
-        payee = db.query(Payee).filter_by(name=data['payee_name']).first()
-        if not payee:
-            payee = Payee(name=data['payee_name'])
-            db.add(payee)
-            db.flush()
-        transaction.payee_id = payee.id
+    if 'payee_name' in data:
+        payee_name = (data.get('payee_name') or '').strip()
+        if payee_name:
+            payee = db.query(Payee).filter_by(name=payee_name).first()
+            if not payee:
+                payee = Payee(name=payee_name)
+                db.add(payee)
+                db.flush()
+            transaction.payee_id = payee.id
+        else:
+            transaction.payee_id = None
 
     # Update fields
     for key, value in data.items():
