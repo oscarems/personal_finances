@@ -95,6 +95,7 @@ class TransactionCreate(BaseModel):
     memo: Optional[str] = None
     amount: float
     currency_id: int
+    type: Optional[Literal['expense', 'income']] = None
     cleared: bool = False
     tag_ids: list[int] = []
     splits: Optional[list[TransactionSplitPayload]] = None
@@ -128,6 +129,7 @@ class TransactionUpdate(BaseModel):
     memo: Optional[str] = None
     amount: Optional[float] = None
     currency_id: Optional[int] = None
+    type: Optional[Literal['expense', 'income']] = None
     cleared: Optional[bool] = None
     tag_ids: Optional[list[int]] = None
     splits: Optional[list[TransactionSplitPayload]] = None
