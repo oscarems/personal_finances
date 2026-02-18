@@ -6,7 +6,13 @@ from sqlalchemy.orm import sessionmaker
 from finance_app.api.debts import get_debts
 from finance_app.database import Base
 from finance_app.models import Account, Currency, Debt
-from finance_app.services.transaction_service import create_transaction, create_transfer
+from finance_app.services.transaction_service import (
+    create_transaction,
+    create_transfer,
+    get_transactions,
+    normalize_transaction_amount,
+    update_transaction,
+)
 
 
 def _make_session():
@@ -105,8 +111,6 @@ def test_update_transaction_allows_clearing_payee_name():
     )
     db.commit()
 
-    from finance_app.services.transaction_service import update_transaction
-
     updated = update_transaction(
         db,
         transaction.id,
@@ -119,3 +123,52 @@ def test_update_transaction_allows_clearing_payee_name():
     assert updated is not None
     assert updated.payee_id is None
     assert updated.payee is None
+
+
+def test_normalize_transaction_amount_uses_type_to_define_sign():
+    assert normalize_transaction_amount(1500, 'expense') == -1500
+    assert normalize_transaction_amount(-1500, 'expense') == -1500
+    assert normalize_transaction_amount(1500, 'income') == 1500
+    assert normalize_transaction_amount(-1500, 'income') == 1500
+    assert normalize_transaction_amount(-1500, None) == -1500
+
+
+def test_update_transaction_type_and_amount_reflects_in_transactions_listing():
+    db = _make_session()
+    _seed_currencies(db)
+
+    account = Account(name="Cuenta principal", type="checking", currency_id=1, balance=0)
+    db.add(account)
+    db.commit()
+
+    created = create_transaction(
+        db,
+        {
+            "account_id": account.id,
+            "date": date.today(),
+            "amount": -100,
+            "currency_id": 1,
+            "memo": "Compra inicial",
+        },
+    )
+    db.commit()
+
+    updated = update_transaction(
+        db,
+        created.id,
+        {
+            "amount": 250,
+            "type": "income",
+            "memo": "Monto ajustado",
+        },
+    )
+
+    assert updated is not None
+    assert updated.original_amount == 250
+    assert updated.amount == 250
+    assert updated.memo == "Monto ajustado"
+
+    listed = get_transactions(db, limit=10)
+    updated_from_list = next(item for item in listed if item.id == created.id)
+    assert updated_from_list.amount == 250
+    assert updated_from_list.original_amount == 250

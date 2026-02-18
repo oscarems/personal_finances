@@ -89,6 +89,7 @@ class TransactionCreate(BaseModel):
     memo: Optional[str] = None
     amount: float
     currency_id: int
+    type: Optional[Literal['expense', 'income']] = None
     cleared: bool = False
     mortgage_allocation: Optional[MortgageAllocation] = None
 
@@ -120,6 +121,7 @@ class TransactionUpdate(BaseModel):
     memo: Optional[str] = None
     amount: Optional[float] = None
     currency_id: Optional[int] = None
+    type: Optional[Literal['expense', 'income']] = None
     cleared: Optional[bool] = None
 
 
