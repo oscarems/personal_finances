@@ -82,3 +82,40 @@ def test_credit_card_debt_balance_matches_account_after_card_payment_transfer():
     debts = get_debts(is_active=None, debt_type=None, db=db)
     cc_debt = next(item for item in debts if item["id"] == debt.id)
     assert cc_debt["current_balance"] == 200_000
+
+
+def test_update_transaction_allows_clearing_payee_name():
+    db = _make_session()
+    _seed_currencies(db)
+
+    account = Account(name="Cuenta", type="checking", currency_id=1, balance=0)
+    db.add(account)
+    db.commit()
+
+    transaction = create_transaction(
+        db,
+        {
+            "account_id": account.id,
+            "date": date.today(),
+            "amount": -50_000,
+            "currency_id": 1,
+            "payee_name": "Supermercado",
+            "memo": "Compra",
+        },
+    )
+    db.commit()
+
+    from finance_app.services.transaction_service import update_transaction
+
+    updated = update_transaction(
+        db,
+        transaction.id,
+        {
+            "payee_name": "",
+            "memo": "Compra sin beneficiario",
+        },
+    )
+
+    assert updated is not None
+    assert updated.payee_id is None
+    assert updated.payee is None
