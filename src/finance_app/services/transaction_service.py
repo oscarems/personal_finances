@@ -5,7 +5,7 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional
+from typing import Optional, Literal
 from finance_app.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment, MortgagePaymentAllocation
 from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
 from finance_app.services.mortgage_allocation_service import (
@@ -21,6 +21,19 @@ def transaction_affects_balance(account: Account, transaction_date: date) -> boo
     if not account.created_at:
         return True
     return transaction_date >= account.created_at.date()
+
+
+def normalize_transaction_amount(
+    amount: float,
+    transaction_type: Optional[Literal['expense', 'income']] = None
+) -> float:
+    """Normalize amount sign using the app convention: expenses negative, income positive."""
+    normalized = abs(float(amount or 0))
+    if transaction_type == 'expense':
+        return -normalized
+    if transaction_type == 'income':
+        return normalized
+    return float(amount or 0)
 
 
 def normalize_transaction_currency(
@@ -182,6 +195,7 @@ def create_transaction(db: Session, data):
         Transaction object
     """
     mortgage_allocation = data.pop('mortgage_allocation', None)
+    transaction_type = data.pop('type', None)
     source = data.get('source')
     source_id = data.get('source_id')
 
@@ -198,16 +212,17 @@ def create_transaction(db: Session, data):
 
         transaction_date = data.get('date', date.today())
         account = db.query(Account).get(data['account_id'])
+        signed_amount = normalize_transaction_amount(data['amount'], transaction_type)
         normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
             db,
-            data['amount'],
+            signed_amount,
             data['currency_id'],
             account,
             transaction_date
         )
         base_amount, base_currency_id = build_transaction_audit_fields(
             db,
-            data['amount'],
+            signed_amount,
             data['currency_id'],
             transaction_date
         )
@@ -220,7 +235,7 @@ def create_transaction(db: Session, data):
             memo=data.get('memo', ''),
             amount=normalized_amount,
             currency_id=normalized_currency_id,
-            original_amount=data['amount'],
+            original_amount=signed_amount,
             original_currency_id=data['currency_id'],
             fx_rate=fx_rate,
             base_amount=base_amount,
@@ -334,6 +349,8 @@ def update_transaction(db: Session, transaction_id, data):
     if not has_mortgage_allocation:
         _reverse_debt_impact(db, transaction, old_account)
 
+    transaction_type = data.pop('type', None)
+
     # Update payee if needed
     if 'payee_name' in data:
         payee_name = (data.get('payee_name') or '').strip()
@@ -352,7 +369,8 @@ def update_transaction(db: Session, transaction_id, data):
         if key not in ['payee_name'] and hasattr(transaction, key):
             setattr(transaction, key, value)
 
-    original_amount = data.get('amount', transaction.original_amount)
+    candidate_amount = data.get('amount', transaction.original_amount)
+    original_amount = normalize_transaction_amount(candidate_amount, transaction_type)
     original_currency_id = data.get('currency_id', transaction.original_currency_id)
     new_account = db.query(Account).get(transaction.account_id)
     normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
