@@ -1,6 +1,7 @@
 """
 FastAPI Main Application
 """
+import logging
 from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -40,6 +41,8 @@ from finance_app.api import (
 )
 from finance_app.services.recurring_service import generate_due_transactions
 from finance_app.sync.email_scrape_sync import sync_email_transactions
+
+logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
@@ -102,7 +105,10 @@ async def startup_event():
         generate_due_transactions(db)
     finally:
         db.close()
-    sync_email_transactions()
+    try:
+        sync_email_transactions()
+    except RuntimeError as exc:
+        logger.warning("Email sync skipped during startup: %s", exc)
     print("✓ Database initialized")
 
 

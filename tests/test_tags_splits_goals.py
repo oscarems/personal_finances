@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from finance_app.database import Base
+from finance_app.api import reports
 from finance_app.models import Account, Category, CategoryGroup, Currency, Goal, GoalContribution, Tag, Transaction
 from finance_app.services.goal_service import calculate_goal_progress
 from finance_app.services.transaction_allocation_service import get_category_allocations
@@ -161,3 +162,36 @@ def test_goal_without_linked_account_uses_contributions():
     metrics = calculate_goal_progress(db, goal, months_for_projection=3)
     assert metrics["current_amount"] == 450
     assert metrics["projected_achievement_date"] is not None
+
+
+def test_spending_by_tag_category_filter_uses_splits():
+    db = _make_session()
+    _seed_base(db)
+    account = Account(name="Cuenta", type="checking", currency_id=1, balance=500_000)
+    db.add(account)
+    db.add_all([Tag(name="viaje"), Tag(name="hogar")])
+    db.commit()
+
+    create_transaction(db, {
+        "account_id": account.id,
+        "date": date.today(),
+        "category_id": 1,
+        "amount": -120_000,
+        "currency_id": 1,
+        "tag_ids": [1],
+        "splits": [
+            {"category_id": 1, "amount": -50_000},
+            {"category_id": 2, "amount": -70_000},
+        ],
+    })
+
+    payload = reports.get_spending_by_tag(
+        start_date=date.today().replace(day=1).isoformat(),
+        end_date=date.today().isoformat(),
+        currency_id=1,
+        category_id=2,
+        db=db,
+    )
+
+    viaje_row = next(row for row in payload["tags"] if row["tag"] == "viaje")
+    assert viaje_row["amount"] == 70_000

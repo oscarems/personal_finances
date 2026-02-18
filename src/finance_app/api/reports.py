@@ -11,7 +11,7 @@ import calendar
 from dateutil.relativedelta import relativedelta
 
 from finance_app.database import get_db
-from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset, Payee, TransactionTag, Tag
+from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset, Payee, TransactionTag
 from finance_app.utils.wealth import apply_annual_appreciation_on_january, apply_depreciation
 from finance_app.services.debt_balance_service import (
     calculate_debt_balance_as_of,
@@ -479,17 +479,20 @@ def get_spending_by_tag(
         joinedload(Transaction.tag_links).joinedload(TransactionTag.tag),
         joinedload(Transaction.splits),
     )
-    if category_id:
-        tx_query = tx_query.filter(Transaction.category_id == category_id)
 
     totals = {}
     uncategorized_key = "(sin tag)"
     for tx in tx_query.all():
-        alloc_amount = abs(tx.amount)
-        if tx.splits and category_id:
+        if category_id and tx.splits:
             alloc_amount = sum(abs(split.amount) for split in tx.splits if split.category_id == category_id)
             if alloc_amount == 0:
                 continue
+        elif category_id:
+            if tx.category_id != category_id:
+                continue
+            alloc_amount = abs(tx.amount)
+        else:
+            alloc_amount = abs(tx.amount)
 
         converted = convert_to_currency(alloc_amount, tx.currency_id, currency_id, exchange_rate)
         tag_names = [link.tag.name for link in tx.tag_links if link.tag]
