@@ -1,4 +1,5 @@
 from datetime import datetime, date
+import html
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -18,6 +19,7 @@ class ManualTransactionCreate(BaseModel):
     message_id: str
     account_id: int
     currency_id: int
+    category_id: int | None = None
     amount: float
     date: date
     payee_name: str
@@ -55,22 +57,29 @@ def list_gmail_messages(
         raise HTTPException(status_code=500, detail=f"Error consultando Gmail: {exc}") from exc
 
     message_ids = [row.get("message_id") for row in rows if row.get("message_id")]
-    existing_ids = set()
+    normalized_existing_ids = set()
     if message_ids:
+        lookup_ids = set(message_ids)
+        lookup_ids.update(html.escape(message_id, quote=True) for message_id in message_ids)
+
         existing_ids = {
             value for (value,) in db.query(Transaction.source_id)
             .filter(
                 Transaction.source == EMAIL_SOURCE,
-                Transaction.source_id.in_(message_ids)
+                Transaction.source_id.in_(lookup_ids)
             )
             .all()
             if value
+        }
+        normalized_existing_ids = {
+            html.unescape(value).strip() for value in existing_ids
         }
 
     enriched_rows = []
     for row in rows:
         message_id = row.get("message_id")
-        is_registered = bool(message_id and message_id in existing_ids)
+        normalized_message_id = html.unescape(message_id).strip() if message_id else None
+        is_registered = bool(normalized_message_id and normalized_message_id in normalized_existing_ids)
         is_transaction = bool(row.get("is_transaction"))
 
         row_payload = {
@@ -106,6 +115,7 @@ def create_manual_gmail_transaction(payload: ManualTransactionCreate, db: Sessio
             "account_id": payload.account_id,
             "date": payload.date,
             "payee_name": payload.payee_name,
+            "category_id": payload.category_id,
             "memo": payload.memo,
             "amount": payload.amount,
             "currency_id": payload.currency_id,
