@@ -31,6 +31,7 @@ from finance_app.api import (
     emergency_fund,
     ynab_mappings,
     outlook_import,
+    gmail_import,
     alerts,
     reconciliation,
     wealth_assets,
@@ -76,6 +77,7 @@ app.include_router(budgets.router, prefix="/api/budgets", tags=["budgets"])
 app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
 app.include_router(import_routes.router, prefix="/api/import", tags=["import"])
 app.include_router(outlook_import.router, prefix="/api/import/outlook", tags=["outlook-import"])
+app.include_router(gmail_import.router, prefix="/api/import/gmail", tags=["gmail-import"])
 app.include_router(mortgage.router, prefix="/api/mortgage", tags=["mortgage"])
 app.include_router(investment_simulator.router, prefix="/api/investment-simulator", tags=["investment-simulator"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
@@ -141,6 +143,12 @@ async def import_page(request: Request):
     """Import page"""
     return templates.TemplateResponse("import.html", {"request": request})
 
+
+
+@app.get("/import/gmail")
+async def import_gmail_page(request: Request):
+    """Gmail import preview page"""
+    return templates.TemplateResponse("gmail_import.html", {"request": request})
 
 @app.get("/mortgage")
 async def mortgage_page(request: Request):
