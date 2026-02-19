@@ -97,7 +97,6 @@ class TransactionCreate(BaseModel):
     currency_id: int
     type: Optional[Literal['expense', 'income']] = None
     cleared: bool = False
-    tag_ids: list[int] = []
     splits: Optional[list[TransactionSplitPayload]] = None
     mortgage_allocation: Optional[MortgageAllocation] = None
 
@@ -131,7 +130,6 @@ class TransactionUpdate(BaseModel):
     currency_id: Optional[int] = None
     type: Optional[Literal['expense', 'income']] = None
     cleared: Optional[bool] = None
-    tag_ids: Optional[list[int]] = None
     splits: Optional[list[TransactionSplitPayload]] = None
 
 
@@ -139,7 +137,6 @@ class TransactionUpdate(BaseModel):
 def list_transactions(
     account_id: Optional[int] = None,
     category_id: Optional[int] = None,
-    tag_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     limit: int = 100,
@@ -150,7 +147,6 @@ def list_transactions(
         db,
         account_id=account_id,
         category_id=category_id,
-        tag_id=tag_id,
         start_date=start_date,
         end_date=end_date,
         limit=limit
@@ -173,7 +169,6 @@ def list_transactions(
 def export_transactions(
     account_id: Optional[int] = None,
     category_id: Optional[int] = None,
-    tag_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     limit: int = 0,
@@ -184,7 +179,6 @@ def export_transactions(
         db,
         account_id=account_id,
         category_id=category_id,
-        tag_id=tag_id,
         start_date=start_date,
         end_date=end_date,
         limit=limit

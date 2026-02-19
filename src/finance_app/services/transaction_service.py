@@ -6,13 +6,20 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, Literal
-from finance_app.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment, MortgagePaymentAllocation
+from finance_app.models import (
+    Transaction, Account, Category, Payee, Currency, Debt, DebtPayment,
+    MortgagePaymentAllocation, TransactionSplit
+)
 from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
 from finance_app.services.mortgage_allocation_service import (
     apply_mortgage_payment_allocation,
     rebuild_mortgage_balances
 )
 from finance_app.services.exchange_rate_service import convert_currency, get_rate_for_date
+from finance_app.services.transaction_allocation_service import (
+    validate_splits_sum,
+    validate_splits_categories_exist,
+)
 
 
 def transaction_affects_balance(account: Account, transaction_date: date) -> bool:
@@ -188,18 +195,8 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
 
 
 def _apply_tags_to_transaction(db: Session, transaction: Transaction, tag_ids: Optional[list[int]]) -> None:
-    if tag_ids is None:
-        return
-    transaction.tag_links.clear()
-    if not tag_ids:
-        return
-    tags = db.query(Tag).filter(Tag.id.in_(tag_ids)).all()
-    found_ids = {tag.id for tag in tags}
-    missing = [tag_id for tag_id in tag_ids if tag_id not in found_ids]
-    if missing:
-        raise ValueError(f"Invalid tag IDs: {missing}")
-    for tag in tags:
-        transaction.tag_links.append(TransactionTag(tag_id=tag.id))
+    """Tags are intentionally ignored to keep transactions fully independent from tag data."""
+    return
 
 
 def _apply_splits_to_transaction(db: Session, transaction: Transaction, splits_data: Optional[list[dict]]) -> None:
@@ -241,6 +238,8 @@ def create_transaction(db: Session, data):
     """
     mortgage_allocation = data.pop('mortgage_allocation', None)
     transaction_type = data.pop('type', None)
+    tag_ids = data.pop('tag_ids', None)
+    splits = data.pop('splits', None)
     source = data.get('source')
     source_id = data.get('source_id')
 
@@ -324,8 +323,7 @@ def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None
     if category_id:
         query = query.filter(Transaction.category_id == category_id)
 
-    if tag_id:
-        query = query.join(TransactionTag, TransactionTag.transaction_id == Transaction.id).filter(TransactionTag.tag_id == tag_id)
+    # tag_id intentionally ignored: transactions no longer depend on tags
 
     if start_date:
         query = query.filter(Transaction.date >= start_date)
