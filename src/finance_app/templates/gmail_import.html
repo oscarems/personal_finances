@@ -17,7 +17,7 @@
     <ul class="list-disc list-inside space-y-1 text-primary-800 text-sm">
         <li>Consulta Gmail usando el mismo parser de la app (`web_scrapping_email.fetch_transactions`).</li>
         <li>Muestra únicamente los mensajes que el parser reconoce como transacción.</li>
-        <li>Permite agregar manualmente solo los mensajes pendientes.</li>
+        <li>No inserta movimientos: solo es una previsualización para auditoría.</li>
     </ul>
 </div>
 
@@ -89,7 +89,7 @@
             }
 
             status.className = 'mt-6 p-4 rounded-card bg-green-50 border border-green-200 text-green-800';
-            status.innerHTML = `Se detectaron <strong>${data.total}</strong> mensajes con transacciones. Usa "Agregar manualmente" para las que aún no existen.`;
+            status.innerHTML = `Se detectaron <strong>${data.total}</strong> mensajes con transacciones.`;
 
             if (!data.messages.length) {
                 messagesContainer.classList.add('hidden');
@@ -97,50 +97,24 @@
             }
 
             messagesContainer.classList.remove('hidden');
-            messagesContainer.innerHTML = data.messages.map((message, index) => {
-                const badge = message.already_imported
-                    ? '<span class="inline-flex items-center rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">✅ Ya agregada</span>'
-                    : '<span class="inline-flex items-center rounded-full bg-yellow-100 text-yellow-800 px-3 py-1 text-xs font-semibold">🟡 Pendiente</span>';
-
-                const addButton = message.already_imported
-                    ? ''
-                    : `<button
-                            type="button"
-                            class="btn-primary text-sm add-manual-btn"
-                            data-message='${escapeHtml(JSON.stringify(message))}'>
-                            Agregar manualmente
-                       </button>`;
-
-                return `
-                    <div class="border border-neutral-200 rounded-card p-4 bg-white">
-                        <div class="flex justify-between items-start gap-4 mb-3">
-                            <div>
-                                <p class="text-sm text-neutral-500">Mensaje #${index + 1}</p>
-                                <h4 class="font-semibold text-neutral-900">${escapeHtml(message.lugar_transaccion || 'Comercio no detectado')}</h4>
-                                <p class="text-sm text-neutral-600 mt-1">Message-ID: ${escapeHtml(message.message_id || 'N/D')}</p>
-                                <p class="text-xs text-neutral-500 mt-1">Fecha: ${escapeHtml(message.fecha || 'No detectada')}</p>
-                            </div>
-                            <div class="text-right text-sm text-neutral-700">
-                                <p><strong>Monto:</strong> ${escapeHtml(message.valor)}</p>
-                                <p><strong>Moneda:</strong> ${escapeHtml(message.moneda || 'N/D')}</p>
-                                <p><strong>Cuenta:</strong> ${escapeHtml(message.cuenta || 'N/D')}</p>
-                                <p><strong>Clase:</strong> ${escapeHtml(message.clase_movimiento || 'N/D')}</p>
-                            </div>
+            messagesContainer.innerHTML = data.messages.map((message, index) => `
+                <div class="border border-neutral-200 rounded-card p-4 bg-white">
+                    <div class="flex justify-between items-start gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-neutral-500">Mensaje #${index + 1}</p>
+                            <h4 class="font-semibold text-neutral-900">${escapeHtml(message.lugar_transaccion || 'Comercio no detectado')}</h4>
+                            <p class="text-sm text-neutral-600 mt-1">Message-ID: ${escapeHtml(message.message_id || 'N/D')}</p>
+                            <p class="text-xs text-neutral-500 mt-1">Fecha: ${escapeHtml(message.fecha || 'No detectada')}</p>
                         </div>
-                        <div class="flex items-center justify-between gap-4">
-                            ${badge}
-                            ${addButton}
+                        <div class="text-right text-sm text-neutral-700">
+                            <p><strong>Monto:</strong> ${escapeHtml(message.valor)}</p>
+                            <p><strong>Moneda:</strong> ${escapeHtml(message.moneda || 'N/D')}</p>
+                            <p><strong>Cuenta:</strong> ${escapeHtml(message.cuenta || 'N/D')}</p>
+                            <p><strong>Clase:</strong> ${escapeHtml(message.clase_movimiento || 'N/D')}</p>
                         </div>
                     </div>
-                `;
-            }).join('');
-
-            document.querySelectorAll('.add-manual-btn').forEach((btn) => {
-                btn.addEventListener('click', async function() {
-                    const payload = JSON.parse(this.dataset.message);
-                    await addManualTransaction(payload, this);
-                });
-            });
+                </div>
+            `).join('');
         } catch (error) {
             status.className = 'mt-6 p-4 rounded-card bg-red-50 border border-red-200 text-red-800';
             status.innerHTML = `❌ ${escapeHtml(error.message || 'Error desconocido')}`;
@@ -150,46 +124,5 @@
             button.textContent = 'Ver mensajes leídos';
         }
     }
-
-
-    async function addManualTransaction(message, button) {
-        const originalLabel = button.textContent;
-        button.disabled = true;
-        button.textContent = 'Agregando...';
-
-        try {
-            const response = await fetch('/api/import/gmail/manual-add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message_id: message.message_id,
-                    fecha: message.fecha,
-                    valor: message.valor,
-                    moneda: message.moneda,
-                    cuenta: message.cuenta,
-                    clase_movimiento: message.clase_movimiento,
-                    lugar_transaccion: message.lugar_transaccion,
-                }),
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.detail || 'No se pudo agregar la transacción manualmente');
-            }
-
-            const cardFooter = button.closest('div.flex.items-center.justify-between.gap-4');
-            if (cardFooter) {
-                cardFooter.querySelector('span').className = 'inline-flex items-center rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold';
-                cardFooter.querySelector('span').textContent = '✅ Ya agregada';
-            }
-
-            button.remove();
-        } catch (error) {
-            alert(error.message || 'Error desconocido');
-            button.disabled = false;
-            button.textContent = originalLabel;
-        }
-    }
-
 </script>
 {% endblock %}
