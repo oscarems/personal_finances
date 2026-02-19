@@ -50,7 +50,7 @@ def test_normal_transaction_without_tags_or_splits_keeps_category_allocation():
     assert allocations[0]["amount"] == -100_000
 
 
-def test_transaction_with_tags_and_splits_assigns_data_and_preserves_total_amount():
+def test_transaction_with_tag_ids_ignores_tags_and_preserves_total_amount_with_splits():
     db = _make_session()
     _seed_base(db)
     account = Account(name="Cuenta", type="checking", currency_id=1, balance=500_000)
@@ -72,7 +72,7 @@ def test_transaction_with_tags_and_splits_assigns_data_and_preserves_total_amoun
     })
 
     assert account.balance == 400_000
-    assert len(tx.tag_links) == 2
+    assert len(tx.tag_links) == 0
     allocations = get_category_allocations(tx)
     assert len(allocations) == 2
     assert round(sum(a["amount"] for a in allocations), 2) == -100_000
@@ -193,5 +193,5 @@ def test_spending_by_tag_category_filter_uses_splits():
         db=db,
     )
 
-    viaje_row = next(row for row in payload["tags"] if row["tag"] == "viaje")
-    assert viaje_row["amount"] == 70_000
+    untagged_row = next(row for row in payload["tags"] if row["tag"] == "(sin tag)")
+    assert untagged_row["amount"] == 70_000
