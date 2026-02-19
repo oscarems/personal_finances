@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Importación Gmail - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Importación Gmail</h2>
+            <p class="page-subtitle mt-2">Visualiza los mensajes/transacciones que lee el scraper de Gmail (`web_scrapping_email.py`) antes de sincronizar.</p>
+        </div>
+    </div>
+</div>
+
+<div class="bg-primary-50 border border-primary-200 rounded-card p-6 mb-6">
+    <h3 class="font-semibold text-primary-900 mb-2">📩 ¿Qué muestra esta vista?</h3>
+    <ul class="list-disc list-inside space-y-1 text-primary-800 text-sm">
+        <li>Consulta Gmail usando el mismo parser de la app (`web_scrapping_email.fetch_transactions`).</li>
+        <li>Muestra únicamente los mensajes que el parser reconoce como transacción.</li>
+        <li>No inserta movimientos: solo es una previsualización para auditoría.</li>
+    </ul>
+</div>
+
+<div class="card p-8">
+    <form id="gmailPreviewForm" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Desde fecha</label>
+                <input type="date" id="gmailSinceDate" class="input-field">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Máximo correos</label>
+                <input type="number" id="gmailMaxEmails" class="input-field" min="1" max="300" value="50">
+            </div>
+            <div class="flex items-end">
+                <button type="submit" id="gmailPreviewBtn" class="btn-primary w-full">Ver mensajes leídos</button>
+            </div>
+        </div>
+    </form>
+
+    <div id="gmailStatus" class="hidden mt-6 p-4 rounded-card"></div>
+    <div id="gmailMessages" class="hidden mt-6 space-y-4"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const gmailPreviewForm = document.getElementById('gmailPreviewForm');
+    gmailPreviewForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        await loadGmailMessages();
+    });
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    async function loadGmailMessages() {
+        const sinceDate = document.getElementById('gmailSinceDate').value;
+        const maxEmails = document.getElementById('gmailMaxEmails').value;
+        const button = document.getElementById('gmailPreviewBtn');
+        const status = document.getElementById('gmailStatus');
+        const messagesContainer = document.getElementById('gmailMessages');
+
+        button.disabled = true;
+        button.textContent = 'Consultando Gmail...';
+
+        status.classList.remove('hidden');
+        status.className = 'mt-6 p-4 rounded-card bg-primary-50 border border-primary-200 text-primary-800';
+        status.innerHTML = 'Leyendo mensajes con el scraper de Gmail...';
+        messagesContainer.classList.add('hidden');
+
+        try {
+            const params = new URLSearchParams();
+            if (sinceDate) params.set('since_date', sinceDate);
+            if (maxEmails) params.set('max_emails', maxEmails);
+
+            const response = await fetch(`/api/import/gmail/messages?${params.toString()}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'No se pudieron consultar los mensajes de Gmail');
+            }
+
+            status.className = 'mt-6 p-4 rounded-card bg-green-50 border border-green-200 text-green-800';
+            status.innerHTML = `Se detectaron <strong>${data.total}</strong> mensajes con transacciones.`;
+
+            if (!data.messages.length) {
+                messagesContainer.classList.add('hidden');
+                return;
+            }
+
+            messagesContainer.classList.remove('hidden');
+            messagesContainer.innerHTML = data.messages.map((message, index) => `
+                <div class="border border-neutral-200 rounded-card p-4 bg-white">
+                    <div class="flex justify-between items-start gap-4 mb-3">
+                        <div>
+                            <p class="text-sm text-neutral-500">Mensaje #${index + 1}</p>
+                            <h4 class="font-semibold text-neutral-900">${escapeHtml(message.lugar_transaccion || 'Comercio no detectado')}</h4>
+                            <p class="text-sm text-neutral-600 mt-1">Message-ID: ${escapeHtml(message.message_id || 'N/D')}</p>
+                            <p class="text-xs text-neutral-500 mt-1">Fecha: ${escapeHtml(message.fecha || 'No detectada')}</p>
+                        </div>
+                        <div class="text-right text-sm text-neutral-700">
+                            <p><strong>Monto:</strong> ${escapeHtml(message.valor)}</p>
+                            <p><strong>Moneda:</strong> ${escapeHtml(message.moneda || 'N/D')}</p>
+                            <p><strong>Cuenta:</strong> ${escapeHtml(message.cuenta || 'N/D')}</p>
+                            <p><strong>Clase:</strong> ${escapeHtml(message.clase_movimiento || 'N/D')}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            status.className = 'mt-6 p-4 rounded-card bg-red-50 border border-red-200 text-red-800';
+            status.innerHTML = `❌ ${escapeHtml(error.message || 'Error desconocido')}`;
+            messagesContainer.classList.add('hidden');
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Ver mensajes leídos';
+        }
+    }
+</script>
+{% endblock %}
