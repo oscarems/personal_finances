@@ -1,14 +1,12 @@
 """
 Transactions API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional, Literal
 from pydantic import BaseModel
 from decimal import Decimal
 from datetime import date
-import csv
-import io
 
 from finance_app.database import get_db
 from finance_app.models import Currency
@@ -80,12 +78,6 @@ class MortgageAllocation(BaseModel):
     notes: Optional[str] = None
 
 
-class TransactionSplitPayload(BaseModel):
-    category_id: int
-    amount: float
-    note: Optional[str] = None
-
-
 class TransactionCreate(BaseModel):
     account_id: int
     date: date
@@ -97,7 +89,6 @@ class TransactionCreate(BaseModel):
     currency_id: int
     type: Optional[Literal['expense', 'income']] = None
     cleared: bool = False
-    splits: Optional[list[TransactionSplitPayload]] = None
     mortgage_allocation: Optional[MortgageAllocation] = None
 
 
@@ -130,7 +121,6 @@ class TransactionUpdate(BaseModel):
     currency_id: Optional[int] = None
     type: Optional[Literal['expense', 'income']] = None
     cleared: Optional[bool] = None
-    splits: Optional[list[TransactionSplitPayload]] = None
 
 
 @router.get("/")
@@ -163,66 +153,6 @@ def list_transactions(
         enriched_transactions.append(serialized)
 
     return enriched_transactions
-
-
-@router.get("/export")
-def export_transactions(
-    account_id: Optional[int] = None,
-    category_id: Optional[int] = None,
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
-    limit: int = 0,
-    db: Session = Depends(get_db)
-):
-    """Export transactions as CSV with optional filters."""
-    transactions = get_transactions(
-        db,
-        account_id=account_id,
-        category_id=category_id,
-        start_date=start_date,
-        end_date=end_date,
-        limit=limit
-    )
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    cop_currency = db.query(Currency).filter_by(code="COP").first()
-    usd_currency = db.query(Currency).filter_by(code="USD").first()
-
-    writer.writerow([
-        "Fecha",
-        "Cuenta",
-        "Beneficiario",
-        "Categoría",
-        "COP",
-        "USD",
-        "Tipo"
-    ])
-
-    for transaction in transactions:
-        is_transfer = transaction.transfer_account_id is not None
-        is_inflow = transaction.amount >= 0
-        tipo = "Transferencia" if is_transfer else ("Ingreso" if is_inflow else "Gasto")
-        cop_amount, usd_amount = _amounts_in_cop_and_usd(transaction, db, cop_currency, usd_currency)
-
-        writer.writerow([
-            transaction.date.isoformat() if transaction.date else "",
-            transaction.account.name if transaction.account else "",
-            transaction.payee.name if transaction.payee else "",
-            transaction.category.name if transaction.category else "",
-            f"{cop_amount:.2f}" if cop_amount is not None else "",
-            f"{usd_amount:.2f}" if usd_amount is not None else "",
-            tipo
-        ])
-
-    filename = f"transacciones_{date.today().isoformat()}.csv"
-    return Response(
-        output.getvalue(),
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename={filename}"
-        }
-    )
 
 
 @router.get("/last-manual")
