@@ -188,15 +188,16 @@
     </div>
 </div>
 
-<!-- Transactions Table -->
-<div class="card overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="table min-w-full">
+<!-- Transactions Workspace -->
+<div class="transactions-workspace">
+    <div class="card overflow-hidden">
+        <div class="transactions-table-scroll">
+            <table id="transactionsDataTable" class="table min-w-full transactions-table">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Cuenta</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
+                    <th class="sticky-col sticky-col-head sticky-date px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th class="sticky-col sticky-col-head sticky-payee px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
+                    <th class="sticky-col sticky-col-head sticky-account sticky-separator px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuenta</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Categoría</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Memo</th>
                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Tipo</th>
@@ -208,19 +209,19 @@
             <tbody id="transactionsTable" class="bg-white divide-y divide-gray-200">
                 <!-- Transactions will be loaded here -->
             </tbody>
-        </table>
-    </div>
-    <div id="emptyState" class="hidden text-center py-12">
-        <p class="text-gray-500 text-lg">No hay transacciones</p>
-        <button onclick="openCreateModal()" class="mt-4 text-blue-600 hover:text-blue-700 font-semibold">
-            + Crear tu primera transacción
-        </button>
+        </div>
+        <div id="emptyState" class="hidden text-center py-12" aria-live="polite">
+            <p class="text-gray-500 text-lg">No hay transacciones</p>
+            <button onclick="openCreateModal()" class="mt-4 text-blue-600 hover:text-blue-700 font-semibold">
+                + Crear tu primera transacción
+            </button>
+        </div>
     </div>
 
-    <aside id="transactionDetailPanel" class="detail-panel p-5">
+    <aside id="transactionDetailPanel" class="detail-panel p-5 hidden xl:block">
         <h3 class="text-base font-bold text-neutral-800 mb-1">Detalle rápido</h3>
         <p class="text-xs text-neutral-500 mb-4">Selecciona una transacción para revisar contexto completo sin desplazamiento horizontal.</p>
-        <div id="transactionDetailPanelContent" class="space-y-3 text-sm text-neutral-600">
+        <div id="transactionDetailPanelContent" class="space-y-3 text-sm text-neutral-600" aria-live="polite">
             <div class="rounded-xl border border-dashed border-neutral-300 p-5 text-center">
                 Selecciona una fila para ver el detalle y abrir historial.
             </div>
@@ -763,13 +764,13 @@
                         <div class="font-semibold text-neutral-800 truncate" title="${escapeHtml(tx.payee_name || '-')}">${escapeHtml(tx.payee_name || '-')}</div>
                     </td>
                     <td class="sticky-col sticky-account sticky-separator whitespace-nowrap text-sm text-neutral-700">${escapeHtml(tx.account_name || '-')}</td>
-                    <td class="text-sm">
+                    <td class="text-sm hidden lg:table-cell">
                         ${renderInlineEditableCell(tx, 'category', tx.category_name || 'Sin categoría')}
                     </td>
-                    <td class="text-sm max-w-xs">
+                    <td class="text-sm max-w-xs hidden xl:table-cell">
                         ${renderInlineEditableCell(tx, 'memo', tx.memo || 'Sin memo')}
                     </td>
-                    <td class="text-center text-xs">
+                    <td class="text-center text-xs hidden md:table-cell">
                         <span class="${typeBadgeClass}">${typeLabel}</span>
                     </td>
                     <td class="text-sm text-right">
@@ -914,7 +915,7 @@
             ${buildDetailItem('Audit trail', `Creada: ${formatDateTime(tx.created_at)} / FX: ${tx.fx_rate ?? 'N/A'}`)}
             <div class="pt-1 flex gap-2">
                 <button onclick="editTransaction(${tx.id})" class="btn-primary text-xs">Editar completo</button>
-                <button onclick="openTransactionDetailModal(${tx.id})" class="btn-secondary text-xs">View history</button>
+                <button onclick="openTransactionDetailModal(${tx.id})" class="btn-secondary text-xs">Ver historial</button>
             </div>
         `;
     }
