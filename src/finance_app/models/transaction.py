@@ -18,6 +18,7 @@ class Transaction(Base):
     date = Column(Date, nullable=False, index=True)
     payee_id = Column(Integer, ForeignKey('payees.id'))
     category_id = Column(Integer, ForeignKey('categories.id'))
+    debt_id = Column(Integer, ForeignKey('debts.id'))
     memo = Column(Text)
     amount = Column(Float, nullable=False)  # Positive=inflow, Negative=outflow
     currency_id = Column(Integer, ForeignKey('currencies.id'), nullable=False)
@@ -41,6 +42,7 @@ class Transaction(Base):
     transfer_account = relationship('Account', foreign_keys=[transfer_account_id], overlaps="transfer_transactions")
     payee = relationship('Payee', back_populates='transactions')
     category = relationship('Category', back_populates='transactions')
+    debt = relationship('Debt')
     currency = relationship('Currency', foreign_keys=[currency_id], back_populates='transactions')
     investment_asset = relationship('WealthAsset')
     tag_links = relationship('TransactionTag', back_populates='transaction', cascade='all, delete-orphan')
@@ -77,6 +79,8 @@ class Transaction(Base):
             'payee_name': self.payee.name if self.payee else None,
             'category_id': self.category_id,
             'category_name': self.category.name if self.category else None,
+            'debt_id': self.debt_id,
+            'debt_name': self.debt.name if self.debt else None,
             'memo': self.memo,
             'amount': self.amount,
             'currency': self.currency.to_dict() if self.currency else None,

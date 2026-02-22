@@ -17,6 +17,8 @@ from finance_app.models import (
     DebtPayment,
     Account,
     MortgagePaymentAllocation,
+    DebtCategoryAllocation,
+    Category,
 )
 from finance_app.services.debt_balance_service import (
     calculate_mortgage_principal_balance,
@@ -239,6 +241,58 @@ class DebtPaymentCreate(BaseModel):
     notes: Optional[str] = None
     transaction_id: Optional[int] = None
 
+
+
+
+class DebtCategoryAllocationUpdate(BaseModel):
+    category_ids: List[int]
+
+
+@router.get("/{debt_id}/category-allocations")
+def get_debt_category_allocations(debt_id: int, db: Session = Depends(get_db)):
+    debt = db.query(Debt).filter_by(id=debt_id).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+
+    allocations = (
+        db.query(DebtCategoryAllocation, Category)
+        .join(Category, Category.id == DebtCategoryAllocation.category_id)
+        .filter(DebtCategoryAllocation.debt_id == debt_id)
+        .order_by(Category.name.asc())
+        .all()
+    )
+
+    return [
+        {"category_id": allocation.category_id, "category_name": category.name}
+        for allocation, category in allocations
+    ]
+
+
+@router.put("/{debt_id}/category-allocations")
+def set_debt_category_allocations(
+    debt_id: int,
+    payload: DebtCategoryAllocationUpdate,
+    db: Session = Depends(get_db),
+):
+    debt = db.query(Debt).filter_by(id=debt_id).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+
+    category_ids = sorted(set(payload.category_ids or []))
+    if category_ids:
+        existing_categories = db.query(Category.id).filter(Category.id.in_(category_ids)).all()
+        existing_ids = {row[0] for row in existing_categories}
+        missing = [category_id for category_id in category_ids if category_id not in existing_ids]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Invalid category_ids: {missing}")
+
+    db.query(DebtCategoryAllocation).filter_by(debt_id=debt_id).delete()
+
+    for category_id in category_ids:
+        db.add(DebtCategoryAllocation(debt_id=debt_id, category_id=category_id))
+
+    db.commit()
+    return {"success": True, "debt_id": debt_id, "category_ids": category_ids}
 
 @router.get("/")
 def get_debts(
