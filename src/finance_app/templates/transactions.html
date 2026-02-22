@@ -479,7 +479,11 @@
     let editingTransactionOriginal = null;
     let transactionDetailSelected = null;
     let isSavingTransaction = false;
-    let transactionFormInitialState = null;
+    let transactionFormSnapshot = null;
+    let selectedTransactionId = null;
+    let inlineEditingTransactionId = null;
+    let inlineEditingField = null;
+    let tableDensity = 'comfortable';
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadAccounts();
