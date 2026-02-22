@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from finance_app.database import Base
 from finance_app.api import reports
-from finance_app.models import Account, Category, CategoryGroup, Currency, Goal, GoalContribution, Tag, Transaction
+from finance_app.models import Account, Category, CategoryGroup, Currency, Debt, Goal, GoalContribution, Tag, Transaction
 from finance_app.services.goal_service import calculate_goal_progress
 from finance_app.services.transaction_allocation_service import get_category_allocations
 from finance_app.services.transaction_service import create_transaction, create_transfer
@@ -195,3 +195,41 @@ def test_spending_by_tag_category_filter_uses_splits():
 
     untagged_row = next(row for row in payload["tags"] if row["tag"] == "(sin tag)")
     assert untagged_row["amount"] == 70_000
+
+
+def test_transaction_can_be_associated_to_specific_debt_even_from_non_debt_account():
+    db = _make_session()
+    _seed_base(db)
+
+    payment_account = Account(name="Cuenta Nómina", type="checking", currency_id=1, balance=1_000_000)
+    debt_account = Account(name="Cuenta Hipoteca", type="mortgage", currency_id=1, balance=0)
+    db.add_all([payment_account, debt_account])
+    db.commit()
+
+    debt = Debt(
+        account_id=debt_account.id,
+        category_id=1,
+        name="Hipoteca Casa",
+        debt_type="mortgage",
+        currency_code="COP",
+        original_amount=500_000_000,
+        current_balance=500_000_000,
+        start_date=date.today(),
+    )
+    db.add(debt)
+    db.commit()
+
+    tx = create_transaction(db, {
+        "account_id": payment_account.id,
+        "date": date.today(),
+        "category_id": 1,
+        "debt_id": debt.id,
+        "amount": -1_500_000,
+        "currency_id": 1,
+        "memo": "Cuota mensual hipoteca",
+    })
+
+    db.refresh(debt)
+    assert tx.debt_id == debt.id
+    assert debt.current_balance == 498_500_000
+

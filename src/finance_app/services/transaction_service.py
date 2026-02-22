@@ -104,13 +104,19 @@ def build_transaction_audit_fields(
     return base_amount, base_currency_id
 
 
-def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
+def _resolve_target_debt(db: Session, transaction: Transaction, account: Account) -> Optional[Debt]:
+    if transaction.debt_id:
+        return db.query(Debt).filter_by(id=transaction.debt_id).first()
     if not account or account.type not in {'credit_card', 'credit_loan', 'mortgage'}:
-        return
+        return None
+    return db.query(Debt).filter_by(account_id=account.id).first()
+
+
+def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
     if not transaction_affects_balance(account, transaction.date):
         return
 
-    debt = db.query(Debt).filter_by(account_id=account.id).first()
+    debt = _resolve_target_debt(db, transaction, account)
     if not debt:
         return
 
@@ -152,12 +158,10 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
 
 
 def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
-    if not account or account.type not in {'credit_card', 'credit_loan', 'mortgage'}:
-        return
     if not transaction_affects_balance(account, transaction.date):
         return
 
-    debt = db.query(Debt).filter_by(account_id=account.id).first()
+    debt = _resolve_target_debt(db, transaction, account)
     if not debt:
         return
 
@@ -276,6 +280,7 @@ def create_transaction(db: Session, data):
             date=transaction_date,
             payee_id=payee.id if payee else None,
             category_id=data.get('category_id'),
+            debt_id=data.get('debt_id'),
             memo=data.get('memo', ''),
             amount=normalized_amount,
             currency_id=normalized_currency_id,

@@ -83,6 +83,7 @@ class TransactionCreate(BaseModel):
     date: date
     payee_name: Optional[str] = None
     category_id: Optional[int] = None
+    debt_id: Optional[int] = None
     investment_asset_id: Optional[int] = None
     memo: Optional[str] = None
     amount: float
@@ -115,6 +116,7 @@ class TransactionUpdate(BaseModel):
     date: Optional[str] = None
     payee_name: Optional[str] = None
     category_id: Optional[int] = None
+    debt_id: Optional[int] = None
     investment_asset_id: Optional[int] = None
     memo: Optional[str] = None
     amount: Optional[float] = None
