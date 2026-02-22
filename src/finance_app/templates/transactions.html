@@ -193,22 +193,23 @@
     <div class="card overflow-hidden">
         <div class="transactions-table-scroll">
             <table id="transactionsDataTable" class="table min-w-full transactions-table">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="sticky-col sticky-col-head sticky-date px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
-                    <th class="sticky-col sticky-col-head sticky-payee px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
-                    <th class="sticky-col sticky-col-head sticky-account sticky-separator px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuenta</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Categoría</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Memo</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Tipo</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase sticky right-0 bg-gray-50 z-10">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="transactionsTable" class="bg-white divide-y divide-gray-200">
-                <!-- Transactions will be loaded here -->
-            </tbody>
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="sticky-col sticky-col-head sticky-date px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                        <th class="sticky-col sticky-col-head sticky-payee px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
+                        <th class="sticky-col sticky-col-head sticky-account sticky-separator px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuenta</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Categoría</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Memo</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Tipo</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase sticky right-0 bg-gray-50 z-10">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="transactionsTable" class="bg-white divide-y divide-gray-200">
+                    <!-- Transactions will be loaded here -->
+                </tbody>
+            </table>
         </div>
         <div id="emptyState" class="hidden text-center py-12" aria-live="polite">
             <p class="text-gray-500 text-lg">No hay transacciones</p>
