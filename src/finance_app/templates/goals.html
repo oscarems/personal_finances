@@ -6,26 +6,70 @@
 <div class="page-header">
     <div>
         <h2 class="page-title">🎯 Metas con objetivo (Goals)</h2>
-        <p class="page-subtitle">Coexiste con metas por categoría (legacy).</p>
+        <p class="page-subtitle">Crea metas claras, monitorea su avance y detecta rápidamente si vas al ritmo esperado.</p>
     </div>
 </div>
 
 <div class="card p-6 mb-6">
-    <h3 class="text-lg font-bold mb-4">Crear meta</h3>
-    <form id="goalForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <input id="goalName" class="input-field" placeholder="Nombre" required>
-        <input id="goalTargetAmount" type="number" step="0.01" class="input-field" placeholder="Monto objetivo" required>
-        <input id="goalTargetDate" type="date" class="input-field" required>
-        <input id="goalStartDate" type="date" class="input-field" required>
-        <input id="goalStartAmount" type="number" step="0.01" class="input-field" placeholder="Monto inicial (baseline)" value="0">
-        <select id="goalCurrency" class="input-field" required></select>
-        <select id="goalLinkedAccount" class="input-field"><option value="">Sin cuenta ligada</option></select>
-        <button class="btn-primary" type="submit">Crear</button>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+            <h3 class="text-lg font-bold text-neutral-900">Crear meta</h3>
+            <p class="text-sm text-neutral-600">Completa los campos para definir el objetivo, periodo y punto de partida.</p>
+        </div>
+        <div class="text-xs text-neutral-500 bg-neutral-100 px-3 py-2 rounded-lg">Tip: usa nombres específicos como "Viaje a México" o "Fondo de emergencia".</div>
+    </div>
+
+    <form id="goalForm" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <label class="block space-y-2">
+                <span class="text-sm font-semibold text-neutral-700">Nombre de la meta</span>
+                <input id="goalName" class="input-field" placeholder="Ej: Fondo de emergencia" required>
+            </label>
+
+            <label class="block space-y-2">
+                <span class="text-sm font-semibold text-neutral-700">Monto objetivo</span>
+                <input id="goalTargetAmount" type="number" min="0" step="0.01" class="input-field" placeholder="2500" required>
+            </label>
+
+            <label class="block space-y-2">
+                <span class="text-sm font-semibold text-neutral-700">Moneda</span>
+                <select id="goalCurrency" class="input-field" required></select>
+            </label>
+
+            <label class="block space-y-2">
+                <span class="text-sm font-semibold text-neutral-700">Fecha de inicio</span>
+                <input id="goalStartDate" type="date" class="input-field" required>
+            </label>
+
+            <label class="block space-y-2">
+                <span class="text-sm font-semibold text-neutral-700">Fecha objetivo</span>
+                <input id="goalTargetDate" type="date" class="input-field" required>
+            </label>
+
+            <label class="block space-y-2">
+                <span class="text-sm font-semibold text-neutral-700">Monto inicial</span>
+                <input id="goalStartAmount" type="number" min="0" step="0.01" class="input-field" placeholder="0" value="0">
+            </label>
+
+            <label class="block space-y-2 md:col-span-2 xl:col-span-3">
+                <span class="text-sm font-semibold text-neutral-700">Cuenta ligada (opcional)</span>
+                <select id="goalLinkedAccount" class="input-field">
+                    <option value="">Sin cuenta ligada</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="flex justify-end">
+            <button class="btn-primary px-8" type="submit">Crear meta</button>
+        </div>
     </form>
 </div>
 
 <div class="card p-6">
-    <h3 class="text-lg font-bold mb-4">Estado de metas</h3>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <h3 class="text-lg font-bold text-neutral-900">Estado de metas</h3>
+        <div id="goalsSummary" class="text-sm text-neutral-600"></div>
+    </div>
     <div id="goalsList" class="space-y-3 text-sm text-neutral-700"></div>
 </div>
 
@@ -49,17 +93,100 @@ async function loadGoals() {
     const res = await fetch('/api/goals/');
     const goals = await res.json();
     const list = document.getElementById('goalsList');
+    const summary = document.getElementById('goalsSummary');
+
+    const formatDate = (dateString) => {
+        if (!dateString) return '—';
+        return new Date(dateString).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    const toNumber = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const formatCurrencyValue = (amount, currencyCode) => {
+        const formatter = new Intl.NumberFormat('es-CO', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
+        return `${formatter.format(toNumber(amount))} ${currencyCode || ''}`.trim();
+    };
+
+    const getStatusBadge = (status) => {
+        const normalized = (status || '').toLowerCase();
+        if (normalized.includes('achieved') || normalized.includes('complet')) {
+            return 'bg-green-100 text-green-700';
+        }
+        if (normalized.includes('behind') || normalized.includes('atras')) {
+            return 'bg-red-100 text-red-700';
+        }
+        if (normalized.includes('on_track') || normalized.includes('curso')) {
+            return 'bg-blue-100 text-blue-700';
+        }
+        return 'bg-neutral-100 text-neutral-700';
+    };
+
     if (!goals.length) {
-        list.innerHTML = '<p>No hay metas todavía.</p>';
+        summary.textContent = '0 metas activas';
+        list.innerHTML = `
+            <div class="border border-dashed border-neutral-300 rounded-xl p-6 text-center bg-neutral-50">
+                <p class="text-base font-semibold text-neutral-700 mb-1">No hay metas todavía</p>
+                <p class="text-sm text-neutral-500">Crea tu primera meta para empezar a medir el progreso.</p>
+            </div>
+        `;
         return;
     }
+
+    const totalTarget = goals.reduce((acc, goal) => acc + toNumber(goal.target_amount), 0);
+    const totalCurrent = goals.reduce((acc, goal) => acc + toNumber(goal.current_amount), 0);
+    const globalProgress = totalTarget > 0 ? Math.min((totalCurrent / totalTarget) * 100, 100) : 0;
+
+    summary.textContent = `${goals.length} meta${goals.length === 1 ? '' : 's'} · Avance global ${globalProgress.toFixed(1)}%`;
+
     list.innerHTML = goals.map(goal => `
-        <div class="border rounded p-3">
-            <div class="font-semibold">${goal.name}</div>
-            <div>Progreso: ${goal.current_amount} / ${goal.target_amount} ${goal.currency_code || ''}</div>
-            <div>Gap: ${goal.gap} · Required/mes: ${goal.required_per_month}</div>
-            <div>Proyección: ${goal.projected_achievement_date || 'Sin proyección aún'}</div>
-            <div>Estado: ${goal.status}</div>
+        <div class="border border-neutral-200 rounded-xl p-4 md:p-5 bg-white shadow-sm space-y-4">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                <div>
+                    <div class="font-semibold text-base text-neutral-900">${goal.name}</div>
+                    <div class="text-xs text-neutral-500 mt-1">Inicio: ${formatDate(goal.start_date)} · Objetivo: ${formatDate(goal.target_date)}</div>
+                </div>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadge(goal.status)}">${goal.status || 'Sin estado'}</span>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between text-sm mb-1">
+                    <span class="text-neutral-600">Progreso actual</span>
+                    <span class="font-semibold text-neutral-800">${(toNumber(goal.percent_complete || 0)).toFixed(1)}%</span>
+                </div>
+                <div class="w-full h-2.5 bg-neutral-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-primary-600 to-primary-400 rounded-full" style="width: ${Math.min(Math.max(toNumber(goal.percent_complete || 0), 0), 100)}%"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
+                <div class="bg-neutral-50 rounded-lg p-3">
+                    <div class="text-neutral-500 text-xs mb-1">Acumulado</div>
+                    <div class="font-semibold text-neutral-900">${formatCurrencyValue(goal.current_amount, goal.currency_code)}</div>
+                </div>
+                <div class="bg-neutral-50 rounded-lg p-3">
+                    <div class="text-neutral-500 text-xs mb-1">Objetivo</div>
+                    <div class="font-semibold text-neutral-900">${formatCurrencyValue(goal.target_amount, goal.currency_code)}</div>
+                </div>
+                <div class="bg-neutral-50 rounded-lg p-3">
+                    <div class="text-neutral-500 text-xs mb-1">Faltante (Gap)</div>
+                    <div class="font-semibold text-neutral-900">${formatCurrencyValue(goal.gap, goal.currency_code)}</div>
+                </div>
+                <div class="bg-neutral-50 rounded-lg p-3">
+                    <div class="text-neutral-500 text-xs mb-1">Aporte mensual requerido</div>
+                    <div class="font-semibold text-neutral-900">${formatCurrencyValue(goal.required_per_month, goal.currency_code)}</div>
+                </div>
+            </div>
+
+            <div class="text-sm text-neutral-600">
+                <span class="font-medium text-neutral-700">Proyección de cumplimiento:</span>
+                ${goal.projected_achievement_date ? formatDate(goal.projected_achievement_date) : 'Sin proyección aún'}
+            </div>
         </div>
     `).join('');
 }
