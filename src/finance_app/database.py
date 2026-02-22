@@ -338,6 +338,12 @@ def init_db(engine_override=None):
     )
     ensure_sqlite_column(
         table_name="transactions",
+        column_name="debt_id",
+        column_definition="debt_id INTEGER",
+        engine_override=active_engine
+    )
+    ensure_sqlite_column(
+        table_name="transactions",
         column_name="source",
         column_definition="source VARCHAR(50)",
         engine_override=active_engine
