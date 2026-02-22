@@ -80,6 +80,12 @@ class MortgageAllocation(BaseModel):
     notes: Optional[str] = None
 
 
+class TransactionSplitPayload(BaseModel):
+    category_id: int
+    amount: float
+    note: Optional[str] = None
+
+
 class TransactionCreate(BaseModel):
     account_id: int
     date: date
@@ -89,7 +95,9 @@ class TransactionCreate(BaseModel):
     memo: Optional[str] = None
     amount: float
     currency_id: int
+    type: Optional[Literal['expense', 'income']] = None
     cleared: bool = False
+    splits: Optional[list[TransactionSplitPayload]] = None
     mortgage_allocation: Optional[MortgageAllocation] = None
 
 
@@ -120,7 +128,9 @@ class TransactionUpdate(BaseModel):
     memo: Optional[str] = None
     amount: Optional[float] = None
     currency_id: Optional[int] = None
+    type: Optional[Literal['expense', 'income']] = None
     cleared: Optional[bool] = None
+    splits: Optional[list[TransactionSplitPayload]] = None
 
 
 @router.get("/")

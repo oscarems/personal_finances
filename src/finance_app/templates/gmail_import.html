@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Importación Gmail - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Importación Gmail</h2>
+            <p class="page-subtitle mt-2">Visualiza correos detectados por el scraper y valida si ya están registrados como transacción.</p>
+        </div>
+    </div>
+</div>
+
+<div class="bg-primary-50 border border-primary-200 rounded-card p-6 mb-6">
+    <h3 class="font-semibold text-primary-900 mb-2">📩 ¿Qué muestra esta vista?</h3>
+    <ul class="list-disc list-inside space-y-1 text-primary-800 text-sm">
+        <li>Consulta Gmail usando el mismo parser de la app (`web_scrapping_email`).</li>
+        <li>Marca si un correo ya fue registrado como transacción.</li>
+        <li>Permite crear transacciones manuales para correos no registrados.</li>
+    </ul>
+</div>
+
+<div class="card p-8">
+    <form id="gmailPreviewForm" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Desde fecha</label>
+                <input type="date" id="gmailSinceDate" class="input-field">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Máximo correos</label>
+                <input type="number" id="gmailMaxEmails" class="input-field" min="1" max="300" value="50">
+            </div>
+            <label class="flex items-end gap-2 pb-2 text-sm text-neutral-700">
+                <input type="checkbox" id="gmailIncludeNonTx" class="h-4 w-4">
+                <span>Incluir correos no detectados como transacción</span>
+            </label>
+            <div class="flex items-end">
+                <button type="submit" id="gmailPreviewBtn" class="btn-primary w-full">Ver correos</button>
+            </div>
+        </div>
+    </form>
+
+    <div id="gmailStatus" class="hidden mt-6 p-4 rounded-card"></div>
+    <div id="gmailMessages" class="hidden mt-6 space-y-4"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let availableAccounts = [];
+    let availableCurrencies = [];
+    let availableCategories = [];
+    let cachedMessages = [];
+
+    const gmailPreviewForm = document.getElementById('gmailPreviewForm');
+    gmailPreviewForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        await loadGmailMessages();
+    });
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function amountInputValue(message) {
+        if (message && typeof message.valor === 'number' && !Number.isNaN(message.valor)) {
+            return `-${Math.abs(message.valor)}`;
+        }
+        return '';
+    }
+
+    function statusBadge(message) {
+        if (message.registered_as_transaction) {
+            return '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">✅ Registrado</span>';
+        }
+        if (message.is_transaction) {
+            return '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">🟡 Detectado, pendiente</span>';
+        }
+        return '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-700">⚪ No detectado como transacción</span>';
+    }
+
+    function accountOptions() {
+        return availableAccounts
+            .map(account => `<option value="${account.id}">${escapeHtml(account.name)} (${escapeHtml(account.currency?.code || 'N/D')})</option>`)
+            .join('');
+    }
+
+    function currencyOptions(defaultCode) {
+        return availableCurrencies
+            .map(currency => {
+                const selected = defaultCode && currency.code === defaultCode ? 'selected' : '';
+                return `<option value="${currency.id}" ${selected}>${escapeHtml(currency.code)}</option>`;
+            })
+            .join('');
+    }
+
+    function categoryOptions() {
+        return [`<option value="">Sin categoría</option>`, ...availableCategories
+            .map(category => `<option value="${category.id}">${escapeHtml(category.group_name || 'General')} / ${escapeHtml(category.name)}</option>`)]
+            .join('');
+    }
+
+    async function ensureManualCatalogsLoaded() {
+        if (availableAccounts.length && availableCurrencies.length && availableCategories.length) {
+            return;
+        }
+
+        const [accountsResponse, currenciesResponse, categoriesResponse] = await Promise.all([
+            fetch('/api/accounts'),
+            fetch('/api/currencies'),
+            fetch('/api/categories')
+        ]);
+
+        const accountsData = await accountsResponse.json();
+        const currenciesData = await currenciesResponse.json();
+        const categoriesData = await categoriesResponse.json();
+
+        if (!accountsResponse.ok) {
+            throw new Error(accountsData.detail || 'No se pudieron cargar las cuentas');
+        }
+
+        if (!currenciesResponse.ok) {
+            throw new Error(currenciesData.detail || 'No se pudieron cargar las monedas');
+        }
+
+        if (!categoriesResponse.ok) {
+            throw new Error(categoriesData.detail || 'No se pudieron cargar las categorías');
+        }
+
+        availableAccounts = Array.isArray(accountsData) ? accountsData : [];
+        availableCurrencies = Array.isArray(currenciesData) ? currenciesData : [];
+        availableCategories = Array.isArray(categoriesData) ? categoriesData : [];
+    }
+
+    async function createManualTransaction(event, messageId) {
+        event.preventDefault();
+        const form = event.target;
+        const button = form.querySelector('button[type="submit"]');
+
+        const payload = {
+            message_id: messageId,
+            account_id: Number(form.account_id.value),
+            currency_id: Number(form.currency_id.value),
+            amount: Number(form.amount.value),
+            category_id: form.category_id.value ? Number(form.category_id.value) : null,
+            date: form.date.value,
+            payee_name: form.payee_name.value,
+            memo: form.memo.value || null,
+        };
+
+        if (!payload.date || !payload.payee_name || Number.isNaN(payload.amount)) {
+            alert('Debes diligenciar fecha, beneficiario y monto válido.');
+            return;
+        }
+
+        try {
+            button.disabled = true;
+            button.textContent = 'Guardando...';
+            const response = await fetch('/api/import/gmail/messages/manual-transaction', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.detail || 'No se pudo crear la transacción manual');
+            }
+            const tx = data.transaction || {};
+            const txId = tx.id ? ` #${tx.id}` : '';
+            cachedMessages = cachedMessages.map(message => {
+                if ((message.message_id || '') !== messageId) {
+                    return message;
+                }
+                return {
+                    ...message,
+                    registered_as_transaction: true,
+                    can_create_manual: false,
+                    status: 'registered',
+                };
+            });
+            renderGmailMessages(cachedMessages);
+            alert(`✅ Transacción creada${txId}`);
+        } catch (error) {
+            alert(`❌ ${error.message || 'Error desconocido'}`);
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Crear transacción manual';
+        }
+    }
+
+    function manualFormHtml(message) {
+        if (!message.can_create_manual) {
+            return '';
+        }
+
+        return `
+            <details class="mt-4 border border-neutral-200 rounded-card p-3 bg-neutral-50">
+                <summary class="cursor-pointer font-semibold text-neutral-800">➕ Crear transacción manual para este correo</summary>
+                <form class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3" onsubmit="createManualTransaction(event, '${escapeHtml(message.message_id || '')}')">
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase tracking-wide">Cuenta</label>
+                        <select name="account_id" class="input-field" required>
+                            ${accountOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase tracking-wide">Moneda</label>
+                        <select name="currency_id" class="input-field" required>
+                            ${currencyOptions(message.moneda)}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase tracking-wide">Categoría</label>
+                        <select name="category_id" class="input-field">
+                            ${categoryOptions()}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase tracking-wide">Fecha</label>
+                        <input type="date" name="date" class="input-field" value="${escapeHtml((message.fecha || '').slice(0, 10))}" required>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase tracking-wide">Monto (gasto negativo)</label>
+                        <input type="number" step="0.01" name="amount" class="input-field" value="${escapeHtml(amountInputValue(message))}" required>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase tracking-wide">Beneficiario</label>
+                        <input type="text" name="payee_name" class="input-field" value="${escapeHtml(message.lugar_transaccion || message.asunto || 'Correo Gmail')}" required>
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-neutral-600 uppercase tracking-wide">Memo</label>
+                        <input type="text" name="memo" class="input-field" value="${escapeHtml(message.clase_movimiento || '')}">
+                    </div>
+                    <div class="md:col-span-2 flex justify-end">
+                        <button type="submit" class="btn-primary">Crear transacción manual</button>
+                    </div>
+                </form>
+            </details>
+        `;
+    }
+
+
+    function updateStatusSummary(messages) {
+        const status = document.getElementById('gmailStatus');
+        const registered = messages.filter(message => message.registered_as_transaction).length;
+        const pending = messages.filter(message => !message.registered_as_transaction).length;
+
+        status.className = 'mt-6 p-4 rounded-card bg-green-50 border border-green-200 text-green-800';
+        status.innerHTML = `Total: <strong>${messages.length}</strong> correos. Registrados: <strong>${registered}</strong>. Pendientes/manuales: <strong>${pending}</strong>.`;
+    }
+
+    function renderGmailMessages(messages) {
+        const messagesContainer = document.getElementById('gmailMessages');
+
+        if (!messages.length) {
+            messagesContainer.classList.add('hidden');
+            updateStatusSummary(messages);
+            return;
+        }
+
+        messagesContainer.classList.remove('hidden');
+        messagesContainer.innerHTML = messages.map((message, index) => `
+            <div class="border border-neutral-200 rounded-card p-4 bg-white">
+                <div class="flex justify-between items-start gap-4 mb-3">
+                    <div>
+                        <p class="text-sm text-neutral-500">Correo #${index + 1}</p>
+                        <h4 class="font-semibold text-neutral-900">${escapeHtml(message.lugar_transaccion || message.asunto || 'Comercio no detectado')}</h4>
+                        <p class="text-sm text-neutral-600 mt-1">Message-ID: ${escapeHtml(message.message_id || 'N/D')}</p>
+                        <p class="text-xs text-neutral-500 mt-1">Fecha: ${escapeHtml(message.fecha || 'No detectada')}</p>
+                        <p class="text-xs text-neutral-500 mt-1">Remitente: ${escapeHtml(message.remitente || 'N/D')}</p>
+                    </div>
+                    <div class="text-right text-sm text-neutral-700">
+                        <p class="mb-2">${statusBadge(message)}</p>
+                        <p><strong>Monto:</strong> ${escapeHtml(message.valor ?? 'N/D')}</p>
+                        <p><strong>Moneda:</strong> ${escapeHtml(message.moneda || 'N/D')}</p>
+                        <p><strong>Cuenta:</strong> ${escapeHtml(message.cuenta || 'N/D')}</p>
+                        <p><strong>Clase:</strong> ${escapeHtml(message.clase_movimiento || 'N/D')}</p>
+                    </div>
+                </div>
+                ${manualFormHtml(message)}
+            </div>
+        `).join('');
+
+        updateStatusSummary(messages);
+    }
+
+    async function loadGmailMessages() {
+        const sinceDate = document.getElementById('gmailSinceDate').value;
+        const maxEmails = document.getElementById('gmailMaxEmails').value;
+        const includeNonTx = document.getElementById('gmailIncludeNonTx').checked;
+        const button = document.getElementById('gmailPreviewBtn');
+        const status = document.getElementById('gmailStatus');
+        const messagesContainer = document.getElementById('gmailMessages');
+
+        button.disabled = true;
+        button.textContent = 'Consultando Gmail...';
+
+        status.classList.remove('hidden');
+        status.className = 'mt-6 p-4 rounded-card bg-primary-50 border border-primary-200 text-primary-800';
+        status.innerHTML = 'Leyendo correos con el scraper de Gmail...';
+        messagesContainer.classList.add('hidden');
+
+        try {
+            await ensureManualCatalogsLoaded();
+
+            const params = new URLSearchParams();
+            if (sinceDate) params.set('since_date', sinceDate);
+            if (maxEmails) params.set('max_emails', maxEmails);
+            if (includeNonTx) params.set('include_non_transactions', 'true');
+
+            const response = await fetch(`/api/import/gmail/messages?${params.toString()}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'No se pudieron consultar los mensajes de Gmail');
+            }
+
+            cachedMessages = Array.isArray(data.messages) ? data.messages : [];
+            renderGmailMessages(cachedMessages);
+        } catch (error) {
+            status.className = 'mt-6 p-4 rounded-card bg-red-50 border border-red-200 text-red-800';
+            status.innerHTML = `❌ ${escapeHtml(error.message || 'Error desconocido')}`;
+            messagesContainer.classList.add('hidden');
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Ver correos';
+        }
+    }
+</script>
+{% endblock %}

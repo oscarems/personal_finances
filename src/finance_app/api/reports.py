@@ -3,7 +3,7 @@ Reports and Analytics API
 """
 import logging
 from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_
 from typing import Optional, Tuple, Iterable, List, Dict
 from datetime import date, datetime
@@ -11,7 +11,7 @@ import calendar
 from dateutil.relativedelta import relativedelta
 
 from finance_app.database import get_db
-from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset, Payee
+from finance_app.models import Transaction, Category, CategoryGroup, Account, Currency, ExchangeRate, BudgetMonth, Debt, DebtPayment, WealthAsset, Payee, TransactionTag
 from finance_app.utils.wealth import apply_annual_appreciation_on_january, apply_depreciation
 from finance_app.services.debt_balance_service import (
     calculate_debt_balance_as_of,
@@ -30,6 +30,23 @@ from domain.fx.service import convert_to_cop
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
+
+
+def _expense_allocations(db: Session, start_date_obj: date, end_date_exclusive: date):
+    transactions = build_spent_transactions_query(db, start_date_obj, end_date_exclusive).options(
+        joinedload(Transaction.splits),
+        joinedload(Transaction.category),
+    ).all()
+
+    allocations = []
+    for tx in transactions:
+        if tx.splits:
+            for split in tx.splits:
+                allocations.append((tx, split.category, abs(split.amount)))
+        else:
+            allocations.append((tx, tx.category, abs(tx.amount)))
+    return allocations
 
 def get_exchange_rate(db: Session) -> float:
     """Get current USD to COP exchange rate"""
@@ -402,25 +419,17 @@ def get_spending_by_category(
     # Get exchange rate for conversion
     exchange_rate = get_exchange_rate(db)
 
-    # Query ALL transactions (not filtered by currency)
-    query = build_spent_transactions_query(
-        db,
-        start_date_obj,
-        end_date_exclusive
-    ).with_entities(
-        Category.name.label('category_name'),
-        CategoryGroup.name.label('group_name'),
-        Transaction.amount,
-        Transaction.currency_id
-    ).all()
+    allocations = _expense_allocations(db, start_date_obj, end_date_exclusive)
 
     # Group by category and convert amounts
     category_totals = {}
-    for row in query:
-        key = (row.category_name, row.group_name)
+    for tx, category, allocation_amount in allocations:
+        group_name = category.category_group.name if category and category.category_group else "Sin grupo"
+        category_name = category.name if category else "Sin categoría"
+        key = (category_name, group_name)
         converted_amount = convert_to_currency(
-            abs(row.amount),
-            row.currency_id,
+            allocation_amount,
+            tx.currency_id,
             currency_id,
             exchange_rate
         )
@@ -452,6 +461,58 @@ def get_spending_by_category(
     }
 
 
+
+
+@router.get("/spending-by-tag")
+def get_spending_by_tag(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    currency_id: int = 1,
+    category_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    start_date_obj, end_date_obj = parse_date_range(start_date, end_date)
+    end_date_exclusive = end_date_obj + relativedelta(days=1)
+    exchange_rate = get_exchange_rate(db)
+
+    tx_query = build_spent_transactions_query(db, start_date_obj, end_date_exclusive).options(
+        joinedload(Transaction.tag_links).joinedload(TransactionTag.tag),
+        joinedload(Transaction.splits),
+    )
+
+    totals = {}
+    uncategorized_key = "(sin tag)"
+    for tx in tx_query.all():
+        if category_id and tx.splits:
+            alloc_amount = sum(abs(split.amount) for split in tx.splits if split.category_id == category_id)
+            if alloc_amount == 0:
+                continue
+        elif category_id:
+            if tx.category_id != category_id:
+                continue
+            alloc_amount = abs(tx.amount)
+        else:
+            alloc_amount = abs(tx.amount)
+
+        converted = convert_to_currency(alloc_amount, tx.currency_id, currency_id, exchange_rate)
+        tag_names = [link.tag.name for link in tx.tag_links if link.tag]
+        if not tag_names:
+            totals[uncategorized_key] = totals.get(uncategorized_key, 0.0) + converted
+            continue
+        for tag_name in tag_names:
+            totals[tag_name] = totals.get(tag_name, 0.0) + converted
+
+    rows = [{"tag": tag, "amount": amount} for tag, amount in totals.items()]
+    rows.sort(key=lambda item: item["amount"], reverse=True)
+
+    return {
+        "start_date": start_date_obj.isoformat(),
+        "end_date": end_date_obj.isoformat(),
+        "currency_id": currency_id,
+        "category_id": category_id,
+        "total_expenses": round(sum(row["amount"] for row in rows), 2),
+        "tags": rows,
+    }
 @router.get("/spending-by-group")
 def get_spending_by_group(
     start_date: Optional[str] = None,

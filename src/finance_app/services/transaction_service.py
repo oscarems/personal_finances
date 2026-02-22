@@ -5,14 +5,21 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional
-from finance_app.models import Transaction, Account, Category, Payee, Currency, Debt, DebtPayment, MortgagePaymentAllocation
+from typing import Optional, Literal
+from finance_app.models import (
+    Transaction, Account, Category, Payee, Currency, Debt, DebtPayment,
+    MortgagePaymentAllocation, TransactionSplit
+)
 from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
 from finance_app.services.mortgage_allocation_service import (
     apply_mortgage_payment_allocation,
     rebuild_mortgage_balances
 )
 from finance_app.services.exchange_rate_service import convert_currency, get_rate_for_date
+from finance_app.services.transaction_allocation_service import (
+    validate_splits_sum,
+    validate_splits_categories_exist,
+)
 
 
 def transaction_affects_balance(account: Account, transaction_date: date) -> bool:
@@ -21,6 +28,19 @@ def transaction_affects_balance(account: Account, transaction_date: date) -> boo
     if not account.created_at:
         return True
     return transaction_date >= account.created_at.date()
+
+
+def normalize_transaction_amount(
+    amount: float,
+    transaction_type: Optional[Literal['expense', 'income']] = None
+) -> float:
+    """Normalize amount sign using the app convention: expenses negative, income positive."""
+    normalized = abs(float(amount or 0))
+    if transaction_type == 'expense':
+        return -normalized
+    if transaction_type == 'income':
+        return normalized
+    return float(amount or 0)
 
 
 def normalize_transaction_currency(
@@ -173,6 +193,41 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
             debt.is_active = False
 
 
+
+def _apply_tags_to_transaction(db: Session, transaction: Transaction, tag_ids: Optional[list[int]]) -> None:
+    """Tags are intentionally ignored to keep transactions fully independent from tag data."""
+    return
+
+
+def _apply_splits_to_transaction(db: Session, transaction: Transaction, splits_data: Optional[list[dict]]) -> None:
+    if splits_data is None:
+        return
+    if transaction.transfer_account_id:
+        raise ValueError("Transfer transactions cannot have splits")
+    transaction.splits.clear()
+    if not splits_data:
+        return
+
+    split_amounts = [float(split.get("amount") or 0.0) for split in splits_data]
+    if not validate_splits_sum(transaction.amount, split_amounts):
+        raise ValueError("Split amounts must add up exactly to transaction amount")
+
+    category_ids = [split.get("category_id") for split in splits_data]
+    categories = db.query(Category).filter(Category.id.in_(category_ids)).all()
+    category_map = {category.id: category for category in categories}
+    if not validate_splits_categories_exist(category_map, category_ids):
+        raise ValueError("One or more split categories are invalid")
+
+    for split in splits_data:
+        transaction.splits.append(
+            TransactionSplit(
+                category_id=split["category_id"],
+                amount=float(split["amount"]),
+                note=split.get("note"),
+            )
+        )
+
+
 def create_transaction(db: Session, data):
     """
     Create a new transaction
@@ -182,6 +237,9 @@ def create_transaction(db: Session, data):
         Transaction object
     """
     mortgage_allocation = data.pop('mortgage_allocation', None)
+    transaction_type = data.pop('type', None)
+    tag_ids = data.pop('tag_ids', None)
+    splits = data.pop('splits', None)
     source = data.get('source')
     source_id = data.get('source_id')
 
@@ -198,16 +256,17 @@ def create_transaction(db: Session, data):
 
         transaction_date = data.get('date', date.today())
         account = db.query(Account).get(data['account_id'])
+        signed_amount = normalize_transaction_amount(data['amount'], transaction_type)
         normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
             db,
-            data['amount'],
+            signed_amount,
             data['currency_id'],
             account,
             transaction_date
         )
         base_amount, base_currency_id = build_transaction_audit_fields(
             db,
-            data['amount'],
+            signed_amount,
             data['currency_id'],
             transaction_date
         )
@@ -220,7 +279,7 @@ def create_transaction(db: Session, data):
             memo=data.get('memo', ''),
             amount=normalized_amount,
             currency_id=normalized_currency_id,
-            original_amount=data['amount'],
+            original_amount=signed_amount,
             original_currency_id=data['currency_id'],
             fx_rate=fx_rate,
             base_amount=base_amount,
@@ -236,6 +295,9 @@ def create_transaction(db: Session, data):
         db.add(transaction)
         db.flush()
 
+        _apply_tags_to_transaction(db, transaction, tag_ids)
+        _apply_splits_to_transaction(db, transaction, splits)
+
         # Update account balance
         if account and transaction_affects_balance(account, transaction_date):
             account.balance += normalized_amount
@@ -248,7 +310,7 @@ def create_transaction(db: Session, data):
     return transaction
 
 
-def get_transactions(db: Session, account_id=None, category_id=None, start_date=None,
+def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None, start_date=None,
                      end_date=None, limit=None):
     """
     Get transactions with optional filters
@@ -260,6 +322,8 @@ def get_transactions(db: Session, account_id=None, category_id=None, start_date=
 
     if category_id:
         query = query.filter(Transaction.category_id == category_id)
+
+    # tag_id intentionally ignored: transactions no longer depend on tags
 
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -334,21 +398,31 @@ def update_transaction(db: Session, transaction_id, data):
     if not has_mortgage_allocation:
         _reverse_debt_impact(db, transaction, old_account)
 
+    transaction_type = data.pop('type', None)
+
     # Update payee if needed
-    if data.get('payee_name'):
-        payee = db.query(Payee).filter_by(name=data['payee_name']).first()
-        if not payee:
-            payee = Payee(name=data['payee_name'])
-            db.add(payee)
-            db.flush()
-        transaction.payee_id = payee.id
+    if 'payee_name' in data:
+        payee_name = (data.get('payee_name') or '').strip()
+        if payee_name:
+            payee = db.query(Payee).filter_by(name=payee_name).first()
+            if not payee:
+                payee = Payee(name=payee_name)
+                db.add(payee)
+                db.flush()
+            transaction.payee_id = payee.id
+        else:
+            transaction.payee_id = None
+
+    tag_ids = data.pop("tag_ids", None)
+    splits = data.pop("splits", None)
 
     # Update fields
     for key, value in data.items():
         if key not in ['payee_name'] and hasattr(transaction, key):
             setattr(transaction, key, value)
 
-    original_amount = data.get('amount', transaction.original_amount)
+    candidate_amount = data.get('amount', transaction.original_amount)
+    original_amount = normalize_transaction_amount(candidate_amount, transaction_type)
     original_currency_id = data.get('currency_id', transaction.original_currency_id)
     new_account = db.query(Account).get(transaction.account_id)
     normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
@@ -379,6 +453,9 @@ def update_transaction(db: Session, transaction_id, data):
 
     if new_account and transaction_affects_balance(new_account, transaction.date):
         new_account.balance += transaction.amount
+
+    _apply_tags_to_transaction(db, transaction, tag_ids)
+    _apply_splits_to_transaction(db, transaction, splits)
 
     if not has_mortgage_allocation:
         _apply_debt_impact(db, transaction, new_account)

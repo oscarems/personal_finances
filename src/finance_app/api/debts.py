@@ -28,6 +28,7 @@ from finance_app.services.debt_amortization_service import (
     fetch_amortization_for_month,
     fetch_amortization_range,
 )
+from finance_app.services.amortization_engine import AmortizationEngine, UnsupportedAmortizationTypeError
 from domain.fx.service import convert_to_cop
 
 router = APIRouter()
@@ -634,6 +635,39 @@ def get_debt_timeline(
         "months": month_labels,
         "totals_cop_by_month": totals_cop_by_month,
         "per_debt": per_debt,
+    }
+
+
+@router.get("/{debt_id}/schedule")
+def get_debt_schedule(
+    debt_id: int,
+    mode: str = Query("hybrid", pattern="^(plan|actual|hybrid)$"),
+    as_of: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+):
+    debt = db.query(Debt).filter_by(id=debt_id).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+
+    engine = AmortizationEngine(db=db)
+    try:
+        schedule = engine.generate_schedule(debt, as_of=as_of, mode=mode)
+        balance = engine.balance_as_of(debt, as_of or date.today(), mode=mode)
+    except UnsupportedAmortizationTypeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return {
+        "debt_id": debt.id,
+        "mode": mode,
+        "as_of": (as_of or date.today()).isoformat(),
+        "balance": balance,
+        "schedule": [
+            {
+                **item,
+                "date": item["date"].isoformat(),
+            }
+            for item in schedule
+        ],
     }
 
 

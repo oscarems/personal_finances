@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Metas con objetivo - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 class="page-title">🎯 Metas con objetivo (Goals)</h2>
+        <p class="page-subtitle">Coexiste con metas por categoría (legacy).</p>
+    </div>
+</div>
+
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-bold mb-4">Crear meta</h3>
+    <form id="goalForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <input id="goalName" class="input-field" placeholder="Nombre" required>
+        <input id="goalTargetAmount" type="number" step="0.01" class="input-field" placeholder="Monto objetivo" required>
+        <input id="goalTargetDate" type="date" class="input-field" required>
+        <input id="goalStartDate" type="date" class="input-field" required>
+        <input id="goalStartAmount" type="number" step="0.01" class="input-field" placeholder="Monto inicial (baseline)" value="0">
+        <select id="goalCurrency" class="input-field" required></select>
+        <select id="goalLinkedAccount" class="input-field"><option value="">Sin cuenta ligada</option></select>
+        <button class="btn-primary" type="submit">Crear</button>
+    </form>
+</div>
+
+<div class="card p-6">
+    <h3 class="text-lg font-bold mb-4">Estado de metas</h3>
+    <div id="goalsList" class="space-y-3 text-sm text-neutral-700"></div>
+</div>
+
+<script>
+async function loadGoalDependencies() {
+    const [currenciesRes, accountsRes] = await Promise.all([
+        fetch('/api/currencies'),
+        fetch('/api/accounts/')
+    ]);
+    const currencies = await currenciesRes.json();
+    const accounts = await accountsRes.json();
+
+    const currencySelect = document.getElementById('goalCurrency');
+    currencySelect.innerHTML = currencies.map(c => `<option value="${c.id}">${c.code}</option>`).join('');
+
+    const accountSelect = document.getElementById('goalLinkedAccount');
+    accountSelect.innerHTML += accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+}
+
+async function loadGoals() {
+    const res = await fetch('/api/goals/');
+    const goals = await res.json();
+    const list = document.getElementById('goalsList');
+    if (!goals.length) {
+        list.innerHTML = '<p>No hay metas todavía.</p>';
+        return;
+    }
+    list.innerHTML = goals.map(goal => `
+        <div class="border rounded p-3">
+            <div class="font-semibold">${goal.name}</div>
+            <div>Progreso: ${goal.current_amount} / ${goal.target_amount} ${goal.currency_code || ''}</div>
+            <div>Gap: ${goal.gap} · Required/mes: ${goal.required_per_month}</div>
+            <div>Proyección: ${goal.projected_achievement_date || 'Sin proyección aún'}</div>
+            <div>Estado: ${goal.status}</div>
+        </div>
+    `).join('');
+}
+
+document.getElementById('goalForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+        name: document.getElementById('goalName').value,
+        target_amount: parseFloat(document.getElementById('goalTargetAmount').value),
+        target_date: document.getElementById('goalTargetDate').value,
+        start_date: document.getElementById('goalStartDate').value,
+        start_amount: parseFloat(document.getElementById('goalStartAmount').value || '0'),
+        currency_id: parseInt(document.getElementById('goalCurrency').value, 10),
+        linked_account_id: document.getElementById('goalLinkedAccount').value ? parseInt(document.getElementById('goalLinkedAccount').value, 10) : null,
+    };
+
+    const res = await fetch('/api/goals/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        alert(error.detail || 'Error creando meta');
+        return;
+    }
+
+    e.target.reset();
+    await loadGoals();
+});
+
+loadGoalDependencies().then(loadGoals);
+</script>
+{% endblock %}

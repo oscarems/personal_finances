@@ -1,6 +1,7 @@
 """
 FastAPI Main Application
 """
+import logging
 from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -30,14 +31,19 @@ from finance_app.api import (
     emergency_fund,
     ynab_mappings,
     outlook_import,
+    gmail_import,
     alerts,
     reconciliation,
     wealth_assets,
     investment_simulator,
     telegram,
+    tags,
+    goals,
 )
 from finance_app.services.recurring_service import generate_due_transactions
 from finance_app.sync.email_scrape_sync import sync_email_transactions
+
+logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
@@ -71,6 +77,7 @@ app.include_router(budgets.router, prefix="/api/budgets", tags=["budgets"])
 app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
 app.include_router(import_routes.router, prefix="/api/import", tags=["import"])
 app.include_router(outlook_import.router, prefix="/api/import/outlook", tags=["outlook-import"])
+app.include_router(gmail_import.router, prefix="/api/import/gmail", tags=["gmail-import"])
 app.include_router(mortgage.router, prefix="/api/mortgage", tags=["mortgage"])
 app.include_router(investment_simulator.router, prefix="/api/investment-simulator", tags=["investment-simulator"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
@@ -84,6 +91,8 @@ app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(reconciliation.router, prefix="/api/reconciliation", tags=["reconciliation"])
 app.include_router(wealth_assets.router, prefix="/api/wealth-assets", tags=["wealth-assets"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])
+app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
+app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 
 
 @app.on_event("startup")
@@ -98,7 +107,10 @@ async def startup_event():
         generate_due_transactions(db)
     finally:
         db.close()
-    sync_email_transactions()
+    try:
+        sync_email_transactions()
+    except RuntimeError as exc:
+        logger.warning("Email sync skipped during startup: %s", exc)
     print("✓ Database initialized")
 
 
@@ -131,6 +143,12 @@ async def import_page(request: Request):
     """Import page"""
     return templates.TemplateResponse("import.html", {"request": request})
 
+
+
+@app.get("/import/gmail")
+async def import_gmail_page(request: Request):
+    """Gmail import preview page"""
+    return templates.TemplateResponse("gmail_import.html", {"request": request})
 
 @app.get("/mortgage")
 async def mortgage_page(request: Request):
@@ -186,6 +204,12 @@ async def debts_page(request: Request):
 async def emergency_fund_page(request: Request):
     """Emergency fund page"""
     return templates.TemplateResponse("emergency_fund.html", {"request": request})
+
+
+@app.get("/goals")
+async def goals_page(request: Request):
+    """Goals page"""
+    return templates.TemplateResponse("goals.html", {"request": request})
 
 
 @app.get("/api/currencies")

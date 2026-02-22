@@ -280,7 +280,11 @@ def _imap_search(imap, since_date: datetime | None):
     return status, data
 
 
-def fetch_transactions(since_date: datetime | None = None, max_emails: int = LAST_N_EMAILS):
+def _fetch_email_rows(
+    since_date: datetime | None = None,
+    max_emails: int = LAST_N_EMAILS,
+    include_non_transactions: bool = False,
+):
     _validate_env()
 
     imap = imaplib.IMAP4_SSL(IMAP_SERVER)
@@ -318,29 +322,54 @@ def fetch_transactions(since_date: datetime | None = None, max_emails: int = LAS
             logger.info("Correo ignorado (estado pending)")
             continue
 
-        tx = parse_any_transaction(body)
-        if not tx:
-            continue
-
         dt = parse_any_datetime(msg, body)
         message_id = msg.get("Message-ID") or mail_id.decode(errors="ignore")
+        tx = parse_any_transaction(body)
+
+        if not tx and not include_non_transactions:
+            continue
 
         if dt and dt < SCRAPE_MIN_DATE:
             logger.info("Correo ignorado (fecha previa a %s)", SCRAPE_MIN_DATE.date().isoformat())
             continue
 
-        rows.append({
+        base_row = {
             "fecha": dt.isoformat() if dt else "",
-            "valor": tx["valor"],
-            "moneda": tx["moneda"],
-            "cuenta": tx["cuenta"],
-            "clase_movimiento": tx["clase_movimiento"],
-            "lugar_transaccion": tx["lugar_transaccion"],
             "message_id": message_id,
-        })
+            "asunto": msg.get("Subject") or "",
+            "remitente": msg.get("From") or "",
+            "is_transaction": bool(tx),
+        }
+
+        if tx:
+            base_row.update({
+                "valor": tx["valor"],
+                "moneda": tx["moneda"],
+                "cuenta": tx["cuenta"],
+                "clase_movimiento": tx["clase_movimiento"],
+                "lugar_transaccion": tx["lugar_transaccion"],
+            })
+        else:
+            base_row.update({
+                "valor": None,
+                "moneda": None,
+                "cuenta": None,
+                "clase_movimiento": None,
+                "lugar_transaccion": None,
+            })
+
+        rows.append(base_row)
 
     imap.logout()
     return rows
+
+
+def fetch_transactions(since_date: datetime | None = None, max_emails: int = LAST_N_EMAILS):
+    return [row for row in _fetch_email_rows(since_date, max_emails, include_non_transactions=False) if row["is_transaction"]]
+
+
+def fetch_emails_preview(since_date: datetime | None = None, max_emails: int = LAST_N_EMAILS):
+    return _fetch_email_rows(since_date, max_emails, include_non_transactions=True)
 
 # =========================
 # MAIN

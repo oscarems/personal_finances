@@ -128,6 +128,119 @@ def migrate_database():
             conn.commit()
             print("✅ Columna agregada exitosamente en wealth_assets")
 
+        # Tags
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tags'")
+        if cursor.fetchone():
+            print("✓ La tabla 'tags' ya existe")
+        else:
+            print("🔧 Creando tabla 'tags'...")
+            cursor.execute("""
+                CREATE TABLE tags (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR(80) NOT NULL UNIQUE,
+                    color VARCHAR(20),
+                    created_at DATETIME
+                )
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_tags_name ON tags(name)")
+            conn.commit()
+            print("✅ Tabla creada exitosamente en tags")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='transaction_tags'")
+        if cursor.fetchone():
+            print("✓ La tabla 'transaction_tags' ya existe")
+        else:
+            print("🔧 Creando tabla 'transaction_tags'...")
+            cursor.execute("""
+                CREATE TABLE transaction_tags (
+                    id INTEGER PRIMARY KEY,
+                    transaction_id INTEGER NOT NULL,
+                    tag_id INTEGER NOT NULL,
+                    created_at DATETIME,
+                    CONSTRAINT uq_transaction_tag UNIQUE (transaction_id, tag_id),
+                    FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+                    FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
+                )
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_transaction_tags_transaction_id ON transaction_tags(transaction_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_transaction_tags_tag_id ON transaction_tags(tag_id)")
+            conn.commit()
+            print("✅ Tabla creada exitosamente en transaction_tags")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='transaction_splits'")
+        if cursor.fetchone():
+            print("✓ La tabla 'transaction_splits' ya existe")
+        else:
+            print("🔧 Creando tabla 'transaction_splits'...")
+            cursor.execute("""
+                CREATE TABLE transaction_splits (
+                    id INTEGER PRIMARY KEY,
+                    transaction_id INTEGER NOT NULL,
+                    category_id INTEGER NOT NULL,
+                    amount FLOAT NOT NULL,
+                    note TEXT,
+                    created_at DATETIME,
+                    FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
+                    FOREIGN KEY(category_id) REFERENCES categories(id)
+                )
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_transaction_splits_transaction_id ON transaction_splits(transaction_id)")
+            conn.commit()
+            print("✅ Tabla creada exitosamente en transaction_splits")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='goals'")
+        if cursor.fetchone():
+            print("✓ La tabla 'goals' ya existe")
+        else:
+            print("🔧 Creando tabla 'goals'...")
+            cursor.execute("""
+                CREATE TABLE goals (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR(120) NOT NULL,
+                    target_amount FLOAT NOT NULL,
+                    target_date DATE NOT NULL,
+                    currency_id INTEGER NOT NULL,
+                    linked_account_id INTEGER,
+                    start_date DATE NOT NULL,
+                    start_amount FLOAT NOT NULL DEFAULT 0.0,
+                    status VARCHAR(20) NOT NULL DEFAULT 'active',
+                    notes TEXT,
+                    created_at DATETIME,
+                    FOREIGN KEY(currency_id) REFERENCES currencies(id),
+                    FOREIGN KEY(linked_account_id) REFERENCES accounts(id)
+                )
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_goals_target_date ON goals(target_date)")
+            conn.commit()
+            print("✅ Tabla creada exitosamente en goals")
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='goal_contributions'")
+        if cursor.fetchone():
+            print("✓ La tabla 'goal_contributions' ya existe")
+        else:
+            print("🔧 Creando tabla 'goal_contributions'...")
+            cursor.execute("""
+                CREATE TABLE goal_contributions (
+                    id INTEGER PRIMARY KEY,
+                    goal_id INTEGER NOT NULL,
+                    date DATE NOT NULL,
+                    amount FLOAT NOT NULL,
+                    currency_id INTEGER NOT NULL,
+                    account_id INTEGER,
+                    transaction_id INTEGER,
+                    note TEXT,
+                    created_at DATETIME,
+                    FOREIGN KEY(goal_id) REFERENCES goals(id) ON DELETE CASCADE,
+                    FOREIGN KEY(currency_id) REFERENCES currencies(id),
+                    FOREIGN KEY(account_id) REFERENCES accounts(id),
+                    FOREIGN KEY(transaction_id) REFERENCES transactions(id)
+                )
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_goal_contributions_goal_id ON goal_contributions(goal_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS ix_goal_contributions_date ON goal_contributions(date)")
+            conn.commit()
+            print("✅ Tabla creada exitosamente en goal_contributions")
+
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='debt_amortization_monthly'")
         if cursor.fetchone():
             print("✓ La tabla 'debt_amortization_monthly' ya existe")
