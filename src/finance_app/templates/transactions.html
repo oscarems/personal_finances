@@ -749,6 +749,12 @@
             const deleteDisabled = tx.can_delete === false;
             const deleteReason = tx.delete_reason || 'No se puede eliminar esta transacción.';
             const rowSelected = tx.id === selectedTransactionId ? 'tx-row-selected' : '';
+            const deleteButtonAttributes = deleteDisabled
+                ? `type="button" disabled title="${escapeHtml(deleteReason)}"`
+                : `type="button" onclick="event.stopPropagation(); deleteTransaction(${tx.id})" title="Eliminar transacción"`;
+            const deleteButtonClasses = deleteDisabled
+                ? 'inline-flex items-center gap-1 text-neutral-400 cursor-not-allowed'
+                : 'inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-medium';
 
             return `
                 <tr class="hover:bg-gray-50 cursor-pointer ${rowSelected}" onclick="selectTransactionRow(${tx.id})" data-transaction-id="${tx.id}">
