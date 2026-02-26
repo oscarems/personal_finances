@@ -4,19 +4,42 @@
 
 {% block content %}
 <style>
+    .transactions-shell {
+        width: min(100%, 1900px);
+        margin: 0 auto;
+    }
+
     .transactions-workspace {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
         gap: 1rem;
+        align-items: start;
     }
 
     .transactions-table-scroll {
         overflow: auto;
         max-width: 100%;
+        max-height: min(72vh, 920px);
+        border-top: 1px solid var(--table-border);
     }
 
     .transactions-table {
-        min-width: 1180px;
+        width: 100%;
+        min-width: 1060px;
+    }
+
+    .transactions-table th {
+        letter-spacing: .06em;
+        font-size: 0.68rem;
+        color: #5f6b7a;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        border-bottom: 1px solid var(--table-border);
+    }
+
+    .transactions-table td {
+        vertical-align: top;
+        padding-top: 0.8rem;
+        padding-bottom: 0.8rem;
     }
 
     .sticky-col {
@@ -30,9 +53,9 @@
         background: var(--table-head-bg);
     }
 
-    .sticky-date { left: 0; min-width: 138px; }
-    .sticky-payee { left: 138px; min-width: 260px; }
-    .sticky-account { left: 398px; min-width: 190px; }
+    .sticky-date { left: 0; min-width: 126px; }
+    .sticky-payee { left: 126px; min-width: 280px; }
+    .sticky-account { left: 406px; min-width: 180px; }
 
     .sticky-separator {
         box-shadow: 1px 0 0 var(--table-border);
@@ -44,6 +67,17 @@
 
     .tx-row-selected .sticky-col {
         background: var(--table-row-hover);
+    }
+
+    .tx-payee {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+    }
+
+    .tx-payee small {
+        color: #7b8794;
+        font-size: 0.72rem;
     }
 
     .tx-inline-input {
@@ -62,11 +96,92 @@
         background: var(--color-surface);
         box-shadow: var(--shadow-soft);
         min-height: 420px;
+        position: sticky;
+        top: 88px;
+    }
+
+    .transactions-workspace.expanded {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .transactions-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        padding: .9rem 1rem;
+        border-bottom: 1px solid var(--color-border);
+        background: linear-gradient(180deg, rgba(248, 250, 252, .95) 0%, rgba(255, 255, 255, .95) 100%);
+    }
+
+    .transactions-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(120px, 1fr));
+        gap: .7rem;
+        width: min(100%, 540px);
+    }
+
+    .metric-chip {
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        padding: .45rem .65rem;
+        background: #fff;
+    }
+
+    .metric-chip p {
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .metric-chip .label {
+        font-size: .68rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+    }
+
+    .metric-chip .value {
+        margin-top: .2rem;
+        font-size: .94rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .density-btn {
+        border: 1px solid var(--color-border);
+        background: #f8fafc;
+        color: #334155;
+        border-radius: 999px;
+        font-size: .75rem;
+        font-weight: 600;
+        padding: .3rem .75rem;
+    }
+
+    .density-btn.bg-white {
+        box-shadow: 0 2px 6px rgba(15, 23, 42, .1);
+    }
+
+    .table--compact td {
+        padding-top: .45rem;
+        padding-bottom: .45rem;
     }
 
     @media (min-width: 1280px) {
         .transactions-workspace {
-            grid-template-columns: minmax(0, 1fr) 360px;
+            grid-template-columns: minmax(0, 1.65fr) minmax(300px, .85fr);
+        }
+    }
+
+    @media (max-width: 1024px) {
+        .transactions-table-scroll {
+            max-height: none;
         }
     }
 </style>
@@ -189,8 +304,19 @@
 </div>
 
 <!-- Transactions Workspace -->
-<div class="transactions-workspace">
+<div class="transactions-shell">
+<div id="transactionsWorkspace" class="transactions-workspace">
     <div class="card overflow-hidden">
+        <div class="transactions-toolbar">
+            <div id="transactionsMetrics" class="transactions-metrics" aria-live="polite"></div>
+            <div class="toolbar-actions">
+                <div class="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 p-1">
+                    <button id="densityComfortableBtn" type="button" class="density-btn bg-white" onclick="setTableDensity('comfortable')">Cómoda</button>
+                    <button id="densityCompactBtn" type="button" class="density-btn" onclick="setTableDensity('compact')">Compacta</button>
+                </div>
+                <button id="toggleDetailPanelBtn" type="button" class="btn-secondary text-xs" onclick="toggleDetailPanel()">Expandir tabla</button>
+            </div>
+        </div>
         <div class="transactions-table-scroll">
             <table id="transactionsDataTable" class="table min-w-full transactions-table">
                 <thead class="bg-gray-50">
@@ -228,6 +354,7 @@
             </div>
         </div>
     </aside>
+</div>
 </div>
 
 
@@ -494,6 +621,7 @@
     let inlineEditingTransactionId = null;
     let inlineEditingField = null;
     let tableDensity = 'comfortable';
+    let isDetailPanelExpanded = false;
 
     document.addEventListener('DOMContentLoaded', async function() {
         await loadAccounts();
@@ -750,6 +878,7 @@
         if (transactions.length === 0) {
             table.innerHTML = '';
             emptyState.classList.remove('hidden');
+            renderTransactionsMetrics([]);
             renderTransactionDetailPanel(null);
             return;
         }
@@ -757,6 +886,7 @@
         emptyState.classList.add('hidden');
 
         const sortedTransactions = sortTransactions(transactions);
+        renderTransactionsMetrics(sortedTransactions);
         if (!selectedTransactionId || !sortedTransactions.some(tx => tx.id === selectedTransactionId)) {
             selectedTransactionId = sortedTransactions[0].id;
         }
@@ -785,7 +915,10 @@
                 <tr class="hover:bg-gray-50 cursor-pointer ${rowSelected}" onclick="selectTransactionRow(${tx.id})" data-transaction-id="${tx.id}">
                     <td class="sticky-col sticky-date whitespace-nowrap text-sm">${formatDate(tx.date)}</td>
                     <td class="sticky-col sticky-payee text-sm">
-                        <div class="font-semibold text-neutral-800 truncate" title="${escapeHtml(tx.payee_name || '-')}">${escapeHtml(tx.payee_name || '-')}</div>
+                        <div class="tx-payee">
+                            <div class="font-semibold text-neutral-800 truncate" title="${escapeHtml(tx.payee_name || '-')}">${escapeHtml(tx.payee_name || '-')}</div>
+                            <small>${escapeHtml(tx.category_name || 'Sin categoría')}</small>
+                        </div>
                     </td>
                     <td class="sticky-col sticky-account sticky-separator whitespace-nowrap text-sm text-neutral-700">${escapeHtml(tx.account_name || '-')}</td>
                     <td class="text-sm hidden lg:table-cell">
@@ -831,6 +964,30 @@
         setTableDensity(tableDensity);
         const selectedTx = sortedTransactions.find(tx => tx.id === selectedTransactionId) || null;
         renderTransactionDetailPanel(selectedTx);
+    }
+
+    function renderTransactionsMetrics(rows) {
+        const container = document.getElementById('transactionsMetrics');
+        if (!container) return;
+
+        const visibleCount = rows.length;
+        const income = rows.filter(tx => Number(tx.amount) > 0).reduce((acc, tx) => acc + Number(tx.amount || 0), 0);
+        const expense = rows.filter(tx => Number(tx.amount) < 0).reduce((acc, tx) => acc + Number(tx.amount || 0), 0);
+
+        container.innerHTML = `
+            <article class="metric-chip">
+                <p class="label">Resultados</p>
+                <p class="value">${visibleCount} registros</p>
+            </article>
+            <article class="metric-chip">
+                <p class="label">Ingresos visibles</p>
+                <p class="value text-success-700">${formatSignedCurrencyAmount(income, { symbol: '$', code: 'COP', decimals: 2 })}</p>
+            </article>
+            <article class="metric-chip">
+                <p class="label">Gastos visibles</p>
+                <p class="value text-red-700">${formatSignedCurrencyAmount(expense, { symbol: '$', code: 'COP', decimals: 2 })}</p>
+            </article>
+        `;
     }
 
     function renderInlineEditableCell(tx, field, fallbackValue) {
@@ -951,6 +1108,18 @@
         table.classList.toggle('table--compact', mode === 'compact');
         document.getElementById('densityComfortableBtn')?.classList.toggle('bg-white', mode === 'comfortable');
         document.getElementById('densityCompactBtn')?.classList.toggle('bg-white', mode === 'compact');
+    }
+
+    function toggleDetailPanel() {
+        isDetailPanelExpanded = !isDetailPanelExpanded;
+        const workspace = document.getElementById('transactionsWorkspace');
+        const panel = document.getElementById('transactionDetailPanel');
+        const toggleBtn = document.getElementById('toggleDetailPanelBtn');
+        if (!workspace || !panel || !toggleBtn) return;
+
+        workspace.classList.toggle('expanded', isDetailPanelExpanded);
+        panel.classList.toggle('hidden', isDetailPanelExpanded);
+        toggleBtn.textContent = isDetailPanelExpanded ? 'Mostrar detalle' : 'Expandir tabla';
     }
 
     function startInlineEdit(transactionId, field) {
