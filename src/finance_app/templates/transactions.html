@@ -164,6 +164,125 @@
             max-height: none;
         }
     }
+
+    /* ---- Responsive card mode for transactions ---- */
+    .tx-card-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+        padding: 0.75rem;
+    }
+
+    .tx-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        padding: 0.875rem 1rem;
+        box-shadow: var(--shadow-soft);
+        cursor: pointer;
+        transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .tx-card:hover {
+        box-shadow: var(--shadow-medium);
+        border-color: var(--card-hover-border);
+    }
+
+    .tx-card.selected {
+        border-color: var(--color-primary-600);
+        background: var(--info-bg-soft);
+    }
+
+    .tx-card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .tx-card-payee {
+        font-weight: 700;
+        font-size: 0.9375rem;
+        color: var(--color-text);
+        line-height: 1.3;
+    }
+
+    .tx-card-amount {
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .tx-card-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem 0.75rem;
+        margin-top: 0.375rem;
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+    }
+
+    .tx-card-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 0.625rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--color-border);
+        gap: 0.5rem;
+    }
+
+    .tx-card-actions {
+        display: flex;
+        gap: 0.75rem;
+        font-size: 0.8125rem;
+    }
+
+    /* View toggle */
+    .view-toggle-btn {
+        border: 1px solid var(--color-border);
+        background: var(--bg-surface-muted);
+        color: var(--color-text-muted);
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.3rem 0.65rem;
+        cursor: pointer;
+        transition: background var(--transition-fast), color var(--transition-fast);
+    }
+
+    .view-toggle-btn.active {
+        background: var(--color-surface);
+        color: var(--color-primary);
+        border-color: var(--color-primary-600);
+        box-shadow: var(--shadow-soft);
+    }
+
+    @media (max-width: 768px) {
+        .transactions-table-scroll {
+            display: none;
+        }
+
+        .tx-card-view {
+            display: block !important;
+        }
+
+        .tx-view-toggle {
+            display: none; /* Auto switch on mobile, no toggle needed */
+        }
+
+        .transactions-metrics {
+            grid-template-columns: repeat(2, 1fr);
+            width: 100%;
+        }
+    }
+
+    @media (min-width: 769px) {
+        .tx-card-view {
+            display: none;
+        }
+    }
 </style>
 
 <!-- Header Ultra Moderno -->
@@ -290,13 +409,20 @@
         <div class="transactions-toolbar">
             <div id="transactionsMetrics" class="transactions-metrics" aria-live="polite"></div>
             <div class="toolbar-actions">
+                <!-- View toggle (desktop only) -->
+                <div class="tx-view-toggle inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1">
+                    <button id="viewTableBtn" type="button" class="view-toggle-btn active" onclick="setTransactionView('table')" title="Vista tabla">⊞ Tabla</button>
+                    <button id="viewCardBtn" type="button" class="view-toggle-btn" onclick="setTransactionView('cards')" title="Vista tarjetas">▤ Tarjetas</button>
+                </div>
                 <div class="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 p-1">
                     <button id="densityComfortableBtn" type="button" class="density-btn bg-white" onclick="setTableDensity('comfortable')">Cómoda</button>
                     <button id="densityCompactBtn" type="button" class="density-btn" onclick="setTableDensity('compact')">Compacta</button>
                 </div>
             </div>
         </div>
-        <div class="transactions-table-scroll">
+
+        <!-- Desktop / forced table view -->
+        <div class="transactions-table-scroll" id="txTableView">
             <table id="transactionsDataTable" class="table min-w-full transactions-table">
                 <thead class="bg-gray-50">
                     <tr>
@@ -308,7 +434,7 @@
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Tipo</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase sticky right-0 bg-gray-50 z-10">Acciones</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase sticky right-0 bg-gray-50" style="z-index:4">Acciones</th>
                     </tr>
                 </thead>
                 <tbody id="transactionsTable" class="bg-white divide-y divide-gray-200">
@@ -316,9 +442,17 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Mobile / card view -->
+        <div class="tx-card-view" id="txCardView" aria-live="polite">
+            <div id="txCardList" class="tx-card-list">
+                <!-- Cards rendered by JS -->
+            </div>
+        </div>
+
         <div id="emptyState" class="hidden text-center py-12" aria-live="polite">
             <p class="text-gray-500 text-lg">No hay transacciones</p>
-            <button onclick="openCreateModal()" class="mt-4 text-blue-600 hover:text-blue-700 font-semibold">
+            <button onclick="openCreateModal()" class="mt-4 font-semibold" style="color: var(--color-primary)">
                 + Crear tu primera transacción
             </button>
         </div>
@@ -915,7 +1049,7 @@
                                 Ver detalle
                             </button>
                             <button onclick="editTransaction(${tx.id})"
-                                    class="text-blue-600 hover:text-blue-700 font-medium" title="Editar transacción">
+                                    class="font-medium" style="color:var(--color-primary)" title="Editar transacción">
                                 ✏️ Editar
                             </button>
                             <button ${deleteButtonAttributes}
@@ -930,6 +1064,11 @@
         }).join('');
 
         setTableDensity(tableDensity);
+
+        // Refresh card view if active
+        if (currentTxView === 'cards') {
+            renderTransactionCards();
+        }
     }
 
     function renderTransactionsMetrics(rows) {
@@ -1045,6 +1184,85 @@
         table.classList.toggle('table--compact', mode === 'compact');
         document.getElementById('densityComfortableBtn')?.classList.toggle('bg-white', mode === 'comfortable');
         document.getElementById('densityCompactBtn')?.classList.toggle('bg-white', mode === 'compact');
+    }
+
+    // ---- Card / Table view toggle ----
+    let currentTxView = 'table'; // 'table' | 'cards'
+
+    function setTransactionView(view) {
+        currentTxView = view;
+        const tableEl = document.getElementById('txTableView');
+        const cardEl  = document.getElementById('txCardView');
+        const btnTable = document.getElementById('viewTableBtn');
+        const btnCard  = document.getElementById('viewCardBtn');
+
+        if (view === 'cards') {
+            tableEl.style.display = 'none';
+            cardEl.style.display  = 'block';
+            btnCard?.classList.add('active');
+            btnTable?.classList.remove('active');
+            renderTransactionCards();
+        } else {
+            tableEl.style.display = '';
+            cardEl.style.display  = 'none';
+            btnTable?.classList.add('active');
+            btnCard?.classList.remove('active');
+        }
+    }
+
+    function renderTransactionCards() {
+        const container = document.getElementById('txCardList');
+        if (!container) return;
+        const sortedTransactions = sortTransactions(transactions);
+
+        if (sortedTransactions.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        container.innerHTML = sortedTransactions.map(tx => {
+            const isTransfer = !!tx.transfer_account_id;
+            const isInflow = tx.amount >= 0;
+            const amountClass = isTransfer
+                ? 'color: var(--color-primary)'
+                : (isInflow ? 'color: var(--color-success)' : 'color: var(--color-danger)');
+            const typeBadgeClass = isTransfer
+                ? 'badge badge-primary'
+                : (isInflow ? 'badge badge-success' : 'badge badge-danger');
+            const typeLabel = isTransfer ? 'Transferencia' : (isInflow ? 'Ingreso' : 'Gasto');
+            const isSelected = tx.id === selectedTransactionId ? 'selected' : '';
+            const deleteDisabled = tx.can_delete === false;
+            const deleteReason = tx.delete_reason || 'No se puede eliminar.';
+
+            const deleteBtn = deleteDisabled
+                ? `<span class="text-neutral-400 cursor-not-allowed" title="${escapeHtml(deleteReason)}">🗑️ Eliminar</span>`
+                : `<button type="button" onclick="event.stopPropagation(); deleteTransaction(${tx.id})" class="font-medium" style="color:var(--color-danger)">🗑️ Eliminar</button>`;
+
+            return `
+            <div class="tx-card ${isSelected}" onclick="selectTransactionRow(${tx.id})" data-transaction-id="${tx.id}">
+                <div class="tx-card-top">
+                    <div>
+                        <div class="tx-card-payee">${escapeHtml(tx.payee_name || '-')}</div>
+                        <div style="font-size:0.8rem;color:var(--color-text-muted);margin-top:2px">${escapeHtml(tx.category_name || 'Sin categoría')}</div>
+                    </div>
+                    <div class="tx-card-amount" style="${amountClass}">
+                        ${formatSignedCurrencyAmount(tx.amount, tx.currency, { useCode: true })}
+                    </div>
+                </div>
+                <div class="tx-card-meta">
+                    <span>📅 ${formatDate(tx.date)}</span>
+                    <span>🏦 ${escapeHtml(tx.account_name || '-')}</span>
+                    ${tx.memo ? `<span>💬 ${escapeHtml(tx.memo)}</span>` : ''}
+                </div>
+                <div class="tx-card-bottom">
+                    <span class="${typeBadgeClass}">${typeLabel}</span>
+                    <div class="tx-card-actions">
+                        <button type="button" onclick="event.stopPropagation(); editTransaction(${tx.id})" style="color:var(--color-primary);font-weight:600">✏️ Editar</button>
+                        ${deleteBtn}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function startInlineEdit(transactionId, field) {
