@@ -1685,12 +1685,21 @@ def get_net_worth(
     db: Session = Depends(get_db)
 ):
     """
-    Calculate net worth (Assets - Liabilities) over time
-    Defaults to January 2026 onwards if no dates provided
-    Assets: wealth assets (material assets, real estate, investments)
-    Liabilities: active debts (principal only)
+    Calcula el patrimonio neto (Activos - Pasivos) a lo largo del tiempo.
+
+    Delega al servicio de patrimonio neto (net_worth_service) para mantener
+    compatibilidad con el endpoint existente mientras se reutiliza la lógica central.
+
+    Activos: bienes inmuebles, activos depreciables, inversiones.
+    Pasivos: hipotecas, créditos, tarjetas de crédito (solo saldo principal).
     """
-    # Default to January 2026 if not specified
+    from finance_app.services.net_worth_service import (
+        build_net_worth_timeline,
+        snapshot_to_dict,
+        timeline_to_dict,
+    )
+
+    # Valores por defecto mantenidos para compatibilidad
     if not start_date:
         start_date = '2026-01-01'
     if not end_date:
@@ -1699,149 +1708,19 @@ def get_net_worth(
     start_date_obj = date.fromisoformat(start_date)
     end_date_obj = date.fromisoformat(end_date)
 
-    exchange_rate = get_exchange_rate(db)
-
-    wealth_assets = db.query(WealthAsset).all()
-    debts = db.query(Debt).all()
-
-    assets_by_id = {asset.id: asset for asset in wealth_assets}
-    asset_transactions = db.query(Transaction).filter(
-        Transaction.investment_asset_id.in_(assets_by_id.keys())
-    ).all() if assets_by_id else []
-    transactions_by_asset: dict[int, list[Transaction]] = {}
-    for transaction in asset_transactions:
-        if transaction.investment_asset_id is None:
-            continue
-        transactions_by_asset.setdefault(transaction.investment_asset_id, []).append(transaction)
-
-    currencies = db.query(Currency).all()
-    currency_map = {currency.code: currency.id for currency in currencies}
-
-    ensure_debt_amortization_records(db, start_date_obj, end_date_obj)
-    amortization_records = fetch_amortization_range(
-        db,
-        start_date_obj,
-        end_date_obj,
-        [debt.id for debt in debts],
+    # Construir línea de tiempo usando el servicio centralizado
+    timeline = build_net_worth_timeline(
+        db=db,
+        start_date=start_date_obj,
+        end_date=end_date_obj,
+        currency_id=currency_id,
+        include_accounts=False,
     )
-
-    monthly_net_worth = []
-    current_date = start_date_obj.replace(day=1)
-    today = date.today()
-
-    while current_date <= end_date_obj:
-        month_start = current_date
-        month_end = current_date + relativedelta(months=1) - relativedelta(days=1)
-
-        assets = 0.0
-        liabilities = 0.0
-
-        totals_by_category = {"bienes": 0.0, "inversiones": 0.0}
-        for asset in wealth_assets:
-            category = _asset_category(asset)
-            if category is None:
-                continue
-            asset_value = _asset_value_for_month(
-                asset,
-                month_end,
-                transactions_by_asset,
-                exchange_rate
-            )
-            if asset_value is None:
-                continue
-            converted_value = convert_to_currency(
-                asset_value,
-                asset.currency_id,
-                currency_id,
-                exchange_rate
-            )
-            totals_by_category[category] += converted_value
-
-        assets = sum(totals_by_category.values())
-        liabilities = 0.0
-        for debt in debts:
-            debt_currency_id = currency_map.get(debt.currency_code, currency_id)
-            if debt.debt_type == "mortgage":
-                mortgage_balance = calculate_mortgage_principal_balance(db, debt, as_of_date=month_end)
-                liabilities += convert_to_currency(
-                    mortgage_balance,
-                    debt_currency_id,
-                    currency_id,
-                    exchange_rate,
-                )
-                continue
-
-            record = amortization_records.get((debt.id, month_start))
-            if record:
-                liabilities += convert_to_currency(
-                    record.principal_remaining,
-                    debt_currency_id,
-                    currency_id,
-                    exchange_rate,
-                )
-                continue
-            if debt.debt_type == "credit_card":
-                liabilities += convert_to_currency(
-                    debt.current_balance or 0.0,
-                    debt_currency_id,
-                    currency_id,
-                    exchange_rate,
-                )
-
-        net_worth = assets - liabilities
-
-        monthly_net_worth.append({
-            'month': current_date.strftime('%Y-%m'),
-            'month_name': current_date.strftime('%b %Y'),
-            'assets': round(assets, 2),
-            'assets_by_category': {
-                'bienes': round(totals_by_category['bienes'], 2),
-                'inversiones': round(totals_by_category['inversiones'], 2)
-            },
-            'liabilities': round(liabilities, 2),
-            'net_worth': round(net_worth, 2)
-        })
-
-        current_date += relativedelta(months=1)
-
-    # Calculate change over period
-    if len(monthly_net_worth) > 1:
-        first_net_worth = monthly_net_worth[0]['net_worth']
-        last_net_worth = monthly_net_worth[-1]['net_worth']
-        change = last_net_worth - first_net_worth
-        change_percentage = (change / first_net_worth * 100) if first_net_worth != 0 else 0
-    else:
-        change = 0
-        change_percentage = 0
-
-    legacy_total = sum(_calculate_debt_balance(db, debt, today, today) for debt in debts)
-    current_month = today.replace(day=1)
-    ensure_debt_amortization_records(db, current_month, current_month)
-    amortization_map = fetch_amortization_for_month(db, current_month, [debt.id for debt in debts])
-    canonical_total = sum(entry.principal_remaining for entry in amortization_map.values())
-    _log_debt_mismatch("net-worth", legacy_total, canonical_total)
 
     currency = db.query(Currency).get(currency_id)
 
-    totals_by_category = {"bienes": 0.0, "inversiones": 0.0}
-    if monthly_net_worth:
-        latest_assets = monthly_net_worth[-1].get('assets_by_category', {})
-        totals_by_category['bienes'] = latest_assets.get('bienes', 0.0)
-        totals_by_category['inversiones'] = latest_assets.get('inversiones', 0.0)
-
-    return {
-        'start_date': start_date_obj.isoformat(),
-        'end_date': end_date_obj.isoformat(),
-        'monthly': monthly_net_worth,
-        'change': round(change, 2),
-        'change_percentage': round(change_percentage, 2),
-        'current_net_worth': monthly_net_worth[-1]['net_worth'] if monthly_net_worth else 0,
-        'totals_by_category': {
-            'bienes': round(totals_by_category['bienes'], 2),
-            'inversiones': round(totals_by_category['inversiones'], 2)
-        },
-        'currency': currency.to_dict() if currency else None
-    }
+    # Serializar manteniendo la estructura de respuesta original
+    return timeline_to_dict(timeline, currency)
 
 
 @router.get("/real-estate-wealth")

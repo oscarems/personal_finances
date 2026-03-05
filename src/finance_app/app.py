@@ -35,6 +35,7 @@ from finance_app.api import (
     investment_simulator,
     tags,
     goals,
+    net_worth,
 )
 from finance_app.services.recurring_service import generate_due_transactions
 from finance_app.sync.email_scrape_sync import sync_email_transactions
@@ -85,6 +86,7 @@ app.include_router(reconciliation.router, prefix="/api/reconciliation", tags=["r
 app.include_router(wealth_assets.router, prefix="/api/wealth-assets", tags=["wealth-assets"])
 app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
+app.include_router(net_worth.router, prefix="/api/net-worth", tags=["net-worth"])
 
 
 @app.on_event("startup")
