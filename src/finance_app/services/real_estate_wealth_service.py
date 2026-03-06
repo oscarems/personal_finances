@@ -65,20 +65,14 @@ def _property_value_at_date(asset: WealthAsset, target_date: date) -> float:
     annual_rate = asset.expected_appreciation_rate or 0.0
     if target_date <= asset.as_of_date:
         return asset.value
-    if annual_rate == 0:
+
+    # Annual step appreciation: value increases once per year based on
+    # the number of full years elapsed since acquisition.
+    years_elapsed = max(0, target_date.year - asset.as_of_date.year)
+    if years_elapsed == 0 or annual_rate == 0:
         return asset.value
 
-    # Use monthly compounding for smooth timeline curves.
-    # months_elapsed counts the total months between as_of_date and target_date.
-    months_elapsed = (
-        (target_date.year - asset.as_of_date.year) * 12
-        + (target_date.month - asset.as_of_date.month)
-    )
-    if months_elapsed <= 0:
-        return asset.value
-
-    monthly_rate = (1 + (annual_rate / 100)) ** (1 / 12) - 1
-    return asset.value * ((1 + monthly_rate) ** months_elapsed)
+    return asset.value * ((1 + (annual_rate / 100)) ** years_elapsed)
 
 
 def build_real_estate_wealth_timeline(
@@ -96,6 +90,8 @@ def build_real_estate_wealth_timeline(
 
     linked_debt_ids: set[int] = set()
     properties: List[WealthAsset] = []
+    # Map debt_id -> original_amount for fallback when no amortization record exists
+    debt_original_amount: Dict[int, float] = {}
 
     for asset in assets:
         if asset.mortgage_debt_id:
@@ -106,7 +102,16 @@ def build_real_estate_wealth_timeline(
                         f"La hipoteca '{mortgage.name}' está asociada a más de un inmueble."
                     )
                 linked_debt_ids.add(asset.mortgage_debt_id)
+                debt_original_amount[mortgage.id] = float(
+                    mortgage.original_amount or mortgage.current_balance or 0.0
+                )
         properties.append(asset)
+
+    for mortgage in debts:
+        if mortgage.id not in debt_original_amount:
+            debt_original_amount[mortgage.id] = float(
+                mortgage.original_amount or mortgage.current_balance or 0.0
+            )
 
     orphan_mortgages = [debt for debt in debts if debt.id not in linked_debt_ids]
 
@@ -144,7 +149,13 @@ def build_real_estate_wealth_timeline(
             debt_balance = 0.0
             if asset.mortgage_debt_id:
                 amortization = amortization_records.get((asset.mortgage_debt_id, month_start))
-                debt_balance = float(amortization.principal_remaining) if amortization else 0.0
+                if amortization:
+                    debt_balance = float(amortization.principal_remaining)
+                else:
+                    # Fallback: use original amount if month is after debt start
+                    mortgage = debt_by_id.get(asset.mortgage_debt_id)
+                    if mortgage and mortgage.start_date and month_start >= _month_start(mortgage.start_date):
+                        debt_balance = debt_original_amount.get(asset.mortgage_debt_id, 0.0)
                 debt_currency_id = currency_map.get(
                     debt_currency_map.get(asset.mortgage_debt_id, ""),
                     currency_id,
@@ -168,7 +179,13 @@ def build_real_estate_wealth_timeline(
 
         for mortgage in orphan_mortgages:
             amortization = amortization_records.get((mortgage.id, month_start))
-            debt_balance = float(amortization.principal_remaining) if amortization else 0.0
+            if amortization:
+                debt_balance = float(amortization.principal_remaining)
+            else:
+                if mortgage.start_date and month_start >= _month_start(mortgage.start_date):
+                    debt_balance = debt_original_amount.get(mortgage.id, 0.0)
+                else:
+                    debt_balance = 0.0
             debt_currency_id = currency_map.get(
                 debt_currency_map.get(mortgage.id, ""),
                 currency_id,

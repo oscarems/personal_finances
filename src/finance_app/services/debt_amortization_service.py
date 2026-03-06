@@ -59,8 +59,20 @@ def ensure_debt_amortization_records(
             if not row:
                 continue
             status = "pagado" if row["is_paid_real"] else "proyeccion"
-            if month_start in existing_by_date:
+            interest_rate_calc = (row["interest"] / row["opening_balance"] * 100) if row["opening_balance"] else 0.0
+
+            existing_entry = existing_by_date.get(month_start)
+            if existing_entry:
+                # Update existing record if the balance has changed
+                if abs(float(existing_entry.principal_remaining) - row["ending_balance"]) > 0.01:
+                    existing_entry.principal_payment = row["principal"]
+                    existing_entry.interest_payment = row["interest"]
+                    existing_entry.total_payment = row["payment"]
+                    existing_entry.principal_remaining = row["ending_balance"]
+                    existing_entry.interest_rate_calculated = interest_rate_calc
+                    existing_entry.status = status
                 continue
+
             db.add(
                 DebtAmortizationMonthly(
                     debt_id=debt.id,
@@ -71,7 +83,7 @@ def ensure_debt_amortization_records(
                     interest_payment=row["interest"],
                     total_payment=row["payment"],
                     principal_remaining=row["ending_balance"],
-                    interest_rate_calculated=(row["interest"] / row["opening_balance"] * 100) if row["opening_balance"] else 0.0,
+                    interest_rate_calculated=interest_rate_calc,
                     status=status,
                 )
             )
