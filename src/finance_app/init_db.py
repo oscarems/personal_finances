@@ -174,8 +174,8 @@ def init_demo_data(db_session):
         month_start = date.today().replace(day=1)
         budget_targets = [
             ('Mercado', 600000.0, -250000.0),
-            ('Hipoteca', 1400000.0, -1400000.0),
-            ('Netflix', 45000.0, -45000.0),
+            ('Arriendo / Hipoteca', 1400000.0, -1400000.0),
+            ('Suscripciones', 45000.0, -45000.0),
         ]
         for category_name, assigned, activity in budget_targets:
             category = db_session.query(Category).filter_by(name=category_name).first()
@@ -201,7 +201,7 @@ def init_demo_data(db_session):
 
         category_salary = db_session.query(Category).filter_by(name='Salario').first()
         category_market = db_session.query(Category).filter_by(name='Mercado').first()
-        category_netflix = db_session.query(Category).filter_by(name='Netflix').first()
+        category_netflix = db_session.query(Category).filter_by(name='Suscripciones').first()
 
         today = date.today()
         transactions = []
@@ -285,7 +285,7 @@ def init_demo_data(db_session):
         db_session.commit()
 
     if db_session.query(RecurringTransaction).count() == 0:
-        category_rent = db_session.query(Category).filter_by(name='Hipoteca').first()
+        category_rent = db_session.query(Category).filter_by(name='Arriendo / Hipoteca').first()
         payee_landlord = db_session.query(Payee).filter_by(name='Arrendador').first()
         if account_cop and cop_currency:
             db_session.add(RecurringTransaction(
