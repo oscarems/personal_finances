@@ -20,16 +20,28 @@
                 extend: {
                     colors: {
                         gray: {
-                            50: '#F8FAFC',
-                            100: '#F1F5F9',
-                            200: '#E2E8F0',
-                            300: '#CBD5E1',
-                            400: '#94A3B8',
-                            500: '#64748B',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1E293B',
-                            900: '#0F172A',
+                            50: '#FAFAF8',
+                            100: '#F2F1EE',
+                            200: '#E3E1DA',
+                            300: '#D1CFC5',
+                            400: '#B7B3A6',
+                            500: '#9A9588',
+                            600: '#7D776C',
+                            700: '#625D54',
+                            800: '#423E38',
+                            900: '#26231F',
+                        },
+                        blue: {
+                            50: '#F4F7FB',
+                            100: '#E6EDF6',
+                            200: '#CBD8EC',
+                            300: '#A8BEDD',
+                            400: '#7D9FCA',
+                            500: '#527EB6',
+                            600: '#3F679A',
+                            700: '#315078',
+                            800: '#243A58',
+                            900: '#17243A',
                         },
                         green: {
                             50: '#F1F8F4',
@@ -55,6 +67,30 @@
                             800: '#5E252B',
                             900: '#3E1A1E',
                         },
+                        yellow: {
+                            50: '#FFFAF2',
+                            100: '#FEF1D7',
+                            200: '#FADFAF',
+                            300: '#F4C77D',
+                            400: '#E7A94D',
+                            500: '#CF8B2B',
+                            600: '#B07422',
+                            700: '#8E5C1B',
+                            800: '#6D4515',
+                            900: '#4C300F',
+                        },
+                        orange: {
+                            50: '#FFF8EF',
+                            100: '#FDEDD1',
+                            200: '#F6D39B',
+                            300: '#E7B86A',
+                            400: '#D09A3D',
+                            500: '#B07A1F',
+                            600: '#97661A',
+                            700: '#7B5215',
+                            800: '#5D3C10',
+                            900: '#40280A',
+                        },
                         emerald: {
                             50: '#F1F8F4',
                             100: '#DDEDE4',
@@ -79,26 +115,26 @@
                             800: '#5E252B',
                             900: '#3E1A1E',
                         },
-                        // PRIMARY: Teal — modern, clean, not blue
+                        // Identidad sobria y ejecutiva: Navy + grises cálidos + acento dorado
                         primary: {
-                            50: '#F0FDFA',
-                            100: '#CCFBF1',
-                            200: '#99F6E4',
-                            300: '#5EEAD4',
-                            400: '#2DD4BF',
-                            500: '#14B8A6',
-                            600: '#0D9488',
-                            700: '#0F766E',
-                            800: '#115E59',
-                            900: '#134E4A',
+                            50: '#EEF2FF',
+                            100: '#E0E7FF',
+                            200: '#C7D2FE',
+                            300: '#A5B4FC',
+                            400: '#818CF8',
+                            500: '#6366F1', // Índigo moderno principal
+                            600: '#4F46E5',
+                            700: '#4338CA',
+                            800: '#3730A3',
+                            900: '#312E81',
                         },
                         secondary: {
                             50: '#F8FAFC',
                             100: '#F1F5F9',
                             200: '#E2E8F0',
-                            300: '#CBD5E1',
+                            300: '#CBD5F5',
                             400: '#94A3B8',
-                            500: '#64748B',
+                            500: '#64748B', // Gris frío contemporáneo
                             600: '#475569',
                             700: '#334155',
                             800: '#1E293B',
@@ -128,42 +164,41 @@
                             800: '#5E252B',
                             900: '#3E1A1E',
                         },
-                        // WARNING/ACCENT: Warm Amber
                         warning: {
-                            50: '#FFFBEB',
-                            100: '#FEF3C7',
-                            200: '#FDE68A',
-                            300: '#FCD34D',
-                            400: '#FBBF24',
-                            500: '#F59E0B',
-                            600: '#D97706',
-                            700: '#B45309',
-                            800: '#92400E',
-                            900: '#78350F',
+                            50: '#FFF7ED',
+                            100: '#FFEDD5',
+                            200: '#FED7AA',
+                            300: '#FDBA74',
+                            400: '#FB923C',
+                            500: '#F97316', // Naranja cálido para alertas
+                            600: '#EA580C',
+                            700: '#C2410C',
+                            800: '#9A3412',
+                            900: '#7C2D12',
                         },
                         accent: {
-                            50: '#FFFBEB',
-                            100: '#FEF3C7',
-                            200: '#FDE68A',
-                            300: '#FCD34D',
-                            400: '#FBBF24',
-                            500: '#F59E0B',
-                            600: '#D97706',
-                            700: '#B45309',
-                            800: '#92400E',
-                            900: '#78350F',
+                            50: '#ECFEFF',
+                            100: '#CFFAFE',
+                            200: '#A5F3FC',
+                            300: '#67E8F9',
+                            400: '#22D3EE',
+                            500: '#06B6D4', // Turquesa tecnológico
+                            600: '#0891B2',
+                            700: '#0E7490',
+                            800: '#155E75',
+                            900: '#164E63',
                         },
                         neutral: {
-                            50: '#F8FAFC',
-                            100: '#F1F5F9',
-                            200: '#E2E8F0',
-                            300: '#CBD5E1',
-                            400: '#94A3B8',
-                            500: '#64748B',
-                            600: '#475569',
-                            700: '#334155',
-                            800: '#1E293B',
-                            900: '#0F172A',
+                            50: '#FAFAF8',
+                            100: '#F2F1EE',
+                            200: '#E3E1DA',
+                            300: '#D1CFC5',
+                            400: '#B7B3A6',
+                            500: '#9A9588',
+                            600: '#7D776C',
+                            700: '#625D54',
+                            800: '#423E38',
+                            900: '#26231F',
                         }
                     },
                     fontFamily: {
@@ -211,22 +246,9 @@
     
 </head>
 <body class="bg-neutral-50 antialiased">
-    <!-- Mobile Header (visible only on small screens) -->
-    <header class="mobile-header" id="mobileHeader">
-        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle navigation" aria-expanded="false">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
-        <span class="mobile-header-logo">💎 Finanzas Prime</span>
-    </header>
-
-    <!-- Sidebar overlay (mobile) -->
-    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
-
-    <div class="app-layout">
+    <div class="flex h-screen">
         <!-- Sidebar moderno -->
-        <aside class="sidebar bg-slate-950 text-white shadow-strong flex flex-col relative overflow-hidden border-r border-white/5" id="appSidebar">
+        <aside class="w-80 bg-slate-950 text-white shadow-strong flex flex-col relative overflow-hidden border-r border-white/5">
             <!-- Efecto decorativo de fondo -->
             <div class="absolute inset-0 bg-gradient-to-br from-primary-500/15 via-transparent to-accent-500/15"></div>
 
@@ -427,7 +449,7 @@
             </div>
         </aside>
 
-        <div id="dbModal" class="fixed inset-0 hidden" style="z-index: var(--modal-z, 50)">
+        <div id="dbModal" class="fixed inset-0 z-50 hidden">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-db-modal-close></div>
             <div class="relative h-full w-full flex items-center justify-center p-6">
                 <div class="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-900/95 text-white shadow-2xl">
@@ -486,8 +508,8 @@
         </div>
 
         <!-- Main Content -->
-        <main class="main-content bg-neutral-50" id="mainContent">
-            <div class="container mx-auto px-4 md:px-8 py-6 md:py-8">
+        <main class="flex-1 overflow-y-auto bg-neutral-50">
+            <div class="container mx-auto px-8 py-8">
                 {% block content %}{% endblock %}
             </div>
         </main>
@@ -587,48 +609,6 @@
     </script>
 
     {% block scripts %}{% endblock %}
-
-    <script>
-        // ---- Mobile Sidebar Toggle ----
-        (function() {
-            const hamburger = document.getElementById('hamburgerBtn');
-            const sidebar   = document.getElementById('appSidebar');
-            const overlay   = document.getElementById('sidebarOverlay');
-
-            function openSidebar() {
-                sidebar.classList.add('open');
-                overlay.classList.add('visible');
-                hamburger.classList.add('open');
-                hamburger.setAttribute('aria-expanded', 'true');
-                document.body.style.overflow = 'hidden';
-            }
-
-            function closeSidebar() {
-                sidebar.classList.remove('open');
-                overlay.classList.remove('visible');
-                hamburger.classList.remove('open');
-                hamburger.setAttribute('aria-expanded', 'false');
-                document.body.style.overflow = '';
-            }
-
-            if (hamburger) {
-                hamburger.addEventListener('click', function() {
-                    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
-                });
-            }
-
-            if (overlay) {
-                overlay.addEventListener('click', closeSidebar);
-            }
-
-            // Close sidebar when a nav link is clicked (mobile)
-            document.querySelectorAll('.nav-item[href]').forEach(function(link) {
-                link.addEventListener('click', function() {
-                    if (window.innerWidth <= 768) closeSidebar();
-                });
-            });
-        })();
-    </script>
 
     <script>
         // Marcar el item activo en la navegación
