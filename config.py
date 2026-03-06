@@ -62,137 +62,60 @@ BUDGET_ALERT_CATEGORY_OVERRIDES = {}
 # Cooldown in days to repeat the same alert state if it persists.
 BUDGET_ALERT_COOLDOWN_DAYS = int(os.getenv('BUDGET_ALERT_COOLDOWN_DAYS', '3'))
 
-# Budget categories (YNAB style - basado en tu exportación de YNAB)
+# Budget categories (YNAB style)
 # rollover_type: 'reset' = dinero sobrante vuelve a Ready to Assign cada mes
 #                'accumulate' = dinero sobrante pasa al siguiente mes
 DEFAULT_CATEGORY_GROUPS = [
     {
-        'name': 'Needs',  # Necesidades (basado en tu YNAB)
+        'name': 'Vivienda',
         'rollover_type': 'reset',
         'categories': [
-            {'name': 'Gym', 'rollover_type': 'reset'},
-            {'name': 'Cosmeticos', 'rollover_type': 'reset'},
-            {'name': 'Bonos Prepagados', 'rollover_type': 'reset'},
-            {'name': 'Kuro', 'rollover_type': 'reset'},
-            {'name': 'Pension', 'rollover_type': 'reset'},
-            {'name': 'EPS', 'rollover_type': 'reset'},
-            {'name': 'Mercado', 'rollover_type': 'reset'},
-            {'name': 'Prepagada', 'rollover_type': 'reset'},
-            {'name': 'Pelo', 'rollover_type': 'reset'},
-            {'name': 'Caja compensacion', 'rollover_type': 'reset'}
+            {'name': 'Arriendo / Hipoteca', 'rollover_type': 'reset'},
+            {'name': 'Servicios Públicos', 'rollover_type': 'reset'},
+            {'name': 'Internet y Celular', 'rollover_type': 'reset'},
+            {'name': 'Mantenimiento', 'rollover_type': 'reset'},
+            {'name': 'Seguros', 'rollover_type': 'reset'},
         ]
     },
     {
-        'name': 'Hogar',
+        'name': 'Necesidades',
         'rollover_type': 'reset',
         'categories': [
-            {'name': 'Hipoteca', 'rollover_type': 'reset'},
-            {'name': 'Mantenimiento', 'rollover_type': 'reset'},
-            {'name': 'Amoblar', 'rollover_type': 'reset'},
-            {'name': 'Impuestos', 'rollover_type': 'reset'},
-            {'name': 'Administracion', 'rollover_type': 'reset'},
-            {'name': 'Empleada', 'rollover_type': 'reset'}
+            {'name': 'Mercado', 'rollover_type': 'reset'},
+            {'name': 'Transporte', 'rollover_type': 'reset'},
+            {'name': 'Salud', 'rollover_type': 'reset'},
+            {'name': 'Educación', 'rollover_type': 'reset'},
+            {'name': 'Cuidado Personal', 'rollover_type': 'reset'},
+        ]
+    },
+    {
+        'name': 'Estilo de Vida',
+        'rollover_type': 'reset',
+        'categories': [
+            {'name': 'Restaurantes', 'rollover_type': 'reset'},
+            {'name': 'Entretenimiento', 'rollover_type': 'reset'},
+            {'name': 'Suscripciones', 'rollover_type': 'reset'},
+            {'name': 'Ropa', 'rollover_type': 'reset'},
+            {'name': 'Hobbies', 'rollover_type': 'reset'},
         ]
     },
     {
         'name': 'Deudas',
         'rollover_type': 'reset',
         'categories': [
-            {'name': 'Nu', 'rollover_type': 'reset'},
-            {'name': 'Deuda Mama', 'rollover_type': 'reset'},
-            {'name': 'Gastos de su casa', 'rollover_type': 'reset'}
+            {'name': 'Tarjeta de Crédito', 'rollover_type': 'reset'},
+            {'name': 'Préstamos', 'rollover_type': 'reset'},
         ]
     },
     {
-        'name': 'Servicios',
-        'rollover_type': 'reset',
-        'categories': [
-            {'name': 'Gas', 'rollover_type': 'reset'},
-            {'name': 'Celular', 'rollover_type': 'reset'},
-            {'name': 'Internet', 'rollover_type': 'reset'},
-            {'name': 'Luz', 'rollover_type': 'reset'},
-            {'name': 'Agua', 'rollover_type': 'reset'}
-        ]
-    },
-    {
-        'name': 'Streaming',
-        'rollover_type': 'reset',
-        'categories': [
-            {'name': 'Ynab', 'rollover_type': 'reset'},
-            {'name': 'Youtube', 'rollover_type': 'reset'},
-            {'name': 'Netflix', 'rollover_type': 'reset'},
-            {'name': 'HBO', 'rollover_type': 'reset'},
-            {'name': 'Spotify', 'rollover_type': 'reset'}
-        ]
-    },
-    {
-        'name': 'Pleasures',  # Placeres
-        'rollover_type': 'reset',
-        'categories': [
-            {'name': 'Coffes', 'rollover_type': 'reset'},
-            {'name': 'Salidas', 'rollover_type': 'reset'},
-            {'name': 'Restaurantes', 'rollover_type': 'reset'},
-            {'name': 'Bar', 'rollover_type': 'reset'},
-            {'name': 'Personal', 'rollover_type': 'reset'},
-            {'name': 'Juegos', 'rollover_type': 'reset'},
-            {'name': 'Ropa', 'rollover_type': 'reset'}
-        ]
-    },
-    {
-        'name': 'Trabajo',
-        'rollover_type': 'reset',
-        'categories': [
-            {'name': 'Office Upgrades', 'rollover_type': 'reset'},
-            {'name': 'Viajes', 'rollover_type': 'reset'}
-        ]
-    },
-    {
-        'name': 'Salud',
-        'rollover_type': 'reset',
-        'categories': [
-            {'name': 'Medicamentos', 'rollover_type': 'reset'},
-            {'name': 'Terapia', 'rollover_type': 'reset'}
-        ]
-    },
-    {
-        'name': 'Credit Card',
-        'rollover_type': 'reset',
-        'categories': [
-            {'name': 'Black MC', 'rollover_type': 'reset'},
-            {'name': 'Gold Visa', 'rollover_type': 'reset'}
-        ]
-    },
-    {
-        'name': 'Otros',
-        'rollover_type': 'reset',
-        'categories': [
-            {'name': 'Crunchy', 'rollover_type': 'reset'},
-            {'name': 'Claude', 'rollover_type': 'reset'}
-        ]
-    },
-    {
-        'name': 'Big Plans',  # Grandes Planes - acumulan
+        'name': 'Ahorros',
         'rollover_type': 'accumulate',
         'categories': [
-            {'name': 'Concierto', 'rollover_type': 'accumulate'},
-            {'name': 'Juegos', 'rollover_type': 'accumulate'},
-            {'name': 'cafe', 'rollover_type': 'accumulate'}
+            {'name': 'Fondo de Emergencia', 'rollover_type': 'accumulate'},
+            {'name': 'Vacaciones', 'rollover_type': 'accumulate'},
+            {'name': 'Metas a Largo Plazo', 'rollover_type': 'accumulate'},
         ]
     },
-    {
-        'name': 'Savings',  # Ahorros - acumulan
-        'rollover_type': 'accumulate',
-        'categories': [
-            {'name': 'Cirugia Nariz', 'rollover_type': 'accumulate'},
-            {'name': 'Short Term', 'rollover_type': 'accumulate'},
-            {'name': 'Salud', 'rollover_type': 'accumulate'},
-            {'name': 'Emergencia', 'rollover_type': 'accumulate'},
-            {'name': 'Kuro', 'rollover_type': 'accumulate'},
-            {'name': 'Tecnologia', 'rollover_type': 'accumulate'},
-            {'name': 'Viajes', 'rollover_type': 'accumulate'},
-            {'name': 'Regalos', 'rollover_type': 'accumulate'}
-        ]
-    }
 ]
 
 # Account types con configuraciones detalladas
