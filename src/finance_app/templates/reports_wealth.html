@@ -6,7 +6,7 @@
 <div class="page-header mb-8">
     <div>
         <h2 class="page-title">Reporte de Patrimonio</h2>
-        <p class="page-subtitle">Evolución del patrimonio total y el progreso del pago de deudas.</p>
+        <p class="page-subtitle">Evolución del patrimonio inmobiliario: valor de inmuebles, deuda hipotecaria y patrimonio neto.</p>
     </div>
 </div>
 
@@ -20,10 +20,9 @@
         <div>
             <label class="block text-sm font-medium text-neutral-600 mb-2">Periodo</label>
             <select id="monthsFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl">
-                <option value="1">Último mes</option>
-                <option value="6">Últimos 6 meses</option>
-                <option value="12" selected>Últimos 12 meses</option>
-                <option value="24">Últimos 24 meses</option>
+                <option value="6">± 6 meses</option>
+                <option value="12" selected>± 12 meses</option>
+                <option value="24">± 24 meses</option>
             </select>
         </div>
         <div class="flex items-end">
@@ -47,7 +46,7 @@
         <p id="totalDebtCurrent" class="text-2xl font-semibold text-rose-600">$0</p>
         <div class="mt-2 text-xs text-neutral-500 space-y-1">
             <p>Inicio del periodo: <span id="totalDebtStart">$0</span></p>
-            <p>Proyección 12 meses: <span id="totalDebtProjected">$0</span></p>
+            <p>Proyección fin periodo: <span id="totalDebtProjected">$0</span></p>
         </div>
     </div>
 </div>
@@ -112,7 +111,8 @@
         const startDate = new Date(today.getFullYear(), today.getMonth() - months, 1);
         return {
             start: startDate.toISOString().split('T')[0],
-            end: today.toISOString().split('T')[0]
+            end: today.toISOString().split('T')[0],
+            projectionMonths: months
         };
     }
 
@@ -121,37 +121,112 @@
         const netWorthData = monthly.map(item => item.net_worth);
         const assetsData = monthly.map(item => item.property_value);
         const liabilitiesData = monthly.map(item => item.real_estate_debt);
-        const pointStyles = monthly.map(item => item.type === 'projected' ? 'circle' : 'rectRounded');
+
+        // Find the index where projection starts
+        const todayStr = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const projectionStartIdx = monthly.findIndex(item => item.type === 'projected');
+
+        // Split data into real and projected segments for dashed styling
+        const realNetWorth = monthly.map((item, i) => item.type === 'real' || (projectionStartIdx > 0 && i === projectionStartIdx) ? item.net_worth : null);
+        const projNetWorth = monthly.map((item, i) => item.type === 'projected' || (projectionStartIdx > 0 && i === projectionStartIdx - 1) ? item.net_worth : null);
+        const realAssets = monthly.map((item, i) => item.type === 'real' || (projectionStartIdx > 0 && i === projectionStartIdx) ? item.property_value : null);
+        const projAssets = monthly.map((item, i) => item.type === 'projected' || (projectionStartIdx > 0 && i === projectionStartIdx - 1) ? item.property_value : null);
+        const realDebt = monthly.map((item, i) => item.type === 'real' || (projectionStartIdx > 0 && i === projectionStartIdx) ? item.real_estate_debt : null);
+        const projDebt = monthly.map((item, i) => item.type === 'projected' || (projectionStartIdx > 0 && i === projectionStartIdx - 1) ? item.real_estate_debt : null);
 
         if (netWorthChart) {
             netWorthChart.destroy();
         }
 
+        // Custom plugin to draw a "Hoy" vertical line between real and projected data
+        const todayLinePlugin = {
+            id: 'todayLine',
+            afterDraw(chart) {
+                if (projectionStartIdx <= 0) return;
+                const xScale = chart.scales.x;
+                const yScale = chart.scales.y;
+                const x = xScale.getPixelForValue(projectionStartIdx - 0.5);
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([4, 4]);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1;
+                ctx.moveTo(x, yScale.top);
+                ctx.lineTo(x, yScale.bottom);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Hoy', x, yScale.top - 4);
+                ctx.restore();
+            }
+        };
+
         netWorthChart = new Chart(document.getElementById('netWorthChart').getContext('2d'), {
             type: 'line',
+            plugins: [todayLinePlugin],
             data: {
                 labels,
                 datasets: [
                     {
                         label: 'Patrimonio inmobiliario',
-                        data: netWorthData,
+                        data: realNetWorth,
                         borderColor: '#3f679a',
-                        backgroundColor: 'rgba(63, 103, 154, 0.15)',
+                        backgroundColor: 'rgba(63, 103, 154, 0.10)',
                         tension: 0.3,
                         fill: true,
-                        pointStyle: pointStyles
+                        spanGaps: false,
+                        pointRadius: 3
                     },
                     {
-                        label: 'Inmuebles',
-                        data: assetsData,
+                        label: 'Patrimonio (proyección)',
+                        data: projNetWorth,
+                        borderColor: '#3f679a',
+                        backgroundColor: 'rgba(63, 103, 154, 0.05)',
+                        borderDash: [6, 3],
+                        tension: 0.3,
+                        fill: true,
+                        spanGaps: false,
+                        pointRadius: 2,
+                        pointStyle: 'circle'
+                    },
+                    {
+                        label: 'Valor inmuebles',
+                        data: realAssets,
                         borderColor: '#3f7c64',
-                        tension: 0.3
+                        tension: 0.3,
+                        spanGaps: false,
+                        pointRadius: 3
+                    },
+                    {
+                        label: 'Valor inmuebles (proyección)',
+                        data: projAssets,
+                        borderColor: '#3f7c64',
+                        borderDash: [6, 3],
+                        tension: 0.3,
+                        spanGaps: false,
+                        pointRadius: 2,
+                        pointStyle: 'circle'
                     },
                     {
                         label: 'Deuda inmobiliaria',
-                        data: liabilitiesData,
+                        data: realDebt,
                         borderColor: '#b64854',
-                        tension: 0.3
+                        tension: 0.3,
+                        spanGaps: false,
+                        pointRadius: 3
+                    },
+                    {
+                        label: 'Deuda (proyección)',
+                        data: projDebt,
+                        borderColor: '#b64854',
+                        borderDash: [6, 3],
+                        tension: 0.3,
+                        spanGaps: false,
+                        pointRadius: 2,
+                        pointStyle: 'circle'
                     }
                 ]
             },
@@ -159,10 +234,18 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom' },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            filter: (legendItem) => !legendItem.text.includes('proyección')
+                        }
+                    },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`
+                            label: (context) => {
+                                const base = context.dataset.label.replace(' (proyección)', '');
+                                return `${base}: ${formatCurrency(context.parsed.y)}`;
+                            }
                         }
                     }
                 },
@@ -204,7 +287,7 @@
         try {
             const res = await fetch(
                 `/api/reports/real-estate-wealth?currency_id=${currencyId}` +
-                `&start_date=${dateRange.start}&end_date=${dateRange.end}&projection_months=12`
+                `&start_date=${dateRange.start}&end_date=${dateRange.end}&projection_months=${dateRange.projectionMonths}`
             );
 
             const data = await res.json();

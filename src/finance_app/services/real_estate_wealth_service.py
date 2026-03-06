@@ -65,12 +65,20 @@ def _property_value_at_date(asset: WealthAsset, target_date: date) -> float:
     annual_rate = asset.expected_appreciation_rate or 0.0
     if target_date <= asset.as_of_date:
         return asset.value
-
-    years_elapsed = max(0, target_date.year - asset.as_of_date.year)
-    if years_elapsed == 0 or annual_rate == 0:
+    if annual_rate == 0:
         return asset.value
 
-    return asset.value * ((1 + (annual_rate / 100)) ** years_elapsed)
+    # Use monthly compounding for smooth timeline curves.
+    # months_elapsed counts the total months between as_of_date and target_date.
+    months_elapsed = (
+        (target_date.year - asset.as_of_date.year) * 12
+        + (target_date.month - asset.as_of_date.month)
+    )
+    if months_elapsed <= 0:
+        return asset.value
+
+    monthly_rate = (1 + (annual_rate / 100)) ** (1 / 12) - 1
+    return asset.value * ((1 + monthly_rate) ** months_elapsed)
 
 
 def build_real_estate_wealth_timeline(
