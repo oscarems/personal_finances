@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}Inversiones - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <div class="page-header">
+        <div>
+            <h2 class="page-title">Inversiones</h2>
+            <p class="page-subtitle mt-2">Gestiona tus portafolios, fondos, fiduciarias y otros instrumentos de inversión.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Filtros</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+            <select id="currencyFilter" onchange="loadInvestments()" class="input-field">
+                <option value="1">COP - Peso Colombiano</option>
+                <option value="2">USD - Dólar Estadounidense</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Tipo de inversión</label>
+            <select id="investmentTypeFilter" onchange="loadInvestments()" class="input-field">
+                <option value="">Todos</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Total inversiones</p>
+        <p id="investmentsTotal" class="text-2xl font-bold text-primary-600">$0</p>
+    </div>
+    <div class="card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Rendimiento total</p>
+        <p id="investmentsReturnTotal" class="text-2xl font-bold text-green-600">$0</p>
+    </div>
+    <div class="card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Nº de inversiones</p>
+        <p id="investmentsCount" class="text-2xl font-bold text-blue-600">0</p>
+    </div>
+</div>
+
+<!-- Add Investment Form -->
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-2">Agregar inversión</h3>
+    <p class="text-sm text-neutral-500 mb-4">Incluye portafolios, fondos, fiduciarias y otros instrumentos. Registra rendimientos para darle seguimiento.</p>
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mb-4">
+        <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Nombre</label>
+            <input id="wealthInvestmentName" type="text" class="input-field" placeholder="Ej: Portafolio ETF, fiducia">
+        </div>
+        <div class="md:col-span-2">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Tipo de inversión</label>
+            <select id="wealthInvestmentType" class="input-field">
+                <option value="">Selecciona</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Valor</label>
+            <input id="wealthInvestmentValue" type="number" class="input-field" placeholder="0">
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
+            <select id="wealthInvestmentCurrency" class="wealth-asset-currency input-field"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
+            <input id="wealthInvestmentDate" type="date" class="input-field">
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Rendimiento (%)</label>
+            <input id="wealthInvestmentReturnRate" type="number" step="0.01" class="input-field" placeholder="Ej: 8.5">
+        </div>
+        <div>
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Rendimiento</label>
+            <input id="wealthInvestmentReturnAmount" type="number" class="input-field" placeholder="Ej: 150000">
+        </div>
+        <div class="md:col-span-6">
+            <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Notas</label>
+            <input id="wealthInvestmentNotes" type="text" class="input-field" placeholder="Detalles adicionales">
+        </div>
+        <div class="md:col-span-6 flex justify-end gap-3">
+            <button id="investmentCancelEdit" onclick="cancelInvestmentEdit()" class="hidden btn-secondary">
+                Cancelar edición
+            </button>
+            <button id="investmentSubmit" onclick="addInvestment()" class="btn-primary">
+                Agregar inversión
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Investments Table -->
+<div class="card p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Mis inversiones</h3>
+    <div class="overflow-x-auto">
+        <table class="table">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Valor</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rendimiento</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rend. %</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="investmentsTable" class="bg-white divide-y divide-gray-200">
+                <tr>
+                    <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentCurrency = { symbol: '$', decimals: 0 };
+    let investmentsCache = [];
+    let investmentEditId = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadInvestmentTypes();
+        loadInvestmentCurrencies();
+        loadInvestments();
+    });
+
+    async function loadInvestmentTypes() {
+        try {
+            const res = await fetch('/api/wealth-assets/investment-types');
+            const data = await res.json();
+            const types = data.investment_types || [];
+
+            // Populate form select
+            const formSelect = document.getElementById('wealthInvestmentType');
+            formSelect.innerHTML = '<option value="">Selecciona</option>';
+            types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                formSelect.appendChild(option);
+            });
+
+            // Populate filter select
+            const filterSelect = document.getElementById('investmentTypeFilter');
+            filterSelect.innerHTML = '<option value="">Todos</option>';
+            types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                filterSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading investment types:', error);
+        }
+    }
+
+    async function loadInvestmentCurrencies() {
+        try {
+            const res = await fetch('/api/currencies');
+            const data = await res.json();
+            const selects = document.querySelectorAll('.wealth-asset-currency');
+            selects.forEach(select => {
+                select.innerHTML = '';
+                (data || []).forEach(currency => {
+                    const option = document.createElement('option');
+                    option.value = currency.id;
+                    option.textContent = `${currency.code} - ${currency.name}`;
+                    select.appendChild(option);
+                });
+            });
+            const selectedCurrency = document.getElementById('currencyFilter').value;
+            if (selectedCurrency) {
+                selects.forEach(select => {
+                    select.value = selectedCurrency;
+                });
+            }
+        } catch (error) {
+            console.error('Error loading currencies:', error);
+        }
+    }
+
+    async function loadInvestments() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const res = await fetch(`/api/wealth-assets?currency_id=${currencyId}&asset_class=inversion`);
+            const data = await res.json();
+
+            if (data.currency) {
+                currentCurrency = data.currency;
+            }
+
+            const assets = data.assets || [];
+            investmentsCache = assets;
+
+            // Apply type filter client-side
+            const typeFilter = document.getElementById('investmentTypeFilter').value;
+            const filtered = typeFilter
+                ? assets.filter(a => a.investment_type === typeFilter)
+                : assets;
+
+            // Update summary cards
+            const totalValue = filtered.reduce((sum, a) => sum + (a.value_converted || a.value || 0), 0);
+            const totalReturn = filtered.reduce((sum, a) => sum + (a.return_amount || 0), 0);
+            document.getElementById('investmentsTotal').textContent = formatCurrency(totalValue);
+            document.getElementById('investmentsReturnTotal').textContent = formatCurrency(totalReturn);
+            document.getElementById('investmentsCount').textContent = filtered.length;
+
+            // Sync currency select
+            const selectedCurrency = document.getElementById('currencyFilter').value;
+            const currencySelects = document.querySelectorAll('.wealth-asset-currency');
+            currencySelects.forEach(select => {
+                if (select && selectedCurrency) {
+                    select.value = selectedCurrency;
+                }
+            });
+
+            // Render table
+            const table = document.getElementById('investmentsTable');
+            table.innerHTML = '';
+
+            filtered.forEach(asset => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-gray-700">${asset.name}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${asset.investment_type || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${formatCurrency(asset.value_converted || asset.value)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${asset.return_amount ? formatCurrency(asset.return_amount) : '-'}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-700">${asset.return_rate ? `${asset.return_rate}%` : '-'}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${asset.as_of_date || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${asset.notes || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-right text-gray-500">
+                        <button onclick="startInvestmentEdit(${asset.id})" class="text-indigo-600 hover:text-indigo-800 mr-3">Editar</button>
+                        <button onclick="deleteInvestment(${asset.id})" class="text-red-600 hover:text-red-800">Eliminar</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (filtered.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Sin inversiones registradas.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading investments:', error);
+        }
+    }
+
+    async function addInvestment() {
+        try {
+            const name = document.getElementById('wealthInvestmentName').value.trim();
+            if (!name) {
+                alert('Ingresa un nombre para la inversión.');
+                return;
+            }
+
+            const payload = {
+                name: name,
+                asset_class: 'inversion',
+                investment_type: document.getElementById('wealthInvestmentType').value || null,
+                value: parseFloat(document.getElementById('wealthInvestmentValue').value || 0),
+                currency_id: Number(document.getElementById('wealthInvestmentCurrency').value),
+                as_of_date: document.getElementById('wealthInvestmentDate').value || null,
+                notes: document.getElementById('wealthInvestmentNotes').value.trim() || null,
+                return_rate: document.getElementById('wealthInvestmentReturnRate').value
+                    ? Number(document.getElementById('wealthInvestmentReturnRate').value)
+                    : null,
+                return_amount: document.getElementById('wealthInvestmentReturnAmount').value
+                    ? Number(document.getElementById('wealthInvestmentReturnAmount').value)
+                    : null
+            };
+
+            const isEditing = investmentEditId !== null;
+            const url = isEditing ? `/api/wealth-assets/${investmentEditId}` : '/api/wealth-assets';
+            const method = isEditing ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.detail || 'Error al guardar');
+            }
+
+            if (isEditing) {
+                cancelInvestmentEdit();
+            } else {
+                resetInvestmentForm();
+            }
+
+            await loadInvestments();
+        } catch (error) {
+            console.error('Error adding investment:', error);
+            alert('No se pudo guardar la inversión.');
+        }
+    }
+
+    async function deleteInvestment(assetId) {
+        if (!confirm('¿Estás seguro de que deseas eliminar esta inversión?')) return;
+        try {
+            const res = await fetch(`/api/wealth-assets/${assetId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                throw new Error('Error al eliminar');
+            }
+            await loadInvestments();
+        } catch (error) {
+            console.error('Error deleting investment:', error);
+            alert('No se pudo eliminar la inversión.');
+        }
+    }
+
+    function startInvestmentEdit(assetId) {
+        const asset = investmentsCache.find(item => item.id === assetId);
+        if (!asset) return;
+
+        investmentEditId = assetId;
+
+        document.getElementById('wealthInvestmentName').value = asset.name || '';
+        document.getElementById('wealthInvestmentType').value = asset.investment_type || '';
+        document.getElementById('wealthInvestmentValue').value = asset.value || '';
+        document.getElementById('wealthInvestmentCurrency').value = asset.currency_id || document.getElementById('currencyFilter').value;
+        document.getElementById('wealthInvestmentDate').value = asset.as_of_date || '';
+        document.getElementById('wealthInvestmentReturnRate').value = asset.return_rate ?? '';
+        document.getElementById('wealthInvestmentReturnAmount').value = asset.return_amount ?? '';
+        document.getElementById('wealthInvestmentNotes').value = asset.notes || '';
+
+        document.getElementById('investmentSubmit').textContent = 'Guardar cambios';
+        document.getElementById('investmentCancelEdit').classList.remove('hidden');
+    }
+
+    function cancelInvestmentEdit() {
+        investmentEditId = null;
+        resetInvestmentForm();
+        document.getElementById('investmentSubmit').textContent = 'Agregar inversión';
+        document.getElementById('investmentCancelEdit').classList.add('hidden');
+    }
+
+    function resetInvestmentForm() {
+        document.getElementById('wealthInvestmentName').value = '';
+        document.getElementById('wealthInvestmentValue').value = '';
+        document.getElementById('wealthInvestmentType').value = '';
+        document.getElementById('wealthInvestmentDate').value = '';
+        document.getElementById('wealthInvestmentNotes').value = '';
+        document.getElementById('wealthInvestmentReturnRate').value = '';
+        document.getElementById('wealthInvestmentReturnAmount').value = '';
+    }
+
+    function formatCurrency(amount) {
+        return currentCurrency.symbol + Math.round(amount).toLocaleString('en-US', {
+            minimumFractionDigits: currentCurrency.decimals
+        });
+    }
+</script>
+{% endblock %}

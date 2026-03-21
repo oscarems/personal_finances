@@ -175,6 +175,12 @@ async def patrimonio_page(request: Request):
     return templates.TemplateResponse("wealth.html", {"request": request})
 
 
+@app.get("/inversiones")
+async def inversiones_page(request: Request):
+    """Investments page"""
+    return templates.TemplateResponse("investments.html", {"request": request})
+
+
 @app.get("/recurring")
 async def recurring_page(request: Request):
     """Recurring/automatic transactions page"""
