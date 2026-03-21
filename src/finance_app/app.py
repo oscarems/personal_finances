@@ -22,7 +22,6 @@ from finance_app.api import (
     budgets,
     categories,
     mortgage,
-    reports,
     recurring,
     exchange_rates,
     admin,
@@ -37,6 +36,7 @@ from finance_app.api import (
     goals,
     net_worth,
 )
+from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
 from finance_app.sync.email_scrape_sync import sync_email_transactions
 
@@ -75,7 +75,7 @@ app.include_router(categories.router, prefix="/api/categories", tags=["categorie
 app.include_router(gmail_import.router, prefix="/api/import/gmail", tags=["gmail-import"])
 app.include_router(mortgage.router, prefix="/api/mortgage", tags=["mortgage"])
 app.include_router(investment_simulator.router, prefix="/api/investment-simulator", tags=["investment-simulator"])
-app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+app.include_router(reports_router, prefix="/api/reports", tags=["reports"])
 app.include_router(recurring.router, prefix="/api/recurring", tags=["recurring"])
 app.include_router(exchange_rates.router, prefix="/api/exchange-rates", tags=["exchange-rates"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
@@ -152,22 +152,22 @@ async def investment_simulator_page(request: Request):
 @app.get("/reports")
 async def reports_page(request: Request):
     """Reports and analytics page"""
-    return templates.TemplateResponse("reports.html", {"request": request})
+    return templates.TemplateResponse("reports/index.html", {"request": request})
 
 @app.get("/reports/budget")
 async def reports_budget_page(request: Request):
     """Budget vs income vs expenses report page"""
-    return templates.TemplateResponse("reports_budget.html", {"request": request})
+    return templates.TemplateResponse("reports/budget.html", {"request": request})
 
 @app.get("/reports/wealth")
 async def reports_wealth_page(request: Request):
     """Wealth progress report page"""
-    return templates.TemplateResponse("reports_wealth.html", {"request": request})
+    return templates.TemplateResponse("reports/wealth.html", {"request": request})
 
 @app.get("/reports/investments")
 async def reports_investments_page(request: Request):
     """Investments report page"""
-    return templates.TemplateResponse("reports_investments.html", {"request": request})
+    return templates.TemplateResponse("reports/investments.html", {"request": request})
 
 @app.get("/patrimonio")
 async def patrimonio_page(request: Request):

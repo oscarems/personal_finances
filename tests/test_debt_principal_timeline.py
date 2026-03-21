@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from finance_app.database import Base
-from finance_app.api import reports
+from finance_app.services.reports.debt_timeline import build_debt_principal_timeline
 from finance_app.models import Currency, ExchangeRate, Debt, DebtPayment
 
 
@@ -49,7 +49,7 @@ def test_principal_timeline_with_fixed_payments():
     db.add_all(payments)
     db.commit()
 
-    timeline = reports.build_debt_principal_timeline(
+    timeline = build_debt_principal_timeline(
         start_month=date(2024, 1, 1),
         end_month=date(2024, 3, 1),
         debts=[debt],
@@ -88,7 +88,7 @@ def test_principal_timeline_without_interest():
     db.add(DebtPayment(debt_id=debt.id, payment_date=date(2024, 1, 10), amount=50.0))
     db.commit()
 
-    timeline = reports.build_debt_principal_timeline(
+    timeline = build_debt_principal_timeline(
         start_month=date(2024, 1, 1),
         end_month=date(2024, 1, 1),
         debts=[debt],
@@ -123,7 +123,7 @@ def test_principal_timeline_caps_at_zero():
     db.add(DebtPayment(debt_id=debt.id, payment_date=date(2024, 1, 5), amount=120.0))
     db.commit()
 
-    timeline = reports.build_debt_principal_timeline(
+    timeline = build_debt_principal_timeline(
         start_month=date(2024, 1, 1),
         end_month=date(2024, 1, 1),
         debts=[debt],
@@ -165,7 +165,7 @@ def test_credit_cards_are_excluded_from_principal_timeline():
     db.add_all([credit_card, loan])
     db.commit()
 
-    timeline = reports.build_debt_principal_timeline(
+    timeline = build_debt_principal_timeline(
         start_month=date(2024, 1, 1),
         end_month=date(2024, 1, 1),
         debts=[credit_card, loan],

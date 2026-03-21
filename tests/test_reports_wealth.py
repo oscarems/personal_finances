@@ -4,7 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from finance_app.database import Base
-from finance_app.api import reports
+from finance_app.api.reports_pkg import wealth as reports_wealth
+from finance_app.api.reports_pkg import debt as reports_debt
 from finance_app.models import Currency, ExchangeRate, WealthAsset, Debt, DebtPayment, Transaction
 
 
@@ -90,7 +91,7 @@ def test_net_worth_includes_only_bienes_and_inversiones_with_forward_fill():
     db.add(debt)
     db.commit()
 
-    result = reports.get_net_worth(
+    result = reports_wealth.get_net_worth(
         start_date="2024-01-01",
         end_date="2024-03-31",
         currency_id=1,
@@ -140,7 +141,7 @@ def test_debt_balance_history_uses_principal_only():
     db.add_all([payment_jan, adjustment_feb])
     db.commit()
 
-    history = reports.get_debt_balance_history(
+    history = reports_debt.get_debt_balance_history(
         start_date="2024-01-01",
         end_date="2024-02-28",
         currency_id=1,
