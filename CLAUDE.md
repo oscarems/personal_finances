@@ -13,7 +13,7 @@ src/finance_app/
 ├── database.py             # SQLAlchemy engine, session, init
 ├── models/                 # SQLAlchemy ORM models
 ├── api/                    # FastAPI routers (REST endpoints)
-│   ├── reports/            # Report endpoints (modular)
+│   ├── reports_pkg/        # Report endpoints (modular)
 │   │   ├── __init__.py     # Aggregated router
 │   │   ├── common.py       # Shared helpers (currency, dates, queries)
 │   │   ├── spending.py     # Spending by category/tag/group
@@ -31,6 +31,8 @@ src/finance_app/
 │   ├── reports/            # Report page templates
 │   │   ├── index.html      # Main reports dashboard
 │   │   ├── budget.html     # Budget vs expenses report
+│   │   ├── balance.html    # Balance trends, account history
+│   │   ├── debt.html       # Debt analysis, projections
 │   │   ├── wealth.html     # Real estate wealth report
 │   │   └── investments.html # Investments report
 │   └── ...                 # Other page templates
@@ -74,7 +76,7 @@ python -m pytest tests/test_reports_wealth.py -v
 - **API responses**: Always include `currency` dict when returning monetary values.
 - **Import style**: Relative imports within `finance_app` package, absolute for `domain`.
 
-## Report System (api/reports/)
+## Report System (api/reports_pkg/)
 
 The report module is split into focused files:
 - `common.py` — Shared utilities: `get_exchange_rate()`, `parse_date_range()`, `convert_to_currency()`, expense allocation helpers
