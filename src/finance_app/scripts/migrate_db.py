@@ -6,19 +6,41 @@ import sqlite3
 import sys
 from pathlib import Path
 
-# Database path
-BASE_DIR = Path(__file__).parent
-DATABASE_PATH = BASE_DIR / 'data' / 'finances.db'
+# Database path - project root is three levels up from scripts/
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+DATABASE_DIR = PROJECT_ROOT / 'data'
+DATABASE_PATH = DATABASE_DIR / 'finances.db'
 
-def migrate_database():
+
+def _find_all_databases() -> list[Path]:
+    """Find all .db files in the data directory."""
+    dbs = []
+    if DATABASE_PATH.exists():
+        dbs.append(DATABASE_PATH)
+    demo_path = DATABASE_DIR / 'finances_demo.db'
+    if demo_path.exists():
+        dbs.append(demo_path)
+    if DATABASE_DIR.exists():
+        for p in DATABASE_DIR.glob('*.db'):
+            if p not in dbs:
+                dbs.append(p)
+    return dbs
+
+
+def migrate_database(db_path: Path | None = None):
     """Add missing columns to categories/accounts tables"""
+    target = db_path or DATABASE_PATH
 
-    if not DATABASE_PATH.exists():
-        print("❌ Base de datos no encontrada. Ejecuta 'python init_db.py' primero.")
-        sys.exit(1)
+    if not target.exists():
+        print(f"❌ Base de datos no encontrada en {target}. Ejecuta 'python init_db.py' primero.")
+        if db_path is None:
+            sys.exit(1)
+        return
+
+    print(f"\n--- Migrando: {target.name} ---")
 
     try:
-        conn = sqlite3.connect(DATABASE_PATH)
+        conn = sqlite3.connect(target)
         cursor = conn.cursor()
 
         # Check if column already exists
@@ -241,6 +263,27 @@ def migrate_database():
             conn.commit()
             print("✅ Tabla creada exitosamente en goal_contributions")
 
+        # --- Country column on accounts ---
+        cursor.execute("PRAGMA table_info(accounts)")
+        account_columns_refreshed = [row[1] for row in cursor.fetchall()]
+
+        if 'country' in account_columns_refreshed:
+            print("✓ La columna 'country' ya existe en accounts")
+        else:
+            print("🔧 Agregando columna 'country' a la tabla accounts...")
+            cursor.execute("ALTER TABLE accounts ADD COLUMN country VARCHAR(50)")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en accounts")
+
+        # Backfill country values
+        print("🔧 Actualizando country en cuentas existentes...")
+        cursor.execute("UPDATE accounts SET country = 'Colombia' WHERE lower(name) = 'cuenta corriente cop' AND (country IS NULL OR country = '')")
+        cursor.execute("UPDATE accounts SET country = 'Panama' WHERE lower(name) = 'ahorros usd' AND (country IS NULL OR country = '')")
+        conn.commit()
+        updated = cursor.execute("SELECT name, country FROM accounts WHERE country IS NOT NULL").fetchall()
+        for name, country in updated:
+            print(f"  ✓ {name} → {country}")
+
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='debt_amortization_monthly'")
         if cursor.fetchone():
             print("✓ La tabla 'debt_amortization_monthly' ya existe")
@@ -274,6 +317,18 @@ def migrate_database():
         print(f"❌ Error al migrar la base de datos: {e}")
         sys.exit(1)
 
+def migrate_all_databases():
+    """Migrate all databases found in the data directory."""
+    dbs = _find_all_databases()
+    if not dbs:
+        print(f"❌ No se encontraron bases de datos en {DATABASE_DIR}")
+        sys.exit(1)
+    print(f"Se encontraron {len(dbs)} base(s) de datos: {', '.join(p.name for p in dbs)}")
+    for db_path in dbs:
+        migrate_database(db_path)
+    print("\n✓ Todas las migraciones completadas.")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("MIGRACIÓN DE BASE DE DATOS")
@@ -282,6 +337,6 @@ if __name__ == "__main__":
 
     response = input("\n¿Continuar? (s/n): ")
     if response.lower() == 's':
-        migrate_database()
+        migrate_all_databases()
     else:
         print("❌ Migración cancelada")

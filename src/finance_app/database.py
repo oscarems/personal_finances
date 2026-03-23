@@ -496,17 +496,17 @@ def init_db(engine_override=None):
     print("✓ Database tables created")
 
 
+ACCOUNT_COUNTRY_MAP: dict[str, str] = {
+    "cuenta corriente cop": "Colombia",
+    "ahorros usd": "Panama",
+}
+
+
 def _backfill_account_country(engine_override=None):
     """Set country for accounts based on name: Cuenta Corriente COP → Colombia, Ahorros USD → Panama."""
     active_engine = engine_override or engine
-    if active_engine.url.drivername != "sqlite":
-        return
-    country_map = {
-        "cuenta corriente cop": "Colombia",
-        "ahorros usd": "Panama",
-    }
     with active_engine.begin() as connection:
-        for account_name, country in country_map.items():
+        for account_name, country in ACCOUNT_COUNTRY_MAP.items():
             connection.execute(
                 text("UPDATE accounts SET country = :country WHERE lower(name) = :name AND (country IS NULL OR country = '')"),
                 {"country": country, "name": account_name},
