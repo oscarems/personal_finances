@@ -13,6 +13,7 @@ class Account(Base):
     balance = Column(Float, default=0.0)
     is_budget = Column(Boolean, default=True)  # Include in budget
     is_closed = Column(Boolean, default=False)
+    country = Column(String(50))  # País asociado a la cuenta (ej: Colombia, Panama)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -58,6 +59,7 @@ class Account(Base):
             'balance': self.balance,
             'is_budget': self.is_budget,
             'is_closed': self.is_closed,
+            'country': self.country,
             'notes': self.notes,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

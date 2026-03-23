@@ -486,7 +486,31 @@ def init_db(engine_override=None):
         column_definition="llm_model VARCHAR(120)",
         engine_override=active_engine
     )
+    ensure_sqlite_column(
+        table_name="accounts",
+        column_name="country",
+        column_definition="country VARCHAR(50)",
+        engine_override=active_engine
+    )
+    _backfill_account_country(active_engine)
     print("✓ Database tables created")
+
+
+def _backfill_account_country(engine_override=None):
+    """Set country for accounts based on name: Cuenta Corriente COP → Colombia, Ahorros USD → Panama."""
+    active_engine = engine_override or engine
+    if active_engine.url.drivername != "sqlite":
+        return
+    country_map = {
+        "cuenta corriente cop": "Colombia",
+        "ahorros usd": "Panama",
+    }
+    with active_engine.begin() as connection:
+        for account_name, country in country_map.items():
+            connection.execute(
+                text("UPDATE accounts SET country = :country WHERE lower(name) = :name AND (country IS NULL OR country = '')"),
+                {"country": country, "name": account_name},
+            )
 
 
 def ensure_sqlite_column(

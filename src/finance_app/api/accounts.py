@@ -22,6 +22,7 @@ class AccountCreate(BaseModel):
     currency_id: int
     balance: float = 0.0
     is_budget: bool = True
+    country: Optional[str] = None
     notes: Optional[str] = None
     # Optional fields based on account type
     interest_rate: Optional[float] = None
@@ -37,6 +38,7 @@ class AccountCreate(BaseModel):
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
+    country: Optional[str] = None
     notes: Optional[str] = None
     is_budget: Optional[bool] = None
     balance: Optional[float] = None
@@ -117,6 +119,7 @@ def create_account(account_data: AccountCreate, db: Session = Depends(get_db)):
         currency_id=account_data.currency_id,
         balance=account_data.balance,
         is_budget=account_data.is_budget,
+        country=account_data.country,
         notes=account_data.notes,
         interest_rate=account_data.interest_rate,
         credit_limit=account_data.credit_limit,
@@ -171,6 +174,8 @@ def update_account(account_id: int, account_data: AccountUpdate, db: Session = D
         account.name = account_data.name
     if account_data.type is not None:
         account.type = account_data.type
+    if account_data.country is not None:
+        account.country = account_data.country
     if account_data.notes is not None:
         account.notes = account_data.notes
     if account_data.is_budget is not None:

@@ -37,6 +37,15 @@ def _fallback_account_by_currency(db: Session, currency_id: int | None) -> Accou
     return db.query(Account).filter_by(currency_id=currency_id).order_by(Account.id.asc()).first()
 
 
+_LABEL_TO_COUNTRY: dict[str, str] = {
+    "panama": "Panama",
+    "pnama": "Panama",
+    "ahorros usd": "Panama",
+    "colombia": "Colombia",
+    "cuenta corriente cop": "Colombia",
+}
+
+
 def _resolve_account(
     db: Session,
     account_label: str,
@@ -45,6 +54,8 @@ def _resolve_account(
 ) -> Account | None:
     normalized_label = _normalize_name(account_label)
     account_name = None
+    country = _LABEL_TO_COUNTRY.get(normalized_label)
+
     if normalized_label in {"panama", "pnama", "ahorros usd"}:
         account_name = settings.email_panama_account
     elif normalized_label in {"colombia", "cuenta corriente cop"}:
@@ -53,9 +64,14 @@ def _resolve_account(
         account_name = settings.email_mastercard_black_account
 
     account = _find_account_by_name(db, account_name)
-    if account:
-        return account
-    return _fallback_account_by_currency(db, currency_id)
+    if not account:
+        account = _fallback_account_by_currency(db, currency_id)
+
+    if account and country and not account.country:
+        account.country = country
+        db.flush()
+
+    return account
 
 
 def _last_scraped_datetime(db: Session) -> datetime | None:

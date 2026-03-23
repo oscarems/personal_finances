@@ -118,13 +118,15 @@ def init_sample_accounts(db_session):
             'name': 'Cuenta Corriente COP',
             'type': 'checking',
             'currency': cop_currency,
-            'balance': 0.0
+            'balance': 0.0,
+            'country': 'Colombia',
         },
         {
             'name': 'Ahorros USD',
             'type': 'savings',
             'currency': usd_currency,
-            'balance': 0.0
+            'balance': 0.0,
+            'country': 'Panama',
         }
     ]
 
@@ -136,6 +138,7 @@ def init_sample_accounts(db_session):
                 type=acc_data['type'],
                 currency_id=acc_data['currency'].id,
                 balance=acc_data['balance'],
+                country=acc_data.get('country'),
                 is_budget=True
             )
             db_session.add(account)
