@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from finance_app.database import get_db
 from finance_app.models import WealthAsset, Currency, Debt
-from finance_app.api.reports import get_exchange_rate, convert_to_currency
+from finance_app.api.reports_pkg.common import get_exchange_rate, convert_to_currency
 from finance_app.utils.wealth import apply_annual_appreciation_on_january, apply_depreciation
 
 router = APIRouter()

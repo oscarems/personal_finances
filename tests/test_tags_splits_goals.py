@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from finance_app.database import Base
-from finance_app.api import reports
+from finance_app.api.reports_pkg import spending as reports_spending
 from finance_app.models import Account, Category, CategoryGroup, Currency, Debt, Goal, GoalContribution, Tag, Transaction
 from finance_app.services.goal_service import calculate_goal_progress
 from finance_app.services.transaction_allocation_service import get_category_allocations
@@ -185,7 +185,7 @@ def test_spending_by_tag_category_filter_uses_splits():
         ],
     })
 
-    payload = reports.get_spending_by_tag(
+    payload = reports_spending.get_spending_by_tag(
         start_date=date.today().replace(day=1).isoformat(),
         end_date=date.today().isoformat(),
         currency_id=1,

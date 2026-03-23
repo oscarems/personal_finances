@@ -6,7 +6,8 @@ from sqlalchemy.orm import sessionmaker
 from domain.debts.projection import project_debt_principal
 from domain.debts.service import get_total_debt_principal_cop
 from domain.debts.snapshot import build_debt_snapshots
-from finance_app.api import reports
+from finance_app.api.reports_pkg import wealth as reports_wealth_mod
+from finance_app.api.reports_pkg import debt as reports_debt_mod
 from finance_app.database import Base
 from finance_app.models import (
     Currency,
@@ -51,7 +52,7 @@ def test_debt_totals_consistent_everywhere():
 
     canonical_total = float(get_total_debt_principal_cop(db, today))
 
-    net_worth = reports.get_net_worth(
+    net_worth = reports_wealth_mod.get_net_worth(
         start_date=today.isoformat(),
         end_date=today.isoformat(),
         currency_id=1,
@@ -59,7 +60,7 @@ def test_debt_totals_consistent_everywhere():
     )
     net_worth_liabilities = net_worth["monthly"][0]["liabilities"]
 
-    summary = reports.get_debt_summary(currency_id=1, db=db)
+    summary = reports_debt_mod.get_debt_summary(currency_id=1, db=db)
     summary_total = summary["totals"]["total_debt"]
 
     assert abs(canonical_total - net_worth_liabilities) <= 0.01

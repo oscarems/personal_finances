@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+
+{% block title %}Reporte de Deudas - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="page-header mb-8">
+    <div>
+        <h2 class="page-title">Reporte de Deudas</h2>
+        <p class="page-subtitle">Resumen de deudas, historial de saldos, timeline de capital y proyecciones de pago.</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-card shadow-soft p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Filtros</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Moneda</label>
+            <select id="currencyFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl"></select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Periodo</label>
+            <select id="monthsFilter" class="w-full px-4 py-2 border border-neutral-200 rounded-xl">
+                <option value="6">6 meses</option>
+                <option value="12" selected>12 meses</option>
+                <option value="24">24 meses</option>
+                <option value="0">Todo el historial</option>
+            </select>
+        </div>
+        <div class="flex items-end">
+            <button id="applyFilters" class="btn-primary w-full">Actualizar reporte</button>
+        </div>
+    </div>
+</div>
+
+<!-- Debt Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+    <div class="bg-gradient-to-br from-danger-50 to-danger-100 border border-danger-200 rounded-card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Deuda total</p>
+        <p id="debtTotal" class="text-2xl font-bold text-danger-600">$0</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-600 mb-2">Capital original</p>
+        <p id="debtOriginal" class="text-2xl font-bold text-neutral-800">$0</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-600 mb-2">Deuda proyectada (12m)</p>
+        <p id="debtProjected" class="text-2xl font-bold text-danger-500">$0</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-600 mb-2">Pago mensual total</p>
+        <p id="debtMonthly" class="text-2xl font-bold text-danger-600">$0</p>
+    </div>
+    <div class="bg-white rounded-card shadow-soft p-6">
+        <p class="text-sm text-neutral-600 mb-2">Intereses pagados</p>
+        <p id="debtInterest" class="text-2xl font-bold text-danger-600">$0</p>
+    </div>
+</div>
+
+<!-- Debt Balance History Chart -->
+<div class="bg-white rounded-card shadow-soft p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Evolución de la deuda total</h3>
+    <p class="text-sm text-neutral-500 mb-4">Saldo total de deuda a lo largo del tiempo, desglosado por tipo.</p>
+    <div class="h-96">
+        <canvas id="debtBalanceChart"></canvas>
+    </div>
+</div>
+
+<!-- Debt Summary Table -->
+<div class="bg-white rounded-card shadow-soft overflow-hidden mb-6">
+    <div class="p-6">
+        <h3 class="text-lg font-semibold text-neutral-800 mb-2">Resumen de deudas activas</h3>
+        <p class="text-sm text-neutral-500">Detalle de cada deuda con saldo actual, pago mensual y fecha estimada de pago.</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm text-left text-neutral-600">
+            <thead class="bg-neutral-50 text-neutral-700">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">Deuda</th>
+                    <th class="px-6 py-3 font-semibold">Tipo</th>
+                    <th class="px-6 py-3 font-semibold">Institución</th>
+                    <th class="px-6 py-3 font-semibold text-right">Tasa</th>
+                    <th class="px-6 py-3 font-semibold text-right">Saldo actual</th>
+                    <th class="px-6 py-3 font-semibold text-right">Pago mensual</th>
+                    <th class="px-6 py-3 font-semibold text-right">Meses restantes</th>
+                    <th class="px-6 py-3 font-semibold">Fecha fin</th>
+                </tr>
+            </thead>
+            <tbody id="debtSummaryTable" class="divide-y divide-neutral-200 bg-white">
+                <tr>
+                    <td colspan="8" class="px-6 py-4 text-center text-sm text-neutral-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Debt Principal Timeline -->
+<div class="bg-white rounded-card shadow-soft p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-2">Capital de deuda mes a mes</h3>
+    <p class="text-sm text-neutral-500 mb-4">
+        Totales con pagos programados para meses futuros.
+    </p>
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm text-left text-neutral-600">
+            <thead class="bg-neutral-50 text-neutral-700" id="debtTimelineHeader">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">Mes</th>
+                    <th class="px-6 py-3 font-semibold text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody id="debtTimelineTable" class="divide-y divide-neutral-200 bg-white">
+                <tr>
+                    <td colspan="2" class="px-6 py-4 text-center text-sm text-neutral-500">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Debt Payoff Projection -->
+<div class="bg-white rounded-card shadow-soft p-6 mb-6">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">Proyección de pago de deuda</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Deuda</label>
+            <select id="debtProjectionId" class="w-full px-4 py-2 border border-neutral-200 rounded-xl">
+                <option value="">Selecciona una deuda...</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-neutral-600 mb-2">Pago extra mensual</label>
+            <input id="debtProjectionExtra" type="number" class="w-full px-4 py-2 border border-neutral-200 rounded-xl" placeholder="0">
+        </div>
+        <div class="flex items-end">
+            <button onclick="loadDebtProjection()" class="btn-primary w-full">
+                Generar proyección
+            </button>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div>
+            <p class="text-sm text-neutral-500 mb-2">Pago mensual</p>
+            <p id="debtProjectionPayment" class="text-2xl font-bold text-neutral-800">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-neutral-500 mb-2">Meses para pagar</p>
+            <p id="debtProjectionMonths" class="text-2xl font-bold text-neutral-800">0</p>
+        </div>
+        <div>
+            <p class="text-sm text-neutral-500 mb-2">Interés total</p>
+            <p id="debtProjectionInterest" class="text-2xl font-bold text-danger-600">$0</p>
+        </div>
+        <div>
+            <p class="text-sm text-neutral-500 mb-2">Total a pagar</p>
+            <p id="debtProjectionTotal" class="text-2xl font-bold text-neutral-800">$0</p>
+        </div>
+    </div>
+
+    <!-- Payoff Chart -->
+    <div class="h-72 mb-6">
+        <canvas id="debtPayoffChart"></canvas>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm text-left text-neutral-600">
+            <thead class="bg-neutral-50 text-neutral-700">
+                <tr>
+                    <th class="px-6 py-3 font-semibold">Fecha</th>
+                    <th class="px-6 py-3 font-semibold text-right">Pago</th>
+                    <th class="px-6 py-3 font-semibold text-right">Capital</th>
+                    <th class="px-6 py-3 font-semibold text-right">Interés</th>
+                    <th class="px-6 py-3 font-semibold text-right">Saldo restante</th>
+                </tr>
+            </thead>
+            <tbody id="debtProjectionTable" class="divide-y divide-neutral-200 bg-white">
+                <tr>
+                    <td colspan="5" class="px-6 py-4 text-center text-sm text-neutral-500">Selecciona una deuda para ver la proyección.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let currentCurrency = { symbol: '$', decimals: 0 };
+    let debtBalanceChart = null;
+    let debtPayoffChart = null;
+
+    // Color map for debt types
+    const debtTypeColors = {
+        mortgage: { border: '#3f679a', bg: 'rgba(63, 103, 154, 0.15)' },
+        credit_loan: { border: '#b64854', bg: 'rgba(182, 72, 84, 0.15)' },
+        credit_card: { border: '#cf8b2b', bg: 'rgba(207, 139, 43, 0.15)' },
+    };
+    const debtTypeLabels = {
+        mortgage: 'Hipoteca',
+        credit_loan: 'Crédito',
+        credit_card: 'Tarjeta de crédito',
+    };
+
+    async function loadCurrencies() {
+        const select = document.getElementById('currencyFilter');
+        select.innerHTML = '';
+        try {
+            const res = await fetch('/api/currencies');
+            const currencies = await res.json();
+            (currencies || []).forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.id;
+                option.textContent = `${currency.code} - ${currency.name}`;
+                select.appendChild(option);
+            });
+            select.value = select.value || '1';
+        } catch (error) {
+            console.error('Error loading currencies:', error);
+            select.innerHTML = '<option value="1">COP - Peso Colombiano</option><option value="2">USD - Dólar Estadounidense</option>';
+        }
+    }
+
+    function formatCurrency(amount) {
+        return `${currentCurrency.symbol}${Math.round(amount).toLocaleString('en-US', {
+            minimumFractionDigits: currentCurrency.decimals
+        })}`;
+    }
+
+    function getDateRange() {
+        const months = parseInt(document.getElementById('monthsFilter').value, 10);
+        const today = new Date();
+        if (months === 0) {
+            return { start: null, end: null, includeFullHistory: true, projectionMonths: 12 };
+        }
+        const startDate = new Date(today.getFullYear(), today.getMonth() - months, 1);
+        return {
+            start: startDate.toISOString().split('T')[0],
+            end: today.toISOString().split('T')[0],
+            includeFullHistory: false,
+            projectionMonths: Math.min(months, 12)
+        };
+    }
+
+    async function loadAllDebtReports() {
+        await Promise.all([
+            loadDebtSummary(),
+            loadDebtBalanceHistory(),
+            loadDebtTimeline()
+        ]);
+    }
+
+    async function loadDebtSummary() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const res = await fetch(`/api/reports/debt-summary?currency_id=${currencyId}`);
+            const data = await res.json();
+
+            if (data.currency) currentCurrency = data.currency;
+
+            document.getElementById('debtTotal').textContent = formatCurrency(data.totals?.total_debt || 0);
+            document.getElementById('debtOriginal').textContent = formatCurrency(data.totals?.total_original || 0);
+            document.getElementById('debtProjected').textContent = formatCurrency(data.totals?.total_projected || 0);
+            document.getElementById('debtMonthly').textContent = formatCurrency(data.totals?.total_monthly_payment || 0);
+            document.getElementById('debtInterest').textContent = formatCurrency(data.totals?.total_interest_paid || 0);
+
+            // Populate debt selector for projections
+            const selector = document.getElementById('debtProjectionId');
+            const prevValue = selector.value;
+            selector.innerHTML = '<option value="">Selecciona una deuda...</option>';
+            (data.debts || []).forEach(debt => {
+                const option = document.createElement('option');
+                option.value = debt.id;
+                option.textContent = `${debt.name} (${formatCurrency(debt.current_balance)})`;
+                selector.appendChild(option);
+            });
+            if (prevValue) selector.value = prevValue;
+
+            // Render table
+            const table = document.getElementById('debtSummaryTable');
+            table.innerHTML = '';
+            (data.debts || []).forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm font-medium text-neutral-800">${item.name}</td>
+                    <td class="px-6 py-4 text-sm text-neutral-500">${debtTypeLabels[item.type] || item.type}</td>
+                    <td class="px-6 py-4 text-sm text-neutral-500">${item.institution || '-'}</td>
+                    <td class="px-6 py-4 text-sm text-right text-neutral-600">${item.interest_rate || 0}%</td>
+                    <td class="px-6 py-4 text-sm text-right font-semibold text-danger-600">${formatCurrency(item.current_balance)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-neutral-700">${formatCurrency(item.monthly_payment)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-neutral-700">${item.months_remaining}</td>
+                    <td class="px-6 py-4 text-sm text-neutral-500">${item.payoff_date || '-'}</td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (!data.debts || data.debts.length === 0) {
+                table.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-sm text-neutral-500">Sin deudas activas.</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error loading debt summary:', error);
+        }
+    }
+
+    async function loadDebtBalanceHistory() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const dateRange = getDateRange();
+            let url = `/api/reports/debt-balance-history?currency_id=${currencyId}&projection_months=${dateRange.projectionMonths}`;
+            if (dateRange.includeFullHistory) {
+                url += '&include_full_history=true';
+            } else {
+                url += `&start_date=${dateRange.start}&end_date=${dateRange.end}`;
+            }
+
+            const res = await fetch(url);
+            const data = await res.json();
+
+            const monthly = data.monthly || [];
+            if (monthly.length === 0) return;
+
+            const debtTypes = data.debt_types || [];
+            const labels = monthly.map(item => item.month_name);
+
+            // Build stacked area datasets per debt type
+            const datasets = debtTypes.map(type => {
+                const color = debtTypeColors[type] || { border: '#64748b', bg: 'rgba(100, 116, 139, 0.15)' };
+                return {
+                    label: debtTypeLabels[type] || type,
+                    data: monthly.map(item => item.debt_by_type?.[type] || 0),
+                    borderColor: color.border,
+                    backgroundColor: color.bg,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2
+                };
+            });
+
+            // Add total line
+            datasets.push({
+                label: 'Deuda total',
+                data: monthly.map(item => item.total_debt),
+                borderColor: '#1e293b',
+                backgroundColor: 'transparent',
+                borderWidth: 3,
+                fill: false,
+                tension: 0.3,
+                pointRadius: 3
+            });
+
+            if (debtBalanceChart) debtBalanceChart.destroy();
+
+            debtBalanceChart = new Chart(document.getElementById('debtBalanceChart').getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            stacked: false,
+                            ticks: { callback: value => formatCurrency(value) }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Error loading debt balance history:', error);
+        }
+    }
+
+    async function loadDebtTimeline() {
+        try {
+            const today = new Date();
+            const months = parseInt(document.getElementById('monthsFilter').value, 10) || 6;
+            const historyMonths = Math.min(months, 6);
+            const start = new Date(today.getFullYear(), today.getMonth() - historyMonths, 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + historyMonths, 1);
+            const startStr = start.toISOString().slice(0, 7);
+            const endStr = end.toISOString().slice(0, 7);
+
+            const res = await fetch(`/api/debts/timeline?start=${startStr}&end=${endStr}&include_projected=true`);
+            const data = await res.json();
+
+            const tableBody = document.getElementById('debtTimelineTable');
+            const header = document.getElementById('debtTimelineHeader');
+
+            const debtEntries = Object.entries(data.per_debt || {});
+            header.innerHTML = '';
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = `
+                <th class="px-6 py-3 font-semibold text-xs text-neutral-700 uppercase">Mes</th>
+                ${debtEntries.map(([_, debt]) => `
+                    <th class="px-6 py-3 font-semibold text-xs text-neutral-700 uppercase text-right">${debt.name}</th>
+                `).join('')}
+                <th class="px-6 py-3 font-semibold text-xs text-neutral-700 uppercase text-right">Total</th>
+            `;
+            header.appendChild(headerRow);
+
+            if (!data.months || data.months.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="${2 + debtEntries.length}" class="px-6 py-4 text-center text-sm text-neutral-500">No hay datos disponibles.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = '';
+            data.months.forEach((month, index) => {
+                const row = document.createElement('tr');
+                const totals = data.totals_cop_by_month || [];
+
+                const debtCells = debtEntries.map(([_, debt]) => {
+                    const value = debt.principal_cop_by_month?.[index] || 0;
+                    return `<td class="px-6 py-4 text-right text-sm text-neutral-700">${formatCurrency(value)}</td>`;
+                }).join('');
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-neutral-700">${month}</td>
+                    ${debtCells}
+                    <td class="px-6 py-4 text-right text-sm font-semibold text-neutral-900">${formatCurrency(totals[index] || 0)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error loading debt timeline:', error);
+        }
+    }
+
+    async function loadDebtProjection() {
+        try {
+            const debtId = document.getElementById('debtProjectionId').value;
+            if (!debtId) return;
+
+            const currencyId = document.getElementById('currencyFilter').value;
+            const extraPayment = document.getElementById('debtProjectionExtra').value || 0;
+            const res = await fetch(
+                `/api/reports/debt-payoff-projection?debt_id=${debtId}&extra_payment=${extraPayment}&currency_id=${currencyId}`
+            );
+            const data = await res.json();
+
+            document.getElementById('debtProjectionPayment').textContent = formatCurrency(data.projection?.monthly_payment || 0);
+            document.getElementById('debtProjectionMonths').textContent = data.projection?.months_to_payoff || 0;
+            document.getElementById('debtProjectionInterest').textContent = formatCurrency(data.projection?.total_interest || 0);
+            document.getElementById('debtProjectionTotal').textContent = formatCurrency(data.projection?.total_paid || 0);
+
+            // Render payoff chart
+            const schedule = data.schedule || [];
+            if (schedule.length > 0) {
+                if (debtPayoffChart) debtPayoffChart.destroy();
+
+                debtPayoffChart = new Chart(document.getElementById('debtPayoffChart').getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: schedule.map(s => s.date),
+                        datasets: [
+                            {
+                                label: 'Saldo restante',
+                                data: schedule.map(s => s.balance),
+                                borderColor: '#b64854',
+                                backgroundColor: 'rgba(182, 72, 84, 0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 1
+                            },
+                            {
+                                label: 'Capital pagado',
+                                data: schedule.map(s => s.principal),
+                                borderColor: '#3f7c64',
+                                backgroundColor: 'transparent',
+                                tension: 0.3,
+                                pointRadius: 1
+                            },
+                            {
+                                label: 'Interés pagado',
+                                data: schedule.map(s => s.interest),
+                                borderColor: '#cf8b2b',
+                                backgroundColor: 'transparent',
+                                tension: 0.3,
+                                pointRadius: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { ticks: { callback: value => formatCurrency(value) } },
+                            x: {
+                                ticks: {
+                                    maxTicksLimit: 12,
+                                    maxRotation: 45
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Render table
+            const table = document.getElementById('debtProjectionTable');
+            table.innerHTML = '';
+            schedule.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-neutral-700">${item.date}</td>
+                    <td class="px-6 py-4 text-sm text-right text-neutral-700">${formatCurrency(item.payment)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-success-600">${formatCurrency(item.principal)}</td>
+                    <td class="px-6 py-4 text-sm text-right text-danger-600">${formatCurrency(item.interest)}</td>
+                    <td class="px-6 py-4 text-sm text-right font-semibold text-neutral-800">${formatCurrency(item.balance)}</td>
+                `;
+                table.appendChild(row);
+            });
+
+            if (schedule.length === 0) {
+                table.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-sm text-neutral-500">Sin datos disponibles.</td></tr>';
+            }
+        } catch (error) {
+            console.error('Error loading debt projection:', error);
+        }
+    }
+
+    document.getElementById('applyFilters').addEventListener('click', loadAllDebtReports);
+    document.getElementById('currencyFilter').addEventListener('change', loadAllDebtReports);
+    document.getElementById('monthsFilter').addEventListener('change', loadAllDebtReports);
+
+    (async () => {
+        await loadCurrencies();
+        await loadAllDebtReports();
+    })();
+</script>
+{% endblock %}
