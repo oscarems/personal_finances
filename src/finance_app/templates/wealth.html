@@ -488,7 +488,7 @@
             (data || []).forEach(debt => {
                 const option = document.createElement('option');
                 option.value = debt.id;
-                option.textContent = `${debt.name} (${debt.currency_code} ${debt.current_balance.toLocaleString('en-US')})`;
+                option.textContent = `${debt.name} (${debt.currency_code} ${debt.current_balance.toLocaleString('es-CO')})`;
                 select.appendChild(option);
             });
         } catch (error) {
@@ -848,7 +848,7 @@
     }
 
     function formatCurrency(amount) {
-        return currentCurrency.symbol + Math.round(amount).toLocaleString('en-US', {
+        return currentCurrency.symbol + Math.round(amount).toLocaleString('es-CO', {
             minimumFractionDigits: currentCurrency.decimals
         });
     }

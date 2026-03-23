@@ -55,14 +55,13 @@ def fetch_rate_from_api(api_url: str, timeout: int = 5) -> Optional[float]:
         if response.status_code == 200:
             data = response.json()
 
-            # Diferentes APIs tienen diferentes estructuras
-            # API 1: exchangerate-api.com
+            # Ambas APIs usan formato {"rates": {"COP": ...}}
             if 'rates' in data and 'COP' in data['rates']:
                 return float(data['rates']['COP'])
 
-            # API 2: exchangerate.host
-            if 'rates' in data and 'COP' in data['rates']:
-                return float(data['rates']['COP'])
+            # Formato alternativo: {"conversion_rates": {"COP": ...}}
+            if 'conversion_rates' in data and 'COP' in data['conversion_rates']:
+                return float(data['conversion_rates']['COP'])
 
     except Exception as e:
         print(f"⚠️  Error fetching from {api_url}: {str(e)}")
@@ -349,6 +348,8 @@ def convert_currency(
     if from_currency == 'USD' and to_currency == 'COP':
         return amount * rate
     elif from_currency == 'COP' and to_currency == 'USD':
+        if rate <= 0:
+            return amount
         return amount / rate
 
     return amount

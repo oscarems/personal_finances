@@ -131,13 +131,16 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
 
     payment_amount = abs(amount)
     if amount < 0:
+        estimated_interest = _estimate_period_interest(debt, payment_amount)
+        estimated_principal = max(0.0, payment_amount - estimated_interest)
+
         payment = DebtPayment(
             debt_id=debt.id,
             transaction_id=transaction.id,
             payment_date=transaction.date,
             amount=payment_amount,
-            principal=payment_amount,
-            interest=0.0,
+            principal=estimated_principal,
+            interest=estimated_interest,
             fees=0.0,
             balance_after=None,
             notes="Pago registrado desde transacción"
@@ -148,13 +151,35 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
             debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
             payment.balance_after = debt.current_balance
         else:
-            debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+            debt.current_balance = max(0.0, debt.current_balance - estimated_principal)
             payment.balance_after = debt.current_balance
         if debt.current_balance <= 0:
             debt.is_active = False
     else:
         debt.current_balance += payment_amount
         debt.is_active = True
+
+
+def _estimate_period_interest(debt: Debt, payment_amount: float) -> float:
+    """Estimate the interest portion of a debt payment based on the debt's rate and balance.
+
+    For debts without an interest rate, returns 0.0 (all payment goes to principal).
+    Uses effective annual rate converted to monthly, applied to current balance.
+    The estimated interest is capped at the payment amount.
+    """
+    rate = debt.interest_rate or 0.0
+    if rate <= 0 or debt.debt_type == "credit_card":
+        return 0.0
+
+    annual_decimal = rate / 100 if rate > 1 else rate
+    monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1
+
+    balance = debt.current_balance or 0.0
+    if balance <= 0:
+        return 0.0
+
+    interest = round(balance * monthly_rate, 2)
+    return min(interest, payment_amount)
 
 
 def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:

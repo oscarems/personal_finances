@@ -289,7 +289,7 @@
             <div class="mt-2 pt-2 border-t border-gray-100">
                 <p class="text-xs text-gray-500">Equivalente en ${otherCurrency}</p>
                 <p class="text-sm font-semibold ${balanceClass}">
-                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('en-US', {
+                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('es-CO', {
                         minimumFractionDigits: otherDecimals,
                         maximumFractionDigits: otherDecimals
                     })}
@@ -364,7 +364,7 @@
                     <div class="border-t pt-4">
                         <p class="text-sm text-gray-600 mb-1">Saldo</p>
                         <p class="text-2xl font-bold ${balanceClass}">
-                            ${acc.currency.symbol}${Math.abs(acc.balance).toLocaleString('en-US', {
+                            ${acc.currency.symbol}${Math.abs(acc.balance).toLocaleString('es-CO', {
                                 minimumFractionDigits: acc.currency.decimals
                             })}
                         </p>
@@ -460,7 +460,7 @@
         adjustingAccountId = accountId;
         const symbol = account.currency.symbol || '$';
         const decimals = account.currency.decimals ?? 0;
-        const formattedBalance = `${symbol}${Math.abs(account.balance).toLocaleString('en-US', {
+        const formattedBalance = `${symbol}${Math.abs(account.balance).toLocaleString('es-CO', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         })}`;
@@ -488,7 +488,7 @@
         const difference = Number.isFinite(actualValue) ? actualValue - account.balance : 0;
         const symbol = account.currency.symbol || '$';
         const decimals = account.currency.decimals ?? 0;
-        const formattedDiff = `${symbol}${Math.abs(difference).toLocaleString('en-US', {
+        const formattedDiff = `${symbol}${Math.abs(difference).toLocaleString('es-CO', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         })}`;
