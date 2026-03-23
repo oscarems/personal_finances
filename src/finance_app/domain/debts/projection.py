@@ -8,14 +8,14 @@ from typing import Dict, Iterable, List
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
-from domain.debts.repository import (
+from finance_app.domain.debts.repository import (
     fetch_currency_codes,
     fetch_debt_category_allocations,
     fetch_recurring_expense_transactions,
 )
-from domain.debts.service import get_debts_principal
-from domain.debts.types import DebtPrincipalRecord
-from domain.fx.service import convert_from_cop, convert_to_cop
+from finance_app.domain.debts.service import get_debts_principal
+from finance_app.domain.debts.types import DebtPrincipalRecord
+from finance_app.domain.fx.service import convert_from_cop, convert_to_cop
 from finance_app.models import Debt
 from finance_app.services.recurring_service import get_next_occurrence_date, get_next_scheduled_date
 

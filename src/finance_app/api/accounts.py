@@ -10,7 +10,7 @@ from datetime import date
 from finance_app.database import get_db
 from finance_app.models import Account, Currency, Debt
 from finance_app.services.transaction_service import get_account_summary
-from finance_app.services.debt_balance_service import calculate_scheduled_principal_balance
+from finance_app.services.debt.balance_service import calculate_scheduled_principal_balance
 
 router = APIRouter()
 

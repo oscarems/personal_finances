@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
 from finance_app.models import Debt, DebtAmortizationMonthly
-from finance_app.services.amortization_engine import AmortizationEngine, UnsupportedAmortizationTypeError
+from finance_app.services.debt.amortization_engine import AmortizationEngine, UnsupportedAmortizationTypeError
 
 
 def _month_start(day: date) -> date:

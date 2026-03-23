@@ -6,7 +6,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from config import DEFAULT_EXCHANGE_RATES
+from finance_app.config import DEFAULT_EXCHANGE_RATES
 from finance_app.database import SessionLocal
 from finance_app.models import Currency, ExchangeRate
 

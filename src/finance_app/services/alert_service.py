@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from finance_app.models import AlertRule, Category, BudgetAlertState
 from finance_app.services.budget_service import get_month_budget
-from config import (
+from finance_app.config import (
     BUDGET_ALERT_DEFAULT_THRESHOLDS,
     BUDGET_ALERT_DEFAULT_PACING_MARGINS,
     BUDGET_ALERT_CATEGORY_OVERRIDES,

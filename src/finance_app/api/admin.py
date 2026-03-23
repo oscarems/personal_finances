@@ -25,7 +25,7 @@ from finance_app.models import (
 from sqlalchemy import text
 from pydantic import BaseModel
 from typing import Literal
-from config import DEFAULT_DB_MODE
+from finance_app.config import DEFAULT_DB_MODE
 
 router = APIRouter()
 

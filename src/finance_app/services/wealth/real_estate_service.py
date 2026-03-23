@@ -12,7 +12,7 @@ from finance_app.models import (
     ExchangeRate,
     WealthAsset,
 )
-from finance_app.services.debt_amortization_service import (
+from finance_app.services.debt.amortization_service import (
     ensure_debt_amortization_records,
     fetch_amortization_for_month,
     fetch_amortization_range,

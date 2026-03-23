@@ -3,9 +3,9 @@ from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from domain.debts.projection import project_debt_principal
-from domain.debts.service import get_total_debt_principal_cop
-from domain.debts.snapshot import build_debt_snapshots
+from finance_app.domain.debts.projection import project_debt_principal
+from finance_app.domain.debts.service import get_total_debt_principal_cop
+from finance_app.domain.debts.snapshot import build_debt_snapshots
 from finance_app.api.reports_pkg import wealth as reports_wealth_mod
 from finance_app.api.reports_pkg import debt as reports_debt_mod
 from finance_app.database import Base

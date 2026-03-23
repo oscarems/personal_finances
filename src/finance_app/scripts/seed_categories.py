@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from finance_app.database import SessionLocal
 from finance_app.models import CategoryGroup, Category
-from config import DEFAULT_CATEGORY_GROUPS
+from finance_app.config import DEFAULT_CATEGORY_GROUPS
 
 
 def seed_categories():

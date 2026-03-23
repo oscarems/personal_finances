@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date
 
-from finance_app.services.mortgage_service import (
+from finance_app.services.mortgage.service import (
     calculate_monthly_payment,
     generate_amortization_schedule,
     generate_amortization_schedule_with_extra,

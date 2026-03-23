@@ -40,15 +40,15 @@ from finance_app.models import (
     Transaction,
     WealthAsset,
 )
-from finance_app.services.debt_amortization_service import (
+from finance_app.services.debt.amortization_service import (
     ensure_debt_amortization_records,
     fetch_amortization_for_month,
     fetch_amortization_range,
 )
-from finance_app.services.debt_balance_service import (
+from finance_app.services.debt.balance_service import (
     calculate_mortgage_principal_balance,
 )
-from finance_app.utils.wealth import (
+from finance_app.services.wealth.helpers import (
     apply_annual_appreciation_on_january,
     apply_depreciation,
 )

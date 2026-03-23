@@ -10,8 +10,8 @@ from finance_app.models import (
     Transaction, Account, Category, Payee, Currency, Debt, DebtPayment,
     MortgagePaymentAllocation, TransactionSplit
 )
-from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
-from finance_app.services.mortgage_allocation_service import (
+from finance_app.services.debt.balance_service import refresh_mortgage_current_balance
+from finance_app.services.mortgage.allocation_service import (
     apply_mortgage_payment_allocation,
     rebuild_mortgage_balances
 )
@@ -940,3 +940,47 @@ def get_account_summary(db: Session):
         summary['total_by_currency'][currency_code]['total'] += account.balance
 
     return summary
+
+
+def amounts_in_cop_and_usd(transaction, db: Session, cop_currency, usd_currency):
+    """Return transaction amount converted to COP and USD using original values/date."""
+    original_amount = transaction.original_amount
+    original_currency_id = transaction.original_currency_id
+    transaction_date = transaction.date
+
+    cop_amount = None
+    usd_amount = None
+
+    if not original_currency_id or original_amount is None or not transaction_date:
+        return cop_amount, usd_amount
+
+    original_currency = db.query(Currency).get(original_currency_id)
+    original_currency_code = original_currency.code if original_currency else None
+    if not original_currency_code:
+        return cop_amount, usd_amount
+
+    if cop_currency:
+        if original_currency_id == cop_currency.id:
+            cop_amount = original_amount
+        else:
+            cop_amount = convert_currency(
+                amount=original_amount,
+                from_currency=original_currency_code,
+                to_currency="COP",
+                db=db,
+                rate_date=transaction_date
+            )
+
+    if usd_currency:
+        if original_currency_id == usd_currency.id:
+            usd_amount = original_amount
+        else:
+            usd_amount = convert_currency(
+                amount=original_amount,
+                from_currency=original_currency_code,
+                to_currency="USD",
+                db=db,
+                rate_date=transaction_date
+            )
+
+    return cop_amount, usd_amount

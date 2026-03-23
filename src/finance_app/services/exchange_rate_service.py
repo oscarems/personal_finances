@@ -9,7 +9,7 @@ import requests
 from typing import Optional
 
 from finance_app.models import ExchangeRate
-from config import EXCHANGE_RATE_API
+from finance_app.config import EXCHANGE_RATE_API
 
 MIN_USD_COP_RATE = 100.0
 MAX_USD_COP_RATE = 100000.0

@@ -11,18 +11,18 @@ from sqlalchemy.orm import Session
 
 from finance_app.database import get_db
 from finance_app.models import Debt, DebtPayment, Currency
-from finance_app.services.debt_balance_service import (
+from finance_app.services.debt.balance_service import (
     calculate_debt_balance_as_of,
     calculate_mortgage_principal_balance,
 )
-from finance_app.services.mortgage_service import calculate_monthly_payment
-from finance_app.services.debt_amortization_service import (
+from finance_app.services.mortgage.service import calculate_monthly_payment
+from finance_app.services.debt.amortization_service import (
     ensure_debt_amortization_records,
     fetch_amortization_for_month,
     fetch_amortization_range,
 )
-from finance_app.services.reports.debt_timeline import build_debt_principal_timeline
-from domain.fx.service import convert_to_cop
+from finance_app.services.debt.timeline import build_debt_principal_timeline
+from finance_app.domain.fx.service import convert_to_cop
 
 from .common import get_exchange_rate, convert_to_currency
 

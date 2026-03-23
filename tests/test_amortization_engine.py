@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 from finance_app.database import Base
 from finance_app.models import Debt, DebtPayment
-from finance_app.services.amortization_engine import AmortizationEngine
+from finance_app.services.debt.amortization_engine import AmortizationEngine
 
 
 def _session():

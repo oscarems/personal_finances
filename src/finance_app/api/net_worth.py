@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from finance_app.database import get_db
 from finance_app.models import Currency
-from finance_app.services.net_worth_service import (
+from finance_app.services.wealth.net_worth_service import (
     build_net_worth_timeline,
     compute_net_worth_at_date,
     snapshot_to_dict,

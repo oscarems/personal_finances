@@ -16,7 +16,6 @@ from finance_app.models.alert import AlertRule
 from finance_app.models.budget_alert_state import BudgetAlertState
 from finance_app.models.reconciliation import ReconciliationSession
 from finance_app.models.wealth_asset import WealthAsset
-from finance_app.models.telegram_settings import TelegramSettings
 from finance_app.models.email_scrape_transaction import EmailScrapeTransaction
 from finance_app.models.tag import Tag, TransactionTag
 from finance_app.models.transaction_split import TransactionSplit
@@ -44,7 +43,6 @@ __all__ = [
     'BudgetAlertState',
     'ReconciliationSession',
     'WealthAsset',
-    'TelegramSettings',
     'EmailScrapeTransaction',
     'GoalContribution',
     'Goal',

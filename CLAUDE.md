@@ -11,7 +11,20 @@ and investment simulation.
 src/finance_app/
 ├── app.py                  # FastAPI app, route registration, startup
 ├── database.py             # SQLAlchemy engine, session, init
+├── init_db.py              # Database initialization with seed data
+├── config/
+│   ├── __init__.py         # Re-exports all config constants
+│   └── settings.py         # All configuration (DB, currencies, alerts, account types, env settings)
 ├── models/                 # SQLAlchemy ORM models
+├── domain/                 # Domain logic (tightly coupled to finance_app)
+│   ├── debts/              # Debt projections, snapshots, repository
+│   │   ├── types.py        # Data classes (DebtPrincipalRecord)
+│   │   ├── repository.py   # Data access (fetch_debts, fetch_snapshots)
+│   │   ├── service.py      # Business logic (get_debts_principal)
+│   │   ├── snapshot.py     # Snapshot building
+│   │   └── projection.py   # Debt principal timeline projections
+│   └── fx/
+│       └── service.py      # Currency conversion (to_cop, from_cop) with fallback
 ├── api/                    # FastAPI routers (REST endpoints)
 │   ├── reports_pkg/        # Report endpoints (modular)
 │   │   ├── __init__.py     # Aggregated router
@@ -21,26 +34,51 @@ src/finance_app/
 │   │   ├── balance.py      # Balance trends, account history
 │   │   ├── debt.py         # Debt balance, principal timeline, payoff
 │   │   └── wealth.py       # Net worth, real estate wealth
-│   └── ...                 # Other API modules
+│   └── ...                 # Other API modules (accounts, budgets, debts, etc.)
 ├── services/               # Business logic services
-│   └── reports/            # Report-specific service layer
-│       ├── __init__.py
-│       └── debt_timeline.py # Debt principal timeline builder
+│   ├── debt/               # Debt-related services
+│   │   ├── amortization_engine.py  # Core amortization calculation engine
+│   │   ├── amortization_service.py # Amortization record management
+│   │   ├── balance_service.py      # Debt balance calculations
+│   │   ├── helpers.py              # Debt payment helpers (extracted from api/debts.py)
+│   │   └── timeline.py            # Debt principal timeline builder
+│   ├── mortgage/           # Mortgage-related services
+│   │   ├── service.py              # Mortgage calculations
+│   │   └── allocation_service.py   # Payment allocation logic
+│   ├── wealth/             # Wealth & net worth services
+│   │   ├── net_worth_service.py    # Net worth orchestrator
+│   │   ├── real_estate_service.py  # Real estate wealth timeline
+│   │   └── helpers.py              # Asset appreciation/depreciation functions
+│   ├── transaction_service.py      # Transaction CRUD + currency conversion
+│   ├── transaction_allocation_service.py
+│   ├── budget_service.py
+│   ├── exchange_rate_service.py    # External API rate fetching
+│   ├── alert_service.py
+│   ├── emergency_fund_service.py
+│   ├── goal_service.py
+│   ├── investment_simulator_service.py
+│   ├── microsoft_graph_service.py
+│   ├── reconciliation_service.py
+│   └── recurring_service.py
 ├── templates/
 │   ├── base.html           # Layout with sidebar navigation
 │   ├── reports/            # Report page templates
-│   │   ├── index.html      # Main reports dashboard
-│   │   ├── budget.html     # Budget vs expenses report
-│   │   ├── balance.html    # Balance trends, account history
-│   │   ├── debt.html       # Debt analysis, projections
-│   │   ├── wealth.html     # Real estate wealth report
-│   │   └── investments.html # Investments report
 │   └── ...                 # Other page templates
 ├── static/styles/          # CSS (design-system.css)
-├── utils/                  # Utility functions (wealth calculations)
-├── sync/                   # Email/Telegram sync modules
+├── sync/                   # Email sync modules
+│   ├── email_scrape.py     # CLI wrapper
+│   └── email_scrape_sync.py # Email scraping implementation
 ├── scripts/                # CLI scripts (migrations, imports)
-└── config/                 # App settings
+│   ├── init_db.py          # DB initialization wrapper
+│   ├── import_ynab.py      # YNAB CSV import
+│   ├── generate_recurring.py
+│   ├── migrate_db.py
+│   ├── seed_categories.py
+│   ├── reset_database.py
+│   ├── recalculate_savings_budgets.py
+│   └── test_csv_reader.py
+└── utils/
+    └── ynab_importer.py    # YNAB CSV parsing utility
 ```
 
 ## Tech Stack
@@ -74,7 +112,7 @@ python -m pytest tests/test_reports_wealth.py -v
 - **Debt types**: `mortgage`, `credit_loan`, `credit_card`.
 - **Templates**: Extend `base.html`. Spanish language UI. Use Tailwind utility classes.
 - **API responses**: Always include `currency` dict when returning monetary values.
-- **Import style**: Relative imports within `finance_app` package, absolute for `domain`.
+- **Import style**: Use `from finance_app.xxx import ...` (absolute within the package). Config imports use `from finance_app.config import ...`.
 
 ## Report System (api/reports_pkg/)
 
