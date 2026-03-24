@@ -338,8 +338,10 @@
             };
 
             const isDebtAccount = ['credit_card', 'credit_loan', 'mortgage'].includes(acc.type);
-            const isPositive = acc.balance >= 0;
+            const displayBalance = isDebtAccount ? Math.abs(acc.balance) : acc.balance;
+            const isPositive = displayBalance >= 0;
             const balanceClass = isDebtAccount ? 'text-red-600' : (isPositive ? 'text-green-600' : 'text-red-600');
+            const balanceLabel = isDebtAccount ? 'Deuda' : 'Saldo';
 
             return `
                 <div class="card-md p-6 hover:shadow-strong transition">
@@ -362,9 +364,9 @@
                     </div>
 
                     <div class="border-t pt-4">
-                        <p class="text-sm text-gray-600 mb-1">Saldo</p>
+                        <p class="text-sm text-gray-600 mb-1">${balanceLabel}</p>
                         <p class="text-2xl font-bold ${balanceClass}">
-                            ${acc.currency.symbol}${Math.abs(acc.balance).toLocaleString('es-CO', {
+                            ${acc.currency.symbol}${displayBalance.toLocaleString('es-CO', {
                                 minimumFractionDigits: acc.currency.decimals
                             })}
                         </p>

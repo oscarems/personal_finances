@@ -98,9 +98,13 @@
 <!-- Debt Principal Timeline -->
 <div class="bg-white rounded-card shadow-soft p-6 mb-6">
     <h3 class="text-lg font-semibold text-neutral-800 mb-2">Capital de deuda mes a mes</h3>
-    <p class="text-sm text-neutral-500 mb-4">
+    <p class="text-sm text-neutral-500 mb-2">
         Totales con pagos programados para meses futuros.
     </p>
+    <div class="flex flex-wrap gap-4 text-xs text-neutral-600 mb-4">
+        <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-neutral-100 border border-neutral-300"></span> Datos reales</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded bg-primary-50 border border-primary-200"></span> Proyección</span>
+    </div>
     <div class="overflow-x-auto">
         <table class="min-w-full text-sm text-left text-neutral-600">
             <thead class="bg-neutral-50 text-neutral-700" id="debtTimelineHeader">
@@ -411,9 +415,15 @@
             }
 
             tableBody.innerHTML = '';
+            const currentMonth = new Date().toISOString().slice(0, 7);
             data.months.forEach((month, index) => {
                 const row = document.createElement('tr');
                 const totals = data.totals_cop_by_month || [];
+                const isProjection = month > currentMonth;
+
+                if (isProjection) {
+                    row.classList.add('bg-primary-50/50');
+                }
 
                 const debtCells = debtEntries.map(([_, debt]) => {
                     const value = debt.principal_cop_by_month?.[index] || 0;
@@ -421,7 +431,7 @@
                 }).join('');
 
                 row.innerHTML = `
-                    <td class="px-6 py-4 text-sm text-neutral-700">${month}</td>
+                    <td class="px-6 py-4 text-sm text-neutral-700">${month}${isProjection ? ' <span class="text-xs text-primary-500">(est.)</span>' : ''}</td>
                     ${debtCells}
                     <td class="px-6 py-4 text-right text-sm font-semibold text-neutral-900">${formatCurrency(totals[index] || 0)}</td>
                 `;

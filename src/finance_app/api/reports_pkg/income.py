@@ -456,11 +456,39 @@ def get_period_summary(
     average_monthly_expenses = total_expenses / months_count if months_count > 0 else 0
     currency = db.query(Currency).get(currency_id)
 
+    # Compute previous period of same length for trend comparison
+    period_days = (end_date_obj - start_date_obj).days + 1
+    prev_end = start_date_obj - relativedelta(days=1)
+    prev_start = prev_end - relativedelta(days=period_days - 1)
+    min_start_date = date(2026, 1, 1)
+
+    prev_income = 0.0
+    prev_expenses = 0.0
+    if prev_start >= min_start_date:
+        prev_end_exclusive = prev_end + relativedelta(days=1)
+        prev_income = get_income_total(db, prev_start, prev_end_exclusive, currency_id, exchange_rate)
+        prev_expense_txs = build_spent_transactions_query(db, prev_start, prev_end_exclusive).with_entities(
+            Transaction.amount, Transaction.currency_id
+        ).all()
+        prev_expenses = sum(
+            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+            for t in prev_expense_txs
+        )
+
+    def _trend(current, previous):
+        if previous == 0:
+            return {"direction": "neutral", "change_pct": 0}
+        pct = round((current - previous) / abs(previous) * 100, 1)
+        direction = "up" if pct > 0 else "down" if pct < 0 else "neutral"
+        return {"direction": direction, "change_pct": pct}
+
     return {
         'start_date': start_date_obj.isoformat(),
         'end_date': end_date_obj.isoformat(),
         'total_income': total_income,
         'total_expenses': total_expenses,
         'average_monthly_expenses': average_monthly_expenses,
+        'income_trend': _trend(total_income, prev_income),
+        'expense_trend': _trend(total_expenses, prev_expenses),
         'currency': currency.to_dict() if currency else None
     }

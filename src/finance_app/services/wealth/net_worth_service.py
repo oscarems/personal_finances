@@ -549,12 +549,21 @@ def build_net_worth_timeline(
             )
             totals_by_cat[category] += converted
 
-        # Activos: cuentas bancarias (solo para datos históricos/actuales)
-        if include_accounts and month_end_date <= today:
-            acct_total, _ = _compute_account_balances_at_date(
-                accounts, month_end_date, all_account_transactions,
-                currency_id, exchange_rate,
-            )
+        # Activos: cuentas bancarias
+        # Para meses pasados/actuales reconstruimos el saldo histórico.
+        # Para meses futuros usamos el último saldo conocido (saldo actual)
+        # como mejor estimación, en vez de excluir las cuentas.
+        if include_accounts:
+            if month_end_date <= today:
+                acct_total, _ = _compute_account_balances_at_date(
+                    accounts, month_end_date, all_account_transactions,
+                    currency_id, exchange_rate,
+                )
+            else:
+                acct_total, _ = _compute_account_balances_at_date(
+                    accounts, today, all_account_transactions,
+                    currency_id, exchange_rate,
+                )
             totals_by_cat["cuentas"] = acct_total
 
         total_assets = sum(totals_by_cat.values())

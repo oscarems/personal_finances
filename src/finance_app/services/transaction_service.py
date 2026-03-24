@@ -125,7 +125,7 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
         return
 
     if debt.debt_type == "credit_card":
-        debt.current_balance = max(0.0, -(account.balance or 0.0))
+        debt.current_balance = _cc_balance_in_debt_currency(db, account, debt)
         debt.is_active = debt.current_balance > 0
         return
 
@@ -160,6 +160,17 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
         debt.is_active = True
 
 
+def _cc_balance_in_debt_currency(db: Session, account: Account, debt: Debt) -> float:
+    """Compute credit-card debt balance, converting currency if needed."""
+    raw_balance = max(0.0, -(account.balance or 0.0))
+    acct_currency = db.query(Currency).filter_by(id=account.currency_id).first()
+    acct_code = acct_currency.code if acct_currency else "COP"
+    debt_code = debt.currency_code or "COP"
+    if acct_code != debt_code:
+        raw_balance = convert_currency(raw_balance, acct_code, debt_code, db)
+    return raw_balance
+
+
 def _estimate_period_interest(debt: Debt, payment_amount: float) -> float:
     """Estimate the interest portion of a debt payment based on the debt's rate and balance.
 
@@ -191,7 +202,7 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
         return
 
     if debt.debt_type == "credit_card":
-        debt.current_balance = max(0.0, -(account.balance or 0.0))
+        debt.current_balance = _cc_balance_in_debt_currency(db, account, debt)
         debt.is_active = debt.current_balance > 0
         return
 

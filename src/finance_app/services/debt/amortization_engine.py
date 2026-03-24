@@ -169,9 +169,15 @@ class AmortizationEngine:
             bucket["principal"] += principal
             bucket["interest"] += interest
 
-        # fallback heurístico por transacciones de categoría/cuenta/texto
+        # Fallback heurístico por transacciones de categoría/cuenta/texto.
+        # Requires matching category + account AND at least one keyword
+        # in memo (debt name must be 3+ chars to avoid false positives).
         if not result and debt.category_id and self.db:
-            kw = ["hipoteca", "mortgage", (debt.name or "").lower()]
+            debt_name = (debt.name or "").lower().strip()
+            kw = ["hipoteca", "mortgage", "cuota", "crédito", "credito"]
+            if len(debt_name) >= 3:
+                kw.append(debt_name)
+            monthly_payment = float(debt.monthly_payment or 0)
             transactions = self.db.query(Transaction).filter(
                 Transaction.category_id == debt.category_id,
                 Transaction.account_id == debt.account_id,
@@ -179,11 +185,15 @@ class AmortizationEngine:
             ).all()
             for tx in transactions:
                 memo = (tx.memo or "").lower()
-                if not any(token and token in memo for token in kw):
+                if not any(token in memo for token in kw):
+                    continue
+                amount = abs(float(tx.amount))
+                # Skip transactions that are less than 50% of expected payment
+                # (likely unrelated small transactions)
+                if monthly_payment > 0 and amount < monthly_payment * 0.5:
                     continue
                 k = (tx.date.year, tx.date.month)
                 bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True})
-                amount = abs(float(tx.amount))
                 bucket["total"] += amount
                 bucket["principal"] += amount
         return result

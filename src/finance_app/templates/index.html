@@ -327,9 +327,12 @@
 
         const rateInfo = dashboardState.exchangeRate;
         const rateValue = rateInfo ? rateInfo.rate : null;
+        const daysOld = rateInfo ? (rateInfo.days_old || 0) : 0;
+        const staleWarning = daysOld >= 3 ? ` (hace ${daysOld} dias)` : '';
         const rateText = rateInfo
-            ? `Tasa USD/COP ${rateInfo.rate.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+            ? `Tasa USD/COP ${rateInfo.rate.toLocaleString('es-CO', {minimumFractionDigits: 2, maximumFractionDigits: 2})}${staleWarning}`
             : 'Tasa de cambio no disponible';
+        const isStale = daysOld >= 3;
 
         const summarySymbol = budgetData?.currency?.symbol || (summaryCurrency === 'USD' ? 'US$' : '$');
         const accountsTotalsResult = sumConvertedTotals(accountTotals, summaryCurrency, rateValue);
@@ -378,7 +381,7 @@
                 <div>
                     <h3 class="text-2xl font-bold text-neutral-900">Total General</h3>
                     <p class="text-sm text-neutral-500 mt-1 flex items-center">
-                        <span class="inline-block w-2 h-2 bg-${missingRate ? 'danger' : 'success'}-500 rounded-full mr-2"></span>
+                        <span class="inline-block w-2 h-2 bg-${missingRate ? 'danger' : isStale ? 'warning' : 'success'}-500 rounded-full mr-2"></span>
                         ${missingRate ? 'Tasa de cambio no disponible' : rateText}
                     </p>
                 </div>
@@ -401,6 +404,9 @@
                         <span>Total gastado</span>
                         <span>${totalBudgetSpentFormatted}</span>
                     </div>
+                    ${Math.abs(totalBudgetSpent) > totalBudgetAvailable && totalBudgetAvailable > 0
+                        ? '<p class="mt-2 text-xs text-white bg-white/20 rounded px-2 py-1 font-semibold">El gasto supera el presupuesto disponible</p>'
+                        : ''}
                     ${budgetDataMissing ? '<p class="mt-3 text-xs text-white/80">Datos de presupuesto no disponibles.</p>' : ''}
                 </div>
                 <div class="${availableCardClass}">

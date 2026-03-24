@@ -47,6 +47,18 @@ def _currency_from_transaction(db: Session, transaction: Transaction) -> Currenc
     return currency
 
 
+def _day_count_base(loan: Debt) -> int:
+    """Return 360 or 365 based on the loan's notes field.
+
+    If the loan's notes contain 'base_360' or 'base360', use 360-day year
+    (common in Colombian banking). Otherwise default to 365.
+    """
+    notes = (loan.notes or "").lower()
+    if "base_360" in notes or "base360" in notes:
+        return 360
+    return 365
+
+
 def _get_loan_for_update(db: Session, loan_id: int) -> Debt:
     loan = db.query(Debt).filter(Debt.id == loan_id).with_for_update().one_or_none()
     if not loan:
@@ -85,14 +97,21 @@ def _calculate_accrued_interest(
     annual_rate: Decimal,
     last_accrual_date: Optional[date],
     payment_date: date,
-    decimals: int
+    decimals: int,
+    day_count_base: int = 365,
 ) -> Decimal:
+    """Calculate accrued interest between two dates.
+
+    Args:
+        day_count_base: 365 (international) or 360 (common in Colombian loans).
+            Controlled per-loan via the "base_360" note flag.
+    """
     if principal_balance <= _ZERO or annual_rate <= _ZERO or not last_accrual_date:
         return _ZERO
     days = _days_between(last_accrual_date, payment_date)
     if days <= 0:
         return _ZERO
-    interest = principal_balance * annual_rate * Decimal(days) / Decimal("365")
+    interest = principal_balance * annual_rate * Decimal(days) / Decimal(str(day_count_base))
     return _quantize(interest, decimals)
 
 
@@ -161,7 +180,8 @@ def apply_mortgage_payment_allocation(
         annual_rate,
         last_accrual_date,
         payment_date,
-        decimals
+        decimals,
+        day_count_base=_day_count_base(loan),
     )
     interest_balance = _quantize(interest_balance + accrued_interest, decimals)
 
@@ -261,7 +281,8 @@ def rebuild_mortgage_balances(db: Session, loan: Debt) -> None:
             annual_rate,
             last_accrual_date or payment_date,
             payment_date,
-            decimals
+            decimals,
+            day_count_base=_day_count_base(loan),
         )
         interest_balance = _quantize(interest_balance + accrued_interest, decimals)
         interest_balance = _quantize(

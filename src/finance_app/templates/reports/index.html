@@ -452,10 +452,10 @@
                 currentCurrency = data.currency;
             }
 
-            document.getElementById('summaryIncome').textContent =
-                formatCurrency(data.total_income);
-            document.getElementById('summaryExpenses').textContent =
-                formatCurrency(data.total_expenses);
+            document.getElementById('summaryIncome').innerHTML =
+                formatCurrency(data.total_income) + trendBadge(data.income_trend);
+            document.getElementById('summaryExpenses').innerHTML =
+                formatCurrency(data.total_expenses) + trendBadge(data.expense_trend, true);
             document.getElementById('summaryAvgExpenses').textContent =
                 formatCurrency(data.average_monthly_expenses);
 
@@ -1066,6 +1066,21 @@
             minimumFractionDigits: currentCurrency.decimals,
             maximumFractionDigits: currentCurrency.decimals
         });
+    }
+
+    /**
+     * Render a small trend badge with arrow and percentage.
+     * @param {object} trend - {direction: "up"|"down"|"neutral", change_pct: number}
+     * @param {boolean} invertColor - if true, "up" is bad (red) and "down" is good (green) — for expenses
+     */
+    function trendBadge(trend, invertColor = false) {
+        if (!trend || trend.direction === 'neutral') return '';
+        const isUp = trend.direction === 'up';
+        const arrow = isUp ? '&#9650;' : '&#9660;';
+        const goodUp = invertColor ? !isUp : isUp;
+        const colorClass = goodUp ? 'text-success-600' : 'text-danger-600';
+        const pct = Math.abs(trend.change_pct);
+        return ` <span class="${colorClass} text-sm font-semibold ml-2">${arrow} ${pct}%</span>`;
     }
 </script>
 {% endblock %}

@@ -1,6 +1,11 @@
 from datetime import date
 
 
+def _fractional_years(start: date, end: date) -> float:
+    """Return the number of years between two dates as a float (day-precise)."""
+    return (end - start).days / 365.25
+
+
 def apply_expected_appreciation(
     value: float,
     expected_rate: float | None,
@@ -17,7 +22,7 @@ def apply_expected_appreciation(
     if reference_date <= as_of_date:
         return value
 
-    years_elapsed = reference_date.year - as_of_date.year
+    years_elapsed = _fractional_years(as_of_date, reference_date)
     if years_elapsed <= 0:
         return value
 
@@ -40,7 +45,7 @@ def apply_annual_appreciation_on_january(
     if reference_date <= as_of_date:
         return value
 
-    years_elapsed = max(0, reference_date.year - as_of_date.year)
+    years_elapsed = _fractional_years(as_of_date, reference_date)
     if years_elapsed <= 0:
         return value
 
