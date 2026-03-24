@@ -304,10 +304,12 @@
                         <th class="sticky-col sticky-col-head sticky-payee px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiario</th>
                         <th class="sticky-col sticky-col-head sticky-account sticky-separator px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuenta</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden lg:table-cell">Categoría</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Memo</th>
+                        <!-- Memo column hidden -->
+                        <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden xl:table-cell">Memo</th> -->
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase hidden md:table-cell">Tipo</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
+                        <!-- Estado column hidden -->
+                        <!-- <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th> -->
                         <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase sticky right-0 bg-gray-50 z-10">Acciones</th>
                     </tr>
                 </thead>
@@ -892,9 +894,10 @@
                     <td class="text-sm hidden lg:table-cell">
                         ${renderInlineEditableCell(tx, 'category', tx.category_name || 'Sin categoría')}
                     </td>
-                    <td class="text-sm max-w-xs hidden xl:table-cell">
+                    <!-- Memo column hidden -->
+                    <!--<td class="text-sm max-w-xs hidden xl:table-cell">
                         ${renderInlineEditableCell(tx, 'memo', tx.memo || 'Sin memo')}
-                    </td>
+                    </td>-->
                     <td class="text-center text-xs hidden md:table-cell">
                         <span class="${typeBadgeClass}">${typeLabel}</span>
                     </td>
@@ -905,11 +908,12 @@
                             <p class="flex justify-end gap-1"><span class="font-medium text-neutral-600">USD:</span><span>${formatSignedCurrencyAmount(tx.usd_amount, { symbol: '$', code: 'USD', decimals: 2 })}</span></p>
                         </div>
                     </td>
-                    <td class="whitespace-nowrap text-center text-sm">
+                    <!-- Estado column hidden -->
+                    <!--<td class="whitespace-nowrap text-center text-sm">
                         ${tx.cleared ? '<span class="text-success-600">✓</span>' : '<span class="text-neutral-400">○</span>'}
-                    </td>
+                    </td>-->
                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm sticky right-0 bg-white">
-                        <div class="inline-flex items-center gap-3">
+                        <div class="flex flex-col items-center gap-1">
                             <button onclick="openTransactionDetailModal(${tx.id})"
                                     class="text-neutral-600 hover:text-neutral-800 font-medium md:hidden">
                                 Ver detalle
