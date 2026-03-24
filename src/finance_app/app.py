@@ -38,7 +38,6 @@ from finance_app.api import (
 )
 from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
-from finance_app.sync.email_scrape_sync import sync_email_transactions
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +101,9 @@ async def startup_event():
     finally:
         db.close()
     try:
+        from finance_app.sync.email_scrape_sync import sync_email_transactions
         sync_email_transactions()
-    except RuntimeError as exc:
+    except (ImportError, RuntimeError) as exc:
         logger.warning("Email sync skipped during startup: %s", exc)
     print("✓ Database initialized")
 

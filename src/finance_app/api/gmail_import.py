@@ -1,11 +1,9 @@
-from datetime import datetime, date
-import html
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-import web_scrapping_email
 from finance_app.database import get_db
 from finance_app.models import Account, Currency, Transaction
 from finance_app.services.transaction_service import create_transaction
@@ -27,73 +25,11 @@ class ManualTransactionCreate(BaseModel):
 
 
 @router.get("/messages")
-def list_gmail_messages(
-    since_date: str | None = Query(default=None, description="Fecha mínima YYYY-MM-DD"),
-    max_emails: int = Query(default=50, ge=1, le=300),
-    include_non_transactions: bool = Query(default=False, description="Incluir correos no detectados como transacción"),
-    db: Session = Depends(get_db),
-):
-    parsed_since_date = None
-    if since_date:
-        try:
-            parsed_since_date = datetime.strptime(since_date, "%Y-%m-%d")
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail="since_date debe estar en formato YYYY-MM-DD") from exc
-
-    try:
-        if include_non_transactions:
-            rows = web_scrapping_email.fetch_emails_preview(
-                since_date=parsed_since_date,
-                max_emails=max_emails,
-            )
-        else:
-            rows = web_scrapping_email.fetch_transactions(
-                since_date=parsed_since_date,
-                max_emails=max_emails,
-            )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error consultando Gmail: {exc}") from exc
-
-    message_ids = [row.get("message_id") for row in rows if row.get("message_id")]
-    normalized_existing_ids = set()
-    if message_ids:
-        lookup_ids = set(message_ids)
-        lookup_ids.update(html.escape(message_id, quote=True) for message_id in message_ids)
-
-        existing_ids = {
-            value for (value,) in db.query(Transaction.source_id)
-            .filter(
-                Transaction.source == EMAIL_SOURCE,
-                Transaction.source_id.in_(lookup_ids)
-            )
-            .all()
-            if value
-        }
-        normalized_existing_ids = {
-            html.unescape(value).strip() for value in existing_ids
-        }
-
-    enriched_rows = []
-    for row in rows:
-        message_id = row.get("message_id")
-        normalized_message_id = html.unescape(message_id).strip() if message_id else None
-        is_registered = bool(normalized_message_id and normalized_message_id in normalized_existing_ids)
-        is_transaction = bool(row.get("is_transaction"))
-
-        row_payload = {
-            **row,
-            "registered_as_transaction": is_registered,
-            "can_create_manual": (not is_registered),
-            "status": "registered" if is_registered else ("detected" if is_transaction else "not_detected"),
-        }
-        enriched_rows.append(row_payload)
-
-    return {
-        "total": len(enriched_rows),
-        "messages": enriched_rows,
-    }
+def list_gmail_messages():
+    raise HTTPException(
+        status_code=501,
+        detail="Módulo de email scraping no disponible. Funcionalidad pendiente de reimplementación.",
+    )
 
 
 @router.post("/messages/manual-transaction")

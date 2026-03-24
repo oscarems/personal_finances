@@ -8,7 +8,7 @@ from finance_app.models import (
     Payee, Transaction, BudgetMonth, RecurringTransaction, WealthAsset
 )
 from finance_app.services.transaction_service import build_transaction_audit_fields
-from config import (
+from finance_app.config import (
     DEFAULT_EXCHANGE_RATES,
     SUPPORTED_CURRENCIES,
     DEFAULT_CATEGORY_GROUPS

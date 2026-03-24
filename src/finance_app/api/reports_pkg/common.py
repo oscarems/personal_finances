@@ -44,12 +44,19 @@ def convert_to_currency(amount: float, from_currency_id: int, to_currency_id: in
     if from_currency_id == 2 and to_currency_id == 1:
         return amount * exchange_rate
     if from_currency_id == 1 and to_currency_id == 2:
+        if exchange_rate <= 0:
+            return amount
         return amount / exchange_rate
     return amount
 
 
 def expense_allocations(db: Session, start_date_obj: date, end_date_exclusive: date):
-    """Return (transaction, category, abs_amount) tuples for expenses in range."""
+    """Return (transaction, category, abs_amount) tuples for expenses in range.
+
+    When a transaction has splits, verifies that split amounts sum to the
+    transaction total.  If there is a discrepancy, the split amounts are
+    scaled proportionally so the full transaction amount is allocated.
+    """
     transactions = build_spent_transactions_query(db, start_date_obj, end_date_exclusive).options(
         joinedload(Transaction.splits),
         joinedload(Transaction.category),
@@ -58,8 +65,19 @@ def expense_allocations(db: Session, start_date_obj: date, end_date_exclusive: d
     allocations = []
     for tx in transactions:
         if tx.splits:
-            for split in tx.splits:
-                allocations.append((tx, split.category, abs(split.amount)))
+            split_total = sum(abs(s.amount) for s in tx.splits)
+            tx_total = abs(tx.amount)
+            if split_total > 0 and abs(split_total - tx_total) > 0.01:
+                logger.warning(
+                    "Transaction %s: splits sum %.2f != tx amount %.2f — scaling splits",
+                    tx.id, split_total, tx_total,
+                )
+                scale = tx_total / split_total
+                for split in tx.splits:
+                    allocations.append((tx, split.category, abs(split.amount) * scale))
+            else:
+                for split in tx.splits:
+                    allocations.append((tx, split.category, abs(split.amount)))
         else:
             allocations.append((tx, tx.category, abs(tx.amount)))
     return allocations

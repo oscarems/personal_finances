@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from finance_app.database import Base
-from finance_app.services.reports.debt_timeline import build_debt_principal_timeline
+from finance_app.services.debt.timeline import build_debt_principal_timeline
 from finance_app.models import Currency, ExchangeRate, Debt, DebtPayment
 
 

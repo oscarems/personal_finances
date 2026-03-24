@@ -289,7 +289,7 @@
             <div class="mt-2 pt-2 border-t border-gray-100">
                 <p class="text-xs text-gray-500">Equivalente en ${otherCurrency}</p>
                 <p class="text-sm font-semibold ${balanceClass}">
-                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('en-US', {
+                    ${otherSymbol}${Math.abs(convertedAmount).toLocaleString('es-CO', {
                         minimumFractionDigits: otherDecimals,
                         maximumFractionDigits: otherDecimals
                     })}
@@ -338,8 +338,10 @@
             };
 
             const isDebtAccount = ['credit_card', 'credit_loan', 'mortgage'].includes(acc.type);
-            const isPositive = acc.balance >= 0;
+            const displayBalance = isDebtAccount ? Math.abs(acc.balance) : acc.balance;
+            const isPositive = displayBalance >= 0;
             const balanceClass = isDebtAccount ? 'text-red-600' : (isPositive ? 'text-green-600' : 'text-red-600');
+            const balanceLabel = isDebtAccount ? 'Deuda' : 'Saldo';
 
             return `
                 <div class="card-md p-6 hover:shadow-strong transition">
@@ -362,9 +364,9 @@
                     </div>
 
                     <div class="border-t pt-4">
-                        <p class="text-sm text-gray-600 mb-1">Saldo</p>
+                        <p class="text-sm text-gray-600 mb-1">${balanceLabel}</p>
                         <p class="text-2xl font-bold ${balanceClass}">
-                            ${acc.currency.symbol}${Math.abs(acc.balance).toLocaleString('en-US', {
+                            ${acc.currency.symbol}${displayBalance.toLocaleString('es-CO', {
                                 minimumFractionDigits: acc.currency.decimals
                             })}
                         </p>
@@ -460,7 +462,7 @@
         adjustingAccountId = accountId;
         const symbol = account.currency.symbol || '$';
         const decimals = account.currency.decimals ?? 0;
-        const formattedBalance = `${symbol}${Math.abs(account.balance).toLocaleString('en-US', {
+        const formattedBalance = `${symbol}${Math.abs(account.balance).toLocaleString('es-CO', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         })}`;
@@ -488,7 +490,7 @@
         const difference = Number.isFinite(actualValue) ? actualValue - account.balance : 0;
         const symbol = account.currency.symbol || '$';
         const decimals = account.currency.decimals ?? 0;
-        const formattedDiff = `${symbol}${Math.abs(difference).toLocaleString('en-US', {
+        const formattedDiff = `${symbol}${Math.abs(difference).toLocaleString('es-CO', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         })}`;

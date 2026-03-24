@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from finance_app.database import get_db
 from finance_app.models import Currency
-from finance_app.services.real_estate_wealth_service import build_real_estate_wealth_timeline
+from finance_app.services.wealth.real_estate_service import build_real_estate_wealth_timeline
 
 from .common import get_exchange_rate
 
@@ -25,7 +25,7 @@ def get_net_worth(
     db: Session = Depends(get_db)
 ):
     """Calcula el patrimonio neto (Activos - Pasivos) a lo largo del tiempo."""
-    from finance_app.services.net_worth_service import (
+    from finance_app.services.wealth.net_worth_service import (
         build_net_worth_timeline,
         snapshot_to_dict,
         timeline_to_dict,

@@ -10,8 +10,8 @@ from finance_app.models import (
     Transaction, Account, Category, Payee, Currency, Debt, DebtPayment,
     MortgagePaymentAllocation, TransactionSplit
 )
-from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
-from finance_app.services.mortgage_allocation_service import (
+from finance_app.services.debt.balance_service import refresh_mortgage_current_balance
+from finance_app.services.mortgage.allocation_service import (
     apply_mortgage_payment_allocation,
     rebuild_mortgage_balances
 )
@@ -125,19 +125,22 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
         return
 
     if debt.debt_type == "credit_card":
-        debt.current_balance = max(0.0, -(account.balance or 0.0))
+        debt.current_balance = _cc_balance_in_debt_currency(db, account, debt)
         debt.is_active = debt.current_balance > 0
         return
 
     payment_amount = abs(amount)
     if amount < 0:
+        estimated_interest = _estimate_period_interest(debt, payment_amount)
+        estimated_principal = max(0.0, payment_amount - estimated_interest)
+
         payment = DebtPayment(
             debt_id=debt.id,
             transaction_id=transaction.id,
             payment_date=transaction.date,
             amount=payment_amount,
-            principal=payment_amount,
-            interest=0.0,
+            principal=estimated_principal,
+            interest=estimated_interest,
             fees=0.0,
             balance_after=None,
             notes="Pago registrado desde transacción"
@@ -148,13 +151,46 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
             debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
             payment.balance_after = debt.current_balance
         else:
-            debt.current_balance = max(0.0, debt.current_balance - payment_amount)
+            debt.current_balance = max(0.0, debt.current_balance - estimated_principal)
             payment.balance_after = debt.current_balance
         if debt.current_balance <= 0:
             debt.is_active = False
     else:
         debt.current_balance += payment_amount
         debt.is_active = True
+
+
+def _cc_balance_in_debt_currency(db: Session, account: Account, debt: Debt) -> float:
+    """Compute credit-card debt balance, converting currency if needed."""
+    raw_balance = max(0.0, -(account.balance or 0.0))
+    acct_currency = db.query(Currency).filter_by(id=account.currency_id).first()
+    acct_code = acct_currency.code if acct_currency else "COP"
+    debt_code = debt.currency_code or "COP"
+    if acct_code != debt_code:
+        raw_balance = convert_currency(raw_balance, acct_code, debt_code, db)
+    return raw_balance
+
+
+def _estimate_period_interest(debt: Debt, payment_amount: float) -> float:
+    """Estimate the interest portion of a debt payment based on the debt's rate and balance.
+
+    For debts without an interest rate, returns 0.0 (all payment goes to principal).
+    Uses effective annual rate converted to monthly, applied to current balance.
+    The estimated interest is capped at the payment amount.
+    """
+    rate = debt.interest_rate or 0.0
+    if rate <= 0 or debt.debt_type == "credit_card":
+        return 0.0
+
+    annual_decimal = rate / 100 if rate > 1 else rate
+    monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1
+
+    balance = debt.current_balance or 0.0
+    if balance <= 0:
+        return 0.0
+
+    interest = round(balance * monthly_rate, 2)
+    return min(interest, payment_amount)
 
 
 def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
@@ -166,7 +202,7 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
         return
 
     if debt.debt_type == "credit_card":
-        debt.current_balance = max(0.0, -(account.balance or 0.0))
+        debt.current_balance = _cc_balance_in_debt_currency(db, account, debt)
         debt.is_active = debt.current_balance > 0
         return
 
@@ -940,3 +976,47 @@ def get_account_summary(db: Session):
         summary['total_by_currency'][currency_code]['total'] += account.balance
 
     return summary
+
+
+def amounts_in_cop_and_usd(transaction, db: Session, cop_currency, usd_currency):
+    """Return transaction amount converted to COP and USD using original values/date."""
+    original_amount = transaction.original_amount
+    original_currency_id = transaction.original_currency_id
+    transaction_date = transaction.date
+
+    cop_amount = None
+    usd_amount = None
+
+    if not original_currency_id or original_amount is None or not transaction_date:
+        return cop_amount, usd_amount
+
+    original_currency = db.query(Currency).get(original_currency_id)
+    original_currency_code = original_currency.code if original_currency else None
+    if not original_currency_code:
+        return cop_amount, usd_amount
+
+    if cop_currency:
+        if original_currency_id == cop_currency.id:
+            cop_amount = original_amount
+        else:
+            cop_amount = convert_currency(
+                amount=original_amount,
+                from_currency=original_currency_code,
+                to_currency="COP",
+                db=db,
+                rate_date=transaction_date
+            )
+
+    if usd_currency:
+        if original_currency_id == usd_currency.id:
+            usd_amount = original_amount
+        else:
+            usd_amount = convert_currency(
+                amount=original_amount,
+                from_currency=original_currency_code,
+                to_currency="USD",
+                db=db,
+                rate_date=transaction_date
+            )
+
+    return cop_amount, usd_amount

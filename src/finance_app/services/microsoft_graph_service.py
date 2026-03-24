@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
-from config import BASE_DIR
+from finance_app.config import BASE_DIR
 
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"

@@ -6,10 +6,10 @@ from typing import List
 
 from sqlalchemy.orm import Session
 
-from domain.debts.repository import fetch_debts
-from domain.debts.types import DebtPrincipalRecord
-from domain.fx.service import convert_to_cop
-from finance_app.services.debt_balance_service import calculate_debt_balance_as_of
+from finance_app.domain.debts.repository import fetch_debts
+from finance_app.domain.debts.types import DebtPrincipalRecord
+from finance_app.domain.fx.service import convert_to_cop
+from finance_app.services.debt.balance_service import calculate_debt_balance_as_of
 
 
 def _decimalize(value: float | int | Decimal | None) -> Decimal:

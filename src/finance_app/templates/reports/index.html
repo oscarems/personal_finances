@@ -277,14 +277,14 @@
 <div class="card p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">Capital de deuda mes a mes</h3>
     <p class="text-sm text-gray-500 mb-4">
-        Totales en COP con pagos programados para meses futuros.
+        Totales en la moneda seleccionada con pagos programados para meses futuros.
     </p>
     <div class="overflow-x-auto">
         <table class="table">
             <thead class="bg-gray-50" id="debtTimelineHeader">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mes</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total (COP)</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase" id="debtTimelineTotalHeader">Total</th>
                 </tr>
             </thead>
             <tbody id="debtTimelineTable" class="bg-white divide-y divide-gray-200">
@@ -452,10 +452,10 @@
                 currentCurrency = data.currency;
             }
 
-            document.getElementById('summaryIncome').textContent =
-                formatCurrency(data.total_income);
-            document.getElementById('summaryExpenses').textContent =
-                formatCurrency(data.total_expenses);
+            document.getElementById('summaryIncome').innerHTML =
+                formatCurrency(data.total_income) + trendBadge(data.income_trend);
+            document.getElementById('summaryExpenses').innerHTML =
+                formatCurrency(data.total_expenses) + trendBadge(data.expense_trend, true);
             document.getElementById('summaryAvgExpenses').textContent =
                 formatCurrency(data.average_monthly_expenses);
 
@@ -939,7 +939,7 @@
                 ${debtEntries.map(([_, debt]) => `
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">${debt.name}</th>
                 `).join('')}
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total (COP)</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total (${currentCurrency.code || 'COP'})</th>
             `;
             header.appendChild(headerRow);
 
@@ -1062,9 +1062,25 @@
     }
 
     function formatCurrency(amount) {
-        return currentCurrency.symbol + Math.round(amount).toLocaleString('en-US', {
-            minimumFractionDigits: currentCurrency.decimals
+        return currentCurrency.symbol + Math.round(amount).toLocaleString('es-CO', {
+            minimumFractionDigits: currentCurrency.decimals,
+            maximumFractionDigits: currentCurrency.decimals
         });
+    }
+
+    /**
+     * Render a small trend badge with arrow and percentage.
+     * @param {object} trend - {direction: "up"|"down"|"neutral", change_pct: number}
+     * @param {boolean} invertColor - if true, "up" is bad (red) and "down" is good (green) — for expenses
+     */
+    function trendBadge(trend, invertColor = false) {
+        if (!trend || trend.direction === 'neutral') return '';
+        const isUp = trend.direction === 'up';
+        const arrow = isUp ? '&#9650;' : '&#9660;';
+        const goodUp = invertColor ? !isUp : isUp;
+        const colorClass = goodUp ? 'text-success-600' : 'text-danger-600';
+        const pct = Math.abs(trend.change_pct);
+        return ` <span class="${colorClass} text-sm font-semibold ml-2">${arrow} ${pct}%</span>`;
     }
 </script>
 {% endblock %}

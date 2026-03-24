@@ -291,7 +291,7 @@
     function currencyFormat(value, currencyCode = 'COP') {
         const decimals = currencyCode === 'USD' ? 2 : 0;
         const symbol = currencyCode === 'USD' ? 'US$' : '$';
-        return `${symbol}${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+        return `${symbol}${Number(value || 0).toLocaleString('es-CO', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
     }
 
     async function loadDebtTimeline() {
@@ -400,7 +400,7 @@
                         <div>
                             <p class="text-gray-500 text-sm">Deuda ${currency}</p>
                             <p class="text-2xl font-bold text-red-600 mt-1">
-                                ${currency === 'USD' ? '$' : '$'}${amount.toLocaleString('en-US', {minimumFractionDigits: currency === 'USD' ? 2 : 0})}
+                                ${currency === 'USD' ? '$' : '$'}${amount.toLocaleString('es-CO', {minimumFractionDigits: currency === 'USD' ? 2 : 0})}
                             </p>
                         </div>
                         <div class="text-4xl">📉</div>
@@ -458,9 +458,9 @@
                         </div>
                         <div class="text-right">
                             <p class="text-2xl font-bold text-red-600">
-                                ${debt.currency_code === 'USD' ? '$' : '$'}${debt.current_balance.toLocaleString('en-US', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}
+                                ${debt.currency_code === 'USD' ? '$' : '$'}${debt.current_balance.toLocaleString('es-CO', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}
                             </p>
-                            <p class="text-sm text-gray-500">de ${debt.currency_code === 'USD' ? '$' : '$'}${debt.original_amount.toLocaleString('en-US', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}</p>
+                            <p class="text-sm text-gray-500">de ${debt.currency_code === 'USD' ? '$' : '$'}${debt.original_amount.toLocaleString('es-CO', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}</p>
                         </div>
                     </div>
 
@@ -485,7 +485,7 @@
                         ${debt.monthly_payment ? `
                             <div>
                                 <p class="text-gray-600">Cuota Mensual</p>
-                                <p class="font-semibold">${debt.currency_code === 'USD' ? '$' : '$'}${debt.monthly_payment.toLocaleString('en-US')}</p>
+                                <p class="font-semibold">${debt.currency_code === 'USD' ? '$' : '$'}${debt.monthly_payment.toLocaleString('es-CO')}</p>
                             </div>
                         ` : ''}
                         ${debt.loan_years ? `
@@ -735,21 +735,21 @@
                     <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">${principalLabel}</p>
                     ${principalHint ? `<p class="text-xs text-white/80 mt-1 relative z-10">${principalHint}</p>` : ''}
                     <p class="text-4xl font-extrabold text-white mt-2 relative z-10">
-                        ${symbol}${debt.current_balance.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
+                        ${symbol}${debt.current_balance.toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
                     </p>
                 </div>
                 <div class="relative overflow-hidden bg-gradient-to-br from-neutral-600 to-neutral-700 p-6 rounded-card shadow-strong border-2 border-neutral-500">
                     <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
                     <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">Monto Original</p>
                     <p class="text-4xl font-extrabold text-white mt-2 relative z-10">
-                        ${symbol}${debt.original_amount.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
+                        ${symbol}${debt.original_amount.toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
                     </p>
                 </div>
                 <div class="relative overflow-hidden bg-gradient-to-br from-success-500 to-success-600 p-6 rounded-card shadow-strong border-2 border-success-400">
                     <div class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12"></div>
                     <p class="text-sm font-bold text-white/90 uppercase tracking-wide relative z-10">Total Pagado</p>
                     <p class="text-4xl font-extrabold text-white mt-2 relative z-10">
-                        ${symbol}${(debt.original_amount - debt.current_balance).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
+                        ${symbol}${(debt.original_amount - debt.current_balance).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}
                     </p>
                 </div>
             </div>
@@ -778,7 +778,7 @@
                 ${debt.monthly_payment ? `
                     <div>
                         <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Cuota Mensual</p>
-                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.monthly_payment.toLocaleString('en-US', {minimumFractionDigits: decimals})}</p>
+                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.monthly_payment.toLocaleString('es-CO', {minimumFractionDigits: decimals})}</p>
                     </div>
                 ` : ''}
                 ${debt.loan_years ? `
@@ -790,13 +790,13 @@
                 ${debt.minimum_payment ? `
                     <div>
                         <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Pago Mínimo</p>
-                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.minimum_payment.toLocaleString('en-US', {minimumFractionDigits: decimals})}</p>
+                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.minimum_payment.toLocaleString('es-CO', {minimumFractionDigits: decimals})}</p>
                     </div>
                 ` : ''}
                 ${debt.credit_limit ? `
                     <div>
                         <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Límite de Crédito</p>
-                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.credit_limit.toLocaleString('en-US', {minimumFractionDigits: decimals})}</p>
+                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.credit_limit.toLocaleString('es-CO', {minimumFractionDigits: decimals})}</p>
                     </div>
                 ` : ''}
                 ${debt.credit_limit ? `
@@ -874,10 +874,10 @@
                                 ${scheduleData.schedule.map(row => `
                                     <tr class="hover:bg-neutral-50 transition-colors">
                                         <td class="px-4 py-3 text-sm font-semibold text-neutral-900">${row.date}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-neutral-800">${symbol}${Number(row.payment || 0).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-neutral-700">${symbol}${Number(row.interest || 0).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-success-700 font-semibold">${symbol}${Number(row.principal || 0).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
-                                        <td class="px-4 py-3 text-sm text-right font-bold text-neutral-900">${symbol}${Number(row.ending_balance || 0).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-neutral-800">${symbol}${Number(row.payment || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-neutral-700">${symbol}${Number(row.interest || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-success-700 font-semibold">${symbol}${Number(row.principal || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
+                                        <td class="px-4 py-3 text-sm text-right font-bold text-neutral-900">${symbol}${Number(row.ending_balance || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
                                         <td class="px-4 py-3 text-sm text-neutral-700">${row.is_paid_real ? 'Real' : 'Proyectado'}</td>
                                     </tr>
                                 `).join('')}
@@ -912,16 +912,16 @@
                                     <tr class="hover:bg-primary-50 transition-colors">
                                         <td class="px-4 py-4 text-sm font-semibold text-neutral-900">${payment.payment_date}</td>
                                         <td class="px-4 py-4 text-sm text-right font-extrabold text-success-600">
-                                            ${symbol}${payment.amount.toLocaleString('en-US', {minimumFractionDigits: decimals})}
+                                            ${symbol}${payment.amount.toLocaleString('es-CO', {minimumFractionDigits: decimals})}
                                         </td>
                                         <td class="px-4 py-4 text-sm text-right font-medium text-neutral-700">
-                                            ${payment.principal !== null && payment.principal !== undefined ? symbol + payment.principal.toLocaleString('en-US', {minimumFractionDigits: decimals}) : '-'}
+                                            ${payment.principal !== null && payment.principal !== undefined ? symbol + payment.principal.toLocaleString('es-CO', {minimumFractionDigits: decimals}) : '-'}
                                         </td>
                                         <td class="px-4 py-4 text-sm text-right font-medium text-neutral-700">
-                                            ${payment.interest !== null && payment.interest !== undefined ? symbol + payment.interest.toLocaleString('en-US', {minimumFractionDigits: decimals}) : '-'}
+                                            ${payment.interest !== null && payment.interest !== undefined ? symbol + payment.interest.toLocaleString('es-CO', {minimumFractionDigits: decimals}) : '-'}
                                         </td>
                                         <td class="px-4 py-4 text-sm text-right font-bold text-neutral-900">
-                                            ${payment.balance_after !== null && payment.balance_after !== undefined ? symbol + payment.balance_after.toLocaleString('en-US', {minimumFractionDigits: decimals}) : '-'}
+                                            ${payment.balance_after !== null && payment.balance_after !== undefined ? symbol + payment.balance_after.toLocaleString('es-CO', {minimumFractionDigits: decimals}) : '-'}
                                         </td>
                                         <td class="px-4 py-4 text-sm text-neutral-700">${payment.payment_source || payment.fuente_del_pago || '-'}</td>
                                         <td class="px-4 py-4 text-sm text-neutral-600">${payment.notes || '-'}</td>

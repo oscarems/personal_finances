@@ -25,11 +25,11 @@
 <!-- Budget Summary Grid con diseño mejorado -->
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
     <!-- Ready to Assign Banner -->
-    <div class="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30">
+    <div id="readyToAssignCard" class="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30">
         <div class="flex justify-between items-start">
             <div class="flex-1">
                 <div class="flex items-center space-x-2 mb-4">
-                    <span class="text-3xl">💰</span>
+                    <span class="text-3xl" id="readyToAssignIcon">💰</span>
                     <p class="text-sm font-bold text-white uppercase tracking-wide">Listo para Asignar</p>
                 </div>
                 <div>
@@ -799,10 +799,16 @@
             `En cuentas: US$${formatAmount(dataUSD.totals.in_accounts || 0, 2)} · Disponible: US$${formatAmount(dataUSD.totals.available || 0, 2)}`;
 
         const negativeNote = document.getElementById('readyToAssignNegativeNote');
+        const rtaCard = document.getElementById('readyToAssignCard');
+        const rtaIcon = document.getElementById('readyToAssignIcon');
         if (readyToAssignCOP < 0 || readyToAssignUSD < 0) {
             negativeNote.classList.remove('hidden');
+            rtaCard.className = 'bg-gradient-to-br from-danger-500 via-danger-600 to-danger-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-danger-400/30';
+            rtaIcon.textContent = '⚠️';
         } else {
             negativeNote.classList.add('hidden');
+            rtaCard.className = 'bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30';
+            rtaIcon.textContent = '💰';
         }
 
         // Display Total Assigned (sum) in both currencies
@@ -1325,7 +1331,7 @@
 
     function formatAmount(amount, decimals = 0) {
         const sign = amount < 0 ? '-' : '';
-        return `${sign}${Math.abs(amount).toLocaleString('en-US', {
+        return `${sign}${Math.abs(amount).toLocaleString('es-CO', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         })}`;

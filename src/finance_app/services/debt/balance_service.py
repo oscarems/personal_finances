@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
 from finance_app.models import Debt
-from finance_app.services.amortization_engine import AmortizationEngine
+from finance_app.services.debt.amortization_engine import AmortizationEngine
 
 
 def calculate_scheduled_principal_balance(debt: Debt, as_of_date: date) -> float:

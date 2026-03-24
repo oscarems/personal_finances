@@ -6,8 +6,8 @@ from typing import Iterable
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
-from domain.debts.repository import fetch_snapshot, save_snapshot
-from domain.debts.service import get_debts_principal
+from finance_app.domain.debts.repository import fetch_snapshot, save_snapshot
+from finance_app.domain.debts.service import get_debts_principal
 from finance_app.models import DebtSnapshotMonthly
 
 

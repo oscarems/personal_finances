@@ -9,7 +9,7 @@ from sqlalchemy import or_
 from typing import List, Optional
 
 from finance_app.models import RecurringTransaction, Transaction, Account, Payee, Debt, DebtPayment
-from finance_app.services.debt_balance_service import refresh_mortgage_current_balance
+from finance_app.services.debt.balance_service import refresh_mortgage_current_balance
 from finance_app.services.transaction_service import build_transaction_audit_fields
 
 

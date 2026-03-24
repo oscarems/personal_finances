@@ -44,6 +44,11 @@ def _infer_monthly_payment(
     today: date,
     months: int = 6,
 ) -> float:
+    """Infer expected monthly payment from recent history using the median.
+
+    The median is more robust than the mean against atypical months
+    (double payments, partial payments, skipped months with 0).
+    """
     end_month = _month_start(today) - relativedelta(months=1)
     totals = []
     for offset in range(months):
@@ -53,7 +58,11 @@ def _infer_monthly_payment(
             totals.append(total)
     if not totals:
         return 0.0
-    return sum(totals) / len(totals)
+    totals.sort()
+    mid = len(totals) // 2
+    if len(totals) % 2 == 0:
+        return (totals[mid - 1] + totals[mid]) / 2
+    return totals[mid]
 
 
 def _annual_rate_decimal(debt: Debt) -> float:

@@ -135,8 +135,9 @@
     }
 
     function formatCurrency(amount) {
-        return `${currentCurrency.symbol}${Math.round(amount).toLocaleString('en-US', {
-            minimumFractionDigits: currentCurrency.decimals
+        return `${currentCurrency.symbol}${Math.round(amount).toLocaleString('es-CO', {
+            minimumFractionDigits: currentCurrency.decimals,
+            maximumFractionDigits: currentCurrency.decimals
         })}`;
     }
 

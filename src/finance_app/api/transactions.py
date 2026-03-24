@@ -10,58 +10,13 @@ from datetime import date
 
 from finance_app.database import get_db
 from finance_app.models import Currency
-from finance_app.services.exchange_rate_service import convert_currency
 from finance_app.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
     update_transaction, delete_transaction, create_transfer, create_adjustment,
-    get_last_manual_transactions_by_account
+    get_last_manual_transactions_by_account, amounts_in_cop_and_usd,
 )
 
 router = APIRouter()
-
-
-def _amounts_in_cop_and_usd(transaction, db: Session, cop_currency: Optional[Currency], usd_currency: Optional[Currency]):
-    """Return transaction amount converted to COP and USD using original values/date."""
-    original_amount = transaction.original_amount
-    original_currency_id = transaction.original_currency_id
-    transaction_date = transaction.date
-
-    cop_amount = None
-    usd_amount = None
-
-    if not original_currency_id or original_amount is None or not transaction_date:
-        return cop_amount, usd_amount
-
-    original_currency = db.query(Currency).get(original_currency_id)
-    original_currency_code = original_currency.code if original_currency else None
-    if not original_currency_code:
-        return cop_amount, usd_amount
-
-    if cop_currency:
-        if original_currency_id == cop_currency.id:
-            cop_amount = original_amount
-        else:
-            cop_amount = convert_currency(
-                amount=original_amount,
-                from_currency=original_currency_code,
-                to_currency="COP",
-                db=db,
-                rate_date=transaction_date
-            )
-
-    if usd_currency:
-        if original_currency_id == usd_currency.id:
-            usd_amount = original_amount
-        else:
-            usd_amount = convert_currency(
-                amount=original_amount,
-                from_currency=original_currency_code,
-                to_currency="USD",
-                db=db,
-                rate_date=transaction_date
-            )
-
-    return cop_amount, usd_amount
 
 
 # Pydantic schemas
@@ -149,7 +104,7 @@ def list_transactions(
     enriched_transactions = []
     for transaction in transactions:
         serialized = transaction.to_dict()
-        cop_amount, usd_amount = _amounts_in_cop_and_usd(transaction, db, cop_currency, usd_currency)
+        cop_amount, usd_amount = amounts_in_cop_and_usd(transaction, db, cop_currency, usd_currency)
         serialized["cop_amount"] = cop_amount
         serialized["usd_amount"] = usd_amount
         enriched_transactions.append(serialized)

@@ -28,11 +28,23 @@ def get_current_rate(
     """
     rate = get_current_exchange_rate(db, force_fetch=force_fetch)
 
+    # Return the actual date of the rate record so the UI can show staleness
+    latest_record = db.query(ExchangeRate).filter(
+        ExchangeRate.from_currency == 'USD',
+        ExchangeRate.to_currency == 'COP'
+    ).order_by(desc(ExchangeRate.date)).first()
+
+    rate_date = latest_record.date if latest_record else date.today()
+    source = latest_record.source if latest_record else "unknown"
+    days_old = (date.today() - rate_date).days if rate_date else 0
+
     return {
         "from_currency": "USD",
         "to_currency": "COP",
         "rate": rate,
-        "date": date.today().isoformat()
+        "date": rate_date.isoformat(),
+        "source": source,
+        "days_old": days_old,
     }
 
 

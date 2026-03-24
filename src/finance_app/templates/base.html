@@ -722,6 +722,28 @@
         });
     </script>
 
+    <script>
+        /**
+         * Global currency formatting function.
+         * All templates should use this instead of inline toLocaleString calls.
+         *
+         * @param {number} amount - The amount to format
+         * @param {object} [currency] - Currency object with {symbol, decimals, code}
+         *   Defaults to COP ({symbol:'$', decimals:0})
+         * @returns {string} Formatted currency string, e.g. "$1.234.567" or "US$1.234,56"
+         */
+        window.formatMoney = function(amount, currency) {
+            const sym = (currency && currency.symbol) || '$';
+            const dec = (currency && typeof currency.decimals === 'number') ? currency.decimals : 0;
+            const formatted = Math.abs(amount).toLocaleString('es-CO', {
+                minimumFractionDigits: dec,
+                maximumFractionDigits: dec
+            });
+            const sign = amount < 0 ? '-' : '';
+            return `${sign}${sym}${formatted}`;
+        };
+    </script>
+
     {% block scripts %}{% endblock %}
 
     <script>
