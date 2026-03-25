@@ -164,20 +164,6 @@ async def reports_wealth_page(request: Request):
     """Wealth progress report page"""
     return templates.TemplateResponse("reports/wealth.html", {"request": request})
 
-@app.get("/reports/debt")
-async def reports_debt_page(request: Request):
-    """Debt analysis report page"""
-    return templates.TemplateResponse("reports/debt.html", {"request": request})
-
-@app.get("/reports/balance")
-async def reports_balance_page(request: Request):
-    """Balance and trends report page"""
-    return templates.TemplateResponse("reports/balance.html", {"request": request})
-
-@app.get("/reports/investments")
-async def reports_investments_page(request: Request):
-    """Investments report page"""
-    return templates.TemplateResponse("reports/investments.html", {"request": request})
 
 @app.get("/patrimonio")
 async def patrimonio_page(request: Request):

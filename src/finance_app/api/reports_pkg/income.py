@@ -208,8 +208,12 @@ def get_budget_vs_actual(
 ):
     """Compare budgeted amounts vs actual spending by category."""
     today = date.today()
-    start_date_obj = today.replace(day=1) - relativedelta(months=1)
-    end_date_obj = today.replace(day=1) - relativedelta(days=1)
+    if start_date and end_date:
+        start_date_obj = date.fromisoformat(start_date)
+        end_date_obj = date.fromisoformat(end_date)
+    else:
+        start_date_obj = today.replace(day=1)
+        end_date_obj = today
     exchange_rate = get_exchange_rate(db)
 
     budget_data = db.query(BudgetMonth).filter(
