@@ -72,55 +72,6 @@ def get_budget_report_income_total(
     )
 
 
-@router.get("/income-vs-expenses")
-def get_income_vs_expenses(
-    months: int = 6,
-    currency_id: int = 1,
-    db: Session = Depends(get_db)
-):
-    """Get income vs expenses for the last N months."""
-    end_date = date.today()
-    start_date = end_date - relativedelta(months=months)
-    min_start_date = date(2026, 1, 1)
-    note = None
-    if start_date < min_start_date:
-        start_date = min_start_date
-        note = 'Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.'
-
-    exchange_rate = get_exchange_rate(db)
-    results = []
-    current_date = start_date.replace(day=1)
-
-    while current_date <= end_date:
-        month_start = current_date
-        month_end = current_date + relativedelta(months=1)
-
-        income = get_budget_report_income_total(db, month_start, month_end, currency_id, exchange_rate)
-
-        expense_transactions = build_spent_transactions_query(db, month_start, month_end).with_entities(
-            Transaction.amount, Transaction.currency_id
-        ).all()
-        expenses = sum(
-            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
-            for t in expense_transactions
-        )
-
-        results.append({
-            'month': current_date.strftime('%Y-%m'),
-            'month_name': current_date.strftime('%b %Y'),
-            'income': income,
-            'expenses': expenses,
-            'net': income - expenses
-        })
-        current_date += relativedelta(months=1)
-
-    return {
-        'months': results,
-        'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}',
-        'note': note
-    }
-
-
 @router.get("/budget-income-expenses")
 def get_budget_income_expenses(
     months: int = 12,
@@ -173,13 +124,15 @@ def get_budget_income_expenses(
         month_key = current_date.strftime('%Y-%m')
         budget = budget_totals.get(month_key, 0)
 
+        net = income - expenses
         results.append({
             'month': month_key,
             'month_name': current_date.strftime('%b %Y'),
             'budget': budget,
             'income': income,
             'expenses': expenses,
-            'net_balance': income - expenses
+            'net': net,
+            'net_balance': net
         })
         current_date += relativedelta(months=1)
 
