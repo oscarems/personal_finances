@@ -446,12 +446,6 @@
                         </div>
                         <span class="font-semibold text-sm">Dashboard general</span>
                     </a>
-                    <a href="/reports/budget" class="nav-item group" data-group="reportes">
-                        <div class="nav-icon">
-                            <span class="text-xl">🧾</span>
-                        </div>
-                        <span class="font-semibold text-sm">Presupuesto vs gastos</span>
-                    </a>
                     <a href="/reports/wealth" class="nav-item group" data-group="reportes">
                         <div class="nav-icon">
                             <span class="text-xl">🪙</span>
@@ -723,6 +717,189 @@
             });
             const sign = amount < 0 ? '-' : '';
             return `${sign}${sym}${formatted}`;
+        };
+    </script>
+
+    <!-- Searchable Category Select Component -->
+    <script>
+        /**
+         * Enhances a <select> element with search/filter functionality.
+         * Wraps the native select in a custom dropdown with a search input.
+         * Usage: enhanceSelectWithSearch(selectElement, { placeholder: 'Buscar...' })
+         */
+        window.enhanceSelectWithSearch = function(selectEl, options = {}) {
+            if (!selectEl || selectEl.dataset.enhanced) return;
+            selectEl.dataset.enhanced = 'true';
+            const placeholder = options.placeholder || 'Buscar...';
+
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'search-select-wrapper';
+            wrapper.style.cssText = 'position:relative;';
+            selectEl.parentNode.insertBefore(wrapper, selectEl);
+
+            // Create display button
+            const display = document.createElement('button');
+            display.type = 'button';
+            display.className = selectEl.className;
+            display.style.cssText = 'text-align:left;width:100%;cursor:pointer;position:relative;padding-right:2rem;';
+            const selectedOpt = selectEl.options[selectEl.selectedIndex];
+            display.textContent = selectedOpt ? selectedOpt.textContent : '';
+
+            // Arrow indicator
+            const arrow = document.createElement('span');
+            arrow.innerHTML = '&#9662;';
+            arrow.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;';
+            display.appendChild(arrow);
+
+            // Dropdown panel
+            const panel = document.createElement('div');
+            panel.style.cssText = 'display:none;position:absolute;z-index:60;top:100%;left:0;right:0;background:var(--bg-surface,#fff);border:1px solid var(--color-border,#e2e8f0);border-radius:12px;box-shadow:0 10px 24px rgba(15,23,42,0.12);margin-top:4px;max-height:320px;overflow:hidden;';
+
+            // Search input
+            const searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.placeholder = placeholder;
+            searchInput.className = 'input-field';
+            searchInput.style.cssText = 'border:none;border-bottom:1px solid var(--color-border,#e2e8f0);border-radius:12px 12px 0 0;margin:0;font-size:0.85rem;';
+
+            // Options list
+            const optList = document.createElement('div');
+            optList.style.cssText = 'max-height:260px;overflow-y:auto;';
+
+            panel.appendChild(searchInput);
+            panel.appendChild(optList);
+            wrapper.appendChild(display);
+            wrapper.appendChild(panel);
+
+            // Hide original select
+            selectEl.style.cssText = 'position:absolute;opacity:0;pointer-events:none;height:0;width:0;';
+            wrapper.appendChild(selectEl);
+
+            function buildOptions(filter) {
+                optList.innerHTML = '';
+                const lowerFilter = (filter || '').toLowerCase();
+                const groups = selectEl.querySelectorAll('optgroup');
+                const directOptions = selectEl.querySelectorAll(':scope > option');
+
+                function addOption(opt, container) {
+                    if (lowerFilter && !opt.textContent.toLowerCase().includes(lowerFilter)) return false;
+                    const item = document.createElement('div');
+                    item.textContent = opt.textContent;
+                    item.dataset.value = opt.value;
+                    item.style.cssText = 'padding:8px 14px;cursor:pointer;font-size:0.85rem;color:var(--color-text,#0f172a);';
+                    if (opt.value === selectEl.value) {
+                        item.style.background = 'var(--table-row-hover,rgba(99,102,241,0.06))';
+                        item.style.fontWeight = '600';
+                    }
+                    item.addEventListener('mouseenter', () => item.style.background = 'var(--table-row-hover,rgba(99,102,241,0.06))');
+                    item.addEventListener('mouseleave', () => {
+                        if (opt.value !== selectEl.value) item.style.background = '';
+                    });
+                    item.addEventListener('click', () => {
+                        selectEl.value = opt.value;
+                        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                        display.childNodes[0].textContent = opt.textContent;
+                        closePanel();
+                    });
+                    container.appendChild(item);
+                    return true;
+                }
+
+                // Direct options (not in optgroups)
+                directOptions.forEach(opt => addOption(opt, optList));
+
+                // Grouped options
+                groups.forEach(group => {
+                    const groupItems = [];
+                    const tempDiv = document.createElement('div');
+                    group.querySelectorAll('option').forEach(opt => {
+                        if (addOption(opt, tempDiv)) groupItems.push(true);
+                    });
+                    if (groupItems.length > 0) {
+                        const header = document.createElement('div');
+                        header.textContent = group.label;
+                        header.style.cssText = 'padding:8px 14px 4px;font-size:0.7rem;font-weight:700;color:var(--color-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.06em;';
+                        optList.appendChild(header);
+                        optList.appendChild(tempDiv);
+                    }
+                });
+            }
+
+            function openPanel() {
+                panel.style.display = 'block';
+                buildOptions('');
+                searchInput.value = '';
+                searchInput.focus();
+            }
+
+            function closePanel() {
+                panel.style.display = 'none';
+            }
+
+            display.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (panel.style.display === 'none') openPanel();
+                else closePanel();
+            });
+
+            searchInput.addEventListener('input', () => buildOptions(searchInput.value));
+            searchInput.addEventListener('click', (e) => e.stopPropagation());
+
+            document.addEventListener('click', (e) => {
+                if (!wrapper.contains(e.target)) closePanel();
+            });
+
+            // Sync when select value changes programmatically
+            const observer = new MutationObserver(() => {
+                const opt = selectEl.options[selectEl.selectedIndex];
+                if (opt) display.childNodes[0].textContent = opt.textContent;
+            });
+            observer.observe(selectEl, { childList: true, subtree: true });
+
+            // Also update display on change events
+            selectEl.addEventListener('change', () => {
+                const opt = selectEl.options[selectEl.selectedIndex];
+                if (opt) display.childNodes[0].textContent = opt.textContent;
+            });
+        };
+
+        /**
+         * Populates a select with grouped categories from /api/categories/groups
+         * and enhances it with search.
+         */
+        window.populateCategorySelect = async function(selectEl, options = {}) {
+            if (!selectEl) return;
+            const includeEmpty = options.includeEmpty !== false;
+            const emptyLabel = options.emptyLabel || 'Sin categoría';
+            const includeIncome = options.includeIncome || false;
+
+            try {
+                const res = await fetch('/api/categories/groups');
+                const groups = await res.json();
+
+                selectEl.innerHTML = '';
+                if (includeEmpty) {
+                    selectEl.innerHTML = `<option value="">${emptyLabel}</option>`;
+                }
+
+                const filteredGroups = includeIncome ? groups : groups.filter(g => !g.is_income);
+                filteredGroups.forEach(group => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = group.name;
+                    (group.categories || []).forEach(cat => {
+                        const opt = document.createElement('option');
+                        opt.value = cat.id;
+                        opt.textContent = cat.name;
+                        optgroup.appendChild(opt);
+                    });
+                    selectEl.appendChild(optgroup);
+                });
+
+                enhanceSelectWithSearch(selectEl, { placeholder: 'Buscar categoría...' });
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
         };
     </script>
 

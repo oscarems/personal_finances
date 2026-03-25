@@ -22,6 +22,7 @@ def get_net_worth(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     currency_id: int = 1,
+    include_accounts: bool = True,
     db: Session = Depends(get_db)
 ):
     """Calcula el patrimonio neto (Activos - Pasivos) a lo largo del tiempo."""
@@ -44,7 +45,7 @@ def get_net_worth(
         start_date=start_date_obj,
         end_date=end_date_obj,
         currency_id=currency_id,
-        include_accounts=False,
+        include_accounts=include_accounts,
     )
 
     currency = db.query(Currency).get(currency_id)

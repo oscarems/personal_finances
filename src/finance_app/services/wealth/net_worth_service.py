@@ -301,12 +301,13 @@ def _compute_liabilities_at_date(
     currency_id: int,
     exchange_rate: float,
     currency_map: Dict[str, int],
+    all_transactions: Optional[List[Transaction]] = None,
 ) -> Tuple[float, Dict[str, float], List[LiabilitySnapshot]]:
     """
     Calcula el total de pasivos a una fecha determinada.
 
-    Usa la tabla de amortización para préstamos e hipotecas,
-    y el saldo actual para tarjetas de crédito.
+    Usa la tabla de amortización para préstamos e hipotecas.
+    Para tarjetas de crédito, reconstruye el saldo histórico usando transacciones.
 
     Retorna (total, desglose_por_tipo, detalle).
     """
@@ -319,23 +320,33 @@ def _compute_liabilities_at_date(
         balance = 0.0
 
         if debt.debt_type == "mortgage":
-            # Para hipotecas usamos el motor de amortización directamente
             balance = calculate_mortgage_principal_balance(
                 db, debt, as_of_date=target_month_end,
             )
         else:
-            # Para otros tipos, buscar en tabla de amortización
             record = amortization_records.get((debt.id, target_month_start))
             if record:
                 balance = float(record.principal_remaining)
             elif debt.debt_type == "credit_card":
-                # Tarjetas de crédito: usar saldo actual (no tienen amortización)
-                balance = debt.current_balance or 0.0
+                # Reconstruct historical credit card balance from account transactions
+                current_balance = debt.current_balance or 0.0
+                if all_transactions is not None and debt.account_id:
+                    future_movements = sum(
+                        tx.amount
+                        for tx in all_transactions
+                        if tx.account_id == debt.account_id
+                        and tx.date is not None
+                        and tx.date > target_month_end
+                    )
+                    balance = current_balance - future_movements
+                else:
+                    balance = current_balance
 
+        # Debt balances are positive values representing what's owed
+        balance = abs(balance) if balance < 0 else balance
         converted = _convert_to_currency(balance, debt_currency_id, currency_id, exchange_rate)
         total += converted
 
-        # Acumular por tipo de deuda
         by_type[debt.debt_type] = by_type.get(debt.debt_type, 0.0) + converted
 
         details.append(LiabilitySnapshot(
@@ -428,9 +439,9 @@ def compute_net_worth_at_date(
             ))
 
     # --- Calcular saldos de cuentas bancarias (opcional) ---
+    all_account_transactions = db.query(Transaction).all()
     if include_accounts:
         accounts = db.query(Account).filter(Account.is_closed == False).all()
-        all_account_transactions = db.query(Transaction).all()
         account_total, account_snapshots = _compute_account_balances_at_date(
             accounts, month_end, all_account_transactions, currency_id, exchange_rate,
         )
@@ -448,6 +459,7 @@ def compute_net_worth_at_date(
     total_liabilities, _, liability_details_list = _compute_liabilities_at_date(
         db, debts, month_start, month_end,
         amortization_records, currency_id, exchange_rate, currency_map,
+        all_transactions=all_account_transactions,
     )
 
     return NetWorthSnapshot(
@@ -514,12 +526,13 @@ def build_net_worth_timeline(
         if tx.investment_asset_id is not None:
             transactions_by_asset.setdefault(tx.investment_asset_id, []).append(tx)
 
-    # Cuentas y todas las transacciones (para reconstrucción histórica)
+    # All transactions (needed for account balance & credit card reconstruction)
+    all_account_transactions: List[Transaction] = db.query(Transaction).all()
+
+    # Cuentas bancarias (para reconstrucción histórica)
     accounts: List[Account] = []
-    all_account_transactions: List[Transaction] = []
     if include_accounts:
         accounts = db.query(Account).filter(Account.is_closed == False).all()
-        all_account_transactions = db.query(Transaction).all()
 
     # Amortización en lote para todo el rango
     ensure_debt_amortization_records(db, start_date, effective_end)
@@ -572,6 +585,7 @@ def build_net_worth_timeline(
         total_liabilities, _, _ = _compute_liabilities_at_date(
             db, debts, month_start, month_end_date,
             amortization_records, currency_id, exchange_rate, currency_map,
+            all_transactions=all_account_transactions,
         )
 
         snapshots.append(NetWorthSnapshot(

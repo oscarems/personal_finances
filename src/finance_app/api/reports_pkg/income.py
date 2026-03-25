@@ -199,92 +199,6 @@ def get_top_income_expenses(
     }
 
 
-@router.get("/budget-vs-actual")
-def get_budget_vs_actual(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    currency_id: int = 1,
-    db: Session = Depends(get_db)
-):
-    """Compare budgeted amounts vs actual spending by category."""
-    today = date.today()
-    if start_date and end_date:
-        start_date_obj = date.fromisoformat(start_date)
-        end_date_obj = date.fromisoformat(end_date)
-    else:
-        start_date_obj = today.replace(day=1)
-        end_date_obj = today
-    exchange_rate = get_exchange_rate(db)
-
-    budget_data = db.query(BudgetMonth).filter(
-        and_(
-            BudgetMonth.month >= start_date_obj,
-            BudgetMonth.month <= end_date_obj
-        )
-    ).all()
-
-    category_summary = {}
-    for budget_month in budget_data:
-        cat_id = budget_month.category_id
-        if cat_id not in category_summary:
-            category = db.query(Category).get(cat_id)
-            category_summary[cat_id] = {
-                'category_id': cat_id,
-                'category_name': category.name if category else 'Unknown',
-                'category_group': category.category_group.name if category and category.category_group else 'Unknown',
-                'budgeted': 0,
-                'actual': 0,
-                'difference': 0,
-                'percentage': 0
-            }
-
-        budgeted_converted = convert_to_currency(
-            budget_month.assigned or 0, budget_month.currency_id, currency_id, exchange_rate
-        )
-        category_summary[cat_id]['budgeted'] += budgeted_converted
-
-        month_start = budget_month.month
-        month_end = month_start + relativedelta(months=1)
-        actual_transactions = build_spent_transactions_query(
-            db, month_start, month_end, category_id=cat_id
-        ).with_entities(Transaction.amount, Transaction.currency_id).all()
-
-        actual_spent = sum(
-            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
-            for t in actual_transactions
-        )
-        category_summary[cat_id]['actual'] += actual_spent
-
-    results = []
-    for cat_id, data in category_summary.items():
-        difference = data['budgeted'] - data['actual']
-        percentage = (data['actual'] / data['budgeted'] * 100) if data['budgeted'] > 0 else 0
-        data['difference'] = difference
-        data['percentage'] = round(percentage, 2)
-        data['status'] = 'under' if difference > 0 else ('over' if difference < 0 else 'exact')
-        results.append(data)
-
-    results.sort(key=lambda x: x['difference'])
-    total_budgeted = sum(r['budgeted'] for r in results)
-    total_actual = sum(r['actual'] for r in results)
-    total_difference = total_budgeted - total_actual
-    currency = db.query(Currency).get(currency_id)
-
-    return {
-        'start_date': start_date_obj.isoformat(),
-        'end_date': end_date_obj.isoformat(),
-        'month_label': start_date_obj.strftime('%b %Y'),
-        'categories': results,
-        'totals': {
-            'budgeted': total_budgeted,
-            'actual': total_actual,
-            'difference': total_difference,
-            'percentage': round((total_actual / total_budgeted * 100) if total_budgeted > 0 else 0, 2)
-        },
-        'currency': currency.to_dict() if currency else None
-    }
-
-
 @router.get("/savings-rate")
 def get_savings_rate(
     months: int = 12,
@@ -350,7 +264,7 @@ def get_summary(
     currency_id: int = 1,
     db: Session = Depends(get_db)
 ):
-    """Get overall financial summary."""
+    """Get overall financial summary including Age of Money."""
     today = date.today()
     month_start = today.replace(day=1)
     month_end = today + relativedelta(days=1)
@@ -370,7 +284,21 @@ def get_summary(
     total_balance = sum(
         convert_to_currency(acc.balance, acc.currency_id, currency_id, exchange_rate)
         for acc in accounts
+        if acc.type in ("checking", "savings", "cash")
     )
+
+    # Age of Money: balance / average daily expense over last 30 days
+    aom_start = today - relativedelta(days=30)
+    aom_expense_txs = build_spent_transactions_query(db, aom_start, month_end).with_entities(
+        Transaction.amount, Transaction.currency_id
+    ).all()
+    aom_total_expenses = sum(
+        convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+        for t in aom_expense_txs
+    )
+    avg_daily_expense = aom_total_expenses / 30 if aom_total_expenses > 0 else 0
+    age_of_money = round(total_balance / avg_daily_expense) if avg_daily_expense > 0 else 0
+
     currency = db.query(Currency).get(currency_id)
 
     return {
@@ -383,6 +311,7 @@ def get_summary(
             'total_balance': total_balance,
             'count': len(accounts)
         },
+        'age_of_money': age_of_money,
         'currency': currency.to_dict() if currency else None
     }
 

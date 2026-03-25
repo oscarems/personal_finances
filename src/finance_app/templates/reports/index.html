@@ -53,7 +53,7 @@
     <h3 class="text-lg font-semibold text-neutral-800">KPIs del mes actual</h3>
     <p class="text-sm text-neutral-500">Transferencias entre cuentas excluidas</p>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
     <div class="bg-gradient-to-br from-success-50 to-success-100 border border-success-200 rounded-card p-6">
         <p class="text-sm text-neutral-600 mb-2">Ingresos del mes</p>
         <p id="overallIncome" class="text-2xl font-bold text-success-600">$0</p>
@@ -69,6 +69,11 @@
     <div class="card p-6">
         <p class="text-sm text-neutral-600 mb-2">Tasa de ahorro promedio</p>
         <p id="savingsRateAverage" class="text-2xl font-bold text-emerald-600">0%</p>
+    </div>
+    <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Age of Money</p>
+        <p id="ageOfMoney" class="text-2xl font-bold text-blue-600">0 <span class="text-sm font-normal text-neutral-500">dias</span></p>
+        <p class="text-xs text-neutral-500 mt-1">Dias que tu dinero permanece en cuentas antes de gastarse</p>
     </div>
 </div>
 
@@ -95,7 +100,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Spending by Category -->
     <div class="card p-6">
-        <h3 class="text-lg font-semibold mb-4">Gastos por Categoría</h3>
+        <h3 class="text-lg font-semibold mb-4">Gastos por Categoria</h3>
         <div class="h-80">
             <canvas id="categoryPieChart"></canvas>
         </div>
@@ -110,55 +115,52 @@
     </div>
 </div>
 
-<!-- Income vs Expenses Chart -->
+<!-- Income vs Expenses Chart - Improved -->
 <div class="card p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-4">Ingresos vs Gastos</h3>
+    <h3 class="text-lg font-semibold mb-2">Ingresos vs Gastos</h3>
     <p id="incomeExpensesNotice" class="text-sm text-neutral-500 mb-3">
         Los datos anteriores a enero de 2026 no se pueden mostrar porque no se tiene registro.
     </p>
     <div class="h-96">
         <canvas id="incomeExpensesChart"></canvas>
     </div>
+    <!-- Monthly detail table for Income vs Expenses -->
+    <div class="overflow-x-auto mt-6">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">Mes</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Ingresos</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Gastos</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Balance neto</th>
+                </tr>
+            </thead>
+            <tbody id="incomeExpensesTable" class="divide-y divide-neutral-200"></tbody>
+        </table>
+    </div>
 </div>
 
-<!-- Total Balance Chart -->
+<!-- Spending by Category Over Time -->
 <div class="card p-6 mb-6">
-    <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
-        <h3 class="text-lg font-semibold">Dinero total en cuentas</h3>
-        <div class="flex items-center gap-2">
-            <label for="balanceInterval" class="text-sm text-neutral-600 font-semibold uppercase tracking-wide">Vista</label>
-            <select id="balanceInterval" onchange="loadAccountBalanceHistory()" class="input-field text-sm py-2 px-3">
-                <option value="daily">Día a día</option>
-                <option value="monthly" selected>Mes a mes</option>
-            </select>
-        </div>
-    </div>
+    <h3 class="text-lg font-semibold mb-4">Gastos por Categoria a lo largo del tiempo</h3>
     <div class="h-96">
-        <canvas id="totalBalanceChart"></canvas>
-    </div>
-</div>
-
-<!-- Spending Trends Chart -->
-<div class="card p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-4">Tendencias de gasto</h3>
-    <div class="h-80">
-        <canvas id="spendingTrendsChart"></canvas>
+        <canvas id="categoryOverTimeChart"></canvas>
     </div>
 </div>
 
 <!-- Top Categories Table -->
 <div class="card overflow-hidden mb-6">
     <div class="p-6">
-        <h3 class="text-lg font-semibold mb-4">Top 10 Categorías</h3>
+        <h3 class="text-lg font-semibold mb-4">Top 10 Categorias</h3>
     </div>
     <div class="overflow-x-auto">
-        <table class="table">
-            <thead class="bg-neutral-50">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Categoría</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Grupo</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Gasto</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">% del Total</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">Categoria</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">Grupo</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Gasto</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">% del Total</th>
                 </tr>
             </thead>
             <tbody id="topCategoriesTable" class="bg-white divide-y divide-neutral-200"></tbody>
@@ -187,14 +189,14 @@
         <canvas id="savingsRateChart"></canvas>
     </div>
     <div class="overflow-x-auto">
-        <table class="table">
-            <thead class="bg-neutral-50">
+        <table class="data-table">
+            <thead>
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Mes</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Ingresos</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Gastos</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Ahorro</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Tasa</th>
+                    <th class="px-6 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">Mes</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Ingresos</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Gastos</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Ahorro</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-neutral-500 uppercase tracking-wide">Tasa</th>
                 </tr>
             </thead>
             <tbody id="savingsRateTable" class="bg-white divide-y divide-neutral-200">
@@ -213,8 +215,7 @@
         categoryPie: null,
         groupDoughnut: null,
         incomeExpenses: null,
-        totalBalance: null,
-        spendingTrends: null,
+        categoryOverTime: null,
         savingsRate: null
     };
 
@@ -299,8 +300,7 @@
             loadSpendingByCategory(),
             loadSpendingByGroup(),
             loadIncomeVsExpenses(),
-            loadAccountBalanceHistory(),
-            loadSpendingTrends(),
+            loadCategoryOverTime(),
             loadSavingsRate()
         ]);
     }
@@ -318,6 +318,11 @@
             document.getElementById('overallIncome').textContent = formatCurrency(income);
             document.getElementById('overallExpenses').textContent = formatCurrency(expenses);
             document.getElementById('overallBalance').textContent = formatCurrency(income + expenses);
+
+            // Age of Money
+            const aom = data.age_of_money || 0;
+            document.getElementById('ageOfMoney').innerHTML =
+                `${aom} <span class="text-sm font-normal text-neutral-500">dias</span>`;
         } catch (error) {
             console.error('Error loading overall summary:', error);
         }
@@ -527,43 +532,62 @@
                     }
                 }
             });
+
+            // Populate Income vs Expenses detail table
+            const table = document.getElementById('incomeExpensesTable');
+            table.innerHTML = data.months.map(m => {
+                const netClass = m.net >= 0 ? 'text-success-600' : 'text-danger-600';
+                return `
+                    <tr class="hover:bg-neutral-50">
+                        <td class="px-4 py-3 text-sm text-neutral-700">${m.month_name}</td>
+                        <td class="px-4 py-3 text-sm text-right text-success-600 font-semibold">${formatCurrency(m.income)}</td>
+                        <td class="px-4 py-3 text-sm text-right text-danger-600 font-semibold">${formatCurrency(m.expenses)}</td>
+                        <td class="px-4 py-3 text-sm text-right font-bold ${netClass}">${formatCurrency(m.net)}</td>
+                    </tr>
+                `;
+            }).join('');
         } catch (error) {
             console.error('Error loading income vs expenses:', error);
         }
     }
 
-    async function loadAccountBalanceHistory() {
+    async function loadCategoryOverTime() {
         try {
             const currencyId = document.getElementById('currencyFilter').value;
             const dateRange = getDateRange();
-            const interval = document.getElementById('balanceInterval')?.value || 'monthly';
             const res = await fetch(
-                `/api/reports/account-balance-history?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}&interval=${interval}`
+                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
             );
             const data = await res.json();
-            const points = data.points || [];
 
-            if (charts.totalBalance) charts.totalBalance.destroy();
+            if (charts.categoryOverTime) charts.categoryOverTime.destroy();
+            const colors = generateColors(data.series.length);
 
-            charts.totalBalance = new Chart(document.getElementById('totalBalanceChart').getContext('2d'), {
-                type: 'line',
+            const datasets = data.series.map((s, i) => ({
+                label: s.category,
+                data: s.data,
+                backgroundColor: colors[i],
+                borderColor: colors[i].replace('0.8', '1'),
+                borderWidth: 1
+            }));
+
+            charts.categoryOverTime = new Chart(document.getElementById('categoryOverTimeChart').getContext('2d'), {
+                type: 'bar',
                 data: {
-                    labels: points.map(p => p.label),
-                    datasets: [{
-                        label: 'Balance total',
-                        data: points.map(p => p.balance),
-                        borderColor: '#3f679a',
-                        backgroundColor: 'rgba(63, 103, 154, 0.10)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 2
-                    }]
+                    labels: data.months,
+                    datasets: datasets
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { stacked: true },
+                        y: {
+                            stacked: true,
+                            ticks: { callback: value => formatCurrency(value) }
+                        }
+                    },
                     plugins: {
                         legend: { position: 'bottom' },
                         tooltip: {
@@ -571,57 +595,11 @@
                                 label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
                             }
                         }
-                    },
-                    scales: {
-                        y: { ticks: { callback: value => formatCurrency(value) } }
                     }
                 }
             });
         } catch (error) {
-            console.error('Error loading account balance history:', error);
-        }
-    }
-
-    async function loadSpendingTrends() {
-        try {
-            const currencyId = document.getElementById('currencyFilter').value;
-            const res = await fetch(`/api/reports/spending-trends?currency_id=${currencyId}`);
-            const data = await res.json();
-
-            if (charts.spendingTrends) charts.spendingTrends.destroy();
-
-            charts.spendingTrends = new Chart(document.getElementById('spendingTrendsChart').getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: data.months.map(item => item.month_name),
-                    datasets: [{
-                        label: 'Gasto mensual',
-                        data: data.months.map(item => item.amount),
-                        borderColor: '#cf8b2b',
-                        backgroundColor: 'rgba(207, 139, 43, 0.15)',
-                        tension: 0.3,
-                        fill: true,
-                        pointRadius: 3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
-                            }
-                        }
-                    },
-                    scales: {
-                        y: { ticks: { callback: value => formatCurrency(value) } }
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Error loading spending trends:', error);
+            console.error('Error loading category over time:', error);
         }
     }
 
