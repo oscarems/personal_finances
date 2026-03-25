@@ -835,7 +835,7 @@
         try {
             const chartTheme = getChartTheme();
             const currencyId = budgetData?.currency?.id || 1;
-            const incomeExpenseRes = await fetch(`/api/reports/income-vs-expenses?months=6&currency_id=${currencyId}`);
+            const incomeExpenseRes = await fetch(`/api/reports/budget-income-expenses?months=6&currency_id=${currencyId}`);
             const incomeExpenseData = incomeExpenseRes.ok ? await incomeExpenseRes.json() : { months: [] };
             const labels = incomeExpenseData.months?.map(month => month.month_name) || [];
             const incomeValues = incomeExpenseData.months?.map(month => month.income) || [];

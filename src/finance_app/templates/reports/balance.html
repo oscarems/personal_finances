@@ -288,7 +288,7 @@
         try {
             const currencyId = document.getElementById('currencyFilter').value;
             const months = parseInt(document.getElementById('monthsFilter').value, 10);
-            const res = await fetch(`/api/reports/income-vs-expenses?months=${months}&currency_id=${currencyId}`);
+            const res = await fetch(`/api/reports/budget-income-expenses?months=${months}&currency_id=${currencyId}`);
             const data = await res.json();
 
             const notice = document.getElementById('incomeExpensesNotice');
@@ -366,10 +366,14 @@
             const currencyId = document.getElementById('currencyFilter').value;
             const dateRange = getDateRange();
             const res = await fetch(
-                `/api/reports/balance-trend?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
+                `/api/reports/account-balance-history?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}&interval=monthly`
             );
             const data = await res.json();
-            const months = data.months || [];
+            const months = (data.points || []).map(p => ({
+                month_name: p.label,
+                balance: p.balance,
+                change: p.change
+            }));
 
             if (charts.balanceTrend) charts.balanceTrend.destroy();
 

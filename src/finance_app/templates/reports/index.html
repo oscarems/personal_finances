@@ -530,9 +530,19 @@
             const currencyId = document.getElementById('currencyFilter').value;
             const dateRange = getDateRange();
             const res = await fetch(
-                `/api/reports/spending-by-group?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
+                `/api/reports/spending-by-category?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
             );
             const data = await res.json();
+
+            // Aggregate categories by group
+            const groupTotals = {};
+            for (const cat of data.categories) {
+                const group = cat.group || 'Sin grupo';
+                groupTotals[group] = (groupTotals[group] || 0) + cat.amount;
+            }
+            const groups = Object.entries(groupTotals)
+                .map(([group, amount]) => ({ group, amount }))
+                .sort((a, b) => b.amount - a.amount);
 
             const ctx = document.getElementById('groupDoughnutChart').getContext('2d');
 
@@ -540,16 +550,16 @@
                 charts.groupDoughnut.destroy();
             }
 
-            const colors = generateColors(data.groups.length);
+            const colors = generateColors(groups.length);
 
             const chartTheme = getChartTheme();
 
             charts.groupDoughnut = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: data.groups.map(g => g.group),
+                    labels: groups.map(g => g.group),
                     datasets: [{
-                        data: data.groups.map(g => g.amount),
+                        data: groups.map(g => g.amount),
                         backgroundColor: colors,
                         borderWidth: 2,
                         borderColor: chartTheme.border
@@ -590,7 +600,7 @@
             if (period === 'last_12_months') months = 12;
             else if (period === 'last_3_months') months = 3;
 
-            const res = await fetch(`/api/reports/income-vs-expenses?months=${months}&currency_id=${currencyId}`);
+            const res = await fetch(`/api/reports/budget-income-expenses?months=${months}&currency_id=${currencyId}`);
             const data = await res.json();
 
             const notice = document.getElementById('incomeExpensesNotice');

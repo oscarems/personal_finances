@@ -1,5 +1,5 @@
 """
-Spending report endpoints: by category, tag, group, trends.
+Spending report endpoints: by category, tag, trends.
 """
 from typing import Optional
 from datetime import date
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 
 from finance_app.database import get_db
-from finance_app.models import Transaction, Category, CategoryGroup, TransactionTag
+from finance_app.models import Transaction, Category, TransactionTag
 from finance_app.services.budget_service import build_spent_transactions_query
 
 from .common import get_exchange_rate, parse_date_range, convert_to_currency, expense_allocations
@@ -105,44 +105,6 @@ def get_spending_by_tag(
         "category_id": category_id,
         "total_expenses": round(sum(row["amount"] for row in rows), 2),
         "tags": rows,
-    }
-
-
-@router.get("/spending-by-group")
-def get_spending_by_group(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    currency_id: int = 1,
-    db: Session = Depends(get_db)
-):
-    """Get spending grouped by category group."""
-    start_date_obj, end_date_obj = parse_date_range(start_date, end_date)
-    end_date_exclusive = end_date_obj + relativedelta(days=1)
-    exchange_rate = get_exchange_rate(db)
-
-    query = build_spent_transactions_query(db, start_date_obj, end_date_exclusive).with_entities(
-        CategoryGroup.name.label('group_name'),
-        Transaction.amount,
-        Transaction.currency_id
-    ).all()
-
-    group_totals = {}
-    for row in query:
-        group_name = row.group_name
-        converted_amount = convert_to_currency(abs(row.amount), row.currency_id, currency_id, exchange_rate)
-        if group_name not in group_totals:
-            group_totals[group_name] = 0
-        group_totals[group_name] += converted_amount
-
-    results = [{'group': gn, 'amount': total} for gn, total in group_totals.items()]
-    results.sort(key=lambda x: x['amount'], reverse=True)
-    total_expenses = sum(r['amount'] for r in results)
-
-    return {
-        'start_date': start_date_obj.isoformat(),
-        'end_date': end_date_obj.isoformat(),
-        'total_expenses': total_expenses,
-        'groups': results
     }
 
 
