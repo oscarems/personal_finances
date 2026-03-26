@@ -324,8 +324,9 @@ def _compute_liabilities_at_date(
                 db, debt, as_of_date=target_month_end,
             )
         else:
+            has_amortization_terms = bool(debt.term_months or debt.monthly_payment or getattr(debt, 'loan_years', None))
             record = amortization_records.get((debt.id, target_month_start))
-            if record:
+            if record and has_amortization_terms and float(record.principal_remaining) > 0:
                 balance = float(record.principal_remaining)
             elif debt.debt_type == "credit_card":
                 # Reconstruct historical credit card balance from account transactions
@@ -341,6 +342,9 @@ def _compute_liabilities_at_date(
                     balance = current_balance - future_movements
                 else:
                     balance = current_balance
+            else:
+                # Fallback for loans without valid amortization records
+                balance = debt.current_balance or 0.0
 
         # Debt balances are positive values representing what's owed
         balance = abs(balance) if balance < 0 else balance
