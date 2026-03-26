@@ -84,6 +84,21 @@ def list_accounts(type: Optional[str] = None, db: Session = Depends(get_db)):
             # por eso mantenemos el signo negativo para representar obligación.
             account_data["balance"] = -float(debt_balance)
 
+        # Include linked debt summary for UI display
+        if linked_debt:
+            account_data["linked_debt"] = {
+                "id": linked_debt.id,
+                "name": linked_debt.name,
+                "debt_type": linked_debt.debt_type,
+                "interest_rate": linked_debt.interest_rate,
+                "monthly_payment": linked_debt.monthly_payment,
+                "original_amount": linked_debt.original_amount,
+                "current_balance": linked_debt.current_balance,
+                "institution": linked_debt.institution,
+            }
+        else:
+            account_data["linked_debt"] = None
+
         serialized_accounts.append(account_data)
 
     return serialized_accounts

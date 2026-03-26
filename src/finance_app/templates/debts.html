@@ -597,6 +597,7 @@
             options.push(`<optgroup label="${group.name}">${groupOptions}</optgroup>`);
         });
         select.innerHTML = options.join('');
+        if (window.enhanceSelectWithSearch) enhanceSelectWithSearch(select, { placeholder: 'Buscar categoría...' });
     }
 
     document.getElementById('debtForm').addEventListener('submit', async (e) => {

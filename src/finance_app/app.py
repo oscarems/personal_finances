@@ -154,11 +154,6 @@ async def reports_page(request: Request):
     """Reports and analytics page"""
     return templates.TemplateResponse("reports/index.html", {"request": request})
 
-@app.get("/reports/budget")
-async def reports_budget_page(request: Request):
-    """Budget vs income vs expenses report page"""
-    return templates.TemplateResponse("reports/budget.html", {"request": request})
-
 @app.get("/reports/wealth")
 async def reports_wealth_page(request: Request):
     """Wealth progress report page"""

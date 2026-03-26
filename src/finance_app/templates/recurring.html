@@ -325,6 +325,7 @@
                 });
                 select.innerHTML += `</optgroup>`;
             });
+            if (window.enhanceSelectWithSearch) enhanceSelectWithSearch(select, { placeholder: 'Buscar categoría...' });
         } catch (error) {
             console.error('Error loading categories:', error);
         }

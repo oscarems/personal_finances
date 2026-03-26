@@ -158,3 +158,57 @@ def get_spending_trends(
         'months': results,
         'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}'
     }
+
+
+@router.get("/spending-by-category-over-time")
+def get_spending_by_category_over_time(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    currency_id: int = 1,
+    top_n: int = 8,
+    db: Session = Depends(get_db)
+):
+    """Get spending broken down by category for each month in the range."""
+    start_date_obj, end_date_obj = parse_date_range(start_date, end_date)
+    exchange_rate = get_exchange_rate(db)
+
+    # Collect data per month per category
+    months_list = []
+    category_totals_global = {}
+    current_date = start_date_obj.replace(day=1)
+
+    while current_date <= end_date_obj:
+        month_start = current_date
+        month_end = current_date + relativedelta(months=1)
+
+        allocations = expense_allocations(db, month_start, month_end)
+        month_categories = {}
+        for tx, category, allocation_amount in allocations:
+            cat_name = category.name if category else "Sin categoría"
+            converted = convert_to_currency(allocation_amount, tx.currency_id, currency_id, exchange_rate)
+            month_categories[cat_name] = month_categories.get(cat_name, 0) + converted
+            category_totals_global[cat_name] = category_totals_global.get(cat_name, 0) + converted
+
+        months_list.append({
+            'month': current_date.strftime('%Y-%m'),
+            'month_name': current_date.strftime('%b %Y'),
+            'categories': month_categories,
+        })
+        current_date += relativedelta(months=1)
+
+    # Get top N categories by total spending
+    top_categories = sorted(category_totals_global.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    top_cat_names = [c[0] for c in top_categories]
+
+    # Build series per category
+    series = []
+    for cat_name in top_cat_names:
+        series.append({
+            'category': cat_name,
+            'data': [m['categories'].get(cat_name, 0) for m in months_list],
+        })
+
+    return {
+        'months': [m['month_name'] for m in months_list],
+        'series': series,
+    }

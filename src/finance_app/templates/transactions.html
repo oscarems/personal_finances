@@ -732,6 +732,7 @@
                 });
                 filterSelect.innerHTML += '</optgroup>';
             });
+            if (window.enhanceSelectWithSearch) enhanceSelectWithSearch(filterSelect, { placeholder: 'Buscar categoría...' });
 
             // Populate form dropdown
             const formSelect = document.getElementById('txCategory');
@@ -743,6 +744,7 @@
                 });
                 formSelect.innerHTML += '</optgroup>';
             });
+            if (window.enhanceSelectWithSearch) enhanceSelectWithSearch(formSelect, { placeholder: 'Buscar categoría...' });
 
         } catch (error) {
             console.error('Error loading categories:', error);

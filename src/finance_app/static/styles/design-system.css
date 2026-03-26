@@ -583,17 +583,20 @@ a:hover {
   background: var(--alert-warning-bg-strong);
 }
 
-.table {
+.table,
+.data-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.table thead {
+.table thead,
+.data-table thead {
   background: var(--table-head-bg);
   border-bottom: 1px solid var(--border-muted);
 }
 
-.table th {
+.table th,
+.data-table th {
   text-align: left;
   padding: 0.9rem 1.25rem;
   font-size: 0.75rem;
@@ -603,7 +606,8 @@ a:hover {
   font-weight: 700;
 }
 
-.table td {
+.table td,
+.data-table td {
   padding: 0.9rem 1.25rem;
   font-size: 0.875rem;
   color: var(--color-text);
@@ -611,16 +615,20 @@ a:hover {
   border-bottom: 1px solid var(--table-border);
 }
 
-.table tbody tr:nth-child(even) {
+.table tbody tr:nth-child(even),
+.data-table tbody tr:nth-child(even) {
   background: var(--table-row-alt);
 }
 
-.table tbody tr:hover {
+.table tbody tr:hover,
+.data-table tbody tr:hover {
   background: var(--table-row-hover);
 }
 
 .table--compact th,
-.table--compact td {
+.table--compact td,
+.data-table--compact th,
+.data-table--compact td {
   padding: 0.6rem 1rem;
   font-size: 0.8125rem;
 }
@@ -959,6 +967,8 @@ main,
 .input-field,
 .table thead,
 .table tbody tr,
+.data-table thead,
+.data-table tbody tr,
 .badge,
 .alert,
 .btn,
