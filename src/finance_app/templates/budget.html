@@ -903,9 +903,9 @@
                             ` : `
                                 <div class="grid grid-cols-4 gap-4">
                                     <span>Categoría</span>
-                                    <span class="text-right" title="Monto fijo definido para el mes. No cambia con los gastos.">Asignado</span>
+                                    <span class="text-right" title="Monto fijo definido para el mes. Solo cambia por acción del usuario.">Asignado</span>
                                     <span class="text-right" title="Total de gastos registrados en este mes.">Gastado</span>
-                                    <span class="text-right" title="Asignado menos Gastado. Es lo que queda por gastar.">Disponible</span>
+                                    <span class="text-right" title="Disponible para gastar (gasto) o Ahorrado (ahorro).">Disponible</span>
                                 </div>
                             `}
                         </div>
@@ -978,6 +978,7 @@
                                             <p class="font-semibold ${cat.available >= 0 ? 'text-green-600' : 'text-red-600'}">
                                                 ${formatDualCurrency(cat.available, 'COP', 0)}
                                             </p>
+                                            <p class="text-[0.65rem] text-gray-400 mt-0.5">${cat.rollover_type === 'accumulate' ? 'Ahorrado' : 'Disponible para gastar'}</p>
                                             ${showResetHint ? '<p class="text-xs text-gray-400 mt-1" title="Sin gasto este mes, por eso disponible coincide con asignado">Sin gasto este mes</p>' : ''}
                                             ${isOverspent ? `
                                                 <button onclick="event.stopPropagation(); openCoverOverspendingModal(${cat.category_id})"
@@ -1671,7 +1672,6 @@
 
         const categoryId = overspendingContext.categoryId;
         const currencyCode = document.getElementById('coverOverspendingCurrency').value;
-        const otherCurrencyCode = currencyCode === 'USD' ? 'COP' : 'USD';
         const requestedTotal = parseFloat(document.getElementById('coverOverspendingAmount').value);
         const rows = getCoverOverspendingSourceRows();
 
@@ -1696,159 +1696,30 @@
         const monthDate = `${year}-${month}-01`;
 
         try {
-            const uniqueSourceIds = [...new Set(selectedSources.map(entry => entry.sourceId))];
-            const [targetBudgets, ...sourceBudgetsList] = await Promise.all([
-                fetchCategoryBudgets(categoryId),
-                ...uniqueSourceIds.map(sourceId => fetchCategoryBudgets(sourceId))
-            ]);
-
-            const targetBudgetEntry = getBudgetEntryForCurrency(targetBudgets, currencyCode);
-            const targetAssigned = targetBudgetEntry.assigned || 0;
-            const sourceBudgetMap = new Map(
-                uniqueSourceIds.map((sourceId, index) => {
-                    const budgets = sourceBudgetsList[index];
-                    const primaryEntry = getBudgetEntryForCurrency(budgets, currencyCode);
-                    const otherEntry = getBudgetEntryForCurrency(budgets, otherCurrencyCode);
-                    return [
-                        sourceId,
-                        {
-                            primary: {
-                                assigned: primaryEntry.assigned || 0,
-                                available: primaryEntry.available || 0
-                            },
-                            other: {
-                                assigned: otherEntry.assigned || 0,
-                                available: otherEntry.available || 0
-                            }
-                        }
-                    ];
-                })
-            );
-
-            let adjusted = false;
-            let totalTransfer = 0;
-            let remainingAmount = requestedTotal;
-            const usedBySource = new Map();
-            const sourceTransfersMap = new Map();
-
-            selectedSources.forEach(entry => {
-                if (remainingAmount <= 0) {
-                    adjusted = true;
-                    return;
-                }
-                const sourceBudget = sourceBudgetMap.get(entry.sourceId) || {
-                    primary: { assigned: 0, available: 0 },
-                    other: { assigned: 0, available: 0 }
-                };
-                const alreadyUsed = usedBySource.get(entry.sourceId) || { primary: 0, other: 0 };
-                const availablePrimary = Math.max(0, sourceBudget.primary.available - alreadyUsed.primary);
-                const availableOther = Math.max(0, sourceBudget.other.available - alreadyUsed.other);
-                const available = availablePrimary + convertBalance(availableOther, otherCurrencyCode, currencyCode);
-                const requested = entry.amount;
-                let transferAmount = Math.min(requested, available, remainingAmount);
-                if (transferAmount < requested) {
-                    adjusted = true;
-                }
-                if (transferAmount > 0) {
-                    remainingAmount -= transferAmount;
-                    totalTransfer += transferAmount;
-                    const takeFromPrimary = Math.min(availablePrimary, transferAmount);
-                    const remainingForOther = transferAmount - takeFromPrimary;
-                    let takeFromOther = 0;
-                    if (remainingForOther > 0) {
-                        takeFromOther = convertBalance(remainingForOther, currencyCode, otherCurrencyCode);
-                        if (takeFromOther > availableOther) {
-                            takeFromOther = availableOther;
-                        }
-                    }
-                    usedBySource.set(entry.sourceId, {
-                        primary: alreadyUsed.primary + takeFromPrimary,
-                        other: alreadyUsed.other + takeFromOther
-                    });
-                    const existingTransfer = sourceTransfersMap.get(entry.sourceId) || {
-                        primary: 0,
-                        other: 0
-                    };
-                    sourceTransfersMap.set(entry.sourceId, {
-                        primary: existingTransfer.primary + takeFromPrimary,
-                        other: existingTransfer.other + takeFromOther
-                    });
-                }
-            });
-
-            if (remainingAmount > 0) {
-                adjusted = true;
-            }
-
-            const sourceTransfers = [...sourceTransfersMap.entries()].map(([sourceId, transfer]) => ({
-                sourceId,
-                transferPrimary: transfer.primary || 0,
-                transferOther: transfer.other || 0,
-                sourceAssignedPrimary: (sourceBudgetMap.get(sourceId)?.primary.assigned) || 0,
-                sourceAssignedOther: (sourceBudgetMap.get(sourceId)?.other.assigned) || 0
-            }));
-
-            if (totalTransfer <= 0) {
-                alert('Las categorías de origen no tienen presupuesto disponible.');
-                return;
-            }
-
-            if (totalTransfer < requestedTotal) {
-                adjusted = true;
-            }
-
-            const requests = [
-                fetch('/api/budgets/assign', {
+            const requests = selectedSources.map(source =>
+                fetch('/api/budgets/cover-overspending', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        category_id: categoryId,
-                        amount: targetAssigned + totalTransfer,
-                        month: monthDate,
-                        currency_code: currencyCode
+                        source_category_id: source.sourceId,
+                        target_category_id: categoryId,
+                        amount: source.amount,
+                        currency_code: currencyCode,
+                        month: monthDate
                     })
-                }),
-                ...sourceTransfers.flatMap(source => {
-                    const requests = [];
-                    if (source.transferPrimary > 0) {
-                        requests.push(fetch('/api/budgets/assign', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                category_id: source.sourceId,
-                                amount: source.sourceAssignedPrimary - source.transferPrimary,
-                                month: monthDate,
-                                currency_code: currencyCode
-                            })
-                        }));
-                    }
-                    if (source.transferOther > 0) {
-                        requests.push(fetch('/api/budgets/assign', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                category_id: source.sourceId,
-                                amount: source.sourceAssignedOther - source.transferOther,
-                                month: monthDate,
-                                currency_code: otherCurrencyCode
-                            })
-                        }));
-                    }
-                    return requests;
                 })
-            ];
+            );
 
             const responses = await Promise.all(requests);
-            if (responses.some(res => !res.ok)) {
-                throw new Error('No se pudo actualizar el presupuesto.');
-            }
+            const allOk = responses.every(res => res.ok);
 
             closeCoverOverspendingModal();
             loadBudget();
-            if (adjusted) {
-                alert('Exceso cubierto parcialmente. Se ajustaron algunos montos al disponible.');
-            } else {
+
+            if (allOk) {
                 alert('Exceso cubierto correctamente.');
+            } else {
+                alert('Hubo un error al cubrir parte del exceso.');
             }
         } catch (error) {
             console.error('Error covering overspending:', error);

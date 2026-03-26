@@ -30,6 +30,15 @@ class BudgetAssignment(BaseModel):
     rollover_type: Optional[str] = None  # 'accumulate' o 'reset' (opcional, actualiza categoría)
 
 
+class CoverOverspendingRequest(BaseModel):
+    """Schema para cubrir exceso de gasto entre categorías"""
+    source_category_id: int
+    target_category_id: int
+    amount: float
+    currency_code: str = 'COP'
+    month: date
+
+
 @router.get("/current")
 def current_budget(currency_code: str = 'COP', db: Session = Depends(get_db)):
     """Get current month budget"""
@@ -144,6 +153,88 @@ def assign_budget(assignment: BudgetAssignment, db: Session = Depends(get_db)):
     )
 
     return {"success": True, "budget": budget.to_dict()}
+
+
+@router.post("/cover-overspending")
+def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(get_db)):
+    """
+    Cover overspending by moving available funds from source to target category.
+    Does NOT modify 'assigned' for either category.
+    Creates two internal transactions (expense in source, income in target) on the
+    same budget account so the account balance stays neutral.
+    """
+    from finance_app.models import Transaction, Account
+
+    currency = db.query(Currency).filter_by(code=request.currency_code).first()
+    if not currency:
+        return {"error": "Currency not found"}
+
+    source_cat = db.query(Category).get(request.source_category_id)
+    target_cat = db.query(Category).get(request.target_category_id)
+    if not source_cat or not target_cat:
+        return {"error": "Category not found"}
+
+    # Get a budget account to use for the internal transaction
+    budget_account = db.query(Account).filter(
+        Account.is_budget == True,
+        Account.is_closed == False,
+        Account.currency_id == currency.id
+    ).first()
+
+    if not budget_account:
+        return {"error": "No budget account found for this currency"}
+
+    amt = abs(request.amount)
+
+    # Create expense transaction in source category (reduces its available)
+    source_tx = Transaction(
+        date=request.month,
+        amount=-amt,
+        account_id=budget_account.id,
+        category_id=request.source_category_id,
+        currency_id=currency.id,
+        original_amount=-amt,
+        original_currency_id=currency.id,
+        memo=f"Cubrir exceso: {target_cat.name}",
+        is_adjustment=True,
+    )
+    db.add(source_tx)
+
+    # Create income transaction in target category (increases its available)
+    target_tx = Transaction(
+        date=request.month,
+        amount=amt,
+        account_id=budget_account.id,
+        category_id=request.target_category_id,
+        currency_id=currency.id,
+        original_amount=amt,
+        original_currency_id=currency.id,
+        memo=f"Cubierto desde: {source_cat.name}",
+        is_adjustment=True,
+    )
+    db.add(target_tx)
+
+    db.commit()
+
+    # Recalculate available for both categories
+    month_date = request.month
+    source_budgets = db.query(BudgetMonth).filter_by(
+        category_id=request.source_category_id,
+        month=month_date,
+        currency_id=currency.id
+    ).all()
+    target_budgets = db.query(BudgetMonth).filter_by(
+        category_id=request.target_category_id,
+        month=month_date,
+        currency_id=currency.id
+    ).all()
+
+    for b in source_budgets + target_budgets:
+        calculate_available(db, b)
+
+    db.commit()
+
+    return {"success": True, "amount": request.amount, "currency_code": request.currency_code}
 
 
 @router.post("/recalculate-savings")

@@ -176,14 +176,11 @@ def get_or_create_budget_month(db: Session, category_id, month_date, currency_id
     ).first()
 
     if not budget:
-        prev_budget = get_previous_budget(db, category_id, month_date, currency_id)
-        assigned_amount = prev_budget.assigned if prev_budget else 0.0
-
         budget = BudgetMonth(
             category_id=category_id,
             month=month_date,
             currency_id=currency_id,
-            assigned=assigned_amount,
+            assigned=0.0,
             activity=0.0,
             available=0.0
         )
