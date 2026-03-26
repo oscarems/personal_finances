@@ -26,6 +26,30 @@
     <!-- Cards will be loaded here -->
 </div>
 
+<!-- KPI Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8" id="kpiCards">
+    <div class="card p-6 border-l-4 border-primary-500">
+        <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1">Balance Neto del Mes</p>
+        <p class="text-2xl font-extrabold text-neutral-900" id="kpiNetBalance">$0</p>
+        <p class="text-xs text-neutral-400 mt-1">Ingresos - Gastos</p>
+    </div>
+    <div class="card p-6 border-l-4 border-success-500">
+        <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1">Tasa de Ahorro</p>
+        <p class="text-2xl font-extrabold text-neutral-900" id="kpiSavingsRate">0%</p>
+        <p class="text-xs text-neutral-400 mt-1">Asignado ahorro / Asignado total</p>
+    </div>
+    <div class="card p-6 border-l-4 border-accent-500">
+        <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1">Tasa de Dinero Libre</p>
+        <p class="text-2xl font-extrabold text-neutral-900" id="kpiFreeMoneyRate">0%</p>
+        <p class="text-xs text-neutral-400 mt-1">Balance Neto / Ingresos</p>
+    </div>
+    <div class="card p-6 border-l-4 border-warning-500">
+        <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1">Promedio Gasto Mensual</p>
+        <p class="text-2xl font-extrabold text-neutral-900" id="kpiAvgExpense">$0</p>
+        <p class="text-xs text-neutral-400 mt-1">Últimos 3 meses completos</p>
+    </div>
+</div>
+
 <!-- Monthly Spending Section -->
 <div class="card-hover-lift p-8 mb-10" id="monthlySpendingSection">
     <div class="flex items-center justify-between mb-6">
@@ -69,7 +93,7 @@
         <canvas id="monthlyTrendChart"></canvas>
     </div>
 
-    <!-- Category Distribution -->
+    <!-- Category Spending Over Time -->
     <div class="card-hover-lift p-8">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center space-x-4">
@@ -80,7 +104,7 @@
                     </div>
                 </div>
                 <h3 class="text-2xl font-bold text-neutral-800">
-                    Distribución por Categorías
+                    Gasto por Categoría
                 </h3>
             </div>
         </div>
@@ -835,46 +859,69 @@
         try {
             const chartTheme = getChartTheme();
             const currencyId = budgetData?.currency?.id || 1;
+            const currencySymbol = budgetData?.currency?.symbol || '$';
+            const currencyCode = budgetData?.currency?.code || 'COP';
+            const currencyDecimals = getCurrencyDecimals(currencyCode);
+
+            // --- Income vs Expenses with Balance Net line ---
             const incomeExpenseRes = await fetch(`/api/reports/budget-income-expenses?months=6&currency_id=${currencyId}`);
             const incomeExpenseData = incomeExpenseRes.ok ? await incomeExpenseRes.json() : { months: [] };
-            const labels = incomeExpenseData.months?.map(month => month.month_name) || [];
-            const incomeValues = incomeExpenseData.months?.map(month => month.income) || [];
-            const expenseValues = incomeExpenseData.months?.map(month => month.expenses) || [];
+            const monthsData = incomeExpenseData.months || [];
+            const labels = monthsData.map(month => month.month_name);
+            const incomeValues = monthsData.map(month => month.income);
+            const expenseValues = monthsData.map(month => month.expenses);
+            const netValues = monthsData.map(month => month.net || (month.income - month.expenses));
+
+            // Populate KPI cards from this data
+            updateKPICards(monthsData, budgetData, currencySymbol, currencyCode, currencyDecimals);
+
+            // Calculate aligned Y-axis ranges so zero is at same height
+            const maxIncome = Math.max(...incomeValues, ...expenseValues, 0);
+            const minNet = Math.min(...netValues, 0);
+            const maxNet = Math.max(...netValues, 0);
+            // For the bar axis: range [0, maxIncome]
+            // For the line axis: range [minNet, maxNet] but aligned so 0 is at same position
+            const barMax = maxIncome * 1.1 || 1;
+            const lineMax = Math.max(Math.abs(minNet), Math.abs(maxNet)) * 1.3 || 1;
 
             const ctx1 = document.getElementById('monthlyTrendChart').getContext('2d');
             if (dashboardCharts.monthlyTrend) {
                 dashboardCharts.monthlyTrend.destroy();
             }
             dashboardCharts.monthlyTrend = new Chart(ctx1, {
-                type: 'line',
+                type: 'bar',
                 data: {
                     labels: labels.length ? labels : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
                     datasets: [{
                         label: 'Ingresos',
-                        data: incomeValues.length ? incomeValues : [0, 0, 0, 0, 0, 0],
-                        borderColor: '#22C55E', // success-500 (verde vibrante)
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointBackgroundColor: '#22C55E',
-                        pointBorderColor: chartTheme.border,
-                        pointBorderWidth: 3,
-                        pointRadius: 5,
-                        pointHoverRadius: 7
+                        data: incomeValues,
+                        backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                        borderColor: '#22C55E',
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                        order: 2
                     }, {
                         label: 'Gastos',
-                        data: expenseValues.length ? expenseValues : [0, 0, 0, 0, 0, 0],
-                        borderColor: '#F43F5E', // danger-500 (rose)
-                        backgroundColor: 'rgba(244, 63, 94, 0.1)',
+                        data: expenseValues,
+                        backgroundColor: 'rgba(244, 63, 94, 0.7)',
+                        borderColor: '#F43F5E',
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                        order: 2
+                    }, {
+                        label: 'Balance Neto',
+                        data: netValues,
+                        type: 'line',
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'transparent',
                         borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointBackgroundColor: '#F43F5E',
-                        pointBorderColor: chartTheme.border,
-                        pointBorderWidth: 3,
+                        tension: 0.3,
+                        fill: false,
+                        pointBackgroundColor: '#3B82F6',
                         pointRadius: 5,
-                        pointHoverRadius: 7
+                        pointHoverRadius: 7,
+                        yAxisID: 'y1',
+                        order: 1
                     }]
                 },
                 options: {
@@ -885,11 +932,7 @@
                             position: 'bottom',
                             labels: {
                                 padding: 15,
-                                font: {
-                                    size: 13,
-                                    family: 'Inter',
-                                    weight: '600'
-                                },
+                                font: { size: 13, family: 'Inter', weight: '600' },
                                 usePointStyle: true,
                                 pointStyle: 'circle'
                             }
@@ -897,158 +940,216 @@
                         tooltip: {
                             backgroundColor: chartTheme.tooltipBg,
                             padding: 12,
-                            titleFont: {
-                                size: 14,
-                                family: 'Inter',
-                                weight: '600'
-                            },
-                            bodyFont: {
-                                size: 13,
-                                family: 'Inter'
-                            },
-                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                            borderWidth: 1,
-                            cornerRadius: 8
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${currencySymbol}${Math.abs(ctx.parsed.y).toLocaleString('es-CO', {minimumFractionDigits: currencyDecimals})}`
+                            }
                         }
                     },
                     scales: {
                         y: {
+                            position: 'left',
                             beginAtZero: true,
-                            grid: {
-                                color: chartTheme.grid,
-                                drawBorder: false
-                            },
+                            max: barMax,
+                            grid: { color: chartTheme.grid, drawBorder: false },
                             ticks: {
-                                font: {
-                                    family: 'Inter',
-                                    size: 12
-                                },
-                                color: chartTheme.text
+                                font: { family: 'Inter', size: 11 },
+                                color: chartTheme.text,
+                                callback: value => `${currencySymbol}${(value / 1000000).toFixed(1)}M`
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            min: -lineMax,
+                            max: lineMax,
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                font: { family: 'Inter', size: 11 },
+                                color: '#3B82F6',
+                                callback: value => `${currencySymbol}${(value / 1000000).toFixed(1)}M`
                             }
                         },
                         x: {
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                font: {
-                                    family: 'Inter',
-                                    size: 12,
-                                    weight: '500'
-                                },
-                                color: chartTheme.text
-                            }
+                            grid: { display: false },
+                            ticks: { font: { family: 'Inter', size: 12, weight: '500' }, color: chartTheme.text }
                         }
                     }
                 }
             });
 
-            // Category distribution (from reports data)
+            // --- Category Spending Over Time (line chart) ---
             const ctx2 = document.getElementById('categoryChart').getContext('2d');
-            const today = new Date();
-            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            const startDate = formatDateForApi(startOfMonth);
-            const endDate = formatDateForApi(today);
-            const categoryRes = await fetch(
-                `/api/reports/spending-by-category?currency_id=${currencyId}&start_date=${startDate}&end_date=${endDate}`
-            );
-            const categoryPayload = categoryRes.ok ? await categoryRes.json() : { categories: [], total_expenses: 0 };
-            const categorySummary = collapseCategoryData(categoryPayload.categories || [], categoryPayload.total_expenses || 0);
+            const spendingTrendsRes = await fetch(`/api/reports/spending-trends?months=6&currency_id=${currencyId}`);
+            let categoryLineData = null;
+            if (spendingTrendsRes.ok) {
+                categoryLineData = await spendingTrendsRes.json();
+            }
 
             if (dashboardCharts.categoryDistribution) {
                 dashboardCharts.categoryDistribution.destroy();
             }
-            dashboardCharts.categoryDistribution = new Chart(ctx2, {
-                type: 'doughnut',
-                data: {
-                    labels: categorySummary.labels,
-                    datasets: [{
-                        data: categorySummary.values,
-                        backgroundColor: [
-                            '#14B8A6', // primary-500 (teal vibrante)
-                            '#4F46E5', // secondary-600 (indigo profesional)
-                            '#22C55E', // success-500 (verde moderno)
-                            '#F43F5E', // danger-500 (rose)
-                            '#F59E0B', // warning-500 (amber)
-                            '#EC4899', // accent-500 (pink/fucsia)
-                            '#8B5CF6', // violet-500
-                            '#06B6D4', // cyan-500
-                            '#F97316', // orange-500
-                            '#84CC16',  // lime-500
-                            '#94A3B8'  // slate-400 (otros)
-                        ],
-                        borderWidth: 4,
-                        borderColor: chartTheme.border,
-                        hoverBorderWidth: 5,
-                        hoverBorderColor: chartTheme.border,
-                        spacing: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 15,
-                                font: {
-                                    size: 13,
-                                    family: 'Inter',
-                                    weight: '600'
-                                },
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                generateLabels: function(chart) {
-                                    const data = chart.data;
-                                    if (data.labels.length && data.datasets.length) {
-                                        return data.labels.map((label, i) => {
-                                            const value = data.datasets[0].data[i];
-                                            const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                            const percentage = ((value / total) * 100).toFixed(1);
-                                            return {
-                                                text: `${label} (${percentage}%)`,
-                                                fillStyle: data.datasets[0].backgroundColor[i],
-                                                hidden: false,
-                                                index: i
-                                            };
-                                        });
-                                    }
-                                    return [];
+
+            if (categoryLineData && categoryLineData.months && categoryLineData.categories) {
+                const catPalette = [
+                    '#14B8A6', '#4F46E5', '#22C55E', '#F43F5E', '#F59E0B',
+                    '#EC4899', '#8B5CF6', '#06B6D4', '#F97316', '#84CC16'
+                ];
+                const catDatasets = categoryLineData.categories.slice(0, 10).map((cat, i) => ({
+                    label: cat.category,
+                    data: cat.monthly_amounts || [],
+                    borderColor: catPalette[i % catPalette.length],
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }));
+
+                dashboardCharts.categoryDistribution = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: categoryLineData.months || [],
+                        datasets: catDatasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 12,
+                                    font: { size: 11, family: 'Inter', weight: '600' },
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: chartTheme.tooltipBg,
+                                padding: 12,
+                                cornerRadius: 8,
+                                callbacks: {
+                                    label: ctx => `${ctx.dataset.label}: ${currencySymbol}${ctx.parsed.y.toLocaleString('es-CO', {minimumFractionDigits: currencyDecimals})}`
                                 }
                             }
                         },
-                        tooltip: {
-                            backgroundColor: chartTheme.tooltipBg,
-                            padding: 12,
-                            titleFont: {
-                                size: 14,
-                                family: 'Inter',
-                                weight: '600'
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: chartTheme.grid },
+                                ticks: { font: { family: 'Inter', size: 11 }, color: chartTheme.text }
                             },
-                            bodyFont: {
-                                size: 13,
-                                family: 'Inter'
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { family: 'Inter', size: 12 }, color: chartTheme.text }
+                            }
+                        }
+                    }
+                });
+            } else {
+                // Fallback: use current month doughnut if spending-trends endpoint not available
+                const today = new Date();
+                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                const startDate = formatDateForApi(startOfMonth);
+                const endDate = formatDateForApi(today);
+                const categoryRes = await fetch(
+                    `/api/reports/spending-by-category?currency_id=${currencyId}&start_date=${startDate}&end_date=${endDate}`
+                );
+                const categoryPayload = categoryRes.ok ? await categoryRes.json() : { categories: [], total_expenses: 0 };
+                const categorySummary = collapseCategoryData(categoryPayload.categories || [], categoryPayload.total_expenses || 0);
+
+                dashboardCharts.categoryDistribution = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: categorySummary.labels,
+                        datasets: [{
+                            data: categorySummary.values,
+                            backgroundColor: [
+                                '#14B8A6', '#4F46E5', '#22C55E', '#F43F5E', '#F59E0B',
+                                '#EC4899', '#8B5CF6', '#06B6D4', '#F97316', '#84CC16', '#94A3B8'
+                            ],
+                            borderWidth: 4,
+                            borderColor: chartTheme.border,
+                            spacing: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    font: { size: 13, family: 'Inter', weight: '600' },
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
                             },
-                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                            borderWidth: 1,
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${label}: $${value.toLocaleString('es-CO')} (${percentage}%)`;
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => {
+                                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                        const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                        return `${ctx.label}: ${currencySymbol}${ctx.parsed.toLocaleString('es-CO')} (${pct}%)`;
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         } catch (error) {
             console.error('Error loading dashboard charts:', error);
         }
+    }
+
+    function updateKPICards(monthsData, budgetData, currencySymbol, currencyCode, decimals) {
+        const today = new Date();
+        const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+        // Find current month data
+        const currentMonthData = monthsData.find(m => m.month === currentMonthKey);
+        const currentIncome = currentMonthData?.income || 0;
+        const currentExpenses = currentMonthData?.expenses || 0;
+        const netBalance = currentIncome - currentExpenses;
+
+        // KPI 1: Balance Neto del Mes
+        const netEl = document.getElementById('kpiNetBalance');
+        netEl.textContent = `${netBalance >= 0 ? '' : '-'}${currencySymbol}${Math.abs(netBalance).toLocaleString('es-CO', {minimumFractionDigits: decimals})}`;
+        netEl.className = `text-2xl font-extrabold ${netBalance >= 0 ? 'text-success-600' : 'text-danger-600'}`;
+
+        // KPI 2: Tasa de Ahorro = Sum assigned(accumulate categories) / Sum assigned(all) * 100
+        // We get this from budget data groups
+        let totalAssignedSavings = 0;
+        let totalAssignedAll = 0;
+        if (budgetData?.groups) {
+            budgetData.groups.forEach(group => {
+                if (group.is_income) return;
+                group.categories.forEach(cat => {
+                    const assigned = Math.abs(cat.assigned || 0);
+                    totalAssignedAll += assigned;
+                    if (cat.rollover_type === 'accumulate') {
+                        totalAssignedSavings += assigned;
+                    }
+                });
+            });
+        }
+        const savingsRate = totalAssignedAll > 0 ? (totalAssignedSavings / totalAssignedAll * 100) : 0;
+        document.getElementById('kpiSavingsRate').textContent = `${savingsRate.toFixed(1)}%`;
+
+        // KPI 3: Tasa de Dinero Libre = Balance Neto / Ingresos * 100
+        const freeMoneyRate = currentIncome > 0 ? (netBalance / currentIncome * 100) : 0;
+        const freeEl = document.getElementById('kpiFreeMoneyRate');
+        freeEl.textContent = `${freeMoneyRate.toFixed(1)}%`;
+        freeEl.className = `text-2xl font-extrabold ${freeMoneyRate >= 0 ? 'text-success-600' : 'text-danger-600'}`;
+
+        // KPI 4: Promedio Gasto Mensual (last 3 complete months, exclude current)
+        const pastMonths = monthsData.filter(m => m.month < currentMonthKey);
+        const last3 = pastMonths.slice(-3);
+        const avgExpense = last3.length > 0 ? last3.reduce((sum, m) => sum + (m.expenses || 0), 0) / last3.length : 0;
+        document.getElementById('kpiAvgExpense').textContent = `${currencySymbol}${Math.round(avgExpense).toLocaleString('es-CO', {minimumFractionDigits: decimals})}`;
     }
 
     // Load on page ready
