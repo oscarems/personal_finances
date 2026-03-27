@@ -31,7 +31,7 @@
     <div class="card p-6 border-l-4 border-primary-500">
         <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1">Balance Neto del Mes</p>
         <p class="text-2xl font-extrabold text-neutral-900" id="kpiNetBalance">$0</p>
-        <p class="text-xs text-neutral-400 mt-1">Ingresos - Gastos</p>
+        <p class="text-xs text-neutral-400 mt-1">Ingresos - Gastos del periodo</p>
     </div>
     <div class="card p-6 border-l-4 border-success-500">
         <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1">Tasa de Ahorro</p>
@@ -979,7 +979,7 @@
 
             // --- Category Spending Over Time (line chart) ---
             const ctx2 = document.getElementById('categoryChart').getContext('2d');
-            const spendingTrendsRes = await fetch(`/api/reports/spending-trends?months=6&currency_id=${currencyId}`);
+            const spendingTrendsRes = await fetch(`/api/reports/spending-by-category-over-time?currency_id=${currencyId}&top_n=10`);
             let categoryLineData = null;
             if (spendingTrendsRes.ok) {
                 categoryLineData = await spendingTrendsRes.json();
@@ -989,14 +989,14 @@
                 dashboardCharts.categoryDistribution.destroy();
             }
 
-            if (categoryLineData && categoryLineData.months && categoryLineData.categories) {
+            if (categoryLineData && categoryLineData.months && categoryLineData.series) {
                 const catPalette = [
                     '#14B8A6', '#4F46E5', '#22C55E', '#F43F5E', '#F59E0B',
                     '#EC4899', '#8B5CF6', '#06B6D4', '#F97316', '#84CC16'
                 ];
-                const catDatasets = categoryLineData.categories.slice(0, 10).map((cat, i) => ({
+                const catDatasets = categoryLineData.series.slice(0, 10).map((cat, i) => ({
                     label: cat.category,
-                    data: cat.monthly_amounts || [],
+                    data: cat.data || [],
                     borderColor: catPalette[i % catPalette.length],
                     backgroundColor: 'transparent',
                     borderWidth: 2,
@@ -1112,10 +1112,11 @@
         // Find current month data
         const currentMonthData = monthsData.find(m => m.month === currentMonthKey);
         const currentIncome = currentMonthData?.income || 0;
-        const currentExpenses = currentMonthData?.expenses || 0;
-        const netBalance = currentIncome - currentExpenses;
+        // Gastos del periodo = activity del presupuesto (negativo, lo hacemos positivo)
+        const budgetActivity = Math.abs(budgetData?.totals?.activity || 0);
+        const netBalance = currentIncome - budgetActivity;
 
-        // KPI 1: Balance Neto del Mes
+        // KPI 1: Balance Neto del Mes = Ingresos del mes - Gastos del periodo
         const netEl = document.getElementById('kpiNetBalance');
         netEl.textContent = `${netBalance >= 0 ? '' : '-'}${currencySymbol}${Math.abs(netBalance).toLocaleString('es-CO', {minimumFractionDigits: decimals})}`;
         netEl.className = `text-2xl font-extrabold ${netBalance >= 0 ? 'text-success-600' : 'text-danger-600'}`;
