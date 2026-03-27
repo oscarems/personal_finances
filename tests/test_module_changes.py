@@ -555,17 +555,17 @@ class TestModule4_Dashboard:
         assert abs(savings_rate - 33.33) < 0.1
 
     def test_kpi_net_balance(self):
-        """Balance Neto = Ingresos - Gastos."""
+        """Balance Neto = Ingresos del mes - Gastos del periodo (budget activity)."""
         income = 5000000.0
-        expenses = 3500000.0
-        net_balance = income - expenses
+        budget_activity = -3500000.0  # activity is negative (expenses)
+        net_balance = income - abs(budget_activity)
         assert net_balance == 1500000.0
 
     def test_kpi_free_money_rate(self):
         """Tasa de Dinero Libre = Balance Neto / Ingresos."""
         income = 5000000.0
-        expenses = 3500000.0
-        net_balance = income - expenses
+        budget_activity = -3500000.0
+        net_balance = income - abs(budget_activity)
         free_money_rate = (net_balance / income) * 100
         assert free_money_rate == 30.0
 
