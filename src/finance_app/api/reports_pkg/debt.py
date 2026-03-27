@@ -97,10 +97,18 @@ def get_debt_balance_history(
         total_debt = 0.0
 
         for debt in debts:
+            has_amortization_terms = bool(debt.term_months or debt.monthly_payment or debt.loan_years)
             record = amortization_records.get((debt.id, current_date))
-            if not record:
+            if record and has_amortization_terms and float(record.principal_remaining) > 0:
+                principal = float(record.principal_remaining)
+            elif debt.debt_type == "credit_card":
+                principal = float(debt.current_balance or 0.0)
+            elif debt.start_date and current_date >= debt.start_date.replace(day=1):
+                # Fallback for debts without valid amortization terms
+                principal = float(debt.current_balance or 0.0)
+            else:
                 continue
-            principal_cop = float(convert_to_cop(record.principal_remaining, debt.currency_code, current_date, db=db))
+            principal_cop = float(convert_to_cop(principal, debt.currency_code, current_date, db=db))
             total_debt += principal_cop
             debt_by_type[debt.debt_type] = debt_by_type.get(debt.debt_type, 0.0) + principal_cop
 
@@ -238,8 +246,13 @@ def get_debt_summary(
             current_balance_original = calculate_mortgage_principal_balance(db, debt, as_of_date=today)
             projected_balance_original = current_balance_original
         else:
+            has_amortization_terms = bool(debt.term_months or debt.monthly_payment or debt.loan_years)
             record = amortization_map.get(debt.id)
-            current_balance_original = float(record.principal_remaining) if record else (debt.current_balance or 0.0)
+            current_balance_original = (
+                float(record.principal_remaining)
+                if record and has_amortization_terms and float(record.principal_remaining) > 0
+                else (debt.current_balance or 0.0)
+            )
             projected_record = projected_map.get(debt.id)
             projected_balance_original = (
                 float(projected_record.principal_remaining) if projected_record else current_balance_original
