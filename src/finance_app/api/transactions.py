@@ -10,6 +10,7 @@ from datetime import date
 
 from finance_app.database import get_db
 from finance_app.models import Currency
+from finance_app.models.transaction import Transaction
 from finance_app.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
     update_transaction, delete_transaction, create_transfer, create_adjustment,
@@ -163,8 +164,46 @@ def update_existing_transaction(
 
 
 @router.delete("/{transaction_id}")
-def remove_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    """Delete a transaction"""
+def remove_transaction(
+    transaction_id: int,
+    delete_pair: bool = False,
+    db: Session = Depends(get_db),
+):
+    """Delete a transaction. If delete_pair=true and the transaction is an
+    adjustment pair member (Cubrir exceso / Cubierto desde), delete both."""
+    tx = db.query(Transaction).filter_by(id=transaction_id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    if delete_pair and tx.is_adjustment and tx.memo:
+        memo = tx.memo
+        is_cubrir = memo.startswith("Cubrir exceso:")
+        is_cubierto = memo.startswith("Cubierto desde:")
+
+        if is_cubrir or is_cubierto:
+            complementary_prefix = "Cubierto desde:" if is_cubrir else "Cubrir exceso:"
+            pair_tx = (
+                db.query(Transaction)
+                .filter(
+                    Transaction.id != tx.id,
+                    Transaction.date == tx.date,
+                    Transaction.account_id == tx.account_id,
+                    Transaction.is_adjustment.is_(True),
+                    Transaction.memo.like(f"{complementary_prefix}%"),
+                )
+                .filter(
+                    Transaction.amount == -tx.amount,
+                )
+                .first()
+            )
+            if pair_tx:
+                deleted_ids = [tx.id, pair_tx.id]
+                db.delete(tx)
+                db.delete(pair_tx)
+                db.commit()
+                return {"success": True, "deleted_ids": deleted_ids}
+
+    # Default single delete
     try:
         success = delete_transaction(db, transaction_id)
     except ValueError as exc:

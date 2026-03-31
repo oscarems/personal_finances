@@ -29,6 +29,7 @@ class ScheduleEntry:
     ending_balance: float
     is_extra_payment_applied: bool
     is_paid_real: bool
+    fuente: str = "proyectado"  # "transaccion", "asumido", "proyectado"
 
     def to_dict(self) -> dict:
         return {
@@ -42,6 +43,7 @@ class ScheduleEntry:
             "ending_balance": self.ending_balance,
             "is_extra_payment_applied": self.is_extra_payment_applied,
             "is_paid_real": self.is_paid_real,
+            "fuente": self.fuente,
         }
 
 
@@ -149,7 +151,7 @@ class AmortizationEngine:
             if payment.transaction_id and payment.transaction_id in allocation_tx_ids:
                 continue
             k = (payment.payment_date.year, payment.payment_date.month)
-            bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True})
+            bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True, "has_transaction": True})
             total = float(payment.amount or 0.0)
             interest = float(payment.interest or 0.0)
             principal = float(payment.principal) if payment.principal is not None else max(0.0, total - interest - float(payment.fees or 0.0))
@@ -161,7 +163,7 @@ class AmortizationEngine:
             if not alloc.payment_date:
                 continue
             k = (alloc.payment_date.year, alloc.payment_date.month)
-            bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True})
+            bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True, "has_transaction": True})
             principal = float(alloc.principal_paid or 0.0) + float(alloc.extra_principal_paid or 0.0)
             interest = float(alloc.interest_paid or 0.0)
             total = principal + interest + float(alloc.fees_paid or 0.0) + float(alloc.escrow_paid or 0.0)
@@ -193,7 +195,7 @@ class AmortizationEngine:
                 if monthly_payment > 0 and amount < monthly_payment * 0.5:
                     continue
                 k = (tx.date.year, tx.date.month)
-                bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True})
+                bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True, "has_transaction": True})
                 bucket["total"] += amount
                 bucket["principal"] += amount
         return result
@@ -221,14 +223,16 @@ class AmortizationEngine:
             interest = opening * monthly_rate
             key = (month_start.year, month_start.month)
             use_real = mode == "actual" or (mode == "hybrid" and month_start <= self._month_start(cutoff) and key in real_payments)
-            planned_payment = self._planned_payment(
-                amortization_type,
-                opening,
-                monthly_rate,
-                max(term_months - idx + 1, 1),
-                float(debt.monthly_payment or 0.0),
-                base_payment=base_payment if amortization_type == "fixed_payment" else 0.0,
-            )
+            if amortization_type == "fixed_payment" and base_payment > 0:
+                planned_payment = base_payment
+            else:
+                planned_payment = self._planned_payment(
+                    amortization_type,
+                    opening,
+                    monthly_rate,
+                    max(term_months - idx + 1, 1),
+                    float(debt.monthly_payment or 0.0),
+                )
 
             if use_real:
                 payment_total = real_payments[key].get("total", 0.0)
@@ -240,6 +244,7 @@ class AmortizationEngine:
                 base_principal = max(0.0, planned_payment - interest)
                 extra_payment = max(0.0, principal_paid - base_principal)
                 is_paid_real = True
+                fuente = "transaccion" if real_payments[key].get("has_transaction") else "asumido"
             else:
                 payment_total = planned_payment
                 if amortization_type == "fixed_principal":
@@ -252,6 +257,11 @@ class AmortizationEngine:
                 interest_paid = interest
                 extra_payment = 0.0
                 is_paid_real = False
+                # Past months without real payment data are "asumido", future are "proyectado"
+                if mode in {"actual", "hybrid"} and month_start <= self._month_start(cutoff):
+                    fuente = "asumido"
+                else:
+                    fuente = "proyectado"
 
             principal_paid = min(opening, principal_paid)
             ending = max(0.0, opening - principal_paid)
@@ -272,6 +282,7 @@ class AmortizationEngine:
                     ending_balance=self._round(ending),
                     is_extra_payment_applied=extra_payment > 0,
                     is_paid_real=is_paid_real,
+                    fuente=fuente,
                 )
             )
             balance = ending
@@ -282,6 +293,9 @@ class AmortizationEngine:
         return [row.to_dict() for row in rows]
 
     def balance_as_of(self, debt: Debt, date_value: date, mode: str = "hybrid") -> float:
+        # Debt doesn't exist yet before its start date
+        if debt.start_date and date_value < debt.start_date:
+            return 0.0
         schedule = self.generate_schedule(debt, as_of=date_value, mode=mode)
         if not schedule:
             return max(0.0, float(debt.current_balance or 0.0))

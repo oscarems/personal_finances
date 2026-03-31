@@ -166,15 +166,22 @@ def get_spending_by_category_over_time(
     end_date: Optional[str] = None,
     currency_id: int = 1,
     top_n: int = 8,
+    categories: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Get spending broken down by category for each month in the range."""
+    """Get spending broken down by category for each month in the range.
+
+    Args:
+        categories: Comma-separated category names to include.
+                    If provided, only these are returned (top_n is ignored).
+    """
     start_date_obj, end_date_obj = parse_date_range(start_date, end_date)
     exchange_rate = get_exchange_rate(db)
 
     # Collect data per month per category
     months_list = []
     category_totals_global = {}
+    category_groups_map = {}
     current_date = start_date_obj.replace(day=1)
 
     while current_date <= end_date_obj:
@@ -185,9 +192,12 @@ def get_spending_by_category_over_time(
         month_categories = {}
         for tx, category, allocation_amount in allocations:
             cat_name = category.name if category else "Sin categoría"
+            group_name = category.category_group.name if category and category.category_group else "Sin grupo"
             converted = convert_to_currency(allocation_amount, tx.currency_id, currency_id, exchange_rate)
             month_categories[cat_name] = month_categories.get(cat_name, 0) + converted
             category_totals_global[cat_name] = category_totals_global.get(cat_name, 0) + converted
+            if cat_name not in category_groups_map:
+                category_groups_map[cat_name] = group_name
 
         months_list.append({
             'month': current_date.strftime('%Y-%m'),
@@ -196,13 +206,20 @@ def get_spending_by_category_over_time(
         })
         current_date += relativedelta(months=1)
 
-    # Get top N categories by total spending
-    top_categories = sorted(category_totals_global.items(), key=lambda x: x[1], reverse=True)[:top_n]
-    top_cat_names = [c[0] for c in top_categories]
+    # All categories sorted by total spending
+    all_categories_sorted = sorted(category_totals_global.items(), key=lambda x: x[1], reverse=True)
+    all_cat_names = [c[0] for c in all_categories_sorted]
+
+    # Filter by selected categories or use top_n
+    if categories:
+        selected = [c.strip() for c in categories.split(",") if c.strip()]
+        selected_cat_names = [c for c in selected if c in category_totals_global]
+    else:
+        selected_cat_names = all_cat_names[:top_n]
 
     # Build series per category
     series = []
-    for cat_name in top_cat_names:
+    for cat_name in selected_cat_names:
         series.append({
             'category': cat_name,
             'data': [m['categories'].get(cat_name, 0) for m in months_list],
@@ -211,4 +228,6 @@ def get_spending_by_category_over_time(
     return {
         'months': [m['month_name'] for m in months_list],
         'series': series,
+        'available_categories': all_cat_names,
+        'category_groups': category_groups_map,
     }

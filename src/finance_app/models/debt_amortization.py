@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, UniqueConstraint
 
 from finance_app.database import Base
 
@@ -16,10 +16,10 @@ class DebtAmortizationMonthly(Base):
     snapshot_month = Column(String(7), nullable=False)  # YYYY-MM
     as_of_date = Column(Date, nullable=False)
     currency_code = Column(String(3), nullable=False)
-    principal_payment = Column(Float, nullable=False, default=0.0)
-    interest_payment = Column(Float, nullable=False, default=0.0)
-    total_payment = Column(Float, nullable=False, default=0.0)
-    principal_remaining = Column(Float, nullable=False, default=0.0)
-    interest_rate_calculated = Column(Float, nullable=False, default=0.0)
+    principal_payment = Column(Numeric(precision=18, scale=2), nullable=False, default=0.0)
+    interest_payment = Column(Numeric(precision=18, scale=2), nullable=False, default=0.0)
+    total_payment = Column(Numeric(precision=18, scale=2), nullable=False, default=0.0)
+    principal_remaining = Column(Numeric(precision=18, scale=2), nullable=False, default=0.0)
+    interest_rate_calculated = Column(Numeric(precision=18, scale=2), nullable=False, default=0.0)
     status = Column(String(20), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

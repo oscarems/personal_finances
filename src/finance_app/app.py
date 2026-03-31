@@ -30,11 +30,10 @@ from finance_app.api import (
     gmail_import,
     alerts,
     reconciliation,
-    wealth_assets,
     investment_simulator,
     tags,
     goals,
-    net_worth,
+    patrimonio,
 )
 from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
@@ -82,10 +81,9 @@ app.include_router(debts.router, prefix="/api/debts", tags=["debts"])
 app.include_router(emergency_fund.router, prefix="/api/emergency-fund", tags=["emergency-fund"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(reconciliation.router, prefix="/api/reconciliation", tags=["reconciliation"])
-app.include_router(wealth_assets.router, prefix="/api/wealth-assets", tags=["wealth-assets"])
 app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
-app.include_router(net_worth.router, prefix="/api/net-worth", tags=["net-worth"])
+app.include_router(patrimonio.router, prefix="/api/patrimonio", tags=["patrimonio"])
 
 
 @app.on_event("startup")
@@ -154,16 +152,11 @@ async def reports_page(request: Request):
     """Reports and analytics page"""
     return templates.TemplateResponse("reports/index.html", {"request": request})
 
-@app.get("/reports/wealth")
-async def reports_wealth_page(request: Request):
-    """Wealth progress report page"""
-    return templates.TemplateResponse("reports/wealth.html", {"request": request})
-
-
 @app.get("/patrimonio")
 async def patrimonio_page(request: Request):
-    """Wealth overview page"""
-    return templates.TemplateResponse("wealth.html", {"request": request})
+    """Patrimonio dashboard page"""
+    return templates.TemplateResponse("patrimonio/patrimonio.html", {"request": request})
+
 
 
 @app.get("/recurring")
@@ -182,6 +175,12 @@ async def debts_page(request: Request):
 async def emergency_fund_page(request: Request):
     """Emergency fund page"""
     return templates.TemplateResponse("emergency_fund.html", {"request": request})
+
+
+@app.get("/financial-health")
+async def financial_health_page(request: Request):
+    """Financial health dashboard"""
+    return templates.TemplateResponse("financial_health.html", {"request": request})
 
 
 @app.get("/goals")

@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+
+{% block title %}Patrimonio - Personal Finances{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h2 class="page-title">Patrimonio</h2>
+        <p class="page-subtitle">Resumen de activos, deudas y patrimonio neto.</p>
+    </div>
+</div>
+
+<!-- Summary cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-card p-6">
+        <div class="flex items-center space-x-3 mb-2">
+            <span class="text-2xl">🏠</span>
+            <p class="text-sm font-semibold text-green-700 uppercase tracking-wide">Total Activos</p>
+        </div>
+        <p id="totalActivos" class="text-3xl font-bold text-green-600">--</p>
+    </div>
+    <div class="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-card p-6">
+        <div class="flex items-center space-x-3 mb-2">
+            <span class="text-2xl">📉</span>
+            <p class="text-sm font-semibold text-red-700 uppercase tracking-wide">Total Deudas</p>
+        </div>
+        <p id="totalDeudas" class="text-3xl font-bold text-red-600">--</p>
+    </div>
+    <div id="netWorthCard" class="rounded-card p-6">
+        <div class="flex items-center space-x-3 mb-2">
+            <span class="text-2xl">💼</span>
+            <p class="text-sm font-semibold uppercase tracking-wide" id="netWorthLabel">Patrimonio Neto</p>
+        </div>
+        <p id="patrimonioNeto" class="text-3xl font-bold">--</p>
+    </div>
+</div>
+
+<!-- Timeline chart -->
+<div class="card p-6 mb-8">
+    <h3 class="text-lg font-bold text-gray-800 mb-4">Evolucion del Patrimonio (24 meses pasados + 24 meses futuros)</h3>
+    <canvas id="timelineChart" height="100"></canvas>
+</div>
+
+<!-- Assets section -->
+<div class="card p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800">Activos</h3>
+        <button onclick="openAssetModal()" class="btn-primary px-4 py-2 rounded-lg text-white font-semibold bg-blue-600 hover:bg-blue-700 text-sm">+ Agregar activo</button>
+    </div>
+    <div id="activosList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <p class="text-gray-400 text-sm">Cargando...</p>
+    </div>
+</div>
+
+<!-- Debts section -->
+<div class="card p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800">Deudas (Hipotecas y Creditos)</h3>
+        <a href="/debts" class="text-sm text-blue-600 hover:underline font-semibold">Ver en Gestion de Deudas &rarr;</a>
+    </div>
+    <div id="deudasList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <p class="text-gray-400 text-sm">Cargando...</p>
+    </div>
+</div>
+
+<!-- Asset Form Modal -->
+<div id="assetModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="assetModalTitle" class="text-lg font-bold text-gray-800">Agregar activo</h3>
+            <button onclick="closeAssetModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        <form id="assetForm" class="space-y-4">
+            <input type="hidden" id="editId" value="">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Nombre</span>
+                    <input id="fNombre" class="input-field" required placeholder="Ej: Apartamento Bogota">
+                </label>
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Tipo</span>
+                    <select id="fTipo" class="input-field" required>
+                        <option value="inmueble">Inmueble</option>
+                        <option value="vehiculo">Vehiculo</option>
+                        <option value="otro">Otro</option>
+                    </select>
+                </label>
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Valor de adquisicion</span>
+                    <input id="fValor" type="number" step="0.01" min="0" class="input-field" required>
+                </label>
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Fecha de adquisicion</span>
+                    <input id="fFecha" type="date" class="input-field date-input" required>
+                </label>
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Tasa apreciacion anual (%)</span>
+                    <input id="fTasa" type="number" step="0.01" class="input-field" value="0" required>
+                    <span class="text-xs text-gray-500">Valorizacion anual del activo</span>
+                </label>
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Rendimiento anual (%)</span>
+                    <input id="fReturnRate" type="number" step="0.01" class="input-field">
+                    <span class="text-xs text-gray-500">Ej: arriendo, dividendos</span>
+                </label>
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Ingreso mensual fijo</span>
+                    <input id="fReturnAmount" type="number" step="0.01" class="input-field">
+                </label>
+                <label class="block space-y-1">
+                    <span class="text-sm font-semibold text-gray-700">Notas</span>
+                    <input id="fNotas" class="input-field" placeholder="Opcional">
+                </label>
+            </div>
+
+            <!-- Depreciation fields -->
+            <div class="border-t border-gray-200 pt-4 mt-4">
+                <h4 class="text-sm font-bold text-gray-700 mb-3">Depreciacion</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label class="block space-y-1">
+                        <span class="text-sm font-semibold text-gray-700">Metodo</span>
+                        <select id="fDepMethod" class="input-field" onchange="toggleDepFields()">
+                            <option value="sin_depreciacion">Sin depreciacion</option>
+                            <option value="linea_recta">Linea recta</option>
+                            <option value="saldo_decreciente">Saldo decreciente</option>
+                            <option value="doble_saldo_decreciente">Doble saldo decreciente</option>
+                        </select>
+                    </label>
+                    <label id="depRateLabel" class="block space-y-1 hidden">
+                        <span class="text-sm font-semibold text-gray-700">Tasa depreciacion (%)</span>
+                        <input id="fDepRate" type="number" step="0.01" class="input-field">
+                    </label>
+                    <label id="depYearsLabel" class="block space-y-1 hidden">
+                        <span class="text-sm font-semibold text-gray-700">Vida util (anos)</span>
+                        <input id="fDepYears" type="number" min="1" class="input-field">
+                    </label>
+                    <label id="depSalvageLabel" class="block space-y-1 hidden">
+                        <span class="text-sm font-semibold text-gray-700">Valor residual</span>
+                        <input id="fDepSalvage" type="number" step="0.01" class="input-field">
+                    </label>
+                    <label id="depStartLabel" class="block space-y-1 hidden">
+                        <span class="text-sm font-semibold text-gray-700">Fecha inicio depreciacion</span>
+                        <input id="fDepStart" type="date" class="input-field date-input">
+                    </label>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-4">
+                <button type="submit" class="btn-primary px-6 py-2 rounded-lg text-white font-semibold bg-blue-600 hover:bg-blue-700">Guardar</button>
+                <button type="button" class="px-6 py-2 rounded-lg font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200" onclick="closeAssetModal()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Asset Detail Modal -->
+<div id="assetDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 p-6 max-h-[90vh] overflow-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="assetDetailTitle" class="text-lg font-bold text-gray-800">Detalle del activo</h3>
+            <button onclick="closeAssetDetail()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        <div id="assetDetailContent" class="space-y-4"></div>
+        <div class="mt-6">
+            <h4 class="text-sm font-bold text-gray-700 mb-3">Evolucion del valor</h4>
+            <canvas id="assetTimelineChart" height="200"></canvas>
+        </div>
+        <div class="flex gap-3 mt-6">
+            <button id="detailEditBtn" class="px-4 py-2 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 text-sm">Editar</button>
+            <button id="detailDeleteBtn" class="px-4 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 text-sm">Eliminar</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const fmt = v => {
+    if (v == null) return '--';
+    const neg = v < 0;
+    const abs = Math.abs(v);
+    const s = abs.toLocaleString('es-CO', {maximumFractionDigits: 0});
+    return neg ? '-$' + s : '$' + s;
+};
+
+const tipoLabels = {inmueble: 'Inmueble', vehiculo: 'Vehiculo', otro: 'Otro', hipoteca: 'Hipoteca', consumo: 'Consumo'};
+const debtTypeLabels = {mortgage: 'Hipoteca', credit_loan: 'Credito de consumo', credit_card: 'Tarjeta de credito'};
+
+let currentActivos = [];
+let currentDeudas = [];
+let assetTimelineChartInstance = null;
+
+// ── Load data ──
+
+async function loadResumen() {
+    const res = await fetch('/api/patrimonio/resumen');
+    const data = await res.json();
+
+    document.getElementById('totalActivos').textContent = fmt(data.total_activos);
+    document.getElementById('totalDeudas').textContent = '-' + fmt(data.total_deudas);
+
+    const neto = data.patrimonio_neto;
+    const netoEl = document.getElementById('patrimonioNeto');
+    netoEl.textContent = fmt(neto);
+    const card = document.getElementById('netWorthCard');
+    if (neto >= 0) {
+        netoEl.classList.add('text-blue-600');
+        card.classList.add('bg-gradient-to-br', 'from-blue-50', 'to-blue-100', 'border', 'border-blue-200');
+    } else {
+        netoEl.classList.add('text-red-600');
+        card.classList.add('bg-gradient-to-br', 'from-red-50', 'to-red-100', 'border', 'border-red-200');
+    }
+
+    currentActivos = data.activos;
+    renderActivos();
+}
+
+async function loadDeudas() {
+    const res = await fetch('/api/debts/?is_active=true');
+    const allDebts = await res.json();
+    // Filter to only mortgage and credit_loan types (no credit cards in patrimonio)
+    currentDeudas = allDebts.filter(d => d.debt_type === 'mortgage' || d.debt_type === 'credit_loan');
+    renderDeudas();
+}
+
+function renderActivos() {
+    const el = document.getElementById('activosList');
+    if (currentActivos.length === 0) {
+        el.innerHTML = `
+            <div class="col-span-full text-center py-8">
+                <p class="text-4xl mb-3">🏠</p>
+                <p class="text-gray-600 font-semibold mb-2">No hay activos registrados</p>
+                <p class="text-gray-400 text-sm">Agrega tus inmuebles, vehiculos y otros bienes.</p>
+            </div>`;
+        return;
+    }
+    el.innerHTML = currentActivos.map(a => `
+        <div class="border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-green-300 transition" onclick="showAssetDetail(${a.id})">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">${tipoLabels[a.tipo] || a.tipo}</span>
+                <span class="text-xs ${a.pct_cambio >= 0 ? 'text-green-500' : 'text-red-500'} font-semibold">${a.pct_cambio >= 0 ? '+' : ''}${a.pct_cambio.toFixed(1)}%</span>
+            </div>
+            <p class="font-semibold text-gray-800 mb-1">${a.nombre}</p>
+            <p class="text-xs text-gray-500 mb-3">Adquisicion: ${fmt(a.valor_adquisicion)}</p>
+            <p class="text-xl font-bold text-green-600">${fmt(a.valor_actual)}</p>
+        </div>
+    `).join('');
+}
+
+function renderDeudas() {
+    const el = document.getElementById('deudasList');
+    if (currentDeudas.length === 0) {
+        el.innerHTML = '<p class="col-span-full text-gray-400 text-sm">No hay deudas de tipo hipoteca o credito de consumo. <a href="/debts" class="text-blue-600 hover:underline">Agregar en Gestion de Deudas</a>.</p>';
+        return;
+    }
+    el.innerHTML = currentDeudas.map(d => {
+        const balance = d.current_balance != null ? d.current_balance : d.original_amount;
+        const original = d.original_amount || 0;
+        const progreso = original > 0 ? ((original - balance) / original * 100) : 0;
+        const instInfo = d.institution ? `<span class="text-xs text-gray-500">${d.institution}</span>` : '';
+        const cuota = d.monthly_payment || 0;
+        return `
+        <div class="border border-gray-200 rounded-xl p-4 cursor-pointer hover:shadow-md hover:border-red-300 transition" onclick="window.location.href='/debts?open=${d.id}'">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">${debtTypeLabels[d.debt_type] || d.debt_type}</span>
+                ${instInfo}
+            </div>
+            <p class="font-semibold text-gray-800 mb-1">${d.name}</p>
+            <p class="text-xs text-gray-500 mb-2">Cuota: ${fmt(cuota)} &middot; Original: ${fmt(original)}</p>
+            <p class="text-xl font-bold text-red-600 mb-3">-${fmt(balance)}</p>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-blue-500 h-2 rounded-full" style="width: ${Math.min(progreso, 100)}%"></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">${progreso.toFixed(1)}% pagado</p>
+        </div>`;
+    }).join('');
+}
+
+// ── Timeline chart ──
+
+async function loadTimeline() {
+    const now = new Date();
+    const fromY = now.getFullYear() - 2;
+    const fromM = String(now.getMonth() + 1).padStart(2, '0');
+    const toY = now.getFullYear() + 2;
+    const toM = fromM;
+
+    const res = await fetch(`/api/patrimonio/timeline?desde=${fromY}-${fromM}&hasta=${toY}-${toM}`);
+    const data = await res.json();
+
+    const labels = data.map(r => `${r.año}-${String(r.mes).padStart(2, '0')}`);
+    const activos = data.map(r => r.total_activos);
+    const deudas = data.map(r => r.total_deudas);
+    const neto = data.map(r => r.patrimonio_neto);
+
+    const todayLabel = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const todayIdx = labels.indexOf(todayLabel);
+    const pastEnd = todayIdx >= 0 ? todayIdx + 1 : labels.length;
+
+    const ctx = document.getElementById('timelineChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Activos',
+                    data: activos,
+                    borderColor: '#3F7C64',
+                    backgroundColor: 'transparent',
+                    tension: 0.3,
+                    pointRadius: 0,
+                    segment: {borderDash: ctx => ctx.p0DataIndex >= pastEnd - 1 ? [5, 5] : []}
+                },
+                {
+                    label: 'Deudas',
+                    data: deudas,
+                    borderColor: '#B64854',
+                    backgroundColor: 'transparent',
+                    tension: 0.3,
+                    pointRadius: 0,
+                    segment: {borderDash: ctx => ctx.p0DataIndex >= pastEnd - 1 ? [5, 5] : []}
+                },
+                {
+                    label: 'Patrimonio Neto',
+                    data: neto,
+                    borderColor: '#527EB6',
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    segment: {borderDash: ctx => ctx.p0DataIndex >= pastEnd - 1 ? [5, 5] : []}
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: {mode: 'index', intersect: false},
+            plugins: {
+                annotation: todayIdx >= 0 ? {
+                    annotations: {
+                        todayLine: {
+                            type: 'line',
+                            xMin: todayIdx,
+                            xMax: todayIdx,
+                            borderColor: '#9A9588',
+                            borderWidth: 2,
+                            borderDash: [4, 4],
+                            label: {content: 'Hoy', display: true, position: 'start'}
+                        }
+                    }
+                } : {},
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.dataset.label + ': ' + fmt(ctx.raw)
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: {
+                        callback: v => fmt(v)
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── Asset detail modal ──
+
+async function showAssetDetail(id) {
+    const a = currentActivos.find(x => x.id === id);
+    if (!a) return;
+
+    document.getElementById('assetDetailTitle').textContent = a.nombre;
+
+    const depLabel = {sin_depreciacion: 'Sin depreciacion', linea_recta: 'Linea recta', saldo_decreciente: 'Saldo decreciente', doble_saldo_decreciente: 'Doble saldo decreciente'};
+
+    let html = `
+        <div class="grid grid-cols-2 gap-3 text-sm">
+            <div><span class="text-gray-500">Tipo:</span> <span class="font-semibold">${tipoLabels[a.tipo] || a.tipo}</span></div>
+            <div><span class="text-gray-500">Valor adquisicion:</span> <span class="font-semibold">${fmt(a.valor_adquisicion)}</span></div>
+            <div><span class="text-gray-500">Fecha adquisicion:</span> <span class="font-semibold">${a.fecha_adquisicion}</span></div>
+            <div><span class="text-gray-500">Tasa apreciacion:</span> <span class="font-semibold">${(a.tasa_anual * 100).toFixed(2)}%</span></div>
+            <div><span class="text-gray-500">Valor actual:</span> <span class="font-bold text-green-600">${fmt(a.valor_actual)}</span></div>
+            <div><span class="text-gray-500">Cambio:</span> <span class="font-semibold ${a.pct_cambio >= 0 ? 'text-green-600' : 'text-red-600'}">${a.pct_cambio >= 0 ? '+' : ''}${a.pct_cambio.toFixed(1)}%</span></div>`;
+
+    if (a.return_rate) {
+        html += `<div><span class="text-gray-500">Rendimiento anual:</span> <span class="font-semibold">${(a.return_rate * 100).toFixed(2)}%</span></div>`;
+    }
+    if (a.return_amount) {
+        html += `<div><span class="text-gray-500">Ingreso mensual:</span> <span class="font-semibold">${fmt(a.return_amount)}</span></div>`;
+    }
+
+    const dm = a.depreciation_method || 'sin_depreciacion';
+    if (dm !== 'sin_depreciacion') {
+        html += `<div class="col-span-2 border-t pt-2 mt-2"><span class="text-gray-500">Depreciacion:</span> <span class="font-semibold">${depLabel[dm] || dm}</span></div>`;
+        if (a.depreciation_years) html += `<div><span class="text-gray-500">Vida util:</span> <span class="font-semibold">${a.depreciation_years} anos</span></div>`;
+        if (a.depreciation_rate) html += `<div><span class="text-gray-500">Tasa dep.:</span> <span class="font-semibold">${a.depreciation_rate}%</span></div>`;
+        if (a.depreciation_salvage_value != null) html += `<div><span class="text-gray-500">Valor residual:</span> <span class="font-semibold">${fmt(a.depreciation_salvage_value)}</span></div>`;
+    }
+
+    if (a.notas) {
+        html += `<div class="col-span-2 border-t pt-2 mt-2"><span class="text-gray-500">Notas:</span> <span class="font-semibold">${a.notas}</span></div>`;
+    }
+
+    html += '</div>';
+    document.getElementById('assetDetailContent').innerHTML = html;
+
+    document.getElementById('detailEditBtn').onclick = () => { closeAssetDetail(); editAsset(id); };
+    document.getElementById('detailDeleteBtn').onclick = () => { closeAssetDetail(); deleteAsset(id); };
+
+    document.getElementById('assetDetailModal').classList.remove('hidden');
+
+    // Load asset timeline
+    const res = await fetch(`/api/patrimonio/activos/${id}/timeline`);
+    const tl = await res.json();
+    const labels = tl.map(r => `${r.año}-${String(r.mes).padStart(2, '0')}`);
+    const values = tl.map(r => r.valor);
+
+    if (assetTimelineChartInstance) assetTimelineChartInstance.destroy();
+    const ctx = document.getElementById('assetTimelineChart').getContext('2d');
+    assetTimelineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Valor',
+                data: values,
+                borderColor: '#3F7C64',
+                backgroundColor: 'rgba(63,124,100,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: labels.map(l => l.endsWith('-01') ? 4 : 0),
+                pointBackgroundColor: '#3F7C64',
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {tooltip: {callbacks: {label: ctx => fmt(ctx.raw)}}},
+            scales: {y: {ticks: {callback: v => fmt(v)}}}
+        }
+    });
+}
+
+function closeAssetDetail() {
+    document.getElementById('assetDetailModal').classList.add('hidden');
+}
+
+// ── Asset form modal ──
+
+function openAssetModal(editId) {
+    resetAssetForm();
+    if (editId) {
+        document.getElementById('assetModalTitle').textContent = 'Editar activo';
+    } else {
+        document.getElementById('assetModalTitle').textContent = 'Agregar activo';
+    }
+    document.getElementById('assetModal').classList.remove('hidden');
+}
+
+function closeAssetModal() {
+    document.getElementById('assetModal').classList.add('hidden');
+    resetAssetForm();
+}
+
+function resetAssetForm() {
+    document.getElementById('editId').value = '';
+    document.getElementById('assetForm').reset();
+    document.getElementById('fTasa').value = '0';
+    document.getElementById('fDepMethod').value = 'sin_depreciacion';
+    toggleDepFields();
+}
+
+function toggleDepFields() {
+    const method = document.getElementById('fDepMethod').value;
+    const show = method !== 'sin_depreciacion';
+    const needsRate = method === 'saldo_decreciente';
+    const needsYears = method === 'linea_recta' || method === 'doble_saldo_decreciente';
+    document.getElementById('depRateLabel').classList.toggle('hidden', !needsRate);
+    document.getElementById('depYearsLabel').classList.toggle('hidden', !needsYears);
+    document.getElementById('depSalvageLabel').classList.toggle('hidden', !show);
+    document.getElementById('depStartLabel').classList.toggle('hidden', !show);
+}
+
+async function editAsset(id) {
+    const res = await fetch(`/api/patrimonio/activos/${id}`);
+    const a = await res.json();
+    document.getElementById('editId').value = a.id;
+    document.getElementById('fNombre').value = a.nombre;
+    document.getElementById('fTipo').value = a.tipo;
+    document.getElementById('fValor').value = a.valor_adquisicion;
+    document.getElementById('fFecha').value = a.fecha_adquisicion;
+    document.getElementById('fTasa').value = (a.tasa_anual * 100).toFixed(2);
+    document.getElementById('fReturnRate').value = a.return_rate != null ? (a.return_rate * 100).toFixed(2) : '';
+    document.getElementById('fReturnAmount').value = a.return_amount || '';
+    document.getElementById('fDepMethod').value = a.depreciation_method || 'sin_depreciacion';
+    document.getElementById('fDepRate').value = a.depreciation_rate || '';
+    document.getElementById('fDepYears').value = a.depreciation_years || '';
+    document.getElementById('fDepSalvage').value = a.depreciation_salvage_value || '';
+    document.getElementById('fDepStart').value = a.depreciation_start_date || '';
+    document.getElementById('fNotas').value = a.notas || '';
+    toggleDepFields();
+    openAssetModal(a.id);
+}
+
+async function deleteAsset(id) {
+    if (!confirm('Eliminar este activo?')) return;
+    await fetch(`/api/patrimonio/activos/${id}`, {method: 'DELETE'});
+    loadResumen();
+}
+
+document.getElementById('assetForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const body = {
+        nombre: document.getElementById('fNombre').value,
+        tipo: document.getElementById('fTipo').value,
+        valor_adquisicion: parseFloat(document.getElementById('fValor').value),
+        fecha_adquisicion: document.getElementById('fFecha').value,
+        tasa_anual: parseFloat(document.getElementById('fTasa').value) / 100,
+        depreciation_method: document.getElementById('fDepMethod').value,
+        depreciation_rate: document.getElementById('fDepRate').value ? parseFloat(document.getElementById('fDepRate').value) : null,
+        depreciation_years: document.getElementById('fDepYears').value ? parseInt(document.getElementById('fDepYears').value) : null,
+        depreciation_salvage_value: document.getElementById('fDepSalvage').value ? parseFloat(document.getElementById('fDepSalvage').value) : null,
+        depreciation_start_date: document.getElementById('fDepStart').value || null,
+        return_rate: document.getElementById('fReturnRate').value ? parseFloat(document.getElementById('fReturnRate').value) / 100 : null,
+        return_amount: document.getElementById('fReturnAmount').value ? parseFloat(document.getElementById('fReturnAmount').value) : null,
+        moneda_id: 1,
+        notas: document.getElementById('fNotas').value || null,
+    };
+    const url = id ? `/api/patrimonio/activos/${id}` : '/api/patrimonio/activos';
+    const method = id ? 'PUT' : 'POST';
+    await fetch(url, {method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    closeAssetModal();
+    loadResumen();
+});
+
+// ── Init ──
+
+loadResumen();
+loadDeudas();
+loadTimeline();
+</script>
+{% endblock %}

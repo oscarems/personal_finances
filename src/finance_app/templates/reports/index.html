@@ -26,21 +26,21 @@
         <div>
             <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Periodo</label>
             <select id="periodFilter" onchange="updatePeriodDates(); loadAllReports()" class="input-field">
-                <option value="current_month">Mes Actual</option>
+                <option value="current_month" selected>Mes Actual</option>
                 <option value="last_month">Mes Anterior</option>
                 <option value="last_3_months">Últimos 3 Meses</option>
-                <option value="last_6_months" selected>Últimos 6 Meses</option>
+                <option value="last_6_months">Últimos 6 Meses</option>
                 <option value="last_12_months">Últimos 12 Meses</option>
                 <option value="custom">Personalizado</option>
             </select>
         </div>
         <div id="customDateStart" class="hidden">
             <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Desde</label>
-            <input type="date" id="startDateFilter" class="input-field">
+            <input type="date" id="startDateFilter" class="input-field date-input">
         </div>
         <div id="customDateEnd" class="hidden">
             <label class="block text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wide">Hasta</label>
-            <input type="date" id="endDateFilter" class="input-field">
+            <input type="date" id="endDateFilter" class="input-field date-input">
         </div>
     </div>
     <div id="customApply" class="hidden mt-4">
@@ -53,27 +53,22 @@
     <h3 class="text-lg font-semibold text-neutral-800">KPIs del mes actual</h3>
     <p class="text-sm text-neutral-500">Transferencias entre cuentas excluidas</p>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
-    <div class="bg-gradient-to-br from-success-50 to-success-100 border border-success-200 rounded-card p-6">
-        <p class="text-sm text-neutral-600 mb-2">Ingresos del mes</p>
-        <p id="overallIncome" class="text-2xl font-bold text-success-600">$0</p>
-    </div>
-    <div class="bg-gradient-to-br from-danger-50 to-danger-100 border border-danger-200 rounded-card p-6">
-        <p class="text-sm text-neutral-600 mb-2">Gastos del mes</p>
-        <p id="overallExpenses" class="text-2xl font-bold text-danger-600">$0</p>
-    </div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
     <div class="bg-gradient-to-br from-primary-50 to-primary-100 border border-primary-200 rounded-card p-6">
-        <p class="text-sm text-neutral-600 mb-2">Balance neto del mes</p>
+        <p class="text-sm text-neutral-600 mb-2">Balance Neto</p>
         <p id="overallBalance" class="text-2xl font-bold text-primary-600">$0</p>
     </div>
-    <div class="card p-6">
-        <p class="text-sm text-neutral-600 mb-2">Tasa de ahorro promedio</p>
-        <p id="savingsRateAverage" class="text-2xl font-bold text-emerald-600">0%</p>
+    <div class="bg-gradient-to-br from-success-50 to-success-100 border border-success-200 rounded-card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Tasa de Ahorro (asignación)</p>
+        <p id="savingsAllocationRate" class="text-2xl font-bold text-emerald-600">0%</p>
     </div>
-    <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-card p-6">
-        <p class="text-sm text-neutral-600 mb-2">Age of Money</p>
-        <p id="ageOfMoney" class="text-2xl font-bold text-blue-600">0 <span class="text-sm font-normal text-neutral-500">dias</span></p>
-        <p class="text-xs text-neutral-500 mt-1">Dias que tu dinero permanece en cuentas antes de gastarse</p>
+    <div class="card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Tasa de Dinero Libre</p>
+        <p id="freeMoneyRate" class="text-2xl font-bold text-blue-600">N/A</p>
+    </div>
+    <div class="bg-gradient-to-br from-danger-50 to-danger-100 border border-danger-200 rounded-card p-6">
+        <p class="text-sm text-neutral-600 mb-2">Promedio Gasto Mensual</p>
+        <p id="avgMonthlyExpense" class="text-2xl font-bold text-danger-600">$0</p>
     </div>
 </div>
 
@@ -142,7 +137,25 @@
 
 <!-- Spending by Category Over Time -->
 <div class="card p-6 mb-6">
-    <h3 class="text-lg font-semibold mb-4">Gastos por Categoria a lo largo del tiempo</h3>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <h3 class="text-lg font-semibold">Gastos por Categoria a lo largo del tiempo</h3>
+        <div class="relative" id="categoryFilterWrapper">
+            <button id="categoryFilterBtn" onclick="toggleCategoryDropdown()" class="btn-secondary text-sm px-4 py-2 flex items-center gap-2">
+                <span id="categoryFilterLabel">Top 8 categorías</span>
+                <span>▾</span>
+            </button>
+            <div id="categoryDropdown" class="hidden absolute right-0 top-full mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-50 w-72 max-h-80 overflow-y-auto p-3">
+                <div class="flex items-center justify-between mb-2 pb-2 border-b border-neutral-100">
+                    <button onclick="selectAllCategories()" class="text-xs text-primary-600 font-semibold hover:underline">Todas</button>
+                    <button onclick="clearAllCategories()" class="text-xs text-danger-600 font-semibold hover:underline">Ninguna</button>
+                </div>
+                <div id="categoryCheckboxes" class="space-y-1"></div>
+                <div class="mt-3 pt-2 border-t border-neutral-100">
+                    <button onclick="applyCategoryFilter()" class="btn-primary text-xs w-full py-2">Aplicar</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="h-96">
         <canvas id="categoryOverTimeChart"></canvas>
     </div>
@@ -315,14 +328,36 @@
 
             const income = data.current_month?.income || 0;
             const expenses = data.current_month?.expenses || 0;
-            document.getElementById('overallIncome').textContent = formatCurrency(income);
-            document.getElementById('overallExpenses').textContent = formatCurrency(expenses);
-            document.getElementById('overallBalance').textContent = formatCurrency(income + expenses);
+            const balance = income - expenses;
 
-            // Age of Money
-            const aom = data.age_of_money || 0;
-            document.getElementById('ageOfMoney').innerHTML =
-                `${aom} <span class="text-sm font-normal text-neutral-500">dias</span>`;
+            // Balance Neto
+            const balEl = document.getElementById('overallBalance');
+            balEl.textContent = formatCurrency(balance);
+            balEl.className = `text-2xl font-bold ${balance >= 0 ? 'text-success-600' : 'text-danger-600'}`;
+
+            // Tasa de Dinero Libre
+            const freeEl = document.getElementById('freeMoneyRate');
+            if (income > 0) {
+                const freeRate = ((balance / income) * 100).toFixed(1);
+                freeEl.textContent = `${freeRate}%`;
+            } else {
+                freeEl.textContent = 'N/A';
+            }
+
+            // Promedio Gasto Mensual (últimos 3 meses)
+            const avgRes = await fetch(`/api/reports/budget-income-expenses?months=3&currency_id=${currencyId}`);
+            const avgData = await avgRes.json();
+            const monthsData = avgData.months || [];
+            if (monthsData.length > 0) {
+                const avgExpense = monthsData.reduce((sum, m) => sum + m.expenses, 0) / monthsData.length;
+                document.getElementById('avgMonthlyExpense').textContent = formatCurrency(Math.abs(avgExpense));
+            }
+
+            // Tasa de Ahorro (asignación)
+            const today = new Date();
+            const saRes = await fetch(`/api/reports/savings-allocation-rate?year=${today.getFullYear()}&month=${today.getMonth()+1}&currency_id=${currencyId}`);
+            const saData = await saRes.json();
+            document.getElementById('savingsAllocationRate').textContent = `${saData.rate || 0}%`;
         } catch (error) {
             console.error('Error loading overall summary:', error);
         }
@@ -496,9 +531,9 @@
                             data: data.months.map(m => m.net),
                             type: 'line',
                             borderColor: '#3f679a',
-                            backgroundColor: 'rgba(63, 103, 154, 0.1)',
+                            backgroundColor: 'transparent',
                             borderWidth: 3,
-                            fill: true,
+                            fill: false,
                             yAxisID: 'y1'
                         }
                     ]
@@ -512,12 +547,14 @@
                             type: 'linear',
                             display: true,
                             position: 'left',
+                            beginAtZero: true,
                             ticks: { callback: value => formatCurrency(value) }
                         },
                         y1: {
                             type: 'linear',
                             display: true,
                             position: 'right',
+                            beginAtZero: true,
                             grid: { drawOnChartArea: false },
                             ticks: { callback: value => formatCurrency(value) }
                         }
@@ -551,56 +588,187 @@
         }
     }
 
+    let allAvailableCategories = [];
+    let selectedCategories = [];
+    let categoryGroupsMap = {};
+
+    function toggleCategoryDropdown() {
+        document.getElementById('categoryDropdown').classList.toggle('hidden');
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        const wrapper = document.getElementById('categoryFilterWrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+            document.getElementById('categoryDropdown').classList.add('hidden');
+        }
+    });
+
+    function populateCategoryCheckboxes() {
+        const container = document.getElementById('categoryCheckboxes');
+        // Group categories by their group name
+        const grouped = {};
+        allAvailableCategories.forEach(cat => {
+            const group = categoryGroupsMap[cat] || 'Sin grupo';
+            if (!grouped[group]) grouped[group] = [];
+            grouped[group].push(cat);
+        });
+
+        const groupNames = Object.keys(grouped).sort();
+        let html = '';
+        groupNames.forEach(group => {
+            const cats = grouped[group];
+            const allChecked = cats.every(c => selectedCategories.includes(c));
+            const someChecked = cats.some(c => selectedCategories.includes(c));
+            html += `<div class="mb-2">
+                <label class="flex items-center gap-2 px-2 py-1.5 cursor-pointer group">
+                    <input type="checkbox" ${allChecked ? 'checked' : ''} ${!allChecked && someChecked ? 'indeterminate' : ''}
+                           onchange="toggleGroupCategories('${group.replace(/'/g, "\\'")}', this.checked)"
+                           class="category-group-cb rounded border-neutral-300 text-primary-600">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">${group}</span>
+                </label>
+                <div class="border-b border-neutral-100 dark:border-neutral-700 mb-1"></div>`;
+            cats.forEach(cat => {
+                const checked = selectedCategories.includes(cat) ? 'checked' : '';
+                html += `<label class="flex items-center gap-2 px-2 py-1.5 pl-6 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 cursor-pointer text-sm">
+                    <input type="checkbox" value="${cat}" ${checked} class="category-cb rounded border-neutral-300 text-primary-600" data-group="${group}">
+                    <span class="text-neutral-700 dark:text-neutral-300 truncate">${cat}</span>
+                </label>`;
+            });
+            html += `</div>`;
+        });
+        container.innerHTML = html;
+
+        // Set indeterminate state via JS (HTML attribute doesn't work)
+        groupNames.forEach(group => {
+            const cats = grouped[group];
+            const allChecked = cats.every(c => selectedCategories.includes(c));
+            const someChecked = cats.some(c => selectedCategories.includes(c));
+            if (!allChecked && someChecked) {
+                const groupCbs = container.querySelectorAll('.category-group-cb');
+                groupCbs.forEach(cb => {
+                    if (cb.closest('label').querySelector('span').textContent === group) {
+                        cb.indeterminate = true;
+                    }
+                });
+            }
+        });
+    }
+
+    function toggleGroupCategories(group, checked) {
+        const checkboxes = document.querySelectorAll(`.category-cb[data-group="${group}"]`);
+        checkboxes.forEach(cb => { cb.checked = checked; });
+    }
+
+    function selectAllCategories() {
+        selectedCategories = [...allAvailableCategories];
+        populateCategoryCheckboxes();
+    }
+
+    function clearAllCategories() {
+        selectedCategories = [];
+        populateCategoryCheckboxes();
+    }
+
+    function applyCategoryFilter() {
+        const checkboxes = document.querySelectorAll('.category-cb');
+        selectedCategories = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+        document.getElementById('categoryDropdown').classList.add('hidden');
+
+        const label = document.getElementById('categoryFilterLabel');
+        if (selectedCategories.length === 0 || selectedCategories.length === allAvailableCategories.length) {
+            label.textContent = 'Todas las categorías';
+        } else {
+            label.textContent = `${selectedCategories.length} categoría${selectedCategories.length === 1 ? '' : 's'}`;
+        }
+
+        loadCategoryOverTimeChart();
+    }
+
     async function loadCategoryOverTime() {
         try {
             const currencyId = document.getElementById('currencyFilter').value;
             const dateRange = getDateRange();
+
+            // First load: get all available categories
             const res = await fetch(
-                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
+                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}&top_n=100`
             );
             const data = await res.json();
 
-            if (charts.categoryOverTime) charts.categoryOverTime.destroy();
-            const colors = generateColors(data.series.length);
+            allAvailableCategories = data.available_categories || [];
+            categoryGroupsMap = data.category_groups || {};
+            if (selectedCategories.length === 0) {
+                // Default: top 8
+                selectedCategories = allAvailableCategories.slice(0, 8);
+            }
+            populateCategoryCheckboxes();
 
-            const datasets = data.series.map((s, i) => ({
-                label: s.category,
-                data: s.data,
-                backgroundColor: colors[i],
-                borderColor: colors[i].replace('0.8', '1'),
-                borderWidth: 1
-            }));
-
-            charts.categoryOverTime = new Chart(document.getElementById('categoryOverTimeChart').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: data.months,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        x: { stacked: true },
-                        y: {
-                            stacked: true,
-                            ticks: { callback: value => formatCurrency(value) }
-                        }
-                    },
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
-                            }
-                        }
-                    }
-                }
-            });
+            // Render chart with current selection
+            renderCategoryOverTimeChart(data);
         } catch (error) {
             console.error('Error loading category over time:', error);
         }
+    }
+
+    async function loadCategoryOverTimeChart() {
+        try {
+            const currencyId = document.getElementById('currencyFilter').value;
+            const dateRange = getDateRange();
+            const catParam = selectedCategories.length > 0 ? `&categories=${encodeURIComponent(selectedCategories.join(','))}` : '';
+            const res = await fetch(
+                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}${catParam}`
+            );
+            const data = await res.json();
+            renderCategoryOverTimeChart(data);
+        } catch (error) {
+            console.error('Error loading category over time chart:', error);
+        }
+    }
+
+    function renderCategoryOverTimeChart(data) {
+        if (charts.categoryOverTime) charts.categoryOverTime.destroy();
+
+        // Filter series to only selected categories
+        const filteredSeries = data.series.filter(s => selectedCategories.includes(s.category));
+        const colors = generateColors(filteredSeries.length);
+
+        const datasets = filteredSeries.map((s, i) => ({
+            label: s.category,
+            data: s.data,
+            borderColor: colors[i].replace('0.8', '1'),
+            backgroundColor: colors[i],
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.3,
+            fill: false
+        }));
+
+        charts.categoryOverTime = new Chart(document.getElementById('categoryOverTimeChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: data.months,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: {
+                        ticks: { callback: value => formatCurrency(value) }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+                        }
+                    }
+                }
+            }
+        });
     }
 
     async function loadSavingsRate() {
@@ -610,7 +778,6 @@
             const res = await fetch(`/api/reports/savings-rate?currency_id=${currencyId}&months=${months}`);
             const data = await res.json();
 
-            document.getElementById('savingsRateAverage').textContent = `${data.average_savings_rate || 0}%`;
             document.getElementById('savingsRateAvgDetail').textContent = `${data.average_savings_rate || 0}%`;
             document.getElementById('savingsRateTotal').textContent = formatCurrency(data.total_savings || 0);
             document.getElementById('savingsRatePeriod').textContent = data.period || '-';

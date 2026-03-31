@@ -103,8 +103,24 @@ class Debt(Base):
         else:
             data['paid_percentage'] = 0
 
+        # Effective credit limit: use debt.credit_limit, fallback to account
+        effective_credit_limit = None
         if self.credit_limit and self.credit_limit > 0:
-            data['utilization_percentage'] = (self.current_balance / self.credit_limit) * 100
+            effective_credit_limit = self.credit_limit
+        elif self.debt_type == 'credit_card':
+            try:
+                if self.account:
+                    acct_limit = getattr(self.account, 'credit_limit', None)
+                    if acct_limit and acct_limit > 0:
+                        effective_credit_limit = acct_limit
+                    elif self.account.balance and self.account.balance > 0:
+                        effective_credit_limit = self.account.balance
+            except Exception:
+                pass
+        data['effective_credit_limit'] = effective_credit_limit
+
+        if effective_credit_limit and effective_credit_limit > 0:
+            data['utilization_percentage'] = (self.current_balance / effective_credit_limit) * 100
         else:
             data['utilization_percentage'] = None
 

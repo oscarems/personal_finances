@@ -234,11 +234,11 @@
         </div>
         <div>
             <label class="block text-sm font-bold text-neutral-700 mb-2">Desde</label>
-            <input type="date" id="filterStartDate" onchange="loadTransactions()" class="input-field">
+            <input type="date" id="filterStartDate" onchange="loadTransactions()" class="input-field date-input">
         </div>
         <div>
             <label class="block text-sm font-bold text-neutral-700 mb-2">Hasta</label>
-            <input type="date" id="filterEndDate" onchange="loadTransactions()" class="input-field">
+            <input type="date" id="filterEndDate" onchange="loadTransactions()" class="input-field date-input">
         </div>
         <div>
             <label class="block text-sm font-bold text-neutral-700 mb-2">Límite</label>
@@ -370,7 +370,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
-                    <input type="date" id="txDate" required class="input-field">
+                    <input type="date" id="txDate" required class="input-field date-input">
                 </div>
 
                 <div>
@@ -497,7 +497,7 @@
         <form id="transferForm" class="space-y-6">
             <div>
                 <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
-                <input type="date" id="transferDate" required class="input-field">
+                <input type="date" id="transferDate" required class="input-field date-input">
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -761,14 +761,8 @@
     }
 
     async function loadInvestmentAssets() {
-        try {
-            const res = await fetch('/api/wealth-assets?asset_class=inversion');
-            const data = await res.json();
-            investmentAssets = data.assets || [];
-            populateInvestmentSelect();
-        } catch (error) {
-            console.error('Error loading investment assets:', error);
-        }
+        investmentAssets = [];
+        populateInvestmentSelect();
     }
 
     function populateInvestmentSelect() {
@@ -876,9 +870,14 @@
             const deleteDisabled = tx.can_delete === false;
             const deleteReason = tx.delete_reason || 'No se puede eliminar esta transacción.';
             const rowSelected = tx.id === selectedTransactionId ? 'tx-row-selected' : '';
+            const isAdjustmentPair = tx.is_adjustment && tx.memo && (tx.memo.startsWith('Cubrir exceso:') || tx.memo.startsWith('Cubierto desde:'));
+            const deleteLabel = isAdjustmentPair ? 'Eliminar par de ajuste' : 'Eliminar';
+            const deleteOnclick = isAdjustmentPair
+                ? `event.stopPropagation(); deleteAdjustmentPair(${tx.id})`
+                : `event.stopPropagation(); deleteTransaction(${tx.id})`;
             const deleteButtonAttributes = deleteDisabled
                 ? `type="button" disabled title="${escapeHtml(deleteReason)}"`
-                : `type="button" onclick="event.stopPropagation(); deleteTransaction(${tx.id})" title="Eliminar transacción"`;
+                : `type="button" onclick="${deleteOnclick}" title="${deleteLabel}"`;
             const deleteButtonClasses = deleteDisabled
                 ? 'inline-flex items-center gap-1 text-neutral-400 cursor-not-allowed'
                 : 'inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-medium';
@@ -927,7 +926,7 @@
                             <button ${deleteButtonAttributes}
                                     class="${deleteButtonClasses}">
                                 <span aria-hidden="true">🗑️</span>
-                                <span>Eliminar</span>
+                                <span>${deleteLabel}</span>
                             </button>
                         </div>
                     </td>
@@ -969,8 +968,21 @@
         }
 
         if (field === 'category') {
-            const options = ['<option value="">Sin categoría</option>'].concat(categories.map(cat => `<option value="${cat.id}" ${cat.id === tx.category_id ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`));
-            return `<select id="inlineEditInput-${tx.id}-${field}" class="tx-inline-input" onkeydown="handleInlineEditKeydown(event, ${tx.id}, '${field}')" onchange="saveInlineEdit(${tx.id}, '${field}')">${options.join('')}</select>`;
+            let optionsHtml = '<option value="">Sin categoría</option>';
+            const groups = {};
+            categories.forEach(cat => {
+                const g = cat.group_name || 'Otros';
+                if (!groups[g]) groups[g] = [];
+                groups[g].push(cat);
+            });
+            Object.keys(groups).forEach(groupName => {
+                optionsHtml += `<optgroup label="${escapeHtml(groupName)}">`;
+                groups[groupName].forEach(cat => {
+                    optionsHtml += `<option value="${cat.id}" ${cat.id === tx.category_id ? 'selected' : ''}>${escapeHtml(cat.name)}</option>`;
+                });
+                optionsHtml += '</optgroup>';
+            });
+            return `<select id="inlineEditInput-${tx.id}-${field}" class="tx-inline-input" onkeydown="handleInlineEditKeydown(event, ${tx.id}, '${field}')" onchange="saveInlineEdit(${tx.id}, '${field}')">${optionsHtml}</select>`;
         }
 
         const memoValue = tx.memo || '';
@@ -1606,6 +1618,35 @@
         } catch (error) {
             console.error('Error:', error);
             alert('Error al eliminar la transacción');
+        }
+    }
+
+    async function deleteAdjustmentPair(transactionId) {
+        const tx = transactions.find(t => t.id === transactionId);
+        const memoInfo = tx ? ` (${tx.memo})` : '';
+        if (!confirm(`¿Eliminar este par de ajuste presupuestario${memoInfo}? Se eliminarán ambas transacciones del par.`)) return;
+
+        try {
+            const res = await fetch(`/api/transactions/${transactionId}?delete_pair=true`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                await loadTransactions();
+                await loadLastManualTransactions();
+            } else {
+                let errorMessage = 'Error al eliminar el par de ajuste';
+                try {
+                    const data = await res.json();
+                    if (data?.detail) errorMessage = data.detail;
+                } catch (parseError) {
+                    console.error('Error parsing delete response:', parseError);
+                }
+                alert(errorMessage);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al eliminar el par de ajuste');
         }
     }
 

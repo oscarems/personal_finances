@@ -264,8 +264,8 @@ def init_db(engine_override=None):
         Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate,
         Debt, DebtPayment, DebtCategoryAllocation, DebtAmortizationMonthly,
         DebtSnapshotMonthly, DebtSnapshotProjectedMonthly,
-        YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession, WealthAsset,
-        EmailScrapeTransaction
+        YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession,
+        EmailScrapeTransaction, PatrimonioAsset
     )
 
     active_engine = engine_override or engine
@@ -415,63 +415,26 @@ def init_db(engine_override=None):
         engine_override=active_engine
     )
     ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="return_rate",
-        column_definition="return_rate FLOAT",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="return_amount",
-        column_definition="return_amount FLOAT",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="expected_appreciation_rate",
-        column_definition="expected_appreciation_rate FLOAT",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="depreciation_method",
-        column_definition="depreciation_method VARCHAR(40)",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="depreciation_rate",
-        column_definition="depreciation_rate FLOAT",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="depreciation_years",
-        column_definition="depreciation_years INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="depreciation_salvage_value",
-        column_definition="depreciation_salvage_value FLOAT",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="depreciation_start_date",
-        column_definition="depreciation_start_date DATE",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="wealth_assets",
-        column_name="mortgage_debt_id",
-        column_definition="mortgage_debt_id INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
         table_name="accounts",
         column_name="country",
         column_definition="country VARCHAR(50)",
+        engine_override=active_engine
+    )
+    # Patrimonio asset new columns
+    for col, defn in [
+        ("depreciation_method", "depreciation_method VARCHAR(40) DEFAULT 'sin_depreciacion'"),
+        ("depreciation_rate", "depreciation_rate FLOAT"),
+        ("depreciation_years", "depreciation_years INTEGER"),
+        ("depreciation_salvage_value", "depreciation_salvage_value NUMERIC(18,2)"),
+        ("depreciation_start_date", "depreciation_start_date DATE"),
+        ("return_rate", "return_rate FLOAT"),
+        ("return_amount", "return_amount NUMERIC(18,2)"),
+    ]:
+        ensure_sqlite_column(table_name="patrimonio_asset", column_name=col, column_definition=defn, engine_override=active_engine)
+    ensure_sqlite_column(
+        table_name="goals",
+        column_name="category_id",
+        column_definition="category_id INTEGER REFERENCES categories(id)",
         engine_override=active_engine
     )
     _backfill_account_country(active_engine)

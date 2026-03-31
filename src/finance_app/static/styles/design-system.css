@@ -452,6 +452,132 @@ a:hover {
   border-color: var(--border-muted);
 }
 
+/* ── Date / Month Input ────────────────────────────── */
+.date-input {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--input-bg);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  height: 2.75rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+[data-theme="dark"] .date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+[data-theme="dark"] .date-input {
+  background: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+
+/* ── DB Modal Light Mode ───────────────────────────── */
+[data-theme="light"] #dbModal .bg-black\/60 {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] #dbModal .rounded-3xl {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] #dbModal .border-b {
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] #dbModal .text-white {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] #dbModal .text-neutral-400 {
+  color: #64748b !important;
+}
+
+[data-theme="light"] #dbModal .text-neutral-300 {
+  color: #475569 !important;
+}
+
+[data-theme="light"] #dbModal .text-neutral-500 {
+  color: #94a3b8 !important;
+}
+
+[data-theme="light"] #dbModal .text-primary-300 {
+  color: #4f46e5 !important;
+}
+
+[data-theme="light"] #dbModal .rounded-2xl {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] #dbModal select,
+[data-theme="light"] #dbModal input[type="text"] {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] #dbModal select:focus,
+[data-theme="light"] #dbModal input[type="text"]:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3) !important;
+}
+
+[data-theme="light"] #dbModal .bg-white\/10 {
+  background: #f1f5f9 !important;
+}
+
+[data-theme="light"] #dbModal .bg-white\/10:hover,
+[data-theme="light"] #dbModal .hover\:bg-white\/20:hover {
+  background: #e2e8f0 !important;
+}
+
+[data-theme="light"] #dbModal .border-white\/10 {
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] #dbModal .bg-white\/5 {
+  background: #f8fafc !important;
+}
+
+[data-theme="light"] #dbModal .border-red-400\/40 {
+  border-color: rgba(248, 113, 113, 0.5) !important;
+}
+
+[data-theme="light"] #dbModal .text-red-200 {
+  color: #b91c1c !important;
+}
+
+[data-theme="light"] #dbModal .hover\:bg-red-500\/20:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+}
+
+[data-theme="light"] #dbModal .text-xs.text-neutral-400 {
+  color: #64748b !important;
+}
+
 .card,
 .card-hover-lift,
 .card-glass {
@@ -1086,3 +1212,12 @@ main,
 [data-theme="dark"] .shadow-strong {
   box-shadow: var(--shadow-soft) !important;
 }
+
+[data-theme="dark"] .text-slate-400 { color: var(--text-soft) !important; }
+[data-theme="dark"] .text-slate-300 { color: var(--text-secondary) !important; }
+[data-theme="dark"] .text-blue-600,
+[data-theme="dark"] .text-blue-700 { color: #93c5fd !important; }
+[data-theme="dark"] .text-green-600,
+[data-theme="dark"] .text-green-700 { color: #86efac !important; }
+[data-theme="dark"] .text-red-600,
+[data-theme="dark"] .text-red-700 { color: #fca5a5 !important; }

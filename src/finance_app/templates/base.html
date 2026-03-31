@@ -330,7 +330,53 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    
+    <!-- Flatpickr date picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <style>
+        /* Flatpickr overrides to match design system */
+        .flatpickr-calendar {
+            border-radius: 12px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+            border: 1px solid var(--input-border, #E3E1DA) !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+        .flatpickr-day.selected,
+        .flatpickr-day.selected:hover {
+            background: var(--color-primary-600, #3F679A) !important;
+            border-color: var(--color-primary-600, #3F679A) !important;
+        }
+        .flatpickr-day.today {
+            border-color: var(--color-primary-400, #7D9FCA) !important;
+        }
+        .flatpickr-months .flatpickr-month,
+        .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .flatpickr-weekdays,
+        span.flatpickr-weekday {
+            background: var(--color-primary-50, #F4F7FB) !important;
+        }
+        [data-theme="dark"] .flatpickr-calendar {
+            background: var(--card-bg, #2a2a2a) !important;
+            border-color: var(--input-border, #444) !important;
+        }
+        [data-theme="dark"] .flatpickr-day {
+            color: var(--text-primary, #eee) !important;
+        }
+        [data-theme="dark"] .flatpickr-months .flatpickr-month,
+        [data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
+        [data-theme="dark"] .flatpickr-weekdays,
+        [data-theme="dark"] span.flatpickr-weekday {
+            background: var(--card-bg, #333) !important;
+            color: var(--text-secondary, #ccc) !important;
+        }
+        [data-theme="dark"] .flatpickr-current-month input.cur-year {
+            color: var(--text-primary, #eee) !important;
+        }
+    </style>
+
+
 </head>
 <body class="bg-neutral-50 antialiased">
     <div class="flex h-screen">
@@ -367,27 +413,33 @@
                 <div class="space-y-1 px-3">
                     <a href="/" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
-                            <span class="text-xl">📊</span>
+                            <span class="text-xl">🏠</span>
                         </div>
-                        <span class="font-semibold">Resumen general</span>
+                        <span class="font-semibold text-[13px]">Inicio</span>
                     </a>
                     <a href="/budget" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
                             <span class="text-xl">💰</span>
                         </div>
-                        <span class="font-semibold">Presupuesto</span>
+                        <span class="font-semibold text-[13px]">Presupuesto</span>
                     </a>
                     <a href="/transactions" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
                             <span class="text-xl">📝</span>
                         </div>
-                        <span class="font-semibold">Transacciones</span>
+                        <span class="font-semibold text-[13px]">Transacciones</span>
                     </a>
                     <a href="/recurring" class="nav-item group" data-group="overview">
                         <div class="nav-icon">
                             <span class="text-xl">🔄</span>
                         </div>
-                        <span class="font-semibold text-sm">Transacciones automáticas</span>
+                        <span class="font-semibold text-[13px]">Transacciones automáticas</span>
+                    </a>
+                    <a href="/reports" class="nav-item group" data-group="reportes">
+                        <div class="nav-icon">
+                            <span class="text-xl">📈</span>
+                        </div>
+                        <span class="font-semibold text-[13px]">Análisis</span>
                     </a>
                 </div>
 
@@ -401,19 +453,25 @@
                         <div class="nav-icon">
                             <span class="text-xl">🏦</span>
                         </div>
-                        <span class="font-semibold">Cuentas</span>
+                        <span class="font-semibold text-[13px]">Cuentas</span>
                     </a>
                     <a href="/debts" class="nav-item group" data-group="gestion">
                         <div class="nav-icon">
                             <span class="text-xl">💳</span>
                         </div>
-                        <span class="font-semibold">Deudas</span>
+                        <span class="font-semibold text-[13px]">Deudas y pagos</span>
                     </a>
                     <a href="/goals" class="nav-item group" data-group="gestion">
                         <div class="nav-icon">
                             <span class="text-xl">🎯</span>
                         </div>
-                        <span class="font-semibold">Goals</span>
+                        <span class="font-semibold text-[13px]">Goals</span>
+                    </a>
+                    <a href="/financial-health" class="nav-item group" data-group="gestion">
+                        <div class="nav-icon">
+                            <span class="text-xl">💚</span>
+                        </div>
+                        <span class="font-semibold text-[13px]">Salud Financiera</span>
                     </a>
                 </div>
 
@@ -430,27 +488,7 @@
                         <div class="nav-icon">
                             <span class="text-xl">💼</span>
                         </div>
-                        <span class="font-semibold">Patrimonio</span>
-                    </a>
-                </div>
-
-                <div class="sidebar-section sidebar-section--reportes">
-                    <div class="sidebar-section-divider"></div>
-                    <p class="sidebar-section-title mt-4 px-1">Reportes</p>
-                </div>
-
-                <div class="space-y-1 px-3">
-                    <a href="/reports" class="nav-item group" data-group="reportes">
-                        <div class="nav-icon">
-                            <span class="text-xl">📈</span>
-                        </div>
-                        <span class="font-semibold text-sm">Dashboard general</span>
-                    </a>
-                    <a href="/reports/wealth" class="nav-item group" data-group="reportes">
-                        <div class="nav-icon">
-                            <span class="text-xl">🪙</span>
-                        </div>
-                        <span class="font-semibold text-sm">Patrimonio</span>
+                        <span class="font-semibold text-[13px]">Patrimonio</span>
                     </a>
                 </div>
 
@@ -464,19 +502,19 @@
                         <div class="nav-icon">
                             <span class="text-xl">🆘</span>
                         </div>
-                        <span class="font-semibold">Fondo de Emergencia</span>
+                        <span class="font-semibold text-[13px]">Fondo de Emergencia</span>
                     </a>
                     <a href="/mortgage" class="nav-item group" data-group="simuladores">
                         <div class="nav-icon">
                             <span class="text-xl">🏠</span>
                         </div>
-                        <span class="font-semibold">Simulador de hipoteca</span>
+                        <span class="font-semibold text-[13px]">Simulador de hipoteca</span>
                     </a>
                     <a href="/investment-simulator" class="nav-item group" data-group="simuladores">
                         <div class="nav-icon">
                             <span class="text-xl">💹</span>
                         </div>
-                        <span class="font-semibold">Simulador de inversiones</span>
+                        <span class="font-semibold text-[13px]">Simulador de inversiones</span>
                     </a>
                 </div>
 
@@ -490,7 +528,7 @@
                         <div class="nav-icon">
                             <span class="text-xl">📧</span>
                         </div>
-                        <span class="font-semibold">Importación Gmail</span>
+                        <span class="font-semibold text-[13px]">Importación Gmail</span>
                     </a>
                 </div>
 
@@ -499,13 +537,13 @@
                     <p class="sidebar-section-title mt-4 px-1">Administración</p>
                 </div>
 
-                <div class="space-y-2 px-3">
+                <div class="space-y-1 px-3">
                     <button id="openDbModalButton" class="w-full nav-item group justify-between" data-group="administracion">
                         <div class="flex items-center space-x-3">
                             <div class="nav-icon">
                                 <span class="text-xl">🗂️</span>
                             </div>
-                            <span class="font-semibold">Base de datos</span>
+                            <span class="font-semibold text-[13px]">Base de datos</span>
                         </div>
                         <span class="text-xs text-slate-400">Gestionar</span>
                     </button>
@@ -1196,6 +1234,69 @@
                 }
             }
         });
+    </script>
+
+    <!-- Flatpickr auto-init for all date/month inputs -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            flatpickr.localize(flatpickr.l10ns.es);
+
+            // Initialize all type="date" inputs
+            document.querySelectorAll('input[type="date"]').forEach(function(input) {
+                input.type = 'text';
+                input.setAttribute('autocomplete', 'off');
+                flatpickr(input, {
+                    dateFormat: 'Y-m-d',
+                    altInput: true,
+                    altFormat: 'j M Y',
+                    allowInput: true,
+                    defaultDate: input.value || null,
+                    onChange: function(selectedDates, dateStr) {
+                        // Trigger change event for existing handlers
+                        input.value = dateStr;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            });
+
+            // Initialize all type="month" inputs
+            document.querySelectorAll('input[type="month"]').forEach(function(input) {
+                input.type = 'text';
+                input.setAttribute('autocomplete', 'off');
+                flatpickr(input, {
+                    dateFormat: 'Y-m',
+                    altInput: true,
+                    altFormat: 'M Y',
+                    allowInput: true,
+                    defaultDate: input.value || null,
+                    plugins: [],
+                    onChange: function(selectedDates, dateStr) {
+                        input.value = dateStr;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            });
+        });
+
+        // Re-initialize flatpickr on dynamically added inputs
+        window.initFlatpickr = function(container) {
+            container = container || document;
+            container.querySelectorAll('input[type="date"]:not(.flatpickr-input)').forEach(function(input) {
+                input.type = 'text';
+                input.setAttribute('autocomplete', 'off');
+                flatpickr(input, {
+                    dateFormat: 'Y-m-d',
+                    altInput: true,
+                    altFormat: 'j M Y',
+                    allowInput: true,
+                    defaultDate: input.value || null,
+                    onChange: function(selectedDates, dateStr) {
+                        input.value = dateStr;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+            });
+        };
     </script>
 </body>
 </html>

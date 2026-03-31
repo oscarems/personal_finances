@@ -112,7 +112,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">
-                        <span data-label-credit_card="Cupo" data-label-default="Monto Original">Monto Original</span>
+                        <span data-label-credit_card="Cupo aprobado" data-label-default="Monto Original">Monto Original</span>
                     </label>
                     <input type="number" name="original_amount" required step="0.01" class="input-field text-xl" placeholder="0.00">
                 </div>
@@ -157,7 +157,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Fecha de Inicio</label>
-                    <input type="date" name="start_date" required class="input-field">
+                    <input type="date" name="start_date" required class="input-field date-input">
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Institución Financiera</label>
@@ -452,12 +452,15 @@
 
             const isCC = debt.debt_type === 'credit_card';
             const progressPercent = debt.paid_percentage || 0;
-            const ccAvailable = isCC && debt.credit_limit ? (debt.credit_limit - debt.current_balance) : 0;
-            const ccUtilization = isCC && debt.credit_limit ? ((debt.current_balance / debt.credit_limit) * 100) : 0;
+            const effectiveLimit = debt.effective_credit_limit || debt.credit_limit;
+            const ccAvailable = isCC && effectiveLimit ? (effectiveLimit - debt.current_balance) : 0;
+            const ccUtilization = isCC && effectiveLimit ? ((debt.current_balance / effectiveLimit) * 100) : 0;
+            const ccUtilColor = ccUtilization > 70 ? 'red' : (ccUtilization > 30 ? 'yellow' : 'green');
             const ccUtilizationAlert = ccUtilization > 70;
 
             const balanceLabel = isCC ? 'Cuánto debo' : 'Saldo actual';
             const originalLabel = isCC ? 'Cupo' : 'Monto original';
+            const displayOriginal = isCC && effectiveLimit ? effectiveLimit : debt.original_amount;
 
             return `
                 <div class="border border-gray-200 rounded-card p-6 mb-4 hover:shadow-medium transition">
@@ -472,11 +475,11 @@
                             <p class="text-2xl font-bold text-red-600">
                                 ${debt.currency_code === 'USD' ? '$' : '$'}${debt.current_balance.toLocaleString('es-CO', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}
                             </p>
-                            <p class="text-sm text-gray-500">${originalLabel}: ${debt.currency_code === 'USD' ? '$' : '$'}${debt.original_amount.toLocaleString('es-CO', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}</p>
+                            <p class="text-sm text-gray-500">${originalLabel}: ${debt.currency_code === 'USD' ? '$' : '$'}${displayOriginal.toLocaleString('es-CO', {minimumFractionDigits: debt.currency_code === 'USD' ? 2 : 0})}</p>
                         </div>
                     </div>
 
-                    ${isCC && debt.credit_limit ? `
+                    ${isCC && effectiveLimit ? `
                     <!-- Credit Card Metrics -->
                     <div class="grid grid-cols-2 gap-4 mb-4 p-3 rounded-lg ${ccUtilizationAlert ? 'bg-red-50 border border-red-200' : 'bg-gray-50 border border-gray-200'}">
                         <div>
@@ -487,7 +490,7 @@
                         </div>
                         <div>
                             <p class="text-xs text-gray-500 uppercase tracking-wide">% Utilización</p>
-                            <p class="text-lg font-bold ${ccUtilizationAlert ? 'text-red-600' : 'text-green-600'}">
+                            <p class="text-lg font-bold ${ccUtilColor === 'red' ? 'text-red-600' : ccUtilColor === 'yellow' ? 'text-yellow-600' : 'text-green-600'}">
                                 ${ccUtilization.toFixed(1)}%
                             </p>
                         </div>
@@ -495,9 +498,15 @@
                     <!-- Utilization bar -->
                     <div class="mb-4">
                         <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div class="${ccUtilizationAlert ? 'bg-red-500' : 'bg-green-500'} h-2.5 rounded-full" style="width: ${Math.min(ccUtilization, 100)}%"></div>
+                            <div class="${ccUtilColor === 'red' ? 'bg-red-500' : ccUtilColor === 'yellow' ? 'bg-yellow-500' : 'bg-green-500'} h-2.5 rounded-full" style="width: ${Math.min(ccUtilization, 100)}%"></div>
                         </div>
                     </div>
+                    ${debt.minimum_payment ? `
+                    <div class="mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide">Pago mínimo</p>
+                        <p class="text-lg font-bold text-blue-600">${currencyFormat(debt.minimum_payment, debt.currency_code)}</p>
+                    </div>
+                    ` : ''}
                     ` : `
                     <!-- Progress bar for non-CC debts -->
                     <div class="mb-4">
@@ -540,8 +549,12 @@
 
                     <div class="mt-4 flex justify-end space-x-2">
                         <button onclick="viewDebtDetails(${debt.id})" class="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded text-sm transition">Ver detalles</button>
-                        <button onclick="editDebt(${debt.id})" class="px-3 py-1 text-green-600 hover:bg-green-50 rounded text-sm transition">Editar</button>
-                        <button onclick="deleteDebt(${debt.id}, '${debt.name}')" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded text-sm transition">Eliminar</button>
+                        ${isCC ? `
+                            <a href="/accounts" class="px-3 py-1 text-neutral-600 hover:bg-neutral-50 rounded text-sm transition inline-flex items-center gap-1">Gestionar en Cuentas →</a>
+                        ` : `
+                            <button onclick="editDebt(${debt.id})" class="px-3 py-1 text-green-600 hover:bg-green-50 rounded text-sm transition">Editar</button>
+                            <button onclick="deleteDebt(${debt.id}, '${debt.name}')" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded text-sm transition">Eliminar</button>
+                        `}
                     </div>
                 </div>
             `;
@@ -824,13 +837,13 @@
                         <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.minimum_payment.toLocaleString('es-CO', {minimumFractionDigits: decimals})}</p>
                     </div>
                 ` : ''}
-                ${debt.credit_limit ? `
+                ${(debt.effective_credit_limit || debt.credit_limit) ? `
                     <div>
                         <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Límite de Crédito</p>
-                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${debt.credit_limit.toLocaleString('es-CO', {minimumFractionDigits: decimals})}</p>
+                        <p class="text-xl font-extrabold text-neutral-900">${symbol}${(debt.effective_credit_limit || debt.credit_limit).toLocaleString('es-CO', {minimumFractionDigits: decimals})}</p>
                     </div>
                 ` : ''}
-                ${debt.credit_limit ? `
+                ${(debt.effective_credit_limit || debt.credit_limit) ? `
                     <div>
                         <p class="text-xs text-neutral-600 uppercase tracking-wide font-bold">Utilización</p>
                         <p class="text-xl font-extrabold text-neutral-900">${(debt.utilization_percentage || 0).toFixed(1)}%</p>
@@ -898,7 +911,7 @@
                                     <th class="px-4 py-3 text-right text-xs font-extrabold text-white uppercase tracking-wider">Interés</th>
                                     <th class="px-4 py-3 text-right text-xs font-extrabold text-white uppercase tracking-wider">Capital</th>
                                     <th class="px-4 py-3 text-right text-xs font-extrabold text-white uppercase tracking-wider">Saldo final</th>
-                                    <th class="px-4 py-3 text-left text-xs font-extrabold text-white uppercase tracking-wider">Tipo</th>
+                                    <th class="px-4 py-3 text-left text-xs font-extrabold text-white uppercase tracking-wider">Fuente</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-neutral-200">
@@ -909,7 +922,12 @@
                                         <td class="px-4 py-3 text-sm text-right text-neutral-700">${symbol}${Number(row.interest || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
                                         <td class="px-4 py-3 text-sm text-right text-success-700 font-semibold">${symbol}${Number(row.principal || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
                                         <td class="px-4 py-3 text-sm text-right font-bold text-neutral-900">${symbol}${Number(row.ending_balance || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}</td>
-                                        <td class="px-4 py-3 text-sm text-neutral-700">${row.is_paid_real ? 'Real' : 'Proyectado'}</td>
+                                        <td class="px-4 py-3 text-sm">
+                                            ${row.fuente === 'transaccion' ? '<span class="text-success-700 font-semibold">Transaccion</span>' :
+                                              row.fuente === 'asumido' ? '<span class="text-warning-600 font-semibold">Asumido</span>' :
+                                              '<span class="text-neutral-500">Proyectado</span>'}
+                                            ${row.is_extra_payment_applied ? '<span class="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">Abono capital</span>' : ''}
+                                        </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1018,7 +1036,14 @@
         }
     }
 
-    // Load debts on page load
-    document.addEventListener('DOMContentLoaded', loadDebts);
+    // Load debts on page load, auto-open detail if ?open=ID
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadDebts();
+        const params = new URLSearchParams(window.location.search);
+        const openId = params.get('open');
+        if (openId) {
+            viewDebtDetails(parseInt(openId));
+        }
+    });
 </script>
 {% endblock %}

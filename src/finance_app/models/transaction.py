@@ -30,7 +30,7 @@ class Transaction(Base):
     cleared = Column(Boolean, default=False)  # Reconciliation
     approved = Column(Boolean, default=True)
     transfer_account_id = Column(Integer, ForeignKey('accounts.id'))  # If transfer
-    investment_asset_id = Column(Integer, ForeignKey('wealth_assets.id'), nullable=True)
+    investment_asset_id = Column(Integer, nullable=True)  # legacy column, FK to wealth_assets removed
     is_adjustment = Column(Boolean, default=False)  # Balance adjustment transaction
     import_id = Column(String(100))  # YNAB import ID to avoid duplicates
     source = Column(String(50))
@@ -44,7 +44,7 @@ class Transaction(Base):
     category = relationship('Category', back_populates='transactions')
     debt = relationship('Debt')
     currency = relationship('Currency', foreign_keys=[currency_id], back_populates='transactions')
-    investment_asset = relationship('WealthAsset')
+    # investment_asset relationship removed (WealthAsset model consolidated into Patrimonio)
     tag_links = relationship('TransactionTag', back_populates='transaction', cascade='all, delete-orphan')
     splits = relationship('TransactionSplit', back_populates='transaction', cascade='all, delete-orphan')
 
@@ -53,6 +53,9 @@ class Transaction(Base):
 
     def delete_block_reason(self):
         if self.is_adjustment:
+            memo = (self.memo or "").strip()
+            if memo.startswith("Cubrir exceso:") or memo.startswith("Cubierto desde:"):
+                return None  # Budget adjustment pairs can be deleted
             return "No se puede eliminar un ajuste de balance."
 
         memo = (self.memo or "").strip()
@@ -93,7 +96,7 @@ class Transaction(Base):
             'approved': self.approved,
             'transfer_account_id': self.transfer_account_id,
             'investment_asset_id': self.investment_asset_id,
-            'investment_asset_name': self.investment_asset.name if self.investment_asset else None,
+            'investment_asset_name': None,
             'is_adjustment': self.is_adjustment,
             'import_id': self.import_id,
             'source': self.source,

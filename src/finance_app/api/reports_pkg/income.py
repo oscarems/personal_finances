@@ -378,3 +378,50 @@ def get_period_summary(
         'expense_trend': _trend(total_expenses, prev_expenses),
         'currency': currency.to_dict() if currency else None
     }
+
+
+@router.get("/savings-allocation-rate")
+def get_savings_allocation_rate(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """Tasa de ahorro por asignacion: assigned in accumulate categories / total assigned."""
+    today = date.today()
+    if year is None:
+        year = today.year
+    if month is None:
+        month = today.month
+
+    month_start = date(year, month, 1)
+    exchange_rate = get_exchange_rate(db)
+
+    budgets = (
+        db.query(BudgetMonth)
+        .join(Category, BudgetMonth.category_id == Category.id)
+        .filter(BudgetMonth.month == month_start)
+        .all()
+    )
+
+    total_assigned = 0.0
+    savings_assigned = 0.0
+    for bm in budgets:
+        converted = convert_to_currency(
+            bm.assigned or 0, bm.currency_id, currency_id, exchange_rate
+        )
+        total_assigned += converted
+        if bm.category and bm.category.rollover_type == "accumulate":
+            savings_assigned += converted
+
+    rate = (savings_assigned / total_assigned * 100) if total_assigned > 0 else 0
+
+    currency = db.query(Currency).get(currency_id)
+    return {
+        "year": year,
+        "month": month,
+        "savings_assigned": savings_assigned,
+        "total_assigned": total_assigned,
+        "rate": round(rate, 2),
+        "currency": currency.to_dict() if currency else None,
+    }

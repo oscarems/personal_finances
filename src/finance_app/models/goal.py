@@ -15,6 +15,7 @@ class Goal(Base):
     target_date = Column(Date, nullable=False)
     currency_id = Column(Integer, ForeignKey("currencies.id"), nullable=False)
     linked_account_id = Column(Integer, ForeignKey("accounts.id"), nullable=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     start_date = Column(Date, nullable=False)
     start_amount = Column(Float, default=0.0, nullable=False)
     status = Column(String(20), nullable=False, default="active")
@@ -23,6 +24,7 @@ class Goal(Base):
 
     currency = relationship("Currency")
     linked_account = relationship("Account")
+    category = relationship("Category")
     contributions = relationship("GoalContribution", back_populates="goal", cascade="all, delete-orphan")
 
     def to_dict(self):
@@ -35,6 +37,8 @@ class Goal(Base):
             "currency_code": self.currency.code if self.currency else None,
             "linked_account_id": self.linked_account_id,
             "linked_account_name": self.linked_account.name if self.linked_account else None,
+            "category_id": self.category_id,
+            "category_name": self.category.name if self.category else None,
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "start_amount": self.start_amount,
             "status": self.status,

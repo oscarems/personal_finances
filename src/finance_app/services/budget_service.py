@@ -537,7 +537,8 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
                 'activity': total_spent,
                 'available': total_available,
                 'target_amount': category.target_amount,
-                'rollover_type': category.rollover_type  # 'accumulate' or 'reset'
+                'rollover_type': category.rollover_type,  # 'accumulate' or 'reset'
+                'is_essential': bool(category.is_essential)
             }
 
             group_data['categories'].append(cat_data)

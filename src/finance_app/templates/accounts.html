@@ -116,7 +116,7 @@
 
             <div id="loanStartDateField" class="hidden">
                 <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Fecha de Inicio</label>
-                <input type="date" id="accountLoanStartDate" class="input-field">
+                <input type="date" id="accountLoanStartDate" class="input-field date-input">
             </div>
 
             <div id="paymentDueDayField" class="hidden">
@@ -128,7 +128,7 @@
 
             <div id="maturityDateField" class="hidden">
                 <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Fecha de Vencimiento</label>
-                <input type="date" id="accountMaturityDate" class="input-field">
+                <input type="date" id="accountMaturityDate" class="input-field date-input">
             </div>
 
             <div>
@@ -194,7 +194,7 @@
 
             <div>
                 <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Fecha</label>
-                <input type="date" id="adjustmentDate" required class="input-field">
+                <input type="date" id="adjustmentDate" required class="input-field date-input">
             </div>
 
             <div>
@@ -314,7 +314,43 @@
             return;
         }
 
-        grid.innerHTML = accounts.map(acc => {
+        const debtTypes = new Set(['credit_card', 'credit_loan', 'mortgage']);
+        const assetAccounts = accounts.filter(a => !debtTypes.has(a.type));
+        const debtAccounts = accounts.filter(a => debtTypes.has(a.type));
+
+        // Group by currency
+        const groupByCurrency = (accs) => {
+            const groups = {};
+            accs.forEach(a => {
+                const code = a.currency?.code || 'COP';
+                if (!groups[code]) groups[code] = [];
+                groups[code].push(a);
+            });
+            return groups;
+        };
+
+        let html = '';
+
+        // Asset accounts section
+        const assetGroups = groupByCurrency(assetAccounts);
+        for (const [currency, accs] of Object.entries(assetGroups)) {
+            html += `<div class="col-span-full mt-2 mb-1"><h3 class="text-lg font-semibold text-neutral-800 flex items-center gap-2">💰 Cuentas ${currency}</h3></div>`;
+            html += accs.map(acc => renderAccountCard(acc)).join('');
+        }
+
+        // Debt accounts section
+        const debtGroups = groupByCurrency(debtAccounts);
+        if (debtAccounts.length > 0) {
+            for (const [currency, accs] of Object.entries(debtGroups)) {
+                html += `<div class="col-span-full mt-6 mb-1"><h3 class="text-lg font-semibold text-danger-700 flex items-center gap-2">💳 Deudas ${currency}</h3></div>`;
+                html += accs.map(acc => renderAccountCard(acc)).join('');
+            }
+        }
+
+        grid.innerHTML = html;
+    }
+
+    function renderAccountCard(acc) {
             const typeIcons = {
                 'checking': '💳',
                 'savings': '🏦',
@@ -405,7 +441,6 @@
                     </div>
                 </div>
             `;
-        }).join('');
     }
 
     function updateOptionalFields() {

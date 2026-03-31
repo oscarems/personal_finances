@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from finance_app.database import SessionLocal, init_db as create_tables
 from finance_app.models import (
     Currency, Account, CategoryGroup, Category,
-    Payee, Transaction, BudgetMonth, RecurringTransaction, WealthAsset
+    Payee, Transaction, BudgetMonth, RecurringTransaction
 )
 from finance_app.services.transaction_service import build_transaction_audit_fields
 from finance_app.config import (
@@ -304,22 +304,6 @@ def init_demo_data(db_session):
                 start_date=date.today().replace(day=1),
                 day_of_month=5,
                 is_active=True
-            ))
-        db_session.commit()
-
-    if db_session.query(WealthAsset).count() == 0:
-        if cop_currency:
-            db_session.add(WealthAsset(
-                name='Apartamento Demo',
-                asset_class='inmueble',
-                investment_type='Residencial',
-                value=450000000.0,
-                return_rate=6.0,
-                return_amount=27000000.0,
-                expected_appreciation_rate=4.0,
-                currency_id=cop_currency.id,
-                as_of_date=date.today(),
-                notes='Activo inmobiliario de demostración'
             ))
         db_session.commit()
 

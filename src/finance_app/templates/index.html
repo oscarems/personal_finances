@@ -73,43 +73,21 @@
     </div>
 </div>
 
-<!-- Charts Row con diseño ultra moderno -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-    <!-- Monthly Trend Chart -->
-    <div class="card-hover-lift p-8">
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-4">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
-                        <span class="text-2xl">📈</span>
-                    </div>
-                </div>
-                <h3 class="text-2xl font-bold text-neutral-800">
-                    Ingresos vs Gastos
-                </h3>
+<!-- Acceso rápido al análisis completo -->
+<div class="card-hover-lift p-8 mb-10 text-center">
+    <div class="flex items-center justify-center space-x-4 mb-4">
+        <div class="relative">
+            <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
+            <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
+                <span class="text-2xl">📈</span>
             </div>
         </div>
-        <canvas id="monthlyTrendChart"></canvas>
+        <h3 class="text-2xl font-bold text-neutral-800">Análisis Financiero</h3>
     </div>
-
-    <!-- Category Spending Over Time -->
-    <div class="card-hover-lift p-8">
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-4">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-accent-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-accent-400 to-accent-600 p-3 rounded-xl">
-                        <span class="text-2xl">🎯</span>
-                    </div>
-                </div>
-                <h3 class="text-2xl font-bold text-neutral-800">
-                    Gasto por Categoría
-                </h3>
-            </div>
-        </div>
-        <canvas id="categoryChart"></canvas>
-    </div>
+    <p class="text-neutral-600 mb-6">Gráficos detallados de ingresos, gastos, categorías, ahorro y tendencias.</p>
+    <a href="/reports" class="btn-secondary inline-flex items-center gap-2 px-6 py-3 text-base font-semibold">
+        Ver análisis completo 📈
+    </a>
 </div>
 
 <!-- Debts Summary ultra moderno -->
@@ -181,26 +159,19 @@
         lastBudgetData: null,
         primaryCurrency: 'COP'
     };
-    const dashboardCharts = {
-        monthlyTrend: null,
-        categoryDistribution: null
-    };
+    const dashboardCharts = {};
 
     // Load dashboard data
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const [accountsRes, debtsRes, wealthAssetsRes] = await Promise.all([
+            const [accountsRes, debtsRes] = await Promise.all([
                 fetch('/api/accounts/summary'),
                 fetch('/api/debts/summary'),
-                fetch('/api/wealth-assets')
             ]);
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
-            const wealthAssetsData = wealthAssetsRes.ok ? await wealthAssetsRes.json() : { assets: [] };
-            if (!wealthAssetsRes.ok) {
-                console.warn('No se pudieron cargar los activos de patrimonio.');
-            }
+            const wealthAssetsData = { assets: [] };
 
             try {
                 const rateRes = await fetch('/api/exchange-rates/current');
@@ -230,8 +201,8 @@
             const transactions = await transactionsRes.json();
             displayRecentTransactions(transactions);
 
-            // Load budget data for charts
-            await createCharts(budgetData);
+            // Update KPI cards from budget data
+            await updateKPIFromBudget(budgetData);
 
             // Load monthly spending (current month only)
             try {
@@ -826,282 +797,20 @@
         container.innerHTML = html;
     }
 
-    function formatDateForApi(date) {
-        return date.toISOString().split('T')[0];
-    }
-
-    function collapseCategoryData(categories, totalExpenses, maxItems = 8) {
-        if (!categories || categories.length === 0) {
-            return { labels: ['Sin datos'], values: [1] };
-        }
-
-        const top = categories.slice(0, maxItems);
-        const remaining = categories.slice(maxItems);
-        const labels = top.map(item => item.category);
-        const values = top.map(item => item.amount);
-        const remainingTotal = remaining.reduce((sum, item) => sum + item.amount, 0);
-
-        if (remainingTotal > 0) {
-            labels.push('Otros');
-            values.push(remainingTotal);
-        }
-
-        if (totalExpenses && values.reduce((sum, value) => sum + value, 0) < totalExpenses && remainingTotal === 0) {
-            const diff = totalExpenses - values.reduce((sum, value) => sum + value, 0);
-            labels.push('Otros');
-            values.push(diff);
-        }
-
-        return { labels, values };
-    }
-
-    async function createCharts(budgetData) {
+    async function updateKPIFromBudget(budgetData) {
         try {
-            const chartTheme = getChartTheme();
             const currencyId = budgetData?.currency?.id || 1;
             const currencySymbol = budgetData?.currency?.symbol || '$';
             const currencyCode = budgetData?.currency?.code || 'COP';
             const currencyDecimals = getCurrencyDecimals(currencyCode);
 
-            // --- Income vs Expenses with Balance Net line ---
             const incomeExpenseRes = await fetch(`/api/reports/budget-income-expenses?months=6&currency_id=${currencyId}`);
             const incomeExpenseData = incomeExpenseRes.ok ? await incomeExpenseRes.json() : { months: [] };
             const monthsData = incomeExpenseData.months || [];
-            const labels = monthsData.map(month => month.month_name);
-            const incomeValues = monthsData.map(month => month.income);
-            const expenseValues = monthsData.map(month => month.expenses);
-            const netValues = monthsData.map(month => month.net || (month.income - month.expenses));
 
-            // Populate KPI cards from this data
             updateKPICards(monthsData, budgetData, currencySymbol, currencyCode, currencyDecimals);
-
-            // Calculate aligned Y-axis ranges so zero is at same height
-            const maxIncome = Math.max(...incomeValues, ...expenseValues, 0);
-            const minNet = Math.min(...netValues, 0);
-            const maxNet = Math.max(...netValues, 0);
-            // For the bar axis: range [0, maxIncome]
-            // For the line axis: range [minNet, maxNet] but aligned so 0 is at same position
-            const barMax = maxIncome * 1.1 || 1;
-            const lineMax = Math.max(Math.abs(minNet), Math.abs(maxNet)) * 1.3 || 1;
-
-            const ctx1 = document.getElementById('monthlyTrendChart').getContext('2d');
-            if (dashboardCharts.monthlyTrend) {
-                dashboardCharts.monthlyTrend.destroy();
-            }
-            dashboardCharts.monthlyTrend = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: labels.length ? labels : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                    datasets: [{
-                        label: 'Ingresos',
-                        data: incomeValues,
-                        backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                        borderColor: '#22C55E',
-                        borderWidth: 1,
-                        yAxisID: 'y',
-                        order: 2
-                    }, {
-                        label: 'Gastos',
-                        data: expenseValues,
-                        backgroundColor: 'rgba(244, 63, 94, 0.7)',
-                        borderColor: '#F43F5E',
-                        borderWidth: 1,
-                        yAxisID: 'y',
-                        order: 2
-                    }, {
-                        label: 'Balance Neto',
-                        data: netValues,
-                        type: 'line',
-                        borderColor: '#3B82F6',
-                        backgroundColor: 'transparent',
-                        borderWidth: 3,
-                        tension: 0.3,
-                        fill: false,
-                        pointBackgroundColor: '#3B82F6',
-                        pointRadius: 5,
-                        pointHoverRadius: 7,
-                        yAxisID: 'y1',
-                        order: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 15,
-                                font: { size: 13, family: 'Inter', weight: '600' },
-                                usePointStyle: true,
-                                pointStyle: 'circle'
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: chartTheme.tooltipBg,
-                            padding: 12,
-                            cornerRadius: 8,
-                            callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${currencySymbol}${Math.abs(ctx.parsed.y).toLocaleString('es-CO', {minimumFractionDigits: currencyDecimals})}`
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            position: 'left',
-                            beginAtZero: true,
-                            max: barMax,
-                            grid: { color: chartTheme.grid, drawBorder: false },
-                            ticks: {
-                                font: { family: 'Inter', size: 11 },
-                                color: chartTheme.text,
-                                callback: value => `${currencySymbol}${(value / 1000000).toFixed(1)}M`
-                            }
-                        },
-                        y1: {
-                            position: 'right',
-                            min: -lineMax,
-                            max: lineMax,
-                            grid: { drawOnChartArea: false },
-                            ticks: {
-                                font: { family: 'Inter', size: 11 },
-                                color: '#3B82F6',
-                                callback: value => `${currencySymbol}${(value / 1000000).toFixed(1)}M`
-                            }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { font: { family: 'Inter', size: 12, weight: '500' }, color: chartTheme.text }
-                        }
-                    }
-                }
-            });
-
-            // --- Category Spending Over Time (line chart) ---
-            const ctx2 = document.getElementById('categoryChart').getContext('2d');
-            const spendingTrendsRes = await fetch(`/api/reports/spending-by-category-over-time?currency_id=${currencyId}&top_n=10`);
-            let categoryLineData = null;
-            if (spendingTrendsRes.ok) {
-                categoryLineData = await spendingTrendsRes.json();
-            }
-
-            if (dashboardCharts.categoryDistribution) {
-                dashboardCharts.categoryDistribution.destroy();
-            }
-
-            if (categoryLineData && categoryLineData.months && categoryLineData.series) {
-                const catPalette = [
-                    '#14B8A6', '#4F46E5', '#22C55E', '#F43F5E', '#F59E0B',
-                    '#EC4899', '#8B5CF6', '#06B6D4', '#F97316', '#84CC16'
-                ];
-                const catDatasets = categoryLineData.series.slice(0, 10).map((cat, i) => ({
-                    label: cat.category,
-                    data: cat.data || [],
-                    borderColor: catPalette[i % catPalette.length],
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: false,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
-                }));
-
-                dashboardCharts.categoryDistribution = new Chart(ctx2, {
-                    type: 'line',
-                    data: {
-                        labels: categoryLineData.months || [],
-                        datasets: catDatasets
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    padding: 12,
-                                    font: { size: 11, family: 'Inter', weight: '600' },
-                                    usePointStyle: true,
-                                    pointStyle: 'circle'
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: chartTheme.tooltipBg,
-                                padding: 12,
-                                cornerRadius: 8,
-                                callbacks: {
-                                    label: ctx => `${ctx.dataset.label}: ${currencySymbol}${ctx.parsed.y.toLocaleString('es-CO', {minimumFractionDigits: currencyDecimals})}`
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: chartTheme.grid },
-                                ticks: { font: { family: 'Inter', size: 11 }, color: chartTheme.text }
-                            },
-                            x: {
-                                grid: { display: false },
-                                ticks: { font: { family: 'Inter', size: 12 }, color: chartTheme.text }
-                            }
-                        }
-                    }
-                });
-            } else {
-                // Fallback: use current month doughnut if spending-trends endpoint not available
-                const today = new Date();
-                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                const startDate = formatDateForApi(startOfMonth);
-                const endDate = formatDateForApi(today);
-                const categoryRes = await fetch(
-                    `/api/reports/spending-by-category?currency_id=${currencyId}&start_date=${startDate}&end_date=${endDate}`
-                );
-                const categoryPayload = categoryRes.ok ? await categoryRes.json() : { categories: [], total_expenses: 0 };
-                const categorySummary = collapseCategoryData(categoryPayload.categories || [], categoryPayload.total_expenses || 0);
-
-                dashboardCharts.categoryDistribution = new Chart(ctx2, {
-                    type: 'doughnut',
-                    data: {
-                        labels: categorySummary.labels,
-                        datasets: [{
-                            data: categorySummary.values,
-                            backgroundColor: [
-                                '#14B8A6', '#4F46E5', '#22C55E', '#F43F5E', '#F59E0B',
-                                '#EC4899', '#8B5CF6', '#06B6D4', '#F97316', '#84CC16', '#94A3B8'
-                            ],
-                            borderWidth: 4,
-                            borderColor: chartTheme.border,
-                            spacing: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    padding: 15,
-                                    font: { size: 13, family: 'Inter', weight: '600' },
-                                    usePointStyle: true,
-                                    pointStyle: 'circle'
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: ctx => {
-                                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                                        const pct = ((ctx.parsed / total) * 100).toFixed(1);
-                                        return `${ctx.label}: ${currencySymbol}${ctx.parsed.toLocaleString('es-CO')} (${pct}%)`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
         } catch (error) {
-            console.error('Error loading dashboard charts:', error);
+            console.error('Error updating KPI cards:', error);
         }
     }
 

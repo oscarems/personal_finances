@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_amortization_fixes.py -v)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest tests/test_amortization_engine.py -v)",
+      "Bash(python -m pytest tests/test_patrimonio_calculator.py -v)",
+      "Bash(python3:*)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python:*)",
+      "Bash(ls:*)",
+      "Bash(find /d/github/personal_finances/tests -name *.py -type f)",
+      "Bash(grep -r \"net_worth_service\\\\|real_estate_service\" /d/github/personal_finances/src --include=*.py)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(rm -f src/finance_app/api/net_worth.py src/finance_app/api/wealth_assets.py src/finance_app/api/reports_pkg/wealth.py src/finance_app/models/wealth_asset.py src/finance_app/templates/wealth.html src/finance_app/services/wealth/helpers.py src/finance_app/services/wealth/net_worth_service.py src/finance_app/services/wealth/real_estate_service.py src/finance_app/services/wealth/__init__.py)",
+      "Bash(rm -rf src/finance_app/services/wealth/)",
+      "Bash(rm -f tests/test_reports_wealth.py)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(PYTHONIOENCODING=utf-8 python src/finance_app/scripts/migrate_debts_to_patrimonio.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"\nfrom finance_app.database import get_session_factory, default_database_name, init_db\nfrom finance_app.models.patrimonio_debt import PatrimonioDebt\ninit_db\\(\\)\ndb = get_session_factory\\(default_database_name\\(\\)\\)\\(\\)\ndebts = db.query\\(PatrimonioDebt\\).all\\(\\)\nfor d in debts:\n    print\\(f'{d.nombre}: tipo={d.tipo}, monto={d.monto_original}, tasa={d.tasa_anual}, plazo={d.plazo_meses}, legacy_id={d.legacy_debt_id}, tipo_amort={d.tipo_amortizacion}'\\)\ndb.close\\(\\)\n\")",
+      "Bash(PYTHONPATH=src PYTHONIOENCODING=utf-8 python -c \"\nfrom finance_app.database import get_session_factory, default_database_name, init_db\nfrom finance_app.models.patrimonio_debt import PatrimonioDebt\ninit_db\\(\\)\ndb = get_session_factory\\(default_database_name\\(\\)\\)\\(\\)\ndebts = db.query\\(PatrimonioDebt\\).all\\(\\)\nfor d in debts:\n    print\\(f'{d.nombre}: tipo={d.tipo}, monto={d.monto_original}, tasa={d.tasa_anual}, plazo={d.plazo_meses}, legacy_id={d.legacy_debt_id}, tipo_amort={d.tipo_amortizacion}'\\)\ndb.close\\(\\)\n\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest tests/test_patrimonio_calculator.py -v)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest tests/ -v)",
+      "Bash(git stash:*)",
+      "Bash(PYTHONPATH=src python -c \":*)",
+      "Bash(find src/finance_app/templates -name '*.html' -exec sed -i 's/class=\"\"input-field date-input\"\"/class=\"\"input-field date-input\"\"/g; s/type=\"\"date\"\"\\\\\\(.*\\\\\\)class=\"\"input-field\"\"/type=\"\"date\"\"\\\\1class=\"\"input-field date-input\"\"/g; s/type=\"\"month\"\"\\\\\\(.*\\\\\\)class=\"\"input-field\"\"/type=\"\"month\"\"\\\\1class=\"\"input-field date-input\"\"/g; s/class=\"\"input-field\"\"\\\\\\(.*\\\\\\)type=\"\"date\"\"/class=\"\"input-field date-input\"\"\\\\1type=\"\"date\"\"/g' {} +)",
+      "Bash(grep -v \"^--$\")",
+      "Bash(git add:*)"
+    ]
+  }
+}

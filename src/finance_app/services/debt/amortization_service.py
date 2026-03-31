@@ -64,7 +64,7 @@ def ensure_debt_amortization_records(
             existing_entry = existing_by_date.get(month_start)
             if existing_entry:
                 # Update existing record if the balance has changed
-                if abs(float(existing_entry.principal_remaining) - row["ending_balance"]) > 0.01:
+                if abs(float(existing_entry.principal_remaining) - row["ending_balance"]) > 0.01 or existing_entry.status != status:
                     existing_entry.principal_payment = row["principal"]
                     existing_entry.interest_payment = row["interest"]
                     existing_entry.total_payment = row["payment"]

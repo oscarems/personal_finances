@@ -21,14 +21,12 @@ from finance_app.models import (
     Debt,
     ExchangeRate,
     Transaction,
-    WealthAsset,
 )
 from finance_app.services.budget_service import (
     assign_money_to_category,
     calculate_available,
     get_or_create_budget_month,
 )
-from finance_app.api.reports_pkg import wealth as reports_wealth_mod
 from finance_app.api.reports_pkg import debt as reports_debt_mod
 
 
@@ -311,37 +309,6 @@ class TestModule3_CreditCards:
         assert utilization == 80.0
         assert utilization > 70  # Should trigger alert
 
-    def test_net_worth_uses_current_balance_not_credit_limit(self):
-        """Net worth liabilities should use current_balance (Cuánto debo), not credit_limit (Cupo)."""
-        db = _make_session()
-        _seed_currencies(db)
-
-        debt = Debt(
-            account_id=1,
-            name="Tarjeta",
-            debt_type="credit_card",
-            currency_code="COP",
-            original_amount=10000000.0,
-            credit_limit=10000000.0,
-            current_balance=2000000.0,
-            start_date=date(2026, 1, 1),
-            is_active=True,
-        )
-        db.add(debt)
-        db.commit()
-
-        today = date.today().replace(day=1)
-        result = reports_wealth_mod.get_net_worth(
-            start_date=today.isoformat(),
-            end_date=today.isoformat(),
-            currency_id=1,
-            db=db,
-        )
-
-        liabilities = result["monthly"][0]["liabilities"]
-        # Must be 2M (current_balance), NOT 10M (credit_limit)
-        assert liabilities == 2000000.0
-
     def test_credit_card_zero_balance(self):
         """Credit card with zero balance should show 0 utilization."""
         db = _make_session()
@@ -368,143 +335,8 @@ class TestModule3_CreditCards:
         assert disponible == 5000000.0
 
 
-# ═══════════════════════════════════════════════════════════════════
-# MODULE 1: PATRIMONIO (NET WORTH)
-# ═══════════════════════════════════════════════════════════════════
-
-
-class TestModule1_NetWorth:
-    """Module 1: Net worth timeline, mortgage-asset grouping."""
-
-    def test_net_worth_timeline_returns_monthly_data(self):
-        """Net worth endpoint should return monthly Activos, Deudas, Patrimonio, Δ Patrimonio."""
-        db = _make_session()
-        _seed_currencies(db)
-
-        # Add an asset
-        asset = WealthAsset(
-            name="Apartamento",
-            asset_class="inmueble",
-            value=300000000.0,
-            currency_id=1,
-            as_of_date=date(2026, 1, 1),
-        )
-        db.add(asset)
-
-        # Add a debt
-        debt = Debt(
-            account_id=1,
-            name="Hipoteca",
-            debt_type="mortgage",
-            currency_code="COP",
-            original_amount=200000000.0,
-            current_balance=190000000.0,
-            start_date=date(2026, 1, 1),
-            is_active=True,
-            term_months=240,
-            monthly_payment=2000000.0,
-            interest_rate=12.0,
-        )
-        db.add(debt)
-        db.commit()
-
-        result = reports_wealth_mod.get_net_worth(
-            start_date="2026-01-01",
-            end_date="2026-03-31",
-            currency_id=1,
-            db=db,
-        )
-
-        monthly = result["monthly"]
-        assert len(monthly) == 3
-
-        # Each month should have required keys
-        for m in monthly:
-            assert "month" in m
-            assert "assets" in m
-            assert "liabilities" in m
-            assert "net_worth" in m
-
-        # Assets should include the apartment
-        assert monthly[0]["assets"] > 0
-        # Liabilities should include the mortgage
-        assert monthly[0]["liabilities"] > 0
-        # Net worth = assets - liabilities
-        for m in monthly:
-            assert abs(m["net_worth"] - (m["assets"] - m["liabilities"])) < 0.01
-
-    def test_net_worth_delta_between_months(self):
-        """Timeline should support calculating Δ Patrimonio between months."""
-        db = _make_session()
-        _seed_currencies(db)
-
-        asset = WealthAsset(
-            name="Casa",
-            asset_class="inmueble",
-            value=500000000.0,
-            currency_id=1,
-            as_of_date=date(2026, 1, 1),
-        )
-        db.add(asset)
-        db.commit()
-
-        result = reports_wealth_mod.get_net_worth(
-            start_date="2026-01-01",
-            end_date="2026-03-31",
-            currency_id=1,
-            db=db,
-        )
-
-        monthly = result["monthly"]
-        assert len(monthly) >= 2
-
-        # Delta can be computed from consecutive months
-        for i in range(1, len(monthly)):
-            delta = monthly[i]["net_worth"] - monthly[i - 1]["net_worth"]
-            # Delta is a real number (can be positive, negative, or zero)
-            assert isinstance(delta, (int, float))
-
-    def test_mortgage_linked_to_property(self):
-        """WealthAsset with mortgage_debt_id should link to a Debt record."""
-        db = _make_session()
-        _seed_currencies(db)
-
-        debt = Debt(
-            account_id=1,
-            name="Hipoteca Apto",
-            debt_type="mortgage",
-            currency_code="COP",
-            original_amount=200000000.0,
-            current_balance=180000000.0,
-            start_date=date(2026, 1, 1),
-            is_active=True,
-            term_months=240,
-            monthly_payment=2500000.0,
-        )
-        db.add(debt)
-        db.flush()
-
-        asset = WealthAsset(
-            name="Apartamento Centro",
-            asset_class="inmueble",
-            value=350000000.0,
-            currency_id=1,
-            as_of_date=date(2026, 1, 1),
-            mortgage_debt_id=debt.id,
-        )
-        db.add(asset)
-        db.commit()
-
-        # Asset is linked to debt
-        assert asset.mortgage_debt_id == debt.id
-
-        # Equity = Valor inmueble - Saldo pendiente
-        equity = asset.value - debt.current_balance
-        assert equity == 170000000.0
-
-        # Equity percentage
-        equity_pct = (equity / asset.value) * 100
-        assert abs(equity_pct - 48.57) < 0.1
+# TestModule1_NetWorth removed — legacy WealthAsset system consolidated into Patrimonio.
+# See tests/test_patrimonio_calculator.py for net worth tests.
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -596,37 +428,6 @@ class TestModule4_Dashboard:
 class TestCrossModule:
     """Integration tests across modules."""
 
-    def test_credit_card_in_net_worth_uses_current_balance(self):
-        """Cross-check: credit card debt in net worth uses current_balance, not original_amount."""
-        db = _make_session()
-        _seed_currencies(db)
-
-        # Credit card with high limit but low balance
-        cc = Debt(
-            account_id=1,
-            name="Visa",
-            debt_type="credit_card",
-            currency_code="COP",
-            original_amount=20000000.0,
-            credit_limit=20000000.0,
-            current_balance=500000.0,  # Only owes 500k
-            start_date=date(2026, 1, 1),
-            is_active=True,
-        )
-        db.add(cc)
-        db.commit()
-
-        today = date.today().replace(day=1)
-        result = reports_wealth_mod.get_net_worth(
-            start_date=today.isoformat(),
-            end_date=today.isoformat(),
-            currency_id=1,
-            db=db,
-        )
-
-        # Liabilities = 500k (what they owe), NOT 20M (credit limit)
-        assert result["monthly"][0]["liabilities"] == 500000.0
-
     def test_covering_does_not_affect_net_worth(self):
         """Covering between categories creates offsetting transactions, net effect = 0."""
         db = _make_session()
@@ -680,45 +481,3 @@ class TestCrossModule:
 
         # Total debt should be 3M (current_balance), not 15M
         assert summary["totals"]["total_debt"] == 3000000.0
-
-    def test_multi_debt_type_net_worth(self):
-        """Net worth should correctly handle mixed debt types."""
-        db = _make_session()
-        _seed_currencies(db)
-
-        # Credit card
-        cc = Debt(
-            account_id=1,
-            name="Visa",
-            debt_type="credit_card",
-            currency_code="COP",
-            original_amount=10000000.0,
-            credit_limit=10000000.0,
-            current_balance=2000000.0,
-            start_date=date(2026, 1, 1),
-            is_active=True,
-        )
-        # Credit loan (no amortization terms)
-        loan = Debt(
-            account_id=1,
-            name="Prestamo Personal",
-            debt_type="credit_loan",
-            currency_code="COP",
-            original_amount=5000000.0,
-            current_balance=3000000.0,
-            start_date=date(2026, 1, 1),
-            is_active=True,
-        )
-        db.add_all([cc, loan])
-        db.commit()
-
-        today = date.today().replace(day=1)
-        result = reports_wealth_mod.get_net_worth(
-            start_date=today.isoformat(),
-            end_date=today.isoformat(),
-            currency_id=1,
-            db=db,
-        )
-
-        # Total liabilities = cc(2M) + loan(3M) = 5M
-        assert result["monthly"][0]["liabilities"] == 5000000.0

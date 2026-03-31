@@ -15,11 +15,12 @@ from finance_app.models.ynab_category_mapping import YnabCategoryMapping
 from finance_app.models.alert import AlertRule
 from finance_app.models.budget_alert_state import BudgetAlertState
 from finance_app.models.reconciliation import ReconciliationSession
-from finance_app.models.wealth_asset import WealthAsset
 from finance_app.models.email_scrape_transaction import EmailScrapeTransaction
 from finance_app.models.tag import Tag, TransactionTag
 from finance_app.models.transaction_split import TransactionSplit
 from finance_app.models.goal import Goal, GoalContribution
+from finance_app.models.patrimonio_asset import PatrimonioAsset
+# PatrimonioDebt removed — debts use the Debt model directly
 
 __all__ = [
     'Currency',
@@ -42,11 +43,11 @@ __all__ = [
     'AlertRule',
     'BudgetAlertState',
     'ReconciliationSession',
-    'WealthAsset',
     'EmailScrapeTransaction',
     'GoalContribution',
     'Goal',
     'TransactionSplit',
     'TransactionTag',
     'Tag',
+    'PatrimonioAsset',
 ]

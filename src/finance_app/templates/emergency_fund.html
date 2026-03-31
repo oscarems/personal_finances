@@ -228,6 +228,92 @@
         container.innerHTML = html;
     }
 
+    function buildGroupedCategoryHTML(categories, type) {
+        // Group by category_group_name
+        const grouped = {};
+        categories.forEach(cat => {
+            const group = cat.category_group_name || 'Sin grupo';
+            if (!grouped[group]) grouped[group] = [];
+            grouped[group].push(cat);
+        });
+
+        const flagField = type === 'essential' ? 'is_essential' : 'is_emergency_fund';
+        const toggleFn = type === 'essential' ? 'toggleEssential' : 'toggleEmergencyFund';
+
+        let html = '';
+        Object.keys(grouped).sort().forEach(group => {
+            const cats = grouped[group];
+            const allSelected = cats.every(c => c[flagField]);
+            const someSelected = cats.some(c => c[flagField]);
+
+            html += `<div class="mb-4">
+                <div class="flex items-center gap-2 mb-2 pb-1 border-b border-neutral-200 dark:border-neutral-700">
+                    <input type="checkbox" ${allSelected ? 'checked' : ''}
+                           onchange="toggleGroup('${group.replace(/'/g, "\\'")}', '${type}', this.checked)"
+                           class="group-cb-${type} w-4 h-4 rounded border-neutral-300 text-primary-600 cursor-pointer"
+                           data-group="${group}" ${!allSelected && someSelected ? 'data-indeterminate="true"' : ''}>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">${group}</span>
+                </div>`;
+
+            cats.forEach(cat => {
+                html += `<div class="category-checkbox ${cat[flagField] ? 'selected' : ''} ml-2"
+                     onclick="${toggleFn}(${cat.id})">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox"
+                               ${cat[flagField] ? 'checked' : ''}
+                               onclick="event.stopPropagation(); ${toggleFn}(${cat.id})"
+                               class="mr-3">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800 dark:text-neutral-200">${cat.name}</div>
+                        </div>
+                    </label>
+                </div>`;
+            });
+
+            html += `</div>`;
+        });
+
+        // Set indeterminate via JS after render
+        setTimeout(() => {
+            document.querySelectorAll(`[data-indeterminate="true"].group-cb-${type}`).forEach(cb => {
+                cb.indeterminate = true;
+            });
+        }, 0);
+
+        return html;
+    }
+
+    function toggleGroup(group, type, checked) {
+        const flagField = type === 'essential' ? 'is_essential' : 'is_emergency_fund';
+        const cats = allCategories.filter(cat => {
+            const catGroup = cat.category_group_name || 'Sin grupo';
+            if (catGroup !== group) return false;
+            if (type === 'essential') return !cat.is_income && cat.rollover_type === 'reset';
+            return !cat.is_income && cat.rollover_type === 'accumulate';
+        });
+
+        // Toggle all categories in the group
+        const promises = cats.filter(cat => cat[flagField] !== checked).map(cat => {
+            const endpoint = `/api/emergency-fund/categories/${cat.id}`;
+            const body = type === 'essential'
+                ? { is_essential: checked }
+                : { is_emergency_fund: checked };
+            return fetch(endpoint, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).then(res => {
+                if (res.ok) cat[flagField] = checked;
+            });
+        });
+
+        Promise.all(promises).then(() => {
+            if (type === 'essential') displayEssentialCategories();
+            else displayEmergencyFundCategories();
+            loadCoverageData();
+        });
+    }
+
     function displayEssentialCategories() {
         const container = document.getElementById('essentialCategories');
 
@@ -241,23 +327,7 @@
             return;
         }
 
-        const html = expenseCategories.map(cat => `
-            <div class="category-checkbox ${cat.is_essential ? 'selected' : ''}"
-                 onclick="toggleEssential(${cat.id})">
-                <label class="flex items-center cursor-pointer">
-                    <input type="checkbox"
-                           ${cat.is_essential ? 'checked' : ''}
-                           onclick="event.stopPropagation(); toggleEssential(${cat.id})"
-                           class="mr-3">
-                    <div class="flex-1">
-                        <div class="font-medium text-gray-800">${cat.name}</div>
-                        <div class="text-xs text-gray-500">${cat.category_group_name}</div>
-                    </div>
-                </label>
-            </div>
-        `).join('');
-
-        container.innerHTML = html;
+        container.innerHTML = buildGroupedCategoryHTML(expenseCategories, 'essential');
     }
 
     function displayEmergencyFundCategories() {
@@ -273,23 +343,7 @@
             return;
         }
 
-        const html = savingsCategories.map(cat => `
-            <div class="category-checkbox ${cat.is_emergency_fund ? 'selected' : ''}"
-                 onclick="toggleEmergencyFund(${cat.id})">
-                <label class="flex items-center cursor-pointer">
-                    <input type="checkbox"
-                           ${cat.is_emergency_fund ? 'checked' : ''}
-                           onclick="event.stopPropagation(); toggleEmergencyFund(${cat.id})"
-                           class="mr-3">
-                    <div class="flex-1">
-                        <div class="font-medium text-gray-800">${cat.name}</div>
-                        <div class="text-xs text-gray-500">${cat.category_group_name}</div>
-                    </div>
-                </label>
-            </div>
-        `).join('');
-
-        container.innerHTML = html;
+        container.innerHTML = buildGroupedCategoryHTML(savingsCategories, 'emergency_fund');
     }
 
     async function toggleEssential(categoryId) {
