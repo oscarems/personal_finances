@@ -25,7 +25,9 @@
       "Bash(PYTHONPATH=src python -c \":*)",
       "Bash(find src/finance_app/templates -name '*.html' -exec sed -i 's/class=\"\"input-field date-input\"\"/class=\"\"input-field date-input\"\"/g; s/type=\"\"date\"\"\\\\\\(.*\\\\\\)class=\"\"input-field\"\"/type=\"\"date\"\"\\\\1class=\"\"input-field date-input\"\"/g; s/type=\"\"month\"\"\\\\\\(.*\\\\\\)class=\"\"input-field\"\"/type=\"\"month\"\"\\\\1class=\"\"input-field date-input\"\"/g; s/class=\"\"input-field\"\"\\\\\\(.*\\\\\\)type=\"\"date\"\"/class=\"\"input-field date-input\"\"\\\\1type=\"\"date\"\"/g' {} +)",
       "Bash(grep -v \"^--$\")",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
