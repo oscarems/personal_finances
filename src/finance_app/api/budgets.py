@@ -14,7 +14,8 @@ from finance_app.services.budget_service import (
     get_budget_overview,
     get_assigned_totals_by_currency,
     calculate_available,
-    get_spent_transactions_to_date
+    get_spent_transactions_to_date,
+    get_category_budget_history
 )
 from finance_app.models import BudgetMonth, Currency, Category
 
@@ -86,6 +87,16 @@ def get_budget(year: int, month: int, currency_code: str = 'COP', db: Session = 
     """Get budget for a specific month"""
     month_date = date(year, month, 1)
     return get_month_budget(db, month_date, currency_code)
+
+
+@router.get("/category/{category_id}/history")
+def category_budget_history(
+    category_id: int,
+    months: int = 3,
+    db: Session = Depends(get_db)
+):
+    """Historical budget data and transactions for a category over N months."""
+    return get_category_budget_history(db, category_id, months)
 
 
 @router.get("/category/{category_id}/{month}")

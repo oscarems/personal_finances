@@ -198,6 +198,75 @@
     <!-- Budget groups will be loaded here -->
 </div>
 
+<!-- Category Detail/History Modal -->
+<div id="categoryDetailModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
+    <div class="bg-white card p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
+                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
+                        <span class="text-2xl">📊</span>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-extrabold text-neutral-900" id="detailCategoryName"></h3>
+                    <p class="text-sm text-neutral-500" id="detailCategoryType"></p>
+                </div>
+            </div>
+            <button onclick="closeCategoryDetailModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
+        </div>
+
+        <!-- Months selector -->
+        <div class="flex items-center gap-3 mb-6">
+            <label class="text-sm font-bold text-neutral-700 uppercase tracking-wide">Meses:</label>
+            <select id="detailMonthsSelect" onchange="loadCategoryHistory()" class="input-field w-auto">
+                <option value="3">Últimos 3 meses</option>
+                <option value="6">Últimos 6 meses</option>
+                <option value="12">Últimos 12 meses</option>
+            </select>
+            <button onclick="openAssignModalFromDetail()" class="btn-primary ml-auto flex items-center gap-2">
+                <span>💰</span> Asignar Dinero
+            </button>
+        </div>
+
+        <!-- Timeline Chart -->
+        <div class="mb-6">
+            <h4 class="text-lg font-bold text-neutral-800 mb-3" id="detailChartTitle">Evolución</h4>
+            <div class="bg-neutral-50 rounded-xl p-4" style="height: 260px;">
+                <canvas id="detailTimelineChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Monthly History Table -->
+        <div class="mb-6">
+            <h4 class="text-lg font-bold text-neutral-800 mb-3">Histórico Mensual</h4>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-neutral-100 text-neutral-600 uppercase text-xs tracking-wide">
+                            <th class="px-4 py-3 text-left">Mes</th>
+                            <th class="px-4 py-3 text-right">Asignado</th>
+                            <th class="px-4 py-3 text-right">Gastado</th>
+                            <th class="px-4 py-3 text-right">Disponible</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailHistoryBody" class="divide-y divide-neutral-100">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Transactions List -->
+        <div>
+            <h4 class="text-lg font-bold text-neutral-800 mb-3">Transacciones</h4>
+            <div id="detailTransactionsContainer" class="space-y-2 max-h-80 overflow-y-auto">
+            </div>
+            <p id="detailNoTransactions" class="hidden text-neutral-400 text-sm italic py-4 text-center">Sin transacciones en este período</p>
+        </div>
+    </div>
+</div>
+
 <!-- Assign Money Modal - Diseño mejorado -->
 <div id="assignModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
     <div class="bg-white card p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300">
@@ -933,7 +1002,7 @@
 
                             return `
                                 <div class="px-6 py-5 hover:bg-gray-50/80 cursor-pointer ${alertClass}"
-                                     onclick='openAssignModal(${JSON.stringify(cat).replace(/'/g, "&apos;")})'>
+                                     onclick='openCategoryDetailModal(${JSON.stringify(cat).replace(/'/g, "&apos;")})'>
                                     <div class="grid grid-cols-4 gap-4 items-center">
                                         <div class="col-span-1">
                                             <div class="flex items-center gap-2 flex-wrap">
@@ -2027,6 +2096,212 @@
             console.error('Error deleting category:', error);
             alert('Error al eliminar la categoría');
         }
+    }
+
+    // Category Detail Modal
+    let detailCategoryData = null;
+
+    function openCategoryDetailModal(categoryData) {
+        detailCategoryData = categoryData;
+        document.getElementById('detailCategoryName').textContent = categoryData.category_name;
+        const typeLabel = categoryData.rollover_type === 'accumulate' ? '🎯 Ahorro' : '💰 Gasto Mensual';
+        document.getElementById('detailCategoryType').textContent = typeLabel;
+        document.getElementById('detailMonthsSelect').value = '6';
+        document.getElementById('categoryDetailModal').classList.remove('hidden');
+        loadCategoryHistory();
+    }
+
+    function closeCategoryDetailModal() {
+        detailCategoryData = null;
+        if (detailChart) { detailChart.destroy(); detailChart = null; }
+        document.getElementById('categoryDetailModal').classList.add('hidden');
+    }
+
+    function openAssignModalFromDetail() {
+        const catData = detailCategoryData;
+        closeCategoryDetailModal();
+        if (catData) {
+            openAssignModal(catData);
+        }
+    }
+
+    async function loadCategoryHistory() {
+        if (!detailCategoryData) return;
+        const months = parseInt(document.getElementById('detailMonthsSelect').value);
+        const categoryId = detailCategoryData.category_id;
+
+        try {
+            const res = await fetch(`/api/budgets/category/${categoryId}/history?months=${months}`);
+            const data = await res.json();
+            renderCategoryHistory(data);
+        } catch (error) {
+            console.error('Error loading category history:', error);
+        }
+    }
+
+    let detailChart = null;
+
+    function renderCategoryHistory(data) {
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const isSavings = detailCategoryData && detailCategoryData.rollover_type === 'accumulate';
+
+        // Render timeline chart
+        const reversed = [...data.monthly_summary].reverse();
+        const labels = reversed.map(row => {
+            const d = new Date(row.month + 'T00:00:00');
+            return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+        });
+
+        const chartTitle = document.getElementById('detailChartTitle');
+        if (isSavings) {
+            chartTitle.textContent = 'Evolución del Ahorro';
+        } else {
+            chartTitle.textContent = 'Evolución Mensual';
+        }
+
+        if (detailChart) {
+            detailChart.destroy();
+            detailChart = null;
+        }
+
+        const ctx = document.getElementById('detailTimelineChart').getContext('2d');
+        const datasets = [];
+
+        if (isSavings) {
+            datasets.push({
+                label: 'Ahorrado (Disponible)',
+                data: reversed.map(r => r.total_available),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.3,
+                borderWidth: 2.5,
+                pointRadius: 4,
+                pointBackgroundColor: '#10b981',
+            });
+        } else {
+            datasets.push({
+                label: 'Asignado',
+                data: reversed.map(r => r.total_assigned),
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                fill: false,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#6366f1',
+            }, {
+                label: 'Gastado',
+                data: reversed.map(r => Math.abs(r.total_activity)),
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                fill: false,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#ef4444',
+            }, {
+                label: 'Disponible',
+                data: reversed.map(r => r.total_available),
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                fill: false,
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: '#10b981',
+            });
+        }
+
+        detailChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': $' + formatAmount(context.parsed.y, 0);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: v => '$' + formatAmount(v, 0)
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // Render monthly summary table
+        const tbody = document.getElementById('detailHistoryBody');
+        tbody.innerHTML = data.monthly_summary.map(row => {
+            const d = new Date(row.month + 'T00:00:00');
+            const monthLabel = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+            const availableClass = row.total_available >= 0 ? 'text-green-600' : 'text-red-600';
+            const hasCop = row.assigned_cop || row.activity_cop || row.available_cop;
+            const hasUsd = row.assigned_usd || row.activity_usd || row.available_usd;
+
+            function renderAmount(cop, usd, absVal = false) {
+                const copVal = absVal ? Math.abs(cop) : cop;
+                const usdVal = absVal ? Math.abs(usd) : usd;
+                let lines = [];
+                if (hasCop) lines.push(`<div>$${formatAmount(copVal, 0)}</div>`);
+                if (hasUsd) lines.push(`<div${hasCop ? ' class="text-xs text-neutral-400"' : ''}>US$${formatAmount(usdVal, 2)}</div>`);
+                return lines.join('');
+            }
+
+            return `
+                <tr class="hover:bg-neutral-50">
+                    <td class="px-4 py-3 font-medium text-neutral-800">${monthLabel}</td>
+                    <td class="px-4 py-3 text-right">${renderAmount(row.assigned_cop, row.assigned_usd)}</td>
+                    <td class="px-4 py-3 text-right">${renderAmount(row.activity_cop, row.activity_usd, true)}</td>
+                    <td class="px-4 py-3 text-right font-semibold ${availableClass}">${renderAmount(row.available_cop, row.available_usd)}</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Render transactions
+        const container = document.getElementById('detailTransactionsContainer');
+        const noTx = document.getElementById('detailNoTransactions');
+
+        if (!data.transactions.length) {
+            container.innerHTML = '';
+            noTx.classList.remove('hidden');
+            return;
+        }
+
+        noTx.classList.add('hidden');
+        container.innerHTML = data.transactions.map(tx => {
+            const amountClass = tx.amount < 0 ? 'text-red-600' : 'text-green-600';
+            const sign = tx.amount < 0 ? '-' : '+';
+            const symbol = tx.currency_code === 'USD' ? 'US$' : '$';
+            const decimals = tx.currency_code === 'USD' ? 2 : 0;
+
+            return `
+                <div class="flex items-center justify-between px-4 py-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition-colors">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-neutral-800 truncate">${tx.memo || 'Sin descripción'}</p>
+                        <p class="text-xs text-neutral-400">${tx.date} · ${tx.account_name || ''}</p>
+                    </div>
+                    <p class="text-sm font-bold ${amountClass} ml-4 whitespace-nowrap">
+                        ${sign}${symbol}${formatAmount(Math.abs(tx.amount), decimals)}
+                    </p>
+                </div>
+            `;
+        }).join('');
     }
 
     async function deleteGroup(groupId, groupName) {

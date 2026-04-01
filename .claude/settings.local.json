@@ -27,7 +27,10 @@
       "Bash(grep -v \"^--$\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(grep -r TELEGRAM /d/Github/personal_finances --include=*.py --include=*.env*)",
+      "Bash(find /d/GitHub/personal_finances/finance_app -type f -name *budget*)",
+      "Bash(find /d/GitHub/personal_finances/backend -type f -name *budget*)"
     ]
   }
 }

@@ -887,3 +887,102 @@ def move_to_next_month(db: Session, current_month_date, currency_id):
             db.commit()
 
     return True
+
+
+def get_category_budget_history(db: Session, category_id: int, months: int = 3):
+    """
+    Returns monthly budget history (assigned, activity, available) and
+    associated transactions for a category over the last N months.
+
+    All monetary values are returned both per-currency and consolidated to COP.
+    """
+    today = date.today()
+    current_month = date(today.year, today.month, 1)
+
+    # Build list of months going back
+    month_list = []
+    for i in range(months):
+        m = current_month - relativedelta(months=i)
+        month_list.append(m)
+
+    currencies = {c.id: c for c in db.query(Currency).all()}
+    exchange_rate = get_current_exchange_rate(db)
+
+    # Get budget records for all months and recalculate to reflect latest transactions
+    budgets = db.query(BudgetMonth).filter(
+        BudgetMonth.category_id == category_id,
+        BudgetMonth.month.in_(month_list)
+    ).order_by(BudgetMonth.month).all()
+
+    for b in budgets:
+        calculate_available(db, b)
+    db.commit()
+
+    def to_cop(amount, currency_id):
+        """Convert amount to COP using current exchange rate."""
+        cur = currencies.get(currency_id)
+        if not cur or cur.code == 'COP':
+            return float(amount or 0)
+        # USD -> COP
+        return float(amount or 0) * exchange_rate
+
+    # Build monthly summary
+    monthly_summary = []
+    for m in month_list:
+        month_budgets = [b for b in budgets if b.month == m]
+
+        # Per-currency values
+        assigned_cop = sum(b.assigned or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'COP')
+        activity_cop = sum(b.activity or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'COP')
+        available_cop = sum(b.available or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'COP')
+        assigned_usd = sum(b.assigned or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'USD')
+        activity_usd = sum(b.activity or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'USD')
+        available_usd = sum(b.available or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'USD')
+
+        # Consolidated to COP (sum all currencies converted)
+        total_assigned = sum(to_cop(b.assigned, b.currency_id) for b in month_budgets)
+        total_activity = sum(to_cop(b.activity, b.currency_id) for b in month_budgets)
+        total_available = sum(to_cop(b.available, b.currency_id) for b in month_budgets)
+
+        monthly_summary.append({
+            "month": m.isoformat(),
+            "assigned_cop": assigned_cop,
+            "activity_cop": activity_cop,
+            "available_cop": available_cop,
+            "assigned_usd": assigned_usd,
+            "activity_usd": activity_usd,
+            "available_usd": available_usd,
+            "total_assigned": total_assigned,
+            "total_activity": total_activity,
+            "total_available": total_available,
+        })
+
+    # Get transactions for the date range
+    oldest_month = month_list[-1]
+    next_of_current = current_month + relativedelta(months=1)
+
+    transactions = db.query(Transaction).options(
+        joinedload(Transaction.account)
+    ).filter(
+        Transaction.category_id == category_id,
+        Transaction.date >= oldest_month,
+        Transaction.date < next_of_current,
+    ).order_by(Transaction.date.desc()).all()
+
+    tx_list = []
+    for tx in transactions:
+        tx_list.append({
+            "id": tx.id,
+            "date": tx.date.isoformat(),
+            "amount": tx.amount,
+            "memo": tx.memo,
+            "account_name": tx.account.name if tx.account else None,
+            "currency_code": currencies.get(tx.currency_id, None).code if currencies.get(tx.currency_id) else "COP",
+        })
+
+    return {
+        "category_id": category_id,
+        "months": months,
+        "monthly_summary": monthly_summary,
+        "transactions": tx_list,
+    }
