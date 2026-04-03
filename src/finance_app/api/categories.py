@@ -331,13 +331,35 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{category_id}")
-def get_category(category_id: int, db: Session = Depends(get_db)):
-    """Get a single category with all its details including savings goals"""
+def get_category(category_id: int, month: Optional[str] = None, db: Session = Depends(get_db)):
+    """Get a single category with all its details including savings goals.
+
+    If month is provided (YYYY-MM), includes previous_month_available for accumulate categories.
+    """
     category = db.query(Category).filter_by(id=category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    return category.to_dict(include_group=True)
+    data = category.to_dict(include_group=True)
+
+    if month and category.rollover_type == 'accumulate':
+        from datetime import date as date_type
+        from finance_app.services.budget_service import get_previous_budget
+        try:
+            year, mo = month.split('-')
+            month_date = date_type(int(year), int(mo), 1)
+        except (ValueError, TypeError):
+            month_date = None
+
+        if month_date:
+            prev_available = {}
+            for currency in db.query(Currency).all():
+                prev_budget = get_previous_budget(db, category_id, month_date, currency.id)
+                if prev_budget and prev_budget.available:
+                    prev_available[currency.code] = float(prev_budget.available)
+            data['previous_month_available'] = prev_available
+
+    return data
 
 
 @router.patch("/{category_id}", response_model=CategoryResponse)

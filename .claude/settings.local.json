@@ -30,7 +30,15 @@
       "Bash(git push:*)",
       "Bash(grep -r TELEGRAM /d/Github/personal_finances --include=*.py --include=*.env*)",
       "Bash(find /d/GitHub/personal_finances/finance_app -type f -name *budget*)",
-      "Bash(find /d/GitHub/personal_finances/backend -type f -name *budget*)"
+      "Bash(find /d/GitHub/personal_finances/backend -type f -name *budget*)",
+      "Bash(PYTHONPATH=src python -c \"from finance_app.models.transaction import Transaction; print\\('OK'\\)\")",
+      "Bash(PYTHONPATH=src python -c \"from finance_app.services.transaction_service import get_transactions; print\\('OK'\\)\")",
+      "Bash(PYTHONPATH=src python -c \"from finance_app.api.categories import router; print\\('OK'\\)\")",
+      "Bash(PYTHONPATH=src python -c \"from finance_app.app import app; print\\('OK'\\)\")",
+      "Bash(chcp 65001)",
+      "Bash(PYTHONUTF8=1 python src/finance_app/scripts/migrate_db.py)",
+      "Bash(PYTHONUTF8=1 python -c \"from finance_app.models.budget import BudgetMonth; print\\('OK:', [c.name for c in BudgetMonth.__table__.columns]\\)\")",
+      "Bash(PYTHONUTF8=1 PYTHONPATH=src python -c \"from finance_app.models.budget import BudgetMonth; print\\('OK:', [c.name for c in BudgetMonth.__table__.columns]\\)\")"
     ]
   }
 }

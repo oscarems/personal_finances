@@ -16,6 +16,7 @@ from finance_app.database import (
     ensure_database_initialized,
     get_session_factory,
 )
+from finance_app.models import Account
 from finance_app.api import (
     transactions,
     accounts,
@@ -35,6 +36,7 @@ from finance_app.api import (
     goals,
     patrimonio,
 )
+from finance_app.api import email_sender_rules
 from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
 
@@ -84,6 +86,7 @@ app.include_router(reconciliation.router, prefix="/api/reconciliation", tags=["r
 app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(patrimonio.router, prefix="/api/patrimonio", tags=["patrimonio"])
+app.include_router(email_sender_rules.router, prefix="/api/email-sender-rules", tags=["email-sender-rules"])
 
 
 @app.on_event("startup")
@@ -115,7 +118,11 @@ async def home(request: Request):
 @app.get("/budget")
 async def budget_page(request: Request):
     """Budget page"""
-    return templates.TemplateResponse("budget.html", {"request": request})
+    from datetime import date
+    return templates.TemplateResponse("budget.html", {
+        "request": request,
+        "current_month": date.today().strftime("%Y-%m"),
+    })
 
 
 @app.get("/transactions")
@@ -187,6 +194,15 @@ async def financial_health_page(request: Request):
 async def goals_page(request: Request):
     """Goals page"""
     return templates.TemplateResponse("goals.html", {"request": request})
+
+
+@app.get("/email-sender-rules")
+def email_sender_rules_page(request: Request, db: Session = Depends(get_db)):
+    accounts = db.query(Account).filter_by(is_closed=False).order_by(Account.name).all()
+    return templates.TemplateResponse("email_sender_rules.html", {
+        "request": request,
+        "accounts": [a.to_dict() for a in accounts],
+    })
 
 
 @app.get("/api/currencies")

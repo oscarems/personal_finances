@@ -310,6 +310,65 @@ def migrate_database(db_path: Path | None = None):
             conn.commit()
             print("✅ Tabla creada exitosamente en debt_amortization_monthly")
 
+        # --- initial_amount column on budget_months ---
+        cursor.execute("PRAGMA table_info(budget_months)")
+        budget_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'initial_amount' in budget_columns:
+            print("✓ La columna 'initial_amount' ya existe en budget_months")
+        else:
+            print("🔧 Agregando columna 'initial_amount' a la tabla budget_months...")
+            cursor.execute("ALTER TABLE budget_months ADD COLUMN initial_amount FLOAT DEFAULT 0.0")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en budget_months")
+
+            # Backfill: for accumulate categories, set initial_amount from previous month's available
+            print("🔧 Rellenando initial_amount en budget_months para categorías de ahorro...")
+            cursor.execute("""
+                UPDATE budget_months SET initial_amount = (
+                    SELECT prev.available
+                    FROM budget_months prev
+                    JOIN categories c ON c.id = budget_months.category_id
+                    WHERE c.rollover_type = 'accumulate'
+                    AND prev.category_id = budget_months.category_id
+                    AND prev.currency_id = budget_months.currency_id
+                    AND prev.month = date(budget_months.month, '-1 month')
+                )
+                WHERE EXISTS (
+                    SELECT 1 FROM categories c2
+                    WHERE c2.id = budget_months.category_id AND c2.rollover_type = 'accumulate'
+                )
+                AND (
+                    SELECT prev2.available FROM budget_months prev2
+                    WHERE prev2.category_id = budget_months.category_id
+                    AND prev2.currency_id = budget_months.currency_id
+                    AND prev2.month = date(budget_months.month, '-1 month')
+                ) IS NOT NULL
+            """)
+            conn.commit()
+
+            # For accumulate categories with no previous month, use category.initial_amount
+            cursor.execute("""
+                UPDATE budget_months SET initial_amount = (
+                    SELECT c.initial_amount FROM categories c
+                    WHERE c.id = budget_months.category_id AND c.rollover_type = 'accumulate'
+                )
+                WHERE initial_amount = 0.0
+                AND EXISTS (
+                    SELECT 1 FROM categories c2
+                    WHERE c2.id = budget_months.category_id AND c2.rollover_type = 'accumulate'
+                    AND c2.initial_amount > 0
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM budget_months prev
+                    WHERE prev.category_id = budget_months.category_id
+                    AND prev.currency_id = budget_months.currency_id
+                    AND prev.month < budget_months.month
+                )
+            """)
+            conn.commit()
+            print("✅ Backfill completado")
+
         conn.close()
         print("\n✓ Migración completada. Ahora puedes ejecutar 'python init_db.py'")
 

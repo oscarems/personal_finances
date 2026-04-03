@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Reglas de correo{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8">
+    <h1 class="text-2xl font-bold">Reglas de remitente de correo</h1>
+    <p class="text-sm opacity-70">Las reglas aprenden automáticamente qué cuenta corresponde a cada remitente. Confirma o corrige las asignaciones.</p>
+
+    <!-- Pendientes -->
+    <div class="card">
+        <h2 class="text-lg font-semibold mb-4">Pendientes de confirmar</h2>
+        <div id="pending-empty" class="hidden p-4 text-center opacity-60">No hay reglas pendientes de revisión ✅</div>
+        <table id="pending-table" class="data-table w-full hidden">
+            <thead>
+                <tr>
+                    <th class="text-left">Dominio remitente</th>
+                    <th class="text-left">Cuenta asignada</th>
+                    <th class="text-right">Veces visto</th>
+                    <th class="text-left">Última vez</th>
+                    <th class="text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="pending-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Confirmadas -->
+    <div class="card">
+        <h2 class="text-lg font-semibold mb-4">Reglas confirmadas</h2>
+        <div id="confirmed-empty" class="hidden p-4 text-center opacity-60">No hay reglas confirmadas aún.</div>
+        <table id="confirmed-table" class="data-table w-full hidden">
+            <thead>
+                <tr>
+                    <th class="text-left">Dominio</th>
+                    <th class="text-left">Cuenta</th>
+                    <th class="text-right">Veces visto</th>
+                    <th class="text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="confirmed-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+const API = '/api/email-sender-rules';
+const accounts = {{ accounts | tojson }};
+
+function accountSelect(selectedId, id) {
+    let html = `<select id="sel-${id}" class="input-field text-sm">`;
+    accounts.forEach(a => {
+        html += `<option value="${a.id}" ${a.id === selectedId ? 'selected' : ''}>${a.name}</option>`;
+    });
+    html += '</select>';
+    return html;
+}
+
+function formatDate(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-CO', {year:'numeric',month:'short',day:'numeric'});
+}
+
+function renderPendingRow(r) {
+    return `<tr data-id="${r.id}">
+        <td><span class="badge-warning text-xs px-2 py-1 rounded">${r.sender_pattern}</span></td>
+        <td>${accountSelect(r.account_id, r.id)}</td>
+        <td class="text-right">${r.match_count}</td>
+        <td>${formatDate(r.last_seen)}</td>
+        <td class="text-right space-x-1">
+            <button onclick="confirmRule(${r.id})" class="btn-primary text-xs px-2 py-1">✓ Confirmar</button>
+            <button onclick="deleteRule(${r.id})" class="btn-danger text-xs px-2 py-1">🗑</button>
+        </td>
+    </tr>`;
+}
+
+function renderConfirmedRow(r) {
+    return `<tr data-id="${r.id}">
+        <td><span class="badge-success text-xs px-2 py-1 rounded">${r.sender_pattern}</span></td>
+        <td class="acct-cell">${r.account_name || '-'}</td>
+        <td class="text-right">${r.match_count}</td>
+        <td class="text-right space-x-1">
+            <button onclick="startEdit(${r.id}, ${r.account_id})" class="btn-secondary text-xs px-2 py-1">Editar</button>
+            <button onclick="revokeRule(${r.id})" class="btn-secondary text-xs px-2 py-1">Revocar</button>
+        </td>
+    </tr>`;
+}
+
+async function loadRules() {
+    const res = await fetch(API);
+    const rules = await res.json();
+    const pending = rules.filter(r => !r.confirmed_by_user);
+    const confirmed = rules.filter(r => r.confirmed_by_user);
+
+    const pb = document.getElementById('pending-body');
+    const cb = document.getElementById('confirmed-body');
+    pb.innerHTML = pending.map(renderPendingRow).join('');
+    cb.innerHTML = confirmed.map(renderConfirmedRow).join('');
+
+    document.getElementById('pending-table').classList.toggle('hidden', pending.length === 0);
+    document.getElementById('pending-empty').classList.toggle('hidden', pending.length > 0);
+    document.getElementById('confirmed-table').classList.toggle('hidden', confirmed.length === 0);
+    document.getElementById('confirmed-empty').classList.toggle('hidden', confirmed.length > 0);
+}
+
+async function confirmRule(id) {
+    const sel = document.getElementById('sel-' + id);
+    await fetch(`${API}/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({account_id: parseInt(sel.value), confirmed_by_user: true})
+    });
+    loadRules();
+}
+
+async function deleteRule(id) {
+    if (!confirm('¿Eliminar esta regla?')) return;
+    await fetch(`${API}/${id}`, {method:'DELETE'});
+    loadRules();
+}
+
+async function revokeRule(id) {
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    const acctName = row.querySelector('.acct-cell').textContent;
+    const acct = accounts.find(a => a.name === acctName);
+    await fetch(`${API}/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({account_id: acct ? acct.id : accounts[0].id, confirmed_by_user: false})
+    });
+    loadRules();
+}
+
+function startEdit(id, currentAccountId) {
+    const row = document.querySelector(`#confirmed-body tr[data-id="${id}"]`);
+    const acctCell = row.querySelector('.acct-cell');
+    acctCell.innerHTML = accountSelect(currentAccountId, 'edit-' + id);
+    const actionsCell = row.querySelector('td:last-child');
+    actionsCell.innerHTML = `<button onclick="saveEdit(${id})" class="btn-primary text-xs px-2 py-1">Guardar</button>
+        <button onclick="loadRules()" class="btn-secondary text-xs px-2 py-1">Cancelar</button>`;
+}
+
+async function saveEdit(id) {
+    const sel = document.getElementById('sel-edit-' + id);
+    await fetch(`${API}/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({account_id: parseInt(sel.value), confirmed_by_user: true})
+    });
+    loadRules();
+}
+
+loadRules();
+</script>
+{% endblock %}

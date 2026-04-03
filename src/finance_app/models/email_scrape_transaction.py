@@ -20,6 +20,7 @@ class EmailScrapeTransaction(Base):
     account_label = Column(String(120), nullable=False)
     movement_class = Column(String(120))
     location = Column(String(255))
+    sender = Column(String(500), nullable=True)  # campo From: del correo original
     created_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -33,5 +34,6 @@ class EmailScrapeTransaction(Base):
             "account_label": self.account_label,
             "movement_class": self.movement_class,
             "location": self.location,
+            "sender": self.sender,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

@@ -30,12 +30,80 @@ APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 
 MAILBOX = "INBOX"
 OUTPUT_CSV = "compras.csv"
-LAST_N_EMAILS = 100  # leer últimos 100 correos
+LAST_N_EMAILS = 100
 SCRAPE_MIN_DATE = datetime(2026, 2, 3)
 
 def _validate_env() -> None:
     if not EMAIL_ACCOUNT or not APP_PASSWORD:
         raise RuntimeError("Faltan variables de entorno GMAIL_EMAIL / GMAIL_APP_PASSWORD")
+
+# =========================
+# SENDER RULES
+# =========================
+SENDER_RULES = [
+    {
+        "pattern": r"notificaciones@davivienda\.com\.pa",
+        "cuenta": "panama",
+        "pais": "panama",
+        "moneda": "USD",
+    },
+    {
+        "pattern": r"BANCO_DAVIVIENDA@davivienda\.com",
+        "body_pattern": r"Tarjeta\s+Cr[eé]dito",
+        "cuenta": "mastercard_black",
+        "pais": "colombia",
+        "moneda": "COP",
+    },
+    {
+        "pattern": r"BANCO_DAVIVIENDA@davivienda\.com",
+        "cuenta": "colombia",
+        "pais": "colombia",
+        "moneda": "COP",
+    },
+]
+
+
+def extract_original_sender(body: str) -> str | None:
+    """
+    Extrae el email del remitente original embebido en el cuerpo
+    del forward de Outlook. Busca líneas tipo:
+      From: nombre <email@dominio.com>
+      De: email@dominio.com
+    Retorna solo el email limpio.
+    """
+    m = re.search(
+        r"(?im)^(?:From|De)\s*:\s*(?:[^<\n]*<)?([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})>?",
+        body,
+    )
+    return m.group(1).strip() if m else None
+
+
+def resolve_account_from_sender(original_sender: str | None, body: str = "") -> dict | None:
+    """
+    Recorre SENDER_RULES en orden y retorna {cuenta, pais, moneda} para la
+    primera regla donde:
+      1) `pattern` hace match contra el email del remitente original, Y
+      2) `body_pattern` (opcional) hace match contra el cuerpo del correo.
+    Retorna None si ninguna regla aplica.
+    """
+    if not original_sender:
+        return None
+
+    for rule in SENDER_RULES:
+        if not re.search(rule["pattern"], original_sender, re.IGNORECASE):
+            continue
+
+        if "body_pattern" in rule:
+            if not re.search(rule["body_pattern"], body, re.IGNORECASE):
+                continue
+
+        return {
+            "cuenta": rule["cuenta"],
+            "pais":   rule["pais"],
+            "moneda": rule["moneda"],
+        }
+
+    return None
 
 # =========================
 # HELPERS
@@ -68,14 +136,15 @@ def extract_text_from_message(msg: Message) -> str:
 
     return ""
 
+
 def normalize_amount(raw: str) -> float:
     raw = raw.strip()
     raw = re.sub(r"[^\d,.\-]", "", raw)
 
     if "," in raw and "." not in raw:
-        if re.search(r",\d{1,2}$", raw):      # decimal
+        if re.search(r",\d{1,2}$", raw):
             raw = raw.replace(",", ".")
-        elif re.search(r",\d{3}$", raw):      # miles
+        elif re.search(r",\d{3}$", raw):
             raw = raw.replace(",", "")
         else:
             raw = raw.replace(",", "")
@@ -107,8 +176,8 @@ def parse_panama_compra_fields(text: str):
 
     if place and amount is not None:
         return {
-            "pais": "PANAMA",
-            "cuenta": "PNAMA",
+            "pais": "panama",
+            "cuenta": "panama",
             "moneda": "USD",
             "valor": amount,
             "clase_movimiento": "",
@@ -145,8 +214,8 @@ def parse_colombia_movimiento_fields(text: str):
 
     if place and amount is not None:
         return {
-            "pais": "COLOMBIA",
-            "cuenta": "COLOMBIA",
+            "pais": "colombia",
+            "cuenta": "colombia",
             "moneda": "COP",
             "valor": amount,
             "clase_movimiento": clase or "",
@@ -183,8 +252,8 @@ def parse_mastercard_black_fields(text: str):
 
     if place and amount is not None:
         return {
-            "pais": "MASTERCARD_BLACK",
-            "cuenta": "MASTERCARD_BLACK",
+            "pais": "colombia",
+            "cuenta": "mastercard_black",
             "moneda": currency,
             "valor": amount,
             "clase_movimiento": "",
@@ -209,6 +278,7 @@ def parse_datetime_from_fecha_hora(text: str):
     except Exception:
         return None
 
+
 def parse_datetime_from_sent_line(text: str):
     m = re.search(r"(?im)^\s*Sent:\s*(.+?)\s*$", text)
     if not m:
@@ -229,6 +299,7 @@ def parse_datetime_from_sent_line(text: str):
     except Exception:
         return None
 
+
 def parse_datetime_from_headers(msg: Message):
     hdr = msg.get("Date")
     if not hdr:
@@ -237,6 +308,7 @@ def parse_datetime_from_headers(msg: Message):
         return parsedate_to_datetime(hdr)
     except Exception:
         return None
+
 
 def parse_any_datetime(msg: Message, body_text: str):
     dt = parse_datetime_from_fecha_hora(body_text)
@@ -253,17 +325,14 @@ def parse_any_transaction(body_text: str):
     Devuelve dict con:
     pais, cuenta, moneda, valor, clase_movimiento, lugar_transaccion
     """
-    # 1) Colombia (porque es más estructurado)
     tx = parse_colombia_movimiento_fields(body_text)
     if tx:
         return tx
 
-    # 2) Mastercard Black
     tx = parse_mastercard_black_fields(body_text)
     if tx:
         return tx
 
-    # 2) Panamá (compra)
     tx = parse_panama_compra_fields(body_text)
     if tx:
         return tx
@@ -312,19 +381,35 @@ def _fetch_email_rows(
             continue
 
         msg = email.message_from_bytes(msg_data[0][1])
-
         body = extract_text_from_message(msg)
         if not body:
             continue
 
-        # 🚫 EXCLUIR "pending"
         if re.search(r"\bpending\b", body, re.IGNORECASE):
             logger.info("Correo ignorado (estado pending)")
             continue
 
         dt = parse_any_datetime(msg, body)
         message_id = msg.get("Message-ID") or mail_id.decode(errors="ignore")
+
+        # Resolver cuenta desde remitente original
+        original_sender = extract_original_sender(body)
+        account_info = resolve_account_from_sender(original_sender, body)
+
         tx = parse_any_transaction(body)
+
+        # Si se resolvió cuenta por sender, sobreescribe lo que haya puesto el parser
+        if tx and account_info:
+            tx["cuenta"]  = account_info["cuenta"]
+            tx["pais"]    = account_info["pais"]
+            tx["moneda"]  = account_info["moneda"]
+
+        if tx and not account_info:
+            logger.warning(
+                "Sin regla para remitente '%s' — asunto: %s",
+                original_sender,
+                msg.get("Subject"),
+            )
 
         if not tx and not include_non_transactions:
             continue
@@ -371,6 +456,48 @@ def fetch_transactions(since_date: datetime | None = None, max_emails: int = LAS
 def fetch_emails_preview(since_date: datetime | None = None, max_emails: int = LAST_N_EMAILS):
     return _fetch_email_rows(since_date, max_emails, include_non_transactions=True)
 
+
+# =========================
+# DIAGNÓSTICO
+# =========================
+def diagnose_senders(max_emails: int = 20):
+    """
+    Imprime remitente del header y remitente embebido en el cuerpo
+    para los últimos N correos. Usar una sola vez para inspeccionar
+    qué formato llega desde Outlook.
+    """
+    _validate_env()
+
+    imap = imaplib.IMAP4_SSL(IMAP_SERVER)
+    imap.login(EMAIL_ACCOUNT, APP_PASSWORD)
+    imap.select(MAILBOX)
+
+    status, data = _imap_search(imap, SCRAPE_MIN_DATE)
+    ids = data[0].split()
+    ids = ids[-max_emails:]
+
+    for mail_id in reversed(ids):
+        status, msg_data = imap.fetch(mail_id, "(RFC822)")
+        if status != "OK":
+            continue
+
+        msg = email.message_from_bytes(msg_data[0][1])
+        body = extract_text_from_message(msg)
+
+        header_from   = msg.get("From") or ""
+        header_subject = msg.get("Subject") or ""
+        body_from     = extract_original_sender(body) or "— no encontrado —"
+        account_info  = resolve_account_from_sender(body_from, body)
+        cuenta        = account_info["cuenta"] if account_info else "— sin regla —"
+
+        print("=" * 60)
+        print(f"  Asunto  : {header_subject}")
+        print(f"  Header  : {header_from}")
+        print(f"  Sender  : {body_from}")
+        print(f"  Cuenta  : {cuenta}")
+
+    imap.logout()
+
 # =========================
 # MAIN
 # =========================
@@ -394,6 +521,7 @@ def main():
         writer.writerows(rows)
 
     logger.info("Proceso finalizado")
+
 
 if __name__ == "__main__":
     main()

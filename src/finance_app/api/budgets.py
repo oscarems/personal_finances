@@ -29,6 +29,7 @@ class BudgetAssignment(BaseModel):
     month: date
     currency_code: str = 'COP'
     rollover_type: Optional[str] = None  # 'accumulate' o 'reset' (opcional, actualiza categoría)
+    initial_amount: Optional[float] = None  # Dinero acumulado inicial (for accumulate categories)
 
 
 class CoverOverspendingRequest(BaseModel):
@@ -131,7 +132,8 @@ def get_category_budgets(category_id: int, month: str, db: Session = Depends(get
             "currency_id": b.currency_id,
             "assigned": b.assigned,
             "activity": b.activity,
-            "available": b.available
+            "available": b.available,
+            "initial_amount": b.initial_amount or 0.0
         }
         for b in budgets
     ]
@@ -160,7 +162,8 @@ def assign_budget(assignment: BudgetAssignment, db: Session = Depends(get_db)):
         assignment.category_id,
         assignment.month,
         currency.id,
-        assignment.amount
+        assignment.amount,
+        initial_amount=assignment.initial_amount
     )
 
     return {"success": True, "budget": budget.to_dict()}

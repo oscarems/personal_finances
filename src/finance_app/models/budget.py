@@ -16,6 +16,7 @@ class BudgetMonth(Base):
     assigned = Column(Float, default=0.0)  # Money assigned to category
     activity = Column(Float, default=0.0)  # Actual spending (calculated)
     available = Column(Float, default=0.0)  # Available = assigned - activity + previous balance
+    initial_amount = Column(Float, default=0.0)  # Dinero acumulado inicial (for accumulate categories)
     notes = Column(Text)
 
     # Relationships
@@ -40,5 +41,6 @@ class BudgetMonth(Base):
             'assigned': self.assigned,
             'activity': self.activity,
             'available': self.available,
+            'initial_amount': self.initial_amount,
             'notes': self.notes
         }

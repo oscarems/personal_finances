@@ -18,87 +18,46 @@
         <button onclick="openNewGroupModal()" class="btn-primary flex items-center shadow-strong">
             <span class="mr-2 text-xl">+</span> Nuevo Grupo
         </button>
-        <input type="month" id="monthSelect" class="input-field date-input shadow-medium">
+        <input type="month" id="monthSelect" class="input-field date-input shadow-medium" value="{{ current_month }}">
     </div>
 </div>
 
-<!-- Budget Summary Grid con diseño mejorado -->
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-    <!-- Ready to Assign Banner -->
-    <div id="readyToAssignCard" class="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30">
-        <div class="flex justify-between items-start">
-            <div class="flex-1">
-                <div class="flex items-center space-x-2 mb-4">
-                    <span class="text-3xl" id="readyToAssignIcon">💰</span>
-                    <p class="text-sm font-bold text-white uppercase tracking-wide">Listo para Asignar</p>
-                </div>
-                <div>
-                    <p class="text-4xl font-extrabold text-white mb-2" id="readyToAssignTotalCOP">$0</p>
-                    <p class="text-base font-semibold text-white/90" id="readyToAssignTotalUSD">US$0.00</p>
-                    <div class="mt-3 space-y-1 text-xs text-white/80">
-                        <p id="readyToAssignBreakdownCOP">En cuentas: $0 · Disponible: $0</p>
-                        <p id="readyToAssignBreakdownUSD">En cuentas: US$0.00 · Disponible: US$0.00</p>
-                        <p id="readyToAssignNegativeNote" class="hidden text-white/90">
-                            Negativo cuando lo disponible supera el dinero en cuentas.
-                        </p>
-                    </div>
-                </div>
-            </div>
+<!-- Budget Summary Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
+    <!-- Total Assigned This Month -->
+    <div class="bg-sky-50 rounded-2xl shadow-sm p-6 border border-sky-100 hover:shadow-md transition-all duration-200">
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Asignado este Mes</p>
+            <div class="w-2.5 h-2.5 rounded-full bg-sky-400"></div>
         </div>
+        <p class="text-3xl font-bold text-sky-900 mb-1" id="totalAssignedTotalCOP">$0</p>
+        <p class="text-sm text-sky-400 font-medium" id="totalAssignedTotalUSD">US$0.00</p>
     </div>
 
-    <!-- Total Assigned This Month Banner -->
-    <div class="bg-gradient-to-br from-accent-500 via-accent-600 to-accent-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-accent-400/30">
-        <div class="flex justify-between items-start">
-            <div class="flex-1">
-                <div class="flex items-center space-x-2 mb-4">
-                    <span class="text-3xl">📊</span>
-                    <p class="text-sm font-bold text-white uppercase tracking-wide">Asignado este Mes</p>
-                </div>
-                <div>
-                    <p class="text-4xl font-extrabold text-white mb-2" id="totalAssignedTotalCOP">$0</p>
-                    <p class="text-base font-semibold text-white/90" id="totalAssignedTotalUSD">US$0.00</p>
-                </div>
-            </div>
+    <!-- Total Spent This Month -->
+    <div class="bg-rose-50 rounded-2xl shadow-sm p-6 border border-rose-100 hover:shadow-md transition-all duration-200">
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-xs font-semibold text-rose-400 uppercase tracking-wider">Gastado este Mes</p>
+            <div class="w-2.5 h-2.5 rounded-full bg-rose-400"></div>
         </div>
+        <p class="text-3xl font-bold text-rose-900 mb-1" id="totalSpentCOP">$0</p>
+        <p class="text-sm text-rose-400 font-medium" id="totalSpentUSD">US$0.00</p>
     </div>
 
-    <!-- Total Spent This Month Banner -->
-    <div class="bg-gradient-to-br from-warning-500 via-warning-600 to-warning-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-warning-400/30">
-        <div class="flex justify-between items-start">
-            <div class="flex-1">
-                <div class="flex items-center space-x-2 mb-4">
-                    <span class="text-3xl">💸</span>
-                    <p class="text-sm font-bold text-white uppercase tracking-wide">Gastado este Mes</p>
-                </div>
-                <div>
-                    <p class="text-4xl font-extrabold text-white mb-2" id="totalSpentCOP">$0</p>
-                    <p class="text-base font-semibold text-white/90" id="totalSpentUSD">US$0.00</p>
-                </div>
-            </div>
+    <!-- Ready to Assign -->
+    <div id="readyToAssignCard" class="bg-indigo-50 rounded-2xl shadow-sm p-6 border border-indigo-100 hover:shadow-md transition-all duration-200">
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Listo para Asignar</p>
+            <span class="text-lg" id="readyToAssignIcon">💰</span>
         </div>
-    </div>
-
-    <!-- Total Available Banner -->
-    <div class="bg-gradient-to-br from-success-500 via-success-600 to-success-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-success-400/30">
-        <div class="flex justify-between items-start">
-            <div class="flex-1">
-                <div class="flex items-center space-x-2 mb-4">
-                    <span class="text-3xl">✅</span>
-                    <p class="text-sm font-bold text-white uppercase tracking-wide">Disponible de Presupuesto</p>
-                </div>
-                <div>
-                    <p class="text-4xl font-extrabold text-white mb-2" id="totalAvailableCOP">$0</p>
-                    <p class="text-base font-semibold text-white/90 mb-3" id="totalAvailableUSD">US$0.00</p>
-                    <div class="pt-3 border-t border-white/30">
-                        <p class="text-sm font-semibold text-white/90">
-                            En cuentas:
-                            <span id="totalInAccountsCOP" class="text-white font-extrabold">$0</span> /
-                            <span id="totalInAccountsUSD" class="text-white font-extrabold">US$0.00</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
+        <p class="text-3xl font-bold text-indigo-900 mb-1" id="readyToAssignTotalCOP">$0</p>
+        <p class="text-sm text-indigo-400 font-medium" id="readyToAssignTotalUSD">US$0.00</p>
+        <div class="mt-4 pt-3 border-t border-indigo-100 space-y-1 text-xs text-indigo-400">
+            <p id="readyToAssignBreakdownCOP">En cuentas: $0 · Disponible: $0</p>
+            <p id="readyToAssignBreakdownUSD">En cuentas: US$0.00 · Disponible: US$0.00</p>
+            <p id="readyToAssignNegativeNote" class="hidden text-red-500">
+                Negativo cuando lo disponible supera el dinero en cuentas.
+            </p>
         </div>
     </div>
 </div>
@@ -320,7 +279,7 @@
                 <div class="relative">
                     <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
                         <span class="text-2xl mr-2">💎</span>
-                        Dinero que Tengo Hoy (Inicial)
+                        Dinero Acumulado (Inicial)
                     </label>
                     <div class="flex space-x-3">
                         <div class="relative">
@@ -328,7 +287,6 @@
                                 <option value="COP" class="text-neutral-900">COP</option>
                                 <option value="USD" class="text-neutral-900">USD</option>
                             </select>
-                            <!-- Icono de dropdown -->
                             <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                                 <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -340,65 +298,58 @@
                             <input type="number" id="modalInitialAmount"
                                    class="w-full px-4 py-3 pl-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 placeholder-neutral-400 text-xl font-bold focus:ring-4 focus:ring-secondary-300 focus:border-secondary-400 transition-all shadow-medium hover:shadow-strong hover:border-secondary-300 cursor-text"
                                    placeholder="0"
-                                   step="1000">
+                                   step="1000"
+                                   oninput="updateAvailablePreview()">
                         </div>
                     </div>
                     <p class="text-sm text-white/90 mt-3 font-medium">
-                        Este es el monto que ya tienes ahorrado para esta categoría. Solo aplica para categorías de tipo Meta/Ahorro.
+                        Por defecto muestra el disponible del mes anterior.
                     </p>
                 </div>
             </div>
         </div>
 
-        <!-- BOTH CURRENCY FIELDS ultra modernos -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <!-- COP Field -->
+        <!-- Single currency assignment field -->
+        <div class="mb-6">
             <div class="relative overflow-hidden bg-gradient-to-br from-primary-500 to-primary-600 p-6 rounded-card shadow-strong border-2 border-primary-400">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
                 <div class="relative">
                     <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
                         <span class="text-2xl mr-2">💵</span>
-                        Presupuesto en COP
+                        Presupuesto Asignado
                     </label>
-                    <div class="relative">
-                        <span class="absolute left-4 top-4 text-primary-600 font-bold text-xl z-10">$</span>
-                        <input type="number" id="modalAmountCOP"
-                               class="w-full px-4 py-3 pl-10 border-3 border-primary-300 rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-primary-200 focus:border-primary-500 transition-all shadow-medium hover:shadow-strong hover:border-primary-400 cursor-text"
-                               placeholder="0"
-                               step="1000"
-                               onInput="updateConversion('COP')">
+                    <div class="flex space-x-3">
+                        <div class="relative">
+                            <select id="modalBudgetCurrency" onchange="updateBudgetConversion()" class="px-4 py-3 pr-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 font-bold focus:ring-4 focus:ring-primary-300 focus:border-primary-400 transition-all cursor-pointer appearance-none shadow-medium hover:shadow-strong text-xl">
+                                <option value="COP">COP</option>
+                                <option value="USD">USD</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="relative flex-1">
+                            <span class="absolute left-4 top-3.5 text-primary-600 font-bold text-xl z-10">$</span>
+                            <input type="number" id="modalBudgetAmount"
+                                   class="w-full px-4 py-3 pl-10 border-2 border-white rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-primary-200 focus:border-primary-500 transition-all shadow-medium hover:shadow-strong cursor-text"
+                                   placeholder="0"
+                                   step="1000"
+                                   oninput="updateBudgetConversion()">
+                        </div>
                     </div>
-                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-card" id="copConversionHint"></p>
-                </div>
-            </div>
-
-            <!-- USD Field -->
-            <div class="relative overflow-hidden bg-gradient-to-br from-success-500 to-success-600 p-6 rounded-card shadow-strong border-2 border-success-400">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-                <div class="relative">
-                    <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
-                        <span class="text-2xl mr-2">💵</span>
-                        Presupuesto en USD
-                    </label>
-                    <div class="relative">
-                        <span class="absolute left-4 top-4 text-success-600 font-bold text-lg z-10">US$</span>
-                        <input type="number" id="modalAmountUSD"
-                               class="w-full px-4 py-3 pl-14 border-3 border-success-300 rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-success-200 focus:border-success-500 transition-all shadow-medium hover:shadow-strong hover:border-success-400 cursor-text"
-                               placeholder="0.00"
-                               step="0.01"
-                               onInput="updateConversion('USD')">
-                    </div>
-                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-card" id="usdConversionHint"></p>
+                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-card" id="budgetConversionHint"></p>
                 </div>
             </div>
         </div>
 
-        <div class="alert alert-warning mb-6">
-            <div class="flex items-start space-x-3">
-                <span class="text-xl">💡</span>
-                <p class="text-sm font-medium">
-                    <strong>Tip:</strong> Puedes asignar en ambas monedas. El total se mostrará combinado en la pantalla principal.
-                </p>
+        <!-- Available preview for accumulate categories -->
+        <div id="availablePreviewSection" class="mb-6 hidden">
+            <div class="bg-neutral-800 text-white p-5 rounded-card shadow-strong">
+                <p class="text-sm font-bold uppercase tracking-wide mb-2">Nuevo Disponible</p>
+                <p class="text-2xl font-extrabold" id="availablePreviewAmount">$0</p>
+                <p class="text-xs text-neutral-400 mt-2" id="availablePreviewFormula"></p>
             </div>
         </div>
 
@@ -872,11 +823,11 @@
         const rtaIcon = document.getElementById('readyToAssignIcon');
         if (readyToAssignCOP < 0 || readyToAssignUSD < 0) {
             negativeNote.classList.remove('hidden');
-            rtaCard.className = 'bg-gradient-to-br from-danger-500 via-danger-600 to-danger-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-danger-400/30';
+            rtaCard.className = 'bg-red-50 rounded-2xl shadow-sm p-6 border border-red-200 hover:shadow-md transition-all duration-200';
             rtaIcon.textContent = '⚠️';
         } else {
             negativeNote.classList.add('hidden');
-            rtaCard.className = 'bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 rounded-card shadow-strong p-8 hover:shadow-xl transition-all duration-300 border border-primary-400/30';
+            rtaCard.className = 'bg-indigo-50 rounded-2xl shadow-sm p-6 border border-indigo-100 hover:shadow-md transition-all duration-200';
             rtaIcon.textContent = '💰';
         }
 
@@ -892,16 +843,7 @@
         document.getElementById('totalSpentUSD').textContent =
             `US$${formatAmount(dataUSD.totals.activity, 2)}`;
 
-        // Display Total Available (sum) in both currencies
-        document.getElementById('totalAvailableCOP').textContent =
-            `$${formatAmount(dataCOP.totals.available, 0)}`;
-        document.getElementById('totalAvailableUSD').textContent =
-            `US$${formatAmount(dataUSD.totals.available, 2)}`;
-
-        document.getElementById('totalInAccountsCOP').textContent =
-            `$${formatAmount(dataCOP.totals.in_accounts || 0, 0)}`;
-        document.getElementById('totalInAccountsUSD').textContent =
-            `US$${formatAmount(dataUSD.totals.in_accounts || 0, 2)}`;
+        // Available and in_accounts used only for overallocated alert
 
         updateOverallocatedAlert(
             dataCOP.totals.available,
@@ -1049,7 +991,7 @@
                                             <p class="font-semibold ${cat.available >= 0 ? 'text-green-600' : 'text-red-600'}">
                                                 ${formatDualCurrency(cat.available, 'COP', 0)}
                                             </p>
-                                            <p class="text-[0.65rem] text-gray-400 mt-0.5">${cat.rollover_type === 'accumulate' ? 'Ahorrado' : 'Disponible para gastar'}</p>
+                                            <p class="text-[0.65rem] text-gray-400 mt-0.5">${cat.rollover_type === 'accumulate' ? `Inicial: $${formatAmount(cat.initial_amount || 0, 0)} + Asig: $${formatAmount(cat.assigned, 0)} - Gasto: $${formatAmount(Math.abs(cat.activity), 0)}` : 'Disponible para gastar'}</p>
                                             ${showResetHint ? '<p class="text-xs text-gray-400 mt-1" title="Sin gasto este mes, por eso disponible coincide con asignado">Sin gasto este mes</p>' : ''}
                                             ${isOverspent ? `
                                                 <button onclick="event.stopPropagation(); openCoverOverspendingModal(${cat.category_id})"
@@ -1449,9 +1391,13 @@
         }
     }
 
+    // Stored activity for the current category being edited (used for available preview)
+    let modalCategoryActivity = 0;
+
     function openAssignModal(categoryData) {
         selectedCategory = categoryData.category_id;
         selectedCategoryData = categoryData;
+        modalCategoryActivity = categoryData.activity || 0;
 
         document.getElementById('modalCategoryName').value = categoryData.category_name;
         document.getElementById('modalRolloverType').value = categoryData.rollover_type || 'reset';
@@ -1470,18 +1416,51 @@
 
     async function loadCategoryDetails(categoryId) {
         try {
-            const res = await fetch(`/api/categories/${categoryId}`);
-            const category = await res.json();
+            const year = currentMonth.getFullYear();
+            const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+            const monthStr = `${year}-${month}`;
+            const [catRes, budgetRes] = await Promise.all([
+                fetch(`/api/categories/${categoryId}?month=${monthStr}`),
+                fetch(`/api/budgets/category/${categoryId}/${monthStr}`)
+            ]);
+            const category = await catRes.json();
+            const budgets = await budgetRes.json();
 
-            // Set initial_amount if it exists
-            document.getElementById('modalInitialAmount').value = category.initial_amount || 0;
-            document.getElementById('modalInitialCurrency').value = category.initial_currency_code || 'COP';
+            let initAmount = 0;
+            let initCurrency = category.initial_currency_code || 'COP';
+
+            // Check if current budget already has a stored initial_amount
+            const currentBudget = budgets.find(b => b.initial_amount > 0);
+            if (currentBudget) {
+                initAmount = currentBudget.initial_amount;
+                initCurrency = currentBudget.currency_code;
+            } else if (category.previous_month_available) {
+                // Fall back to previous month's available for new months
+                const prevAvail = category.previous_month_available;
+                const prefCurrency = category.initial_currency_code || 'COP';
+                if (prevAvail[prefCurrency] != null) {
+                    initAmount = prevAvail[prefCurrency];
+                    initCurrency = prefCurrency;
+                } else {
+                    const entries = Object.entries(prevAvail);
+                    if (entries.length > 0) {
+                        initAmount = entries[0][1];
+                        initCurrency = entries[0][0];
+                    }
+                }
+            }
+
+            document.getElementById('modalInitialAmount').value = initAmount;
+            document.getElementById('modalInitialCurrency').value = initCurrency;
+            updateAvailablePreview();
+
             document.getElementById('modalAlertsEnabled').checked = category.alerts_enabled !== false;
             updateAlertsToggleNote();
         } catch (error) {
             console.error('Error loading category details:', error);
             document.getElementById('modalInitialAmount').value = 0;
             document.getElementById('modalInitialCurrency').value = 'COP';
+
             document.getElementById('modalAlertsEnabled').checked = true;
             updateAlertsToggleNote();
         }
@@ -1497,11 +1476,14 @@
     function toggleInitialAmountField() {
         const rolloverType = document.getElementById('modalRolloverType').value;
         const initialAmountSection = document.getElementById('initialAmountSection');
+        const availablePreviewSection = document.getElementById('availablePreviewSection');
 
         if (rolloverType === 'accumulate') {
             initialAmountSection.classList.remove('hidden');
+            availablePreviewSection.classList.remove('hidden');
         } else {
             initialAmountSection.classList.add('hidden');
+            availablePreviewSection.classList.add('hidden');
         }
     }
 
@@ -1511,37 +1493,68 @@
             const month = currentMonth.getMonth() + 1;
             const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
-            // Get budgets for this category in both currencies
             const res = await fetch(`/api/budgets/category/${categoryId}/${monthStr}`);
             const budgets = await res.json();
 
-            // Set values
+            // Find the budget that has a non-zero assigned, prefer COP
             const copBudget = budgets.find(b => b.currency_code === 'COP');
             const usdBudget = budgets.find(b => b.currency_code === 'USD');
 
-            document.getElementById('modalAmountCOP').value = copBudget ? copBudget.assigned : 0;
-            document.getElementById('modalAmountUSD').value = usdBudget ? usdBudget.assigned : 0;
+            let currency = 'COP';
+            let amount = 0;
 
-            // Update conversion hints
-            updateConversion('COP');
+            if (usdBudget && usdBudget.assigned && (!copBudget || !copBudget.assigned)) {
+                currency = 'USD';
+                amount = usdBudget.assigned;
+            } else if (copBudget) {
+                amount = copBudget.assigned || 0;
+            }
+
+            document.getElementById('modalBudgetCurrency').value = currency;
+            document.getElementById('modalBudgetAmount').value = amount;
+            updateBudgetConversion();
         } catch (error) {
             console.error('Error loading category budgets:', error);
-            document.getElementById('modalAmountCOP').value = 0;
-            document.getElementById('modalAmountUSD').value = 0;
+            document.getElementById('modalBudgetAmount').value = 0;
+            document.getElementById('modalBudgetCurrency').value = 'COP';
         }
     }
 
-    function updateConversion(changedCurrency) {
-        if (changedCurrency === 'COP') {
-            const copAmount = parseFloat(document.getElementById('modalAmountCOP').value) || 0;
-            const usdEquivalent = convertBalance(copAmount, 'COP', 'USD');
-            document.getElementById('copConversionHint').textContent =
-                `≈ US$${formatAmount(usdEquivalent, 2)} USD`;
+    function updateBudgetConversion() {
+        const currency = document.getElementById('modalBudgetCurrency').value;
+        const amount = parseFloat(document.getElementById('modalBudgetAmount').value) || 0;
+        const hint = document.getElementById('budgetConversionHint');
+        if (currency === 'COP') {
+            const usdEquiv = convertBalance(amount, 'COP', 'USD');
+            hint.textContent = `≈ US$${formatAmount(usdEquiv, 2)} USD`;
         } else {
-            const usdAmount = parseFloat(document.getElementById('modalAmountUSD').value) || 0;
-            const copEquivalent = convertBalance(usdAmount, 'USD', 'COP');
-            document.getElementById('usdConversionHint').textContent =
-                `≈ $${formatAmount(copEquivalent, 0)} COP`;
+            const copEquiv = convertBalance(amount, 'USD', 'COP');
+            hint.textContent = `≈ $${formatAmount(copEquiv, 0)} COP`;
+        }
+        updateAvailablePreview();
+    }
+
+    function updateAvailablePreview() {
+        const rolloverType = document.getElementById('modalRolloverType').value;
+        if (rolloverType !== 'accumulate') return;
+
+        const initial = parseFloat(document.getElementById('modalInitialAmount').value) || 0;
+        const assigned = parseFloat(document.getElementById('modalBudgetAmount').value) || 0;
+        const activity = modalCategoryActivity; // negative for expenses
+        const available = initial + assigned + activity;
+        const currency = document.getElementById('modalBudgetCurrency').value;
+        const symbol = currency === 'USD' ? 'US$' : '$';
+        const decimals = currency === 'USD' ? 2 : 0;
+
+        const amountEl = document.getElementById('availablePreviewAmount');
+        const formulaEl = document.getElementById('availablePreviewFormula');
+
+        if (amountEl) {
+            amountEl.textContent = `${symbol}${formatAmount(available, decimals)}`;
+            amountEl.className = `text-2xl font-extrabold ${available >= 0 ? 'text-green-400' : 'text-red-400'}`;
+        }
+        if (formulaEl) {
+            formulaEl.textContent = `${symbol}${formatAmount(initial, decimals)} (inicial) + ${symbol}${formatAmount(assigned, decimals)} (asignado) + ${symbol}${formatAmount(activity, decimals)} (actividad)`;
         }
     }
 
@@ -1799,26 +1812,19 @@
     }
 
     async function saveAssignment() {
-        const amountCOP = parseFloat(document.getElementById('modalAmountCOP').value) || 0;
-        const amountUSD = parseFloat(document.getElementById('modalAmountUSD').value) || 0;
+        const budgetAmount = parseFloat(document.getElementById('modalBudgetAmount').value) || 0;
+        const budgetCurrency = document.getElementById('modalBudgetCurrency').value;
         const rolloverType = document.getElementById('modalRolloverType').value;
         const initialAmount = parseFloat(document.getElementById('modalInitialAmount').value) || 0;
         const initialCurrencyCode = document.getElementById('modalInitialCurrency').value;
         const alertsEnabled = document.getElementById('modalAlertsEnabled').checked;
-
-        if (amountCOP < 0 || amountUSD < 0 || initialAmount < 0) {
-            alert('Los montos no pueden ser negativos');
-            return;
-        }
 
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth() + 1;
         const monthDate = `${year}-${String(month).padStart(2, '0')}-01`;
 
         try {
-            // CRITICAL FIX: Update category FIRST with rollover_type and initial_amount
-            // This prevents a race condition where the budget calculation runs before
-            // the initial_amount is saved to the database
+            // Update category with rollover_type, initial_amount and alerts
             const categoryUpdateResponse = await fetch(`/api/categories/${selectedCategory}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -1835,49 +1841,53 @@
                 return;
             }
 
-            // Now save BOTH budgets (COP and USD)
-            // The initial_amount will be correctly applied during calculate_available()
-            const requests = [];
+            // Save budget in the selected currency
+            const assignPayload = {
+                category_id: selectedCategory,
+                amount: budgetAmount,
+                month: monthDate,
+                currency_code: budgetCurrency,
+                rollover_type: rolloverType
+            };
 
-            if (amountCOP > 0 || amountUSD === 0) {
-                requests.push(
-                    fetch('/api/budgets/assign', {
+            // For accumulate: set initial_amount on the budget matching the initial currency
+            if (rolloverType === 'accumulate') {
+                if (budgetCurrency === initialCurrencyCode) {
+                    // Same currency: set initial on this budget
+                    assignPayload.initial_amount = initialAmount;
+                } else {
+                    // Different currencies: set initial=0 on budget currency, save initial separately
+                    assignPayload.initial_amount = 0;
+                    // Save initial_amount on the initial currency's budget
+                    await fetch('/api/budgets/assign', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             category_id: selectedCategory,
-                            amount: amountCOP,
+                            amount: 0,  // don't change assigned for the initial currency budget
                             month: monthDate,
-                            currency_code: 'COP',
-                            rollover_type: rolloverType
+                            currency_code: initialCurrencyCode,
+                            rollover_type: rolloverType,
+                            initial_amount: initialAmount
                         })
-                    })
-                );
+                    });
+                }
+            } else {
+                assignPayload.initial_amount = 0;
             }
 
-            if (amountUSD > 0 || amountCOP === 0) {
-                requests.push(
-                    fetch('/api/budgets/assign', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            category_id: selectedCategory,
-                            amount: amountUSD,
-                            month: monthDate,
-                            currency_code: 'USD',
-                            rollover_type: rolloverType
-                        })
-                    })
-                );
-            }
+            const res = await fetch('/api/budgets/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(assignPayload)
+            });
 
-            const results = await Promise.all(requests);
-
-            if (results.every(r => r.ok)) {
+            if (res.ok) {
                 closeAssignModal();
                 loadBudget();
             } else {
-                alert('Error al asignar presupuesto');
+                const errorData = await res.json().catch(() => null);
+                alert(errorData?.detail || 'Error al asignar presupuesto');
             }
         } catch (error) {
             console.error('Error:', error);

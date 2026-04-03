@@ -728,7 +728,7 @@
             groups.forEach(group => {
                 filterSelect.innerHTML += `<optgroup label="${group.name}">`;
                 group.categories.forEach(cat => {
-                    filterSelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                    filterSelect.innerHTML += `<option value="${cat.id}">${cat.name} (${group.name})</option>`;
                 });
                 filterSelect.innerHTML += '</optgroup>';
             });
@@ -740,7 +740,7 @@
             groups.forEach(group => {
                 formSelect.innerHTML += `<optgroup label="${group.name}">`;
                 group.categories.forEach(cat => {
-                    formSelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+                    formSelect.innerHTML += `<option value="${cat.id}">${cat.name} (${group.name})</option>`;
                 });
                 formSelect.innerHTML += '</optgroup>';
             });
@@ -888,12 +888,12 @@
                     <td class="sticky-col sticky-payee text-sm">
                         <div class="tx-payee">
                             <div class="font-semibold text-neutral-800 truncate" title="${escapeHtml(tx.payee_name || '-')}">${escapeHtml(tx.payee_name || '-')}</div>
-                            <small>${escapeHtml(tx.category_name || 'Sin categoría')}</small>
+                            <small>${escapeHtml(tx.category_name ? (tx.category_group_name ? tx.category_name + ' (' + tx.category_group_name + ')' : tx.category_name) : 'Sin categoría')}</small>
                         </div>
                     </td>
                     <td class="sticky-col sticky-account sticky-separator whitespace-nowrap text-sm text-neutral-700">${escapeHtml(tx.account_name || '-')}</td>
                     <td class="text-sm hidden lg:table-cell">
-                        ${renderInlineEditableCell(tx, 'category', tx.category_name || 'Sin categoría')}
+                        ${renderInlineEditableCell(tx, 'category', tx.category_name ? (tx.category_group_name ? tx.category_name + ' (' + tx.category_group_name + ')' : tx.category_name) : 'Sin categoría')}
                     </td>
                     <!-- Memo column hidden -->
                     <!--<td class="text-sm max-w-xs hidden xl:table-cell">
@@ -1030,7 +1030,7 @@
             ${buildDetailItem('Fecha', formatDate(tx.date))}
             ${buildDetailItem('Cuenta', tx.account_name || '-')}
             ${buildDetailItem('Beneficiario', tx.payee_name || '-')}
-            ${buildDetailItem('Categoría', tx.category_name || 'Sin categoría')}
+            ${buildDetailItem('Categoría', tx.category_name ? (tx.category_group_name ? tx.category_name + ' (' + tx.category_group_name + ')' : tx.category_name) : 'Sin categoría')}
             ${buildDetailItem('Tipo', typeLabel)}
             ${buildDetailItem('Estado', tx.cleared ? 'Conciliada' : 'Pendiente')}
             ${buildDetailItem('Monto original', formatSignedCurrencyAmount(tx.amount, tx.currency, { useCode: true }))}
@@ -1391,6 +1391,7 @@
         document.getElementById('transactionForm').reset();
         setDefaultDate();
         document.getElementById('txType').value = 'expense';
+        document.getElementById('txCategory').value = '';
         document.getElementById('txDebt').value = '';
         toggleInvestmentSelect();
         openTransactionModal();
@@ -1415,7 +1416,9 @@
         editingTransactionId = transactionId;
         editingTransactionOriginal = transaction;
         document.getElementById('modalTitle').textContent = 'Editar Transacción';
-        document.getElementById('txDate').value = transaction.date;
+        const txDateInput = document.getElementById('txDate');
+        txDateInput.value = transaction.date;
+        txDateInput.dispatchEvent(new Event('change'));
         document.getElementById('txAccount').value = transaction.account_id;
         document.getElementById('txPayee').value = transaction.payee_name || '';
         document.getElementById('txCategory').value = transaction.category_id || '';

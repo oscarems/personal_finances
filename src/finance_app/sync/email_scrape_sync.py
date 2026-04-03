@@ -8,6 +8,10 @@ from finance_app.config import get_settings
 from finance_app.database import default_database_name, ensure_database_initialized, get_session_factory
 from finance_app.models import Account, Currency, EmailScrapeTransaction, Transaction
 from finance_app.services.transaction_service import create_transaction
+from finance_app.services.email_sender_rule_service import (
+    resolve_account_by_rule,
+    record_sender_seen,
+)
 import web_scrapping_email
 
 
@@ -46,12 +50,45 @@ _LABEL_TO_COUNTRY: dict[str, str] = {
 }
 
 
+def _ensure_email_sender_rules_table(db: Session) -> None:
+    engine = db.get_bind()
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS email_sender_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_pattern VARCHAR(255) NOT NULL UNIQUE,
+                account_id INTEGER NOT NULL REFERENCES accounts(id),
+                match_count INTEGER DEFAULT 1,
+                last_seen DATETIME,
+                confirmed_by_user BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+    # Agregar columna sender a email_scrape_transactions si no existe
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE email_scrape_transactions ADD COLUMN sender VARCHAR(500)"
+            ))
+    except Exception:
+        pass  # columna ya existe
+
+
 def _resolve_account(
     db: Session,
     account_label: str,
     currency_id: int | None,
     settings,
+    sender: str = "",
 ) -> Account | None:
+    # Prioridad 1: regla confirmada por usuario
+    if sender:
+        account = resolve_account_by_rule(db, sender)
+        if account:
+            LOGGER.info("Cuenta resuelta por regla confirmada: sender=%r → %s", sender[:50], account.name)
+            return account
+
+    # Prioridad 2: lógica existente
     normalized_label = _normalize_name(account_label)
     account_name = None
     country = _LABEL_TO_COUNTRY.get(normalized_label)
@@ -140,6 +177,7 @@ def sync_email_transactions() -> int:
             )
             return 1
 
+        _ensure_email_sender_rules_table(db)
         _cleanup_legacy_email_scrape_records(db)
 
         currency_map = _get_currency_map(db)
@@ -169,11 +207,18 @@ def sync_email_transactions() -> int:
                 continue
 
             account_label = row.get("cuenta") or "SIN_CUENTA"
-            account = _resolve_account(db, account_label, currency.id, settings)
+            sender = row.get("remitente") or ""
+            account = _resolve_account(db, account_label, currency.id, settings, sender=sender)
             if not account:
                 LOGGER.warning("No se encontró cuenta para '%s'.", account_label)
                 ignored += 1
                 continue
+
+            if sender and account:
+                try:
+                    record_sender_seen(db, sender, account.id)
+                except Exception as exc:
+                    LOGGER.warning("Error registrando regla de remitente: %s", exc)
 
             raw_datetime = row.get("fecha")
             tx_datetime = None
@@ -193,6 +238,7 @@ def sync_email_transactions() -> int:
                 account_label=account_label,
                 movement_class=row.get("clase_movimiento") or None,
                 location=row.get("lugar_transaccion") or None,
+                sender=sender or None,
             )
             db.add(email_row)
             db.commit()

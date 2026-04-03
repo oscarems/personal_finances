@@ -165,13 +165,20 @@
     async function loadDashboard() {
         try {
             // Load accounts summary
-            const [accountsRes, debtsRes] = await Promise.all([
+            const [accountsRes, debtsRes, patrimonioRes] = await Promise.all([
                 fetch('/api/accounts/summary'),
                 fetch('/api/debts/summary'),
+                fetch('/api/patrimonio/resumen'),
             ]);
             const accountsData = await accountsRes.json();
             const debtsData = await debtsRes.json();
-            const wealthAssetsData = { assets: [] };
+            const patrimonioData = patrimonioRes.ok ? await patrimonioRes.json() : { activos: [] };
+            const wealthAssetsData = {
+                assets: (patrimonioData.activos || []).map(a => ({
+                    value: a.valor_actual ?? a.valor_adquisicion ?? 0,
+                    currency: a.currency || { code: 'COP', symbol: '$' },
+                }))
+            };
 
             try {
                 const rateRes = await fetch('/api/exchange-rates/current');
@@ -629,7 +636,7 @@
                         <span class="text-sm font-semibold text-neutral-900">${t.payee_name || '-'}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="badge badge-${t.category_name ? 'primary' : 'warning'}">${t.category_name || 'Sin categoría'}</span>
+                        <span class="badge badge-${t.category_name ? 'primary' : 'warning'}">${t.category_name ? (t.category_group_name ? t.category_name + ' (' + t.category_group_name + ')' : t.category_name) : 'Sin categoría'}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-sm text-neutral-600">${t.account_name}</span>

@@ -17,7 +17,7 @@ Aplicación de finanzas personales estilo YNAB construida con FastAPI + SQLAlche
 - **Importador YNAB**: CSV con detección de categorías, transferencias y duplicados
 - **Transacciones recurrentes**: Automatización de pagos regulares
 - **Integración Gmail**: Scraping de transacciones desde correos bancarios
-- **Integración Telegram**: Notificaciones y alertas
+- ~~**Integración Telegram**~~ *(deprecada)*
 
 ---
 
@@ -197,13 +197,48 @@ python -m pytest tests/test_patrimonio_calculator.py -v
 
 ## Configuración Opcional
 
-### Telegram
+### Integración con Gmail (opcional)
+
+Permite que la app lea correos bancarios y los importe como transacciones
+automáticamente. Requiere una cuenta Gmail y configuración de acceso seguro.
+
+#### Paso a paso para configurar
+
+**1. Habilitar IMAP en Gmail**
+1. Abre Gmail → Configuración (ícono de engranaje) → Ver todos los ajustes
+2. Ve a la pestaña **"Reenvío y correo POP/IMAP"**
+3. En la sección IMAP, selecciona **"Habilitar IMAP"**
+4. Guarda los cambios
+
+**2. Activar verificación en dos pasos**
+1. Ve a [myaccount.google.com/security](https://myaccount.google.com/security)
+2. En "Cómo inicias sesión en Google", activa **"Verificación en dos pasos"**
+3. Sigue el asistente de configuración
+
+**3. Generar una App Password**
+1. Ve a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. En "Seleccionar aplicación" elige **"Correo"**
+3. En "Seleccionar dispositivo" elige **"Otro (nombre personalizado)"** → escribe `fincas`
+4. Haz clic en **Generar**
+5. Copia la contraseña de 16 caracteres (formato: `xxxx xxxx xxxx xxxx`)
+
+**4. Configurar en .env**
 
 ```bash
-# En archivo .env
-TELEGRAM_BOT_TOKEN="123456:ABC-DEF..."
-TELEGRAM_CHAT_ID="123456789"
+GMAIL_EMAIL="tucorreo@gmail.com"
+GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
 ```
+
+> ⚠️ Usa la App Password generada, **no** tu contraseña normal de Gmail.
+> La App Password tiene espacios — cópiala exactamente como aparece.
+
+**Correos bancarios soportados actualmente:**
+- Bancolombia (Colombia)
+- BAC / bancos Panamá
+- Mastercard Black
+
+Una vez configurado, ve a **Avanzado → Importar Gmail** en la aplicación
+para revisar y registrar los correos detectados.
 
 ### Tasas de Cambio
 

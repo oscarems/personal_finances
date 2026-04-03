@@ -190,12 +190,9 @@ def get_or_create_budget_month(db: Session, category_id, month_date, currency_id
     return budget
 
 
-def assign_money_to_category(db: Session, category_id, month_date, currency_id, amount):
+def assign_money_to_category(db: Session, category_id, month_date, currency_id, amount, initial_amount=None):
     """
     Asigna dinero a una categoría para un mes específico (columna "Asignado" en YNAB).
-
-    Esta es la función principal para presupuestar dinero. Cuando asignas dinero a una
-    categoría, estás "dándole un trabajo" a ese dinero según la metodología YNAB.
 
     Args:
         db (Session): Sesión de base de datos
@@ -203,16 +200,15 @@ def assign_money_to_category(db: Session, category_id, month_date, currency_id, 
         month_date (date): Primer día del mes
         currency_id (int): ID de la moneda
         amount (float): Cantidad a asignar (puede ser 0 o positiva)
+        initial_amount (float, optional): Dinero acumulado inicial (para categorías accumulate)
 
     Returns:
         BudgetMonth: Objeto de presupuesto actualizado con el nuevo valor assigned
-
-    Nota:
-        Después de asignar, se recalcula automáticamente el campo "available"
-        usando calculate_available()
     """
     budget = get_or_create_budget_month(db, category_id, month_date, currency_id)
     budget.assigned = amount
+    if initial_amount is not None:
+        budget.initial_amount = initial_amount
     existing_budgets = db.query(BudgetMonth).filter_by(
         category_id=category_id,
         month=month_date
@@ -284,47 +280,8 @@ def calculate_available(db: Session, budget_month, include_all_currencies: bool 
     initial_available = 0.0
 
     if category and category.rollover_type == 'accumulate':
-        # Check if there's a previous month budget
-        prev_budget = get_previous_budget(db, budget_month.category_id, budget_month.month, budget_month.currency_id)
-
-        if prev_budget:
-            # Use previous month's available amount (rollover from last month)
-            initial_available = prev_budget.available
-        else:
-            # No previous month budget found
-            # Apply initial_amount if the budget currency matches the initial_amount currency
-            # This prevents the initial_amount from being counted multiple times across different currencies
-            initial_amount = category.initial_amount or 0.0
-
-            # CRITICAL FIX: Only apply initial_amount if budget currency matches initial currency
-            # This prevents double-counting when you have budgets in multiple currencies
-            if initial_amount > 0:
-                budget_currency = db.query(Currency).get(budget_month.currency_id)
-                initial_currency = None
-                if category.initial_currency_id:
-                    initial_currency = db.query(Currency).get(category.initial_currency_id)
-                else:
-                    category_budget_currencies = db.query(BudgetMonth.currency_id).filter(
-                        BudgetMonth.category_id == budget_month.category_id
-                    ).distinct().all()
-                    unique_currency_ids = {row[0] for row in category_budget_currencies}
-                    if unique_currency_ids == {budget_month.currency_id}:
-                        initial_currency = budget_currency
-
-                # Only apply initial_amount if currencies match
-                # If no initial_currency is set, we only allow it when this category has a single currency
-                if initial_currency and budget_currency and budget_currency.id == initial_currency.id:
-                    # Currency matches: apply initial_amount (with conversion if needed)
-                    initial_available = convert_currency(
-                        initial_amount,
-                        initial_currency.code,
-                        budget_currency.code,
-                        db
-                    )
-                else:
-                    # Budget currency doesn't match initial currency (or no initial_currency set)
-                    # This prevents the same initial_amount from being applied to multiple currencies
-                    initial_available = 0.0
+        # Use the per-month initial_amount stored on the BudgetMonth record
+        initial_available = budget_month.initial_amount or 0.0
 
     # Available = assigned - activity (negative for expenses) + initial amount (if accumulate)
     # activity is negative for expenses, so we add it
@@ -530,12 +487,25 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
                 total_spent += converted_spent
                 total_available += converted_available
 
+            # Sum initial_amount for accumulate categories
+            total_initial = 0.0
+            if category.rollover_type == 'accumulate':
+                for budget in all_budgets:
+                    budget_currency = all_currencies.get(budget.currency_id)
+                    if budget_currency:
+                        total_initial += convert_with_cache(
+                            budget.initial_amount or 0.0,
+                            budget_currency.code,
+                            currency.code
+                        )
+
             cat_data = {
                 'category_id': category.id,
                 'category_name': category.name,
                 'assigned': total_assigned,
                 'activity': total_spent,
                 'available': total_available,
+                'initial_amount': total_initial,
                 'target_amount': category.target_amount,
                 'rollover_type': category.rollover_type,  # 'accumulate' or 'reset'
                 'is_essential': bool(category.is_essential)

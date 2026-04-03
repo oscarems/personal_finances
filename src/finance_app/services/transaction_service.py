@@ -356,7 +356,9 @@ def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None
     """
     Get transactions with optional filters
     """
-    query = db.query(Transaction)
+    query = db.query(Transaction).options(
+        joinedload(Transaction.category).joinedload(Category.category_group),
+    )
 
     if account_id:
         query = query.filter(Transaction.account_id == account_id)

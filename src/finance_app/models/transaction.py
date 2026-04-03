@@ -82,6 +82,7 @@ class Transaction(Base):
             'payee_name': self.payee.name if self.payee else None,
             'category_id': self.category_id,
             'category_name': self.category.name if self.category else None,
+            'category_group_name': self.category.category_group.name if self.category and self.category.category_group else None,
             'debt_id': self.debt_id,
             'debt_name': self.debt.name if self.debt else None,
             'memo': self.memo,
