@@ -292,6 +292,7 @@ class CategoryUpdate(BaseModel):
     initial_amount: Optional[float] = None
     initial_currency_code: Optional[str] = None
     alerts_enabled: Optional[bool] = None
+    is_essential: Optional[bool] = None
 
 
 @router.post("/", response_model=CategoryResponse)
@@ -417,6 +418,9 @@ def update_category(category_id: int, category_update: CategoryUpdate, db: Sessi
 
     if "alerts_enabled" in category_update.__fields_set__:
         category.alerts_enabled = bool(category_update.alerts_enabled)
+
+    if "is_essential" in category_update.__fields_set__:
+        category.is_essential = bool(category_update.is_essential)
 
     db.commit()
     db.refresh(category)

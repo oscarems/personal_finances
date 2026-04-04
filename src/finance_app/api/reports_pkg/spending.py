@@ -167,44 +167,63 @@ def get_spending_by_category_over_time(
     currency_id: int = 1,
     top_n: int = 8,
     categories: Optional[str] = None,
+    granularity: str = "monthly",
     db: Session = Depends(get_db)
 ):
-    """Get spending broken down by category for each month in the range.
+    """Get spending broken down by category for each period in the range.
 
     Args:
         categories: Comma-separated category names to include.
                     If provided, only these are returned (top_n is ignored).
+        granularity: 'monthly', 'weekly', or 'daily'.
     """
+    from datetime import timedelta
+
     start_date_obj, end_date_obj = parse_date_range(start_date, end_date)
     exchange_rate = get_exchange_rate(db)
 
-    # Collect data per month per category
-    months_list = []
+    # Build list of periods based on granularity
+    periods = []
+    if granularity == "daily":
+        current = start_date_obj
+        while current <= end_date_obj:
+            periods.append((current, current + timedelta(days=1), current.strftime('%d %b')))
+            current += timedelta(days=1)
+    elif granularity == "weekly":
+        current = start_date_obj - timedelta(days=start_date_obj.weekday())  # Start on Monday
+        while current <= end_date_obj:
+            week_end = current + timedelta(days=7)
+            label = f"{current.strftime('%d %b')} - {(week_end - timedelta(days=1)).strftime('%d %b')}"
+            periods.append((max(current, start_date_obj), min(week_end, end_date_obj + timedelta(days=1)), label))
+            current = week_end
+    else:  # monthly
+        current = start_date_obj.replace(day=1)
+        while current <= end_date_obj:
+            month_end = current + relativedelta(months=1)
+            periods.append((current, month_end, current.strftime('%b %Y')))
+            current = month_end
+
+    # Collect data per period per category
+    period_list = []
     category_totals_global = {}
     category_groups_map = {}
-    current_date = start_date_obj.replace(day=1)
 
-    while current_date <= end_date_obj:
-        month_start = current_date
-        month_end = current_date + relativedelta(months=1)
-
-        allocations = expense_allocations(db, month_start, month_end)
-        month_categories = {}
+    for period_start, period_end, label in periods:
+        allocations = expense_allocations(db, period_start, period_end)
+        period_categories = {}
         for tx, category, allocation_amount in allocations:
             cat_name = category.name if category else "Sin categoría"
             group_name = category.category_group.name if category and category.category_group else "Sin grupo"
             converted = convert_to_currency(allocation_amount, tx.currency_id, currency_id, exchange_rate)
-            month_categories[cat_name] = month_categories.get(cat_name, 0) + converted
+            period_categories[cat_name] = period_categories.get(cat_name, 0) + converted
             category_totals_global[cat_name] = category_totals_global.get(cat_name, 0) + converted
             if cat_name not in category_groups_map:
                 category_groups_map[cat_name] = group_name
 
-        months_list.append({
-            'month': current_date.strftime('%Y-%m'),
-            'month_name': current_date.strftime('%b %Y'),
-            'categories': month_categories,
+        period_list.append({
+            'label': label,
+            'categories': period_categories,
         })
-        current_date += relativedelta(months=1)
 
     # All categories sorted by total spending
     all_categories_sorted = sorted(category_totals_global.items(), key=lambda x: x[1], reverse=True)
@@ -222,11 +241,11 @@ def get_spending_by_category_over_time(
     for cat_name in selected_cat_names:
         series.append({
             'category': cat_name,
-            'data': [m['categories'].get(cat_name, 0) for m in months_list],
+            'data': [p['categories'].get(cat_name, 0) for p in period_list],
         })
 
     return {
-        'months': [m['month_name'] for m in months_list],
+        'months': [p['label'] for p in period_list],
         'series': series,
         'available_categories': all_cat_names,
         'category_groups': category_groups_map,

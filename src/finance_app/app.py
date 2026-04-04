@@ -37,6 +37,7 @@ from finance_app.api import (
     patrimonio,
 )
 from finance_app.api import email_sender_rules
+from finance_app.api import chat as chat_module
 from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
 
@@ -87,6 +88,7 @@ app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(patrimonio.router, prefix="/api/patrimonio", tags=["patrimonio"])
 app.include_router(email_sender_rules.router, prefix="/api/email-sender-rules", tags=["email-sender-rules"])
+app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
 
 
 @app.on_event("startup")
@@ -194,6 +196,12 @@ async def financial_health_page(request: Request):
 async def goals_page(request: Request):
     """Goals page"""
     return templates.TemplateResponse("goals.html", {"request": request})
+
+
+@app.get("/chat")
+async def chat_page(request: Request):
+    """Chat SQL page"""
+    return templates.TemplateResponse("chat_ui.html", {"request": request})
 
 
 @app.get("/email-sender-rules")

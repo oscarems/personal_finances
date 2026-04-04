@@ -139,6 +139,12 @@
 <div class="card p-6 mb-6">
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <h3 class="text-lg font-semibold">Gastos por Categoria a lo largo del tiempo</h3>
+        <div class="flex items-center gap-3">
+            <select id="granularityFilter" onchange="onGranularityChange()" class="text-sm border border-neutral-200 rounded-lg px-3 py-2 bg-white">
+                <option value="monthly">Mensual</option>
+                <option value="weekly">Semanal</option>
+                <option value="daily">Diario</option>
+            </select>
         <div class="relative" id="categoryFilterWrapper">
             <button id="categoryFilterBtn" onclick="toggleCategoryDropdown()" class="btn-secondary text-sm px-4 py-2 flex items-center gap-2">
                 <span id="categoryFilterLabel">Top 8 categorías</span>
@@ -154,6 +160,7 @@
                     <button onclick="applyCategoryFilter()" class="btn-primary text-xs w-full py-2">Aplicar</button>
                 </div>
             </div>
+        </div>
         </div>
     </div>
     <div class="h-96">
@@ -670,6 +677,10 @@
         populateCategoryCheckboxes();
     }
 
+    function onGranularityChange() {
+        loadCategoryOverTime();
+    }
+
     function applyCategoryFilter() {
         const checkboxes = document.querySelectorAll('.category-cb');
         selectedCategories = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
@@ -692,7 +703,7 @@
 
             // First load: get all available categories
             const res = await fetch(
-                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}&top_n=100`
+                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}&top_n=100&granularity=${document.getElementById('granularityFilter').value}`
             );
             const data = await res.json();
 
@@ -717,7 +728,7 @@
             const dateRange = getDateRange();
             const catParam = selectedCategories.length > 0 ? `&categories=${encodeURIComponent(selectedCategories.join(','))}` : '';
             const res = await fetch(
-                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}${catParam}`
+                `/api/reports/spending-by-category-over-time?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}${catParam}&granularity=${document.getElementById('granularityFilter').value}`
             );
             const data = await res.json();
             renderCategoryOverTimeChart(data);

@@ -272,6 +272,29 @@
             </div>
         </div>
 
+        <!-- 50/30/20 Classification (only for expense categories, not accumulate) -->
+        <div id="classificationSection" class="mb-6">
+            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Clasificación 50/30/20</label>
+            <div class="flex gap-3">
+                <label class="flex-1 cursor-pointer">
+                    <input type="radio" name="modalClassification" value="need" class="peer hidden">
+                    <div class="peer-checked:ring-2 peer-checked:ring-amber-400 peer-checked:bg-amber-50 border-2 border-neutral-200 peer-checked:border-amber-400 rounded-xl p-3 text-center transition-all hover:border-amber-300">
+                        <span class="text-lg">⚖️</span>
+                        <p class="text-xs font-bold text-neutral-700 mt-1">Necesidad</p>
+                        <p class="text-[0.6rem] text-neutral-400">50%</p>
+                    </div>
+                </label>
+                <label class="flex-1 cursor-pointer">
+                    <input type="radio" name="modalClassification" value="want" class="peer hidden">
+                    <div class="peer-checked:ring-2 peer-checked:ring-purple-400 peer-checked:bg-purple-50 border-2 border-neutral-200 peer-checked:border-purple-400 rounded-xl p-3 text-center transition-all hover:border-purple-300">
+                        <span class="text-lg">✨</span>
+                        <p class="text-xs font-bold text-neutral-700 mt-1">Deseo</p>
+                        <p class="text-[0.6rem] text-neutral-400">30%</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
         <!-- Initial Amount Field (only for savings/accumulate categories) -->
         <div id="initialAmountSection" class="mb-6 hidden">
             <div class="relative overflow-hidden bg-gradient-to-br from-secondary-500 to-secondary-600 p-6 rounded-card shadow-strong border-2 border-secondary-400">
@@ -1402,13 +1425,19 @@
         document.getElementById('modalCategoryName').value = categoryData.category_name;
         document.getElementById('modalRolloverType').value = categoryData.rollover_type || 'reset';
 
+        // Set 50/30/20 classification
+        const classVal = categoryData.rollover_type === 'accumulate' ? null : (categoryData.is_essential ? 'need' : 'want');
+        document.querySelectorAll('input[name="modalClassification"]').forEach(r => {
+            r.checked = r.value === classVal;
+        });
+
         // Load current budgets for this category in both currencies
         loadCategoryBudgets(categoryData.category_id);
 
         // Load category details including initial_amount
         loadCategoryDetails(categoryData.category_id);
 
-        // Show/hide initial amount field based on rollover type
+        // Show/hide initial amount field and classification based on rollover type
         toggleInitialAmountField();
 
         document.getElementById('assignModal').classList.remove('hidden');
@@ -1477,13 +1506,16 @@
         const rolloverType = document.getElementById('modalRolloverType').value;
         const initialAmountSection = document.getElementById('initialAmountSection');
         const availablePreviewSection = document.getElementById('availablePreviewSection');
+        const classificationSection = document.getElementById('classificationSection');
 
         if (rolloverType === 'accumulate') {
             initialAmountSection.classList.remove('hidden');
             availablePreviewSection.classList.remove('hidden');
+            classificationSection.classList.add('hidden');
         } else {
             initialAmountSection.classList.add('hidden');
             availablePreviewSection.classList.add('hidden');
+            classificationSection.classList.remove('hidden');
         }
     }
 
@@ -1818,6 +1850,8 @@
         const initialAmount = parseFloat(document.getElementById('modalInitialAmount').value) || 0;
         const initialCurrencyCode = document.getElementById('modalInitialCurrency').value;
         const alertsEnabled = document.getElementById('modalAlertsEnabled').checked;
+        const classificationRadio = document.querySelector('input[name="modalClassification"]:checked');
+        const isEssential = rolloverType === 'accumulate' ? false : (classificationRadio ? classificationRadio.value === 'need' : false);
 
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth() + 1;
@@ -1832,7 +1866,8 @@
                     rollover_type: rolloverType,
                     initial_amount: rolloverType === 'accumulate' ? initialAmount : 0,
                     initial_currency_code: rolloverType === 'accumulate' ? initialCurrencyCode : null,
-                    alerts_enabled: alertsEnabled
+                    alerts_enabled: alertsEnabled,
+                    is_essential: isEssential
                 })
             });
 

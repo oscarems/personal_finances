@@ -24,6 +24,11 @@ aiofiles==23.2.1
 # Templating (for serving HTML)
 jinja2==3.1.3
 
+# LLM
+langchain
+langchain-ollama
+langgraph
+
 # Development
 pytest==7.4.3
 httpx==0.26.0
