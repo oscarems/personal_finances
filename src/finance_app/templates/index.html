@@ -342,12 +342,24 @@
         const totalBudgetAssigned = budgetData?.totals?.assigned ?? 0;
         const totalBudgetSpent = budgetData?.totals?.activity ?? 0;
         const totalReadyToAssign = budgetData?.ready_to_assign ?? 0;
+        let totalSavings = 0;
+        if (budgetData?.groups) {
+            budgetData.groups.forEach(group => {
+                if (group.is_income) return;
+                group.categories.forEach(cat => {
+                    if (cat.rollover_type === 'accumulate') {
+                        totalSavings += (cat.available || 0);
+                    }
+                });
+            });
+        }
         const missingRate = !rateValue && summaryCurrency !== 'COP' && summaryCurrency !== 'USD';
 
         const totalAccountsFormatted = formatCurrency(totalAccounts, summaryCurrency, summarySymbol);
         const totalBudgetAssignedFormatted = formatCurrency(totalBudgetAssigned, summaryCurrency, summarySymbol);
         const totalBudgetSpentFormatted = formatCurrency(totalBudgetSpent, summaryCurrency, summarySymbol);
         const totalReadyToAssignFormatted = formatCurrency(totalReadyToAssign, summaryCurrency, summarySymbol);
+        const totalSavingsFormatted = formatCurrency(totalSavings, summaryCurrency, summarySymbol);
         const budgetDataMissing = !budgetData || !budgetData.currency;
         const assignedCardClass = [
             'rounded-card',
@@ -388,7 +400,7 @@
                     </p>
                 </div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <div class="bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-card p-6 border-2 border-neutral-300 shadow-medium hover:shadow-strong transition-shadow">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-neutral-800 text-sm font-bold uppercase tracking-wide">Dinero en Cuentas</p>
@@ -417,6 +429,13 @@
                         <span class="text-3xl">💸</span>
                     </div>
                     <p class="text-3xl font-extrabold text-neutral-900">${totalBudgetSpentFormatted}</p>
+                </div>
+                <div class="bg-gradient-to-br from-sky-400 via-sky-500 to-sky-600 rounded-card p-6 border border-sky-300/20 shadow-medium hover:shadow-strong transition-shadow text-white">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-white text-sm font-bold uppercase tracking-wide">Total Ahorros</p>
+                        <span class="text-3xl">🐷</span>
+                    </div>
+                    <p class="text-3xl font-extrabold text-white">${totalSavingsFormatted}</p>
                 </div>
             </div>
         `;
