@@ -404,19 +404,19 @@
                     <p class="text-3xl font-extrabold text-white">${totalBudgetAssignedFormatted}</p>
                     ${budgetDataMissing ? '<p class="mt-3 text-xs text-white/80">Datos de presupuesto no disponibles.</p>' : ''}
                 </div>
-                <div class="${availableCardClass}">
+                <div class="bg-gradient-to-br ${totalReadyToAssign >= 0 ? 'from-success-400 via-success-500 to-success-600 border-success-300/20' : 'from-danger-400 via-danger-500 to-danger-600 border-danger-300/20'} rounded-card p-6 border shadow-medium hover:shadow-strong transition-shadow text-white">
                     <div class="flex items-center justify-between mb-3">
                         <p class="text-white text-sm font-bold uppercase tracking-wide">Listo para Asignar</p>
                         <span class="text-3xl">${totalReadyToAssign >= 0 ? '✅' : '⚠️'}</span>
                     </div>
                     <p class="text-3xl font-extrabold text-white">${totalReadyToAssignFormatted}</p>
                 </div>
-                <div class="bg-gradient-to-br from-danger-400 via-danger-500 to-danger-600 rounded-card p-6 border border-danger-300/20 shadow-medium hover:shadow-strong transition-shadow text-white">
+                <div class="bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-card p-6 border-2 border-neutral-300 shadow-medium hover:shadow-strong transition-shadow">
                     <div class="flex items-center justify-between mb-3">
-                        <p class="text-white text-sm font-bold uppercase tracking-wide">Total Gastado</p>
+                        <p class="text-neutral-800 text-sm font-bold uppercase tracking-wide">Total Gastado</p>
                         <span class="text-3xl">💸</span>
                     </div>
-                    <p class="text-3xl font-extrabold text-white">${totalBudgetSpentFormatted}</p>
+                    <p class="text-3xl font-extrabold text-neutral-900">${totalBudgetSpentFormatted}</p>
                 </div>
             </div>
         `;
