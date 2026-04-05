@@ -868,8 +868,15 @@ def get_category_budget_history(db: Session, category_id: int, months: int = 3):
         BudgetMonth.month.in_(month_list)
     ).order_by(BudgetMonth.month).all()
 
+    # Group by month to detect multi-currency budgets (same logic as get_month_budget)
+    budgets_by_month = {}
     for b in budgets:
-        calculate_available(db, b)
+        budgets_by_month.setdefault(b.month, []).append(b)
+
+    for month_key, month_budgets_list in budgets_by_month.items():
+        has_multiple_currencies = len({b.currency_id for b in month_budgets_list}) > 1
+        for b in month_budgets_list:
+            calculate_available(db, b, include_all_currencies=not has_multiple_currencies)
     db.commit()
 
     def to_cop(amount, currency_id):
