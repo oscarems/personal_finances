@@ -71,6 +71,14 @@ def migrate_database(db_path: Path | None = None):
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        if 'smart_notif_enabled' in columns:
+            print("✓ La columna 'smart_notif_enabled' ya existe")
+        else:
+            print("🔧 Agregando columna 'smart_notif_enabled' a la tabla categories...")
+            cursor.execute("ALTER TABLE categories ADD COLUMN smart_notif_enabled BOOLEAN DEFAULT 1")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
         cursor.execute("PRAGMA table_info(accounts)")
         account_columns = [row[1] for row in cursor.fetchall()]
 

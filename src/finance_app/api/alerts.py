@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from finance_app.database import get_db
-from finance_app.models import AlertRule
+from finance_app.models import AlertRule, Category, CategoryGroup
 from finance_app.services.alert_service import get_budget_alerts
+from finance_app.services.smart_notifications_service import get_smart_notifications
 
 router = APIRouter()
 
@@ -106,3 +107,53 @@ def get_budget_alerts_endpoint(
         "days_remaining": payload["days_remaining"],
         "cooldown_days": payload["cooldown_days"]
     }
+
+
+@router.get("/smart-notifications")
+def get_smart_notifications_endpoint(
+    currency_code: str = "COP",
+    db: Session = Depends(get_db),
+):
+    notifications = get_smart_notifications(db, currency_code=currency_code)
+    return {"notifications": notifications, "count": len(notifications)}
+
+
+@router.get("/smart-notifications/categories")
+def list_smart_notif_categories(db: Session = Depends(get_db)):
+    """List all expense categories with their smart_notif_enabled status."""
+    groups = (
+        db.query(CategoryGroup)
+        .filter(CategoryGroup.is_income == False)
+        .order_by(CategoryGroup.sort_order)
+        .all()
+    )
+    result = []
+    for g in groups:
+        cats = []
+        for c in sorted(g.categories, key=lambda x: x.sort_order or 0):
+            if c.is_hidden:
+                continue
+            cats.append({
+                "id": c.id,
+                "name": c.name,
+                "smart_notif_enabled": c.smart_notif_enabled if c.smart_notif_enabled is not None else True,
+            })
+        if cats:
+            result.append({"group_name": g.name, "categories": cats})
+    return result
+
+
+class SmartNotifBulkUpdate(BaseModel):
+    category_ids: List[int]
+    enabled: bool
+
+
+@router.patch("/smart-notifications/categories")
+def bulk_update_smart_notif(payload: SmartNotifBulkUpdate, db: Session = Depends(get_db)):
+    """Enable or disable smart notifications for multiple categories at once."""
+    db.query(Category).filter(Category.id.in_(payload.category_ids)).update(
+        {Category.smart_notif_enabled: payload.enabled},
+        synchronize_session="fetch",
+    )
+    db.commit()
+    return {"updated": len(payload.category_ids), "enabled": payload.enabled}

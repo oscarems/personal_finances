@@ -293,6 +293,7 @@ class CategoryUpdate(BaseModel):
     initial_currency_code: Optional[str] = None
     alerts_enabled: Optional[bool] = None
     is_essential: Optional[bool] = None
+    smart_notif_enabled: Optional[bool] = None
 
 
 @router.post("/", response_model=CategoryResponse)
@@ -421,6 +422,9 @@ def update_category(category_id: int, category_update: CategoryUpdate, db: Sessi
 
     if "is_essential" in category_update.__fields_set__:
         category.is_essential = bool(category_update.is_essential)
+
+    if "smart_notif_enabled" in category_update.__fields_set__:
+        category.smart_notif_enabled = bool(category_update.smart_notif_enabled)
 
     db.commit()
     db.refresh(category)

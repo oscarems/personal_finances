@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session, joinedload
 from finance_app.models import BudgetMonth, Category, CategoryGroup, Transaction, Account, Currency
-from finance_app.services.transaction_service import get_monthly_activity, get_monthly_spent
+from finance_app.services.transaction_service import get_monthly_activity
 from finance_app.services.exchange_rate_service import get_current_exchange_rate, convert_currency
 
 
@@ -434,7 +434,6 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
             # Sum all budgets, converting to target currency
             total_assigned = 0.0
             total_activity = 0.0
-            total_spent = 0.0
             total_available = 0.0
             has_multiple_budget_currencies = len({b.currency_id for b in all_budgets}) > 1
 
@@ -443,15 +442,6 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
                 calculate_available(
                     db,
                     budget,
-                    include_all_currencies=not has_multiple_budget_currencies
-                )
-
-                spent_activity = get_monthly_spent(
-                    db,
-                    budget.category_id,
-                    budget.month.month,
-                    budget.month.year,
-                    budget.currency_id,
                     include_all_currencies=not has_multiple_budget_currencies
                 )
 
@@ -471,11 +461,6 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
                     budget_currency.code,
                     currency.code
                 )
-                converted_spent = convert_with_cache(
-                    spent_activity,
-                    budget_currency.code,
-                    currency.code
-                )
                 converted_available = convert_with_cache(
                     budget.available,
                     budget_currency.code,
@@ -484,7 +469,6 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
 
                 total_assigned += converted_assigned
                 total_activity += converted_activity
-                total_spent += converted_spent
                 total_available += converted_available
 
             # Sum initial_amount for accumulate categories
@@ -503,7 +487,7 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
                 'category_id': category.id,
                 'category_name': category.name,
                 'assigned': total_assigned,
-                'activity': total_spent,
+                'activity': total_activity,
                 'available': total_available,
                 'initial_amount': total_initial,
                 'target_amount': category.target_amount,
@@ -516,7 +500,7 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
             # Update totals (excluding income)
             if not group.is_income:
                 budget_data['totals']['assigned'] += total_assigned
-                budget_data['totals']['activity'] += abs(total_spent)
+                budget_data['totals']['activity'] += abs(total_activity)
                 budget_data['totals']['available'] += total_available
 
         budget_data['groups'].append(group_data)

@@ -40,7 +40,9 @@
       "Bash(PYTHONUTF8=1 python -c \"from finance_app.models.budget import BudgetMonth; print\\('OK:', [c.name for c in BudgetMonth.__table__.columns]\\)\")",
       "Bash(PYTHONUTF8=1 PYTHONPATH=src python -c \"from finance_app.models.budget import BudgetMonth; print\\('OK:', [c.name for c in BudgetMonth.__table__.columns]\\)\")",
       "Bash(PYTHONPATH=src python -c \"from finance_app.api.chat import router; print\\('OK'\\)\")",
-      "Bash(venv/Scripts/pip install:*)"
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(xargs grep:*)",
+      "Bash(pip list:*)"
     ]
   }
 }

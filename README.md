@@ -25,13 +25,21 @@ Aplicación de finanzas personales estilo YNAB construida con FastAPI + SQLAlche
 
 ### Requisitos
 
-- Python 3.8+
+- Python 3.10+
 
 ### Instalación
 
 ```bash
 git clone https://github.com/oscarems/personal_finances.git
 cd personal_finances
+python -m venv venv
+
+# Activar entorno virtual
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 

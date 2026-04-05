@@ -2296,24 +2296,28 @@
             const d = new Date(row.month + 'T00:00:00');
             const monthLabel = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
             const availableClass = row.total_available >= 0 ? 'text-green-600' : 'text-red-600';
-            const hasCop = row.assigned_cop || row.activity_cop || row.available_cop;
             const hasUsd = row.assigned_usd || row.activity_usd || row.available_usd;
+            const hasCop = row.assigned_cop || row.activity_cop || row.available_cop;
+            const hasBoth = hasUsd && hasCop;
 
-            function renderAmount(cop, usd, absVal = false) {
+            function renderTotal(total, absVal = false) {
+                const val = absVal ? Math.abs(total) : total;
+                return `<div>$${formatAmount(val, 0)}</div>`;
+            }
+
+            function renderBreakdown(cop, usd, absVal = false) {
+                if (!hasBoth) return '';
                 const copVal = absVal ? Math.abs(cop) : cop;
                 const usdVal = absVal ? Math.abs(usd) : usd;
-                let lines = [];
-                if (hasCop) lines.push(`<div>$${formatAmount(copVal, 0)}</div>`);
-                if (hasUsd) lines.push(`<div${hasCop ? ' class="text-xs text-neutral-400"' : ''}>US$${formatAmount(usdVal, 2)}</div>`);
-                return lines.join('');
+                return `<div class="text-xs text-neutral-400">(COP $${formatAmount(copVal, 0)} + USD $${formatAmount(usdVal, 2)})</div>`;
             }
 
             return `
                 <tr class="hover:bg-neutral-50">
                     <td class="px-4 py-3 font-medium text-neutral-800">${monthLabel}</td>
-                    <td class="px-4 py-3 text-right">${renderAmount(row.assigned_cop, row.assigned_usd)}</td>
-                    <td class="px-4 py-3 text-right">${renderAmount(row.activity_cop, row.activity_usd, true)}</td>
-                    <td class="px-4 py-3 text-right font-semibold ${availableClass}">${renderAmount(row.available_cop, row.available_usd)}</td>
+                    <td class="px-4 py-3 text-right">${renderTotal(row.total_assigned)}${renderBreakdown(row.assigned_cop, row.assigned_usd)}</td>
+                    <td class="px-4 py-3 text-right">${renderTotal(row.total_activity, true)}${renderBreakdown(row.activity_cop, row.activity_usd, true)}</td>
+                    <td class="px-4 py-3 text-right font-semibold ${availableClass}">${renderTotal(row.total_available)}${renderBreakdown(row.available_cop, row.available_usd)}</td>
                 </tr>
             `;
         }).join('');
