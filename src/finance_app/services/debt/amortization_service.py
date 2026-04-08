@@ -11,10 +11,12 @@ from finance_app.services.debt.amortization_engine import AmortizationEngine, Un
 
 
 def _month_start(day: date) -> date:
+    """Normalize a date to the first of its month."""
     return day.replace(day=1)
 
 
 def _iter_months(start_month: date, end_month: date):
+    """Yield first-of-month dates from *start_month* through *end_month*."""
     current = _month_start(start_month)
     while current <= _month_start(end_month):
         yield current
@@ -26,8 +28,20 @@ def ensure_debt_amortization_records(
     start_month: date,
     end_month: date,
     months_ahead: int = 12,
-    today: Optional[date] = None,
+    today: date | None = None,
 ) -> None:
+    """Generate or update DebtAmortizationMonthly records for active debts.
+
+    Runs the AmortizationEngine in hybrid mode for each non-credit-card debt
+    and upserts rows covering ``[start_month, max(end_month, today + months_ahead)]``.
+
+    Args:
+        db: Database session.
+        start_month: First month to generate (inclusive).
+        end_month: Last month to generate (inclusive, extended by *months_ahead*).
+        months_ahead: Extra months beyond *end_month* to project.
+        today: Override for current date (testing).
+    """
     today = today or date.today()
     current_month = _month_start(today)
     projection_end = current_month + relativedelta(months=months_ahead)
@@ -93,8 +107,18 @@ def ensure_debt_amortization_records(
 def fetch_amortization_for_month(
     db: Session,
     target_month: date,
-    debt_ids: Optional[list[int]] = None,
+    debt_ids: list[int] | None = None,
 ) -> Dict[int, DebtAmortizationMonthly]:
+    """Fetch amortization records for a single month, keyed by debt_id.
+
+    Args:
+        db: Database session.
+        target_month: Month to look up (normalized to first-of-month).
+        debt_ids: Optional filter to specific debt IDs.
+
+    Returns:
+        Dict mapping debt_id to DebtAmortizationMonthly record.
+    """
     target_month = _month_start(target_month)
     query = db.query(DebtAmortizationMonthly).filter(
         DebtAmortizationMonthly.as_of_date == target_month
@@ -108,8 +132,19 @@ def fetch_amortization_range(
     db: Session,
     start_month: date,
     end_month: date,
-    debt_ids: Optional[list[int]] = None,
+    debt_ids: list[int] | None = None,
 ) -> Dict[Tuple[int, date], DebtAmortizationMonthly]:
+    """Fetch amortization records for a date range, keyed by ``(debt_id, as_of_date)``.
+
+    Args:
+        db: Database session.
+        start_month: First month (inclusive).
+        end_month: Last month (inclusive).
+        debt_ids: Optional filter to specific debt IDs.
+
+    Returns:
+        Dict mapping ``(debt_id, as_of_date)`` tuples to records.
+    """
     query = db.query(DebtAmortizationMonthly).filter(
         DebtAmortizationMonthly.as_of_date >= _month_start(start_month),
         DebtAmortizationMonthly.as_of_date <= _month_start(end_month),

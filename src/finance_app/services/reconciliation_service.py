@@ -10,8 +10,21 @@ from finance_app.services.transaction_service import create_adjustment
 def get_reconciliation_summary(
     db: Session,
     account_id: int,
-    statement_date: Optional[date] = None
+    statement_date: date | None = None
 ) -> dict:
+    """Get cleared vs uncleared balances for an account.
+
+    Args:
+        db: Database session.
+        account_id: Account to reconcile.
+        statement_date: Optional cutoff date for transactions.
+
+    Returns:
+        Dict with cleared_balance, uncleared_balance, current_balance.
+
+    Raises:
+        ValueError: If account not found.
+    """
     account = db.query(Account).get(account_id)
     if not account:
         raise ValueError("Account not found")
@@ -40,9 +53,19 @@ def get_reconciliation_summary(
 
 def mark_transactions_cleared(
     db: Session,
-    transaction_ids: List[int],
+    transaction_ids: list[int],
     cleared: bool
 ) -> int:
+    """Bulk update the cleared status of transactions.
+
+    Args:
+        db: Database session.
+        transaction_ids: IDs to update.
+        cleared: New cleared status.
+
+    Returns:
+        Number of rows updated.
+    """
     if not transaction_ids:
         return 0
 
@@ -58,9 +81,22 @@ def create_reconciliation_session(
     account_id: int,
     statement_date: date,
     statement_balance: float,
-    notes: Optional[str] = None,
+    notes: str | None = None,
     create_adjustment_entry: bool = False
 ) -> ReconciliationSession:
+    """Create a reconciliation session and optionally an adjustment transaction.
+
+    Args:
+        db: Database session.
+        account_id: Account being reconciled.
+        statement_date: Bank statement date.
+        statement_balance: Real balance from bank statement.
+        notes: Optional notes for the session.
+        create_adjustment_entry: If True, create an adjustment transaction for the difference.
+
+    Returns:
+        The created ReconciliationSession.
+    """
     summary = get_reconciliation_summary(db, account_id, statement_date)
     cleared_balance = summary["cleared_balance"]
     difference = statement_balance - cleared_balance

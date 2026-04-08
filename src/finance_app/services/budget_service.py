@@ -1,7 +1,13 @@
 """
-Budget service - YNAB style "Give every dollar a job"
+Budget service — YNAB-style "Give every dollar a job".
+
+Provides helpers for building, querying and calculating budget data including
+multi-currency conversion, rollover logic and the Ready-to-Assign figure.
 """
+from __future__ import annotations
+
 from datetime import date, datetime
+from collections.abc import Callable
 from typing import Optional
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, extract, or_
@@ -9,6 +15,50 @@ from sqlalchemy.orm import Session, joinedload
 from finance_app.models import BudgetMonth, Category, CategoryGroup, Transaction, Account, Currency
 from finance_app.services.transaction_service import get_monthly_activity
 from finance_app.services.exchange_rate_service import get_current_exchange_rate, convert_currency
+
+
+# ---------------------------------------------------------------------------
+# Shared currency-conversion helper
+# ---------------------------------------------------------------------------
+
+def _make_currency_converter(
+    target_currency_code: str,
+    exchange_rate_usd_cop: float,
+) -> Callable:
+    """Return a closure that converts *amount* from *from_code* to the target currency.
+
+    The returned function uses a cached exchange rate so no extra DB queries
+    are needed.
+    """
+    def _convert(amount: float, from_code: str) -> float:
+        if from_code == target_currency_code:
+            return amount
+        if from_code == "USD" and target_currency_code == "COP":
+            return amount * exchange_rate_usd_cop
+        if from_code == "COP" and target_currency_code == "USD":
+            return amount / exchange_rate_usd_cop
+        return amount
+    return _convert
+
+
+def _make_currency_converter_2arg(
+    target_currency_code: str,
+    exchange_rate_usd_cop: float,
+) -> Callable:
+    """Like :func:`_make_currency_converter` but accepts *(from_code, to_code)*.
+
+    Used inside ``get_month_budget`` where both source and target codes are
+    passed explicitly.
+    """
+    def _convert(amount: float, from_code: str, to_code: str) -> float:
+        if from_code == to_code:
+            return amount
+        if from_code == "USD" and to_code == "COP":
+            return amount * exchange_rate_usd_cop
+        if from_code == "COP" and to_code == "USD":
+            return amount / exchange_rate_usd_cop
+        return amount
+    return _convert
 
 
 def build_spent_transactions_query(
@@ -214,7 +264,7 @@ def assign_money_to_category(db: Session, category_id, month_date, currency_id, 
         month=month_date
     ).all()
     has_multiple_budget_currencies = len({b.currency_id for b in existing_budgets}) > 1
-    calculate_available(
+    recalculate_budget_available(
         db,
         budget,
         include_all_currencies=not has_multiple_budget_currencies
@@ -223,7 +273,7 @@ def assign_money_to_category(db: Session, category_id, month_date, currency_id, 
     return budget
 
 
-def calculate_available(db: Session, budget_month, include_all_currencies: bool = True):
+def recalculate_budget_available(db: Session, budget_month, include_all_currencies: bool = True):
     """
     Calcula la cantidad disponible para un presupuesto mensual.
 
@@ -366,149 +416,33 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
     if not currency:
         return None
 
-    # Get all currencies at once and cache them
     all_currencies = {c.id: c for c in db.query(Currency).all()}
-
-    # Get current exchange rate and cache it
     exchange_rate_usd_cop = get_current_exchange_rate(db)
+    convert = _make_currency_converter_2arg(currency.code, exchange_rate_usd_cop)
 
-    # Helper function to convert using cached rate
-    def convert_with_cache(amount, from_currency_code, to_currency_code):
-        if from_currency_code == to_currency_code:
-            return amount
-        if from_currency_code == 'USD' and to_currency_code == 'COP':
-            return amount * exchange_rate_usd_cop
-        elif from_currency_code == 'COP' and to_currency_code == 'USD':
-            return amount / exchange_rate_usd_cop
-        return amount
-
-    # Get all category groups with categories (eager loading)
     groups = db.query(CategoryGroup).options(
         joinedload(CategoryGroup.categories)
     ).order_by(CategoryGroup.sort_order).all()
 
-    budget_data = {
+    budget_data: dict = {
         'month': month_date.isoformat(),
         'currency': currency.to_dict(),
         'groups': [],
         'ready_to_assign': 0.0,
-        'totals': {
-            'assigned': 0.0,
-            'activity': 0.0,
-            'available': 0.0
-        }
+        'totals': {'assigned': 0.0, 'activity': 0.0, 'available': 0.0},
     }
 
-    # Get all budgets for this month at once (batch query)
-    all_month_budgets = db.query(BudgetMonth).options(
-        joinedload(BudgetMonth.category)
-    ).filter_by(month=month_date).all()
-
-    # Create a dictionary for fast lookup
-    budgets_by_category = {}
-    for budget in all_month_budgets:
-        if budget.category_id not in budgets_by_category:
-            budgets_by_category[budget.category_id] = []
-        budgets_by_category[budget.category_id].append(budget)
+    budgets_by_category = _index_budgets_by_category(db, month_date)
 
     for group in groups:
-        group_data = {
-            'id': group.id,
-            'name': group.name,
-            'is_income': group.is_income,
-            'categories': []
-        }
-
-        for category in group.categories:
-            if category.is_hidden:
-                continue
-
-            # Get budgets for this category from cache
-            all_budgets = budgets_by_category.get(category.id, [])
-
-            # If no budgets exist yet, create one for the selected currency
-            if not all_budgets:
-                budget = get_or_create_budget_month(db, category.id, month_date, currency.id)
-                all_budgets = [budget]
-
-            # Sum all budgets, converting to target currency
-            total_assigned = 0.0
-            total_activity = 0.0
-            total_available = 0.0
-            has_multiple_budget_currencies = len({b.currency_id for b in all_budgets}) > 1
-
-            for budget in all_budgets:
-                # Recalculate available
-                calculate_available(
-                    db,
-                    budget,
-                    include_all_currencies=not has_multiple_budget_currencies
-                )
-
-                # Get budget currency from cache
-                budget_currency = all_currencies.get(budget.currency_id)
-                if not budget_currency:
-                    continue
-
-                # Convert to target currency using cached rate
-                converted_assigned = convert_with_cache(
-                    budget.assigned,
-                    budget_currency.code,
-                    currency.code
-                )
-                converted_activity = convert_with_cache(
-                    budget.activity,
-                    budget_currency.code,
-                    currency.code
-                )
-                converted_available = convert_with_cache(
-                    budget.available,
-                    budget_currency.code,
-                    currency.code
-                )
-
-                total_assigned += converted_assigned
-                total_activity += converted_activity
-                total_available += converted_available
-
-            # Sum initial_amount for accumulate categories
-            total_initial = 0.0
-            if category.rollover_type == 'accumulate':
-                for budget in all_budgets:
-                    budget_currency = all_currencies.get(budget.currency_id)
-                    if budget_currency:
-                        total_initial += convert_with_cache(
-                            budget.initial_amount or 0.0,
-                            budget_currency.code,
-                            currency.code
-                        )
-
-            cat_data = {
-                'category_id': category.id,
-                'category_name': category.name,
-                'assigned': total_assigned,
-                'activity': total_activity,
-                'available': total_available,
-                'initial_amount': total_initial,
-                'target_amount': category.target_amount,
-                'rollover_type': category.rollover_type,  # 'accumulate' or 'reset'
-                'is_essential': bool(category.is_essential)
-            }
-
-            group_data['categories'].append(cat_data)
-
-            # Update totals (excluding income)
-            if not group.is_income:
-                budget_data['totals']['assigned'] += total_assigned
-                budget_data['totals']['activity'] += abs(total_activity)
-                budget_data['totals']['available'] += total_available
-
+        group_data = _build_group_budget(
+            db, group, month_date, currency, all_currencies,
+            convert, budgets_by_category, budget_data['totals'],
+        )
         budget_data['groups'].append(group_data)
 
-    # Single commit at the end instead of multiple commits in loop
     db.commit()
 
-    # Calculate "Ready to Assign" - money not assigned to any category
     total_in_accounts = calculate_total_in_accounts(db, currency.id)
     budget_data['totals']['in_accounts'] = total_in_accounts
     budget_data['ready_to_assign'] = total_in_accounts - budget_data['totals']['available']
@@ -516,48 +450,124 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
     return budget_data
 
 
-def calculate_total_in_accounts(db: Session, currency_id):
-    """
-    Calcula el total en cuentas presupuestarias para una moneda objetivo.
+# -- helpers for get_month_budget ------------------------------------------
 
-    Esta función considera TODAS las cuentas presupuestarias abiertas
-    (is_budget=True, is_closed=False) y excluye deudas.
+def _index_budgets_by_category(db: Session, month_date: date) -> dict[int, list[BudgetMonth]]:
+    """Load all budget rows for *month_date* and index them by category_id."""
+    all_month_budgets = db.query(BudgetMonth).options(
+        joinedload(BudgetMonth.category)
+    ).filter_by(month=month_date).all()
+
+    index: dict[int, list[BudgetMonth]] = {}
+    for budget in all_month_budgets:
+        index.setdefault(budget.category_id, []).append(budget)
+    return index
+
+
+def _build_group_budget(
+    db: Session,
+    group: CategoryGroup,
+    month_date: date,
+    currency: Currency,
+    all_currencies: dict,
+    convert: Callable,
+    budgets_by_category: dict[int, list[BudgetMonth]],
+    running_totals: dict,
+) -> dict:
+    """Build the budget dict for a single category group."""
+    group_data: dict = {
+        'id': group.id,
+        'name': group.name,
+        'is_income': group.is_income,
+        'categories': [],
+    }
+
+    for category in group.categories:
+        if category.is_hidden:
+            continue
+
+        cat_data = _build_category_budget(
+            db, category, month_date, currency, all_currencies,
+            convert, budgets_by_category,
+        )
+        group_data['categories'].append(cat_data)
+
+        if not group.is_income:
+            running_totals['assigned'] += cat_data['assigned']
+            running_totals['activity'] += abs(cat_data['activity'])
+            running_totals['available'] += cat_data['available']
+
+    return group_data
+
+
+def _build_category_budget(
+    db: Session,
+    category: Category,
+    month_date: date,
+    currency: Currency,
+    all_currencies: dict,
+    convert: Callable,
+    budgets_by_category: dict[int, list[BudgetMonth]],
+) -> dict:
+    """Build the budget dict for a single category within a group."""
+    all_budgets = budgets_by_category.get(category.id, [])
+    if not all_budgets:
+        budget = get_or_create_budget_month(db, category.id, month_date, currency.id)
+        all_budgets = [budget]
+
+    has_multi_curr = len({b.currency_id for b in all_budgets}) > 1
+
+    total_assigned = 0.0
+    total_activity = 0.0
+    total_available = 0.0
+
+    for budget in all_budgets:
+        recalculate_budget_available(db, budget, include_all_currencies=not has_multi_curr)
+        bcur = all_currencies.get(budget.currency_id)
+        if not bcur:
+            continue
+        total_assigned += convert(budget.assigned, bcur.code, currency.code)
+        total_activity += convert(budget.activity, bcur.code, currency.code)
+        total_available += convert(budget.available, bcur.code, currency.code)
+
+    total_initial = 0.0
+    if category.rollover_type == 'accumulate':
+        for budget in all_budgets:
+            bcur = all_currencies.get(budget.currency_id)
+            if bcur:
+                total_initial += convert(budget.initial_amount or 0.0, bcur.code, currency.code)
+
+    return {
+        'category_id': category.id,
+        'category_name': category.name,
+        'assigned': total_assigned,
+        'activity': total_activity,
+        'available': total_available,
+        'initial_amount': total_initial,
+        'target_amount': category.target_amount,
+        'rollover_type': category.rollover_type,
+        'is_essential': bool(category.is_essential),
+    }
+
+
+def calculate_total_in_accounts(db: Session, currency_id: int) -> float:
+    """Return the sum of all open budget-account balances converted to *currency_id*.
+
+    Excludes debt accounts (credit_card, credit_loan, mortgage).
     """
     target_currency = db.query(Currency).get(currency_id)
+    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
 
-    # Get current exchange rate and cache it
-    exchange_rate_usd_cop = get_current_exchange_rate(db)
-
-    # Helper function to convert using cached rate
-    def convert_with_cache(amount, from_currency_code):
-        if from_currency_code == target_currency.code:
-            return amount
-        if from_currency_code == 'USD' and target_currency.code == 'COP':
-            return amount * exchange_rate_usd_cop
-        elif from_currency_code == 'COP' and target_currency.code == 'USD':
-            return amount / exchange_rate_usd_cop
-        return amount
-
-    # Get ALL budget accounts (todas las monedas) with eager loading
-    excluded_account_types = {'credit_card', 'credit_loan', 'mortgage'}
-
-    all_accounts = db.query(Account).options(
+    excluded_types = {'credit_card', 'credit_loan', 'mortgage'}
+    accounts = db.query(Account).options(
         joinedload(Account.currency)
     ).filter(
         Account.is_closed == False,
         Account.is_budget == True,
-        ~Account.type.in_(excluded_account_types)
+        ~Account.type.in_(excluded_types),
     ).all()
 
-    # Sum account balances converted to the target currency
-    total_in_accounts = 0.0
-    for acc in all_accounts:
-        if acc.type in excluded_account_types or not acc.is_budget:
-            continue
-        converted_balance = convert_with_cache(acc.balance, acc.currency.code)
-        total_in_accounts += converted_balance
-
-    return total_in_accounts
+    return sum(convert(acc.balance, acc.currency.code) for acc in accounts)
 
 
 def calculate_ready_to_assign(db: Session, month_date, currency_id):
@@ -609,53 +619,29 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         - El dinero no disponible (sin asignar) aparece automáticamente en Ready to Assign
     """
     target_currency = db.query(Currency).get(currency_id)
-
-    # Get current exchange rate and cache it
-    exchange_rate_usd_cop = get_current_exchange_rate(db)
-
-    # Helper function to convert using cached rate
-    def convert_with_cache(amount, from_currency_code):
-        if from_currency_code == target_currency.code:
-            return amount
-        if from_currency_code == 'USD' and target_currency.code == 'COP':
-            return amount * exchange_rate_usd_cop
-        elif from_currency_code == 'COP' and target_currency.code == 'USD':
-            return amount / exchange_rate_usd_cop
-        return amount
+    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
 
     total_in_accounts = calculate_total_in_accounts(db, currency_id)
 
-    # Get ALL budgets this month (todas las monedas) with eager loading
-    all_budgets_this_month = db.query(BudgetMonth).options(
+    all_budgets = db.query(BudgetMonth).options(
         joinedload(BudgetMonth.category).joinedload(Category.category_group)
-    ).filter_by(
-        month=month_date
-    ).all()
+    ).filter_by(month=month_date).all()
 
-    # Create currency cache
     currency_cache = {c.id: c for c in db.query(Currency).all()}
+    cat_currencies: dict[int, set[int]] = {}
+    for b in all_budgets:
+        cat_currencies.setdefault(b.category_id, set()).add(b.currency_id)
 
-    budgets_by_category = {}
-    for budget in all_budgets_this_month:
-        budgets_by_category.setdefault(budget.category_id, set()).add(budget.currency_id)
-
-    # Sum available amounts converted to the target currency
     total_available = 0.0
-    for budget in all_budgets_this_month:
+    for budget in all_budgets:
         if budget.category and budget.category.category_group and budget.category.category_group.is_income:
             continue
-        has_multiple_budget_currencies = len(budgets_by_category.get(budget.category_id, set())) > 1
-        calculate_available(
-            db,
-            budget,
-            include_all_currencies=not has_multiple_budget_currencies
-        )
-        budget_currency = currency_cache.get(budget.currency_id)
-        if budget_currency:
-            converted_available = convert_with_cache(budget.available, budget_currency.code)
-            total_available += converted_available
+        has_multi = len(cat_currencies.get(budget.category_id, set())) > 1
+        recalculate_budget_available(db, budget, include_all_currencies=not has_multi)
+        bcur = currency_cache.get(budget.currency_id)
+        if bcur:
+            total_available += convert(budget.available, bcur.code)
 
-    # Ready to Assign = Money in accounts - Money available in categories
     return total_in_accounts - total_available
 
 
@@ -671,17 +657,7 @@ def calculate_assigned_this_month(db: Session, month_date, currency_id):
     if not target_currency:
         return 0.0
 
-    exchange_rate_usd_cop = get_current_exchange_rate(db)
-
-    def convert_with_cache(amount, from_currency_code):
-        if from_currency_code == target_currency.code:
-            return amount
-        if from_currency_code == 'USD' and target_currency.code == 'COP':
-            return amount * exchange_rate_usd_cop
-        if from_currency_code == 'COP' and target_currency.code == 'USD':
-            return amount / exchange_rate_usd_cop
-        return amount
-
+    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
     previous_month = month_date - relativedelta(months=1)
 
     budgets = db.query(BudgetMonth).options(
@@ -709,7 +685,7 @@ def calculate_assigned_this_month(db: Session, month_date, currency_id):
         if not budget_currency:
             continue
 
-        total_assigned += convert_with_cache(delta_assigned, budget_currency.code)
+        total_assigned += convert(delta_assigned, budget_currency.code)
 
     return total_assigned
 
@@ -843,6 +819,42 @@ def move_to_next_month(db: Session, current_month_date, currency_id):
     return True
 
 
+def _sum_by_currency_code(
+    budgets_list: list[BudgetMonth],
+    currencies: dict,
+    code: str,
+    field: str,
+) -> float:
+    """Sum *field* from budget rows whose currency matches *code*."""
+    return sum(
+        getattr(b, field) or 0
+        for b in budgets_list
+        if currencies.get(b.currency_id) and currencies[b.currency_id].code == code
+    )
+
+
+def _summarise_month_budgets(
+    month: date,
+    all_budgets: list[BudgetMonth],
+    currencies: dict,
+    to_cop_fn: Callable,
+) -> dict:
+    """Build one row of the monthly summary table for budget history."""
+    month_budgets = [b for b in all_budgets if b.month == month]
+    return {
+        "month": month.isoformat(),
+        "assigned_cop": _sum_by_currency_code(month_budgets, currencies, "COP", "assigned"),
+        "activity_cop": _sum_by_currency_code(month_budgets, currencies, "COP", "activity"),
+        "available_cop": _sum_by_currency_code(month_budgets, currencies, "COP", "available"),
+        "assigned_usd": _sum_by_currency_code(month_budgets, currencies, "USD", "assigned"),
+        "activity_usd": _sum_by_currency_code(month_budgets, currencies, "USD", "activity"),
+        "available_usd": _sum_by_currency_code(month_budgets, currencies, "USD", "available"),
+        "total_assigned": sum(to_cop_fn(b.assigned, b.currency_id) for b in month_budgets),
+        "total_activity": sum(to_cop_fn(b.activity, b.currency_id) for b in month_budgets),
+        "total_available": sum(to_cop_fn(b.available, b.currency_id) for b in month_budgets),
+    }
+
+
 def get_category_budget_history(db: Session, category_id: int, months: int = 3):
     """
     Returns monthly budget history (assigned, activity, available) and
@@ -876,47 +888,21 @@ def get_category_budget_history(db: Session, category_id: int, months: int = 3):
     for month_key, month_budgets_list in budgets_by_month.items():
         has_multiple_currencies = len({b.currency_id for b in month_budgets_list}) > 1
         for b in month_budgets_list:
-            calculate_available(db, b, include_all_currencies=not has_multiple_currencies)
+            recalculate_budget_available(db, b, include_all_currencies=not has_multiple_currencies)
     db.commit()
 
-    def to_cop(amount, currency_id):
-        """Convert amount to COP using current exchange rate."""
-        cur = currencies.get(currency_id)
-        if not cur or cur.code == 'COP':
+    to_cop = _make_currency_converter("COP", exchange_rate)
+
+    def _to_cop_by_id(amount: float, cur_id: int) -> float:
+        cur = currencies.get(cur_id)
+        if not cur or cur.code == "COP":
             return float(amount or 0)
-        # USD -> COP
         return float(amount or 0) * exchange_rate
 
-    # Build monthly summary
-    monthly_summary = []
-    for m in month_list:
-        month_budgets = [b for b in budgets if b.month == m]
-
-        # Per-currency values
-        assigned_cop = sum(b.assigned or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'COP')
-        activity_cop = sum(b.activity or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'COP')
-        available_cop = sum(b.available or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'COP')
-        assigned_usd = sum(b.assigned or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'USD')
-        activity_usd = sum(b.activity or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'USD')
-        available_usd = sum(b.available or 0 for b in month_budgets if currencies.get(b.currency_id) and currencies[b.currency_id].code == 'USD')
-
-        # Consolidated to COP (sum all currencies converted)
-        total_assigned = sum(to_cop(b.assigned, b.currency_id) for b in month_budgets)
-        total_activity = sum(to_cop(b.activity, b.currency_id) for b in month_budgets)
-        total_available = sum(to_cop(b.available, b.currency_id) for b in month_budgets)
-
-        monthly_summary.append({
-            "month": m.isoformat(),
-            "assigned_cop": assigned_cop,
-            "activity_cop": activity_cop,
-            "available_cop": available_cop,
-            "assigned_usd": assigned_usd,
-            "activity_usd": activity_usd,
-            "available_usd": available_usd,
-            "total_assigned": total_assigned,
-            "total_activity": total_activity,
-            "total_available": total_available,
-        })
+    monthly_summary = [
+        _summarise_month_budgets(m, budgets, currencies, _to_cop_by_id)
+        for m in month_list
+    ]
 
     # Get transactions for the date range
     oldest_month = month_list[-1]

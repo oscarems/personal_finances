@@ -11,7 +11,6 @@ from finance_app.models.debt_category_allocation import DebtCategoryAllocation
 from finance_app.models.debt_amortization import DebtAmortizationMonthly
 from finance_app.models.debt_snapshot import DebtSnapshotMonthly, DebtSnapshotProjectedMonthly
 from finance_app.models.mortgage_payment_allocation import MortgagePaymentAllocation
-from finance_app.models.ynab_category_mapping import YnabCategoryMapping
 from finance_app.models.alert import AlertRule
 from finance_app.models.budget_alert_state import BudgetAlertState
 from finance_app.models.reconciliation import ReconciliationSession
@@ -40,7 +39,6 @@ __all__ = [
     'DebtSnapshotMonthly',
     'DebtSnapshotProjectedMonthly',
     'MortgagePaymentAllocation',
-    'YnabCategoryMapping',
     'AlertRule',
     'BudgetAlertState',
     'ReconciliationSession',

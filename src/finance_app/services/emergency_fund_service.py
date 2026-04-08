@@ -9,7 +9,7 @@ from finance_app.models import Category, BudgetMonth, Currency
 from finance_app.services.exchange_rate_service import convert_currency
 
 
-def get_essential_expenses(db: Session, month_date: date, target_currency_id: int = 1):
+def get_monthly_essential_expenses(db: Session, month_date: date, target_currency_id: int = 1):
     """
     Calcula el total de gastos esenciales mensuales para un mes dado.
 
@@ -236,7 +236,7 @@ def calculate_emergency_coverage(db: Session, month_date: date = None, target_cu
     funds_total = funds['total']
 
     # Obtener gastos esenciales
-    expenses = get_essential_expenses(db, month_date, target_currency_id)
+    expenses = get_monthly_essential_expenses(db, month_date, target_currency_id)
     expenses_total = expenses['total']
 
     # Calcular meses de cobertura

@@ -64,7 +64,7 @@ def _scheduled_occurrences(
     return occurrences
 
 
-def _allocate_payment(
+def _allocate_payment_to_highest_principal(
     debts_by_id: Dict[int, DebtPrincipalRecord],
     category_debt_ids: List[int],
     amount_cop: Decimal,
@@ -185,7 +185,7 @@ def project_debt_principal(
                 for payment in payments
             )
             matching_debt_ids = _resolve_category_debts(debts, allocation_map, category_id)
-            _allocate_payment(
+            _allocate_payment_to_highest_principal(
                 debts_by_id,
                 matching_debt_ids,
                 total_cop,

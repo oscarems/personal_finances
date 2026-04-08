@@ -1,11 +1,18 @@
 """
-FastAPI Main Application
+FastAPI Main Application.
+
+Entry point for the Personal Finances app. Registers all API routers,
+page routes, static files, and the application lifespan handler.
 """
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pathlib import Path
 from sqlalchemy.orm import Session
 
@@ -43,18 +50,44 @@ from finance_app.services.recurring_service import generate_due_transactions
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Lifespan (replaces deprecated @app.on_event)
+# ---------------------------------------------------------------------------
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Initialise the database, generate recurring transactions and sync email on startup."""
+    init_db()
+    default_name = default_database_name()
+    ensure_database_initialized(default_name)
+    session_factory = get_session_factory(default_name)
+    db = session_factory()
+    try:
+        generate_due_transactions(db)
+    finally:
+        db.close()
+    try:
+        from finance_app.sync.email_scrape_sync import sync_email_transactions
+        sync_email_transactions()
+    except (ImportError, RuntimeError) as exc:
+        logger.warning("Email sync skipped during startup: %s", exc)
+    logger.info("Database initialized")
+    yield
+
+
 # Create FastAPI app
 app = FastAPI(
     title="Personal Finances",
     description="YNAB-style personal finance manager",
-    version="1.0.1"
+    version="1.0.1",
+    lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware — allow_credentials cannot be True when allow_origins is ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -91,29 +124,9 @@ app.include_router(email_sender_rules.router, prefix="/api/email-sender-rules", 
 app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    init_db()
-    default_name = default_database_name()
-    ensure_database_initialized(default_name)
-    session_factory = get_session_factory(default_name)
-    db = session_factory()
-    try:
-        generate_due_transactions(db)
-    finally:
-        db.close()
-    try:
-        from finance_app.sync.email_scrape_sync import sync_email_transactions
-        sync_email_transactions()
-    except (ImportError, RuntimeError) as exc:
-        logger.warning("Email sync skipped during startup: %s", exc)
-    print("✓ Database initialized")
-
-
 @app.get("/")
-async def home(request: Request):
-    """Home page - Dashboard"""
+async def home(request: Request) -> HTMLResponse:
+    """Home page — Dashboard."""
     return templates.TemplateResponse("index.html", {"request": request})
 
 

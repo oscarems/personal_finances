@@ -14,6 +14,14 @@ _QUANTIZE_COP = Decimal("0.01")
 
 
 def _decimalize(value: float | int | Decimal | None) -> Decimal:
+    """Convert a numeric value to Decimal safely.
+
+    Args:
+        value: Numeric value or None.
+
+    Returns:
+        Decimal representation; zero for None.
+    """
     if isinstance(value, Decimal):
         return value
     if value is None:
@@ -22,6 +30,7 @@ def _decimalize(value: float | int | Decimal | None) -> Decimal:
 
 
 def _quantize_cop(value: Decimal) -> Decimal:
+    """Round a Decimal value to 2 decimal places using banker's rounding."""
     return value.quantize(_QUANTIZE_COP, rounding=ROUND_HALF_UP)
 
 
@@ -29,7 +38,8 @@ def _get_rate_from_exchange_table(
     db: Session,
     currency_code: str,
     as_of_date: date,
-) -> Optional[Decimal]:
+) -> Decimal | None:
+    """Look up the latest exchange rate on or before *as_of_date* from the ExchangeRate table."""
     if currency_code == "COP":
         return Decimal("1")
 
@@ -48,7 +58,8 @@ def _get_rate_from_exchange_table(
     return None
 
 
-def _get_rate_from_currency_table(db: Session, currency_code: str) -> Optional[Decimal]:
+def _get_rate_from_currency_table(db: Session, currency_code: str) -> Decimal | None:
+    """Fall back to the Currency table's ``exchange_rate_to_base`` field."""
     if currency_code == "COP":
         return Decimal("1")
     currency = db.query(Currency).filter_by(code=currency_code).first()
@@ -57,7 +68,8 @@ def _get_rate_from_currency_table(db: Session, currency_code: str) -> Optional[D
     return None
 
 
-def _get_rate_from_defaults(currency_code: str) -> Optional[Decimal]:
+def _get_rate_from_defaults(currency_code: str) -> Decimal | None:
+    """Fall back to hard-coded default rates from config."""
     if currency_code in DEFAULT_EXCHANGE_RATES:
         return _decimalize(DEFAULT_EXCHANGE_RATES[currency_code])
     return None
@@ -68,6 +80,7 @@ def _resolve_rate_to_cop(
     currency_code: str,
     as_of_date: date,
 ) -> Decimal:
+    """Resolve the best available rate to COP using the 3-level fallback chain."""
     return (
         _get_rate_from_exchange_table(db, currency_code, as_of_date)
         or _get_rate_from_currency_table(db, currency_code)

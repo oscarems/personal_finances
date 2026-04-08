@@ -11,7 +11,7 @@ from finance_app.database import get_db
 from finance_app.models import Category, CategoryGroup
 from finance_app.services.emergency_fund_service import (
     calculate_emergency_coverage,
-    get_essential_expenses,
+    get_monthly_essential_expenses,
     get_emergency_funds
 )
 
@@ -85,7 +85,7 @@ def get_essential_monthly_expenses(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM-DD")
 
-    expenses = get_essential_expenses(db, month_date, currency_id)
+    expenses = get_monthly_essential_expenses(db, month_date, currency_id)
     return expenses
 
 

@@ -12,8 +12,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-OLLAMA_BASE = "http://localhost:11434"
-OLLAMA_TIMEOUT = 120
+from finance_app.config import OLLAMA_BASE_URL, OLLAMA_TIMEOUT
+
 MAX_ROWS = 200
 
 TABLAS = [
@@ -61,7 +61,7 @@ def get_db_schema(db: Session) -> str:
 def _make_llm(modelo: str, **kwargs) -> OllamaLLM:
     return OllamaLLM(
         model=modelo,
-        base_url=OLLAMA_BASE,
+        base_url=OLLAMA_BASE_URL,
         timeout=OLLAMA_TIMEOUT,
         num_ctx=2048,
         temperature=kwargs.get("temperature", 0),

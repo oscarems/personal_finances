@@ -9,7 +9,7 @@ cronológico para asegurar que el rollover funcione correctamente.
 
 from finance_app.database import SessionLocal
 from finance_app.models import Category, BudgetMonth
-from finance_app.services.budget_service import calculate_available
+from finance_app.services.budget_service import recalculate_budget_available
 from sqlalchemy import distinct
 
 def recalculate_all_savings_budgets():
@@ -68,7 +68,7 @@ def recalculate_all_savings_budgets():
                     has_multiple_currencies = len({b.currency_id for b in existing_budgets}) > 1
 
                     # Recalcular available
-                    calculate_available(
+                    recalculate_budget_available(
                         db,
                         budget,
                         include_all_currencies=not has_multiple_currencies

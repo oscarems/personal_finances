@@ -6,6 +6,7 @@ from datetime import datetime
 
 import requests as http_requests
 from fastapi import APIRouter, Depends, Request
+from finance_app.config import OLLAMA_BASE_URL
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -28,7 +29,7 @@ def chat_page(request: Request):
 @router.get("/modelos")
 def listar_modelos():
     try:
-        resp = http_requests.get("http://localhost:11434/api/tags", timeout=5)
+        resp = http_requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         resp.raise_for_status()
         data = resp.json()
         return [

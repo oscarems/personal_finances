@@ -9,6 +9,7 @@ from finance_app.services.exchange_rate_service import convert_currency
 
 
 def _convert_amount(db: Session, amount: float, from_currency_id: int, to_currency_id: int, rate_date: date) -> float:
+    """Convert amount between currencies using exchange rate for a given date."""
     if from_currency_id == to_currency_id:
         return amount
     from_currency = db.query(Currency).get(from_currency_id)
@@ -24,7 +25,19 @@ def _convert_amount(db: Session, amount: float, from_currency_id: int, to_curren
     )
 
 
-def calculate_goal_progress(db: Session, goal: Goal, as_of: date | None = None, months_for_projection: int = 3) -> Dict:
+def calculate_goal_progress(db: Session, goal: Goal, as_of: date | None = None, months_for_projection: int = 3) -> dict:
+    """Calculate progress, gap, and projected achievement date for a financial goal.
+
+    Args:
+        db: Database session.
+        goal: Goal model instance.
+        as_of: Reference date (defaults to today).
+        months_for_projection: Number of recent months to average for projection.
+
+    Returns:
+        Dict with goal data plus current_amount, gap, required_per_month,
+        avg_monthly_real, projected_achievement_date, and status.
+    """
     as_of = as_of or date.today()
     if goal.linked_account_id:
         account = db.query(Account).get(goal.linked_account_id)

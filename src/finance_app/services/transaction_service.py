@@ -23,6 +23,10 @@ from finance_app.services.transaction_allocation_service import (
 
 
 def transaction_affects_balance(account: Account, transaction_date: date) -> bool:
+    """Check whether a transaction should update the account balance.
+
+    Transactions dated before the account's creation date are ignored.
+    """
     if not account or not transaction_date:
         return True
     if not account.created_at:
@@ -49,7 +53,12 @@ def normalize_transaction_currency(
     currency_id: int,
     account: Account,
     transaction_date: date
-):
+) -> tuple[float, int, float | None]:
+    """Convert amount to the account's currency if they differ.
+
+    Returns:
+        Tuple of (converted_amount, effective_currency_id, fx_rate_or_None).
+    """
     if not account or currency_id is None:
         return amount, currency_id, None
 
@@ -74,7 +83,8 @@ def normalize_transaction_currency(
     return converted_amount, account.currency_id, fx_rate
 
 
-def get_base_currency(db: Session) -> Optional[Currency]:
+def get_base_currency(db: Session) -> Currency | None:
+    """Return the system's base currency (is_base=True)."""
     return db.query(Currency).filter_by(is_base=True).first()
 
 
@@ -83,7 +93,14 @@ def build_transaction_audit_fields(
     original_amount: float,
     original_currency_id: int,
     transaction_date: date
-):
+) -> tuple[float | None, int | None]:
+    """Compute base_amount and base_currency_id for audit tracking.
+
+    Converts the original amount to the base currency if different.
+
+    Returns:
+        Tuple of (base_amount, base_currency_id).
+    """
     base_currency = get_base_currency(db)
     base_currency_id = base_currency.id if base_currency else None
     base_amount = None
@@ -104,7 +121,8 @@ def build_transaction_audit_fields(
     return base_amount, base_currency_id
 
 
-def _resolve_target_debt(db: Session, transaction: Transaction, account: Account) -> Optional[Debt]:
+def _resolve_target_debt(db: Session, transaction: Transaction, account: Account) -> Debt | None:
+    """Find the Debt record linked to a transaction by explicit debt_id or account type."""
     if transaction.debt_id:
         return db.query(Debt).filter_by(id=transaction.debt_id).first()
     if not account or account.type not in {'credit_card', 'credit_loan', 'mortgage'}:
@@ -113,6 +131,7 @@ def _resolve_target_debt(db: Session, transaction: Transaction, account: Account
 
 
 def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
+    """Update debt balances when a transaction affects a debt account."""
     if not transaction_affects_balance(account, transaction.date):
         return
 
@@ -161,6 +180,7 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
 
 
 def _cc_balance_in_debt_currency(db: Session, account: Account, debt: Debt) -> float:
+    """Compute credit-card debt balance from account, converting currency if needed."""
     """Compute credit-card debt balance, converting currency if needed."""
     raw_balance = max(0.0, -(account.balance or 0.0))
     acct_currency = db.query(Currency).filter_by(id=account.currency_id).first()
@@ -194,6 +214,7 @@ def _estimate_period_interest(debt: Debt, payment_amount: float) -> float:
 
 
 def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
+    """Reverse the debt balance changes when a transaction is deleted or updated."""
     if not transaction_affects_balance(account, transaction.date):
         return
 
@@ -234,12 +255,13 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
 
 
 
-def _apply_tags_to_transaction(db: Session, transaction: Transaction, tag_ids: Optional[list[int]]) -> None:
+def _apply_tags_to_transaction(db: Session, transaction: Transaction, tag_ids: list[int] | None) -> None:
     """Tags are intentionally ignored to keep transactions fully independent from tag data."""
     return
 
 
-def _apply_splits_to_transaction(db: Session, transaction: Transaction, splits_data: Optional[list[dict]]) -> None:
+def _apply_splits_to_transaction(db: Session, transaction: Transaction, splits_data: list[dict] | None) -> None:
+    """Replace transaction splits with new split data, validating sums and categories."""
     if splits_data is None:
         return
     if transaction.transfer_account_id:
@@ -387,7 +409,8 @@ def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None
     return query.all()
 
 
-def get_last_manual_transactions_by_account(db: Session):
+def get_last_manual_transactions_by_account(db: Session) -> list[dict]:
+    """Return the most recent manual transaction creation date per account."""
     memo_value = func.coalesce(Transaction.memo, '')
     results = (
         db.query(

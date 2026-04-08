@@ -29,8 +29,9 @@ def get_income_total(
     end_date: date,
     currency_id: int,
     exchange_rate: float,
-    category_id: Optional[int] = None,
+    category_id: int | None = None,
 ) -> float:
+    """Sum income transactions for a date range, converted to target currency."""
     income_transactions = build_income_transactions_query(
         db, start_date, end_date, category_id=category_id
     ).with_entities(Transaction.amount, Transaction.currency_id).all()
@@ -44,6 +45,7 @@ def get_income_total(
 def get_monthly_income(
     db: Session, year: int, month: int, currency_id: int, exchange_rate: float
 ) -> float:
+    """Get total income for a single month."""
     month_start = date(year, month, 1)
     month_end = month_start + relativedelta(months=1)
     return get_income_total(db, month_start, month_end, currency_id, exchange_rate)
@@ -57,6 +59,7 @@ def get_budget_report_income_total(
     exchange_rate: float,
     excluded_payee_name: str = "Balance Adjustment",
 ) -> float:
+    """Sum income excluding balance adjustments, for budget reports."""
     income_transactions = db.query(Transaction).outerjoin(Payee).filter(
         Transaction.date >= start_date,
         Transaction.date < end_date,

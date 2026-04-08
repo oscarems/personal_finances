@@ -1,3 +1,4 @@
+"""Debt principal calculation service."""
 from __future__ import annotations
 
 from datetime import date
@@ -13,6 +14,14 @@ from finance_app.services.debt.balance_service import calculate_debt_balance_as_
 
 
 def _decimalize(value: float | int | Decimal | None) -> Decimal:
+    """Safely convert a numeric value to Decimal.
+
+    Args:
+        value: Numeric value or None.
+
+    Returns:
+        Decimal representation; zero for None.
+    """
     if isinstance(value, Decimal):
         return value
     if value is None:
@@ -21,6 +30,18 @@ def _decimalize(value: float | int | Decimal | None) -> Decimal:
 
 
 def get_debts_principal(db: Session, as_of_date: date) -> List[DebtPrincipalRecord]:
+    """Get principal balances for all debts as of a given date.
+
+    For mortgages the balance is computed via the amortization engine;
+    for other debt types the stored ``current_balance`` is used.
+
+    Args:
+        db: Database session.
+        as_of_date: Reference date for balance calculation.
+
+    Returns:
+        List of DebtPrincipalRecord dataclasses, one per debt.
+    """
     debts = fetch_debts(db, include_inactive=True)
     records: List[DebtPrincipalRecord] = []
 
@@ -57,6 +78,15 @@ def get_debts_principal(db: Session, as_of_date: date) -> List[DebtPrincipalReco
 
 
 def get_total_debt_principal_cop(db: Session, as_of_date: date) -> Decimal:
+    """Sum of all open debt principals converted to COP.
+
+    Args:
+        db: Database session.
+        as_of_date: Reference date.
+
+    Returns:
+        Total principal in COP as Decimal.
+    """
     records = get_debts_principal(db, as_of_date)
     return sum(
         (record.principal_cop for record in records if record.status == "open"),

@@ -32,9 +32,11 @@ def get_category_allocations(transaction: Transaction) -> List[Dict]:
     return allocations
 
 
-def validate_splits_sum(total_amount: float, split_amounts: List[float]) -> bool:
+def validate_splits_sum(total_amount: float, split_amounts: list[float]) -> bool:
+    """Check that split amounts add up to the transaction total (within rounding)."""
     return round(sum(split_amounts), 2) == round(total_amount, 2)
 
 
-def validate_splits_categories_exist(category_map: Dict[int, Category], split_category_ids: List[int]) -> bool:
+def validate_splits_categories_exist(category_map: dict[int, Category], split_category_ids: list[int]) -> bool:
+    """Verify all split category IDs exist in the provided category map."""
     return all(category_id in category_map for category_id in split_category_ids)

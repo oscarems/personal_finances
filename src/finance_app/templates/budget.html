@@ -3,20 +3,15 @@
 {% block title %}Presupuesto - Personal Finances{% endblock %}
 
 {% block content %}
-<!-- Header Ultra Moderno -->
+<!-- Header -->
 <div class="page-header">
     <div>
-        <div class="flex items-center gap-4 mb-3">
-            <div class="page-icon bg-gradient-to-br from-primary-500 to-secondary-500">
-                <span class="text-2xl">💰</span>
-            </div>
-            <h2 class="page-title">Presupuesto</h2>
-        </div>
-        <p class="page-subtitle ml-16">Dale un propósito a cada peso - Asigna en COP o USD</p>
+        <h2 class="page-title">Presupuesto</h2>
+        <p class="page-subtitle mt-1">Dale un propósito a cada peso - Asigna en COP o USD</p>
     </div>
     <div class="page-actions">
-        <button onclick="openNewGroupModal()" class="btn-primary flex items-center shadow-strong">
-            <span class="mr-2 text-xl">+</span> Nuevo Grupo
+        <button onclick="openNewGroupModal()" class="btn-primary flex items-center">
+            <span class="mr-1">+</span> Nuevo Grupo
         </button>
         <input type="month" id="monthSelect" class="input-field date-input shadow-medium" value="{{ current_month }}">
     </div>
@@ -62,52 +57,30 @@
     </div>
 </div>
 
-<!-- Budget Distribution Bar Chart ultra moderno -->
-<div class="card-hover-lift p-8 mb-10">
-    <div class="flex items-center space-x-4 mb-8">
-        <div class="relative">
-            <div class="absolute inset-0 bg-secondary-500 rounded-xl blur-md opacity-30"></div>
-            <div class="relative bg-gradient-to-br from-secondary-400 to-secondary-600 p-3 rounded-xl">
-                <span class="text-2xl">📊</span>
-            </div>
-        </div>
-        <h3 class="text-2xl font-bold text-neutral-800">
-            Distribución del Presupuesto por Categoría
-        </h3>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Chart Canvas -->
-        <div class="chart-panel flex items-center justify-center bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6">
+<!-- Budget Distribution Bar Chart -->
+<div class="card p-6 mb-6">
+    <h3 class="text-base font-bold text-neutral-800 mb-5">
+        Distribución del Presupuesto por Categoría
+    </h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="chart-panel flex items-center justify-center rounded-lg p-4 bg-neutral-50">
             <canvas id="budgetBarChart"></canvas>
         </div>
-        <!-- Legend -->
-        <div id="budgetChartLegend" class="chart-legend overflow-y-auto bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6 border border-neutral-100">
-            <!-- Legend items will be populated here -->
+        <div id="budgetChartLegend" class="chart-legend overflow-y-auto rounded-lg p-4 bg-neutral-50 border border-neutral-100">
         </div>
     </div>
 </div>
 
 <!-- Spending Distribution Bar Chart -->
-<div class="card-hover-lift p-8 mb-10">
-    <div class="flex items-center space-x-4 mb-8">
-        <div class="relative">
-            <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
-            <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
-                <span class="text-2xl">💸</span>
-            </div>
-        </div>
-        <h3 class="text-2xl font-bold text-neutral-800">
-            Distribución del Gasto por Categoría
-        </h3>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Chart Canvas -->
-        <div class="chart-panel flex items-center justify-center bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6">
+<div class="card p-6 mb-6">
+    <h3 class="text-base font-bold text-neutral-800 mb-5">
+        Distribución del Gasto por Categoría
+    </h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="chart-panel flex items-center justify-center rounded-lg p-4 bg-neutral-50">
             <canvas id="budgetSpendingChart"></canvas>
         </div>
-        <!-- Legend -->
-        <div id="budgetSpendingLegend" class="chart-legend overflow-y-auto bg-gradient-to-br from-neutral-50 to-white rounded-xl p-6 border border-neutral-100">
-            <!-- Legend items will be populated here -->
+        <div id="budgetSpendingLegend" class="chart-legend overflow-y-auto rounded-lg p-4 bg-neutral-50 border border-neutral-100">
         </div>
     </div>
 </div>
@@ -115,7 +88,7 @@
 <!-- Overallocated Alert con diseño mejorado -->
 <div id="budgetOverallocatedAlert" class="hidden alert alert-danger mb-8">
     <div class="flex items-start space-x-4">
-        <div class="text-3xl">⚠️</div>
+        <div class="text-sm font-bold text-danger-600">Alerta</div>
         <div class="flex-1">
             <p class="font-bold text-lg text-danger-900 mb-2">Tu presupuesto disponible supera el dinero en tus cuentas</p>
             <p class="text-sm text-danger-800 mb-3">
@@ -160,20 +133,12 @@
 <!-- Category Detail/History Modal -->
 <div id="categoryDetailModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
     <div class="bg-white card p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300">
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
-                        <span class="text-2xl">📊</span>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="text-2xl font-extrabold text-neutral-900" id="detailCategoryName"></h3>
-                    <p class="text-sm text-neutral-500" id="detailCategoryType"></p>
-                </div>
+        <div class="flex items-center justify-between mb-5">
+            <div>
+                <h3 class="text-lg font-bold text-neutral-900" id="detailCategoryName"></h3>
+                <p class="text-xs text-neutral-500" id="detailCategoryType"></p>
             </div>
-            <button onclick="closeCategoryDetailModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
+            <button onclick="closeCategoryDetailModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-xl leading-none">&times;</button>
         </div>
 
         <!-- Months selector -->
@@ -185,7 +150,7 @@
                 <option value="12">Últimos 12 meses</option>
             </select>
             <button onclick="openAssignModalFromDetail()" class="btn-primary ml-auto flex items-center gap-2">
-                <span>💰</span> Asignar Dinero
+                Asignar Dinero
             </button>
         </div>
 
@@ -232,12 +197,7 @@
         <!-- Header con icono y efecto blur -->
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
-                        <span class="text-2xl">💰</span>
-                    </div>
-                </div>
+                
                 <h3 class="text-3xl font-extrabold text-neutral-900">Asignar Dinero</h3>
             </div>
             <button onclick="closeAssignModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
@@ -406,12 +366,7 @@
         <!-- Header con icono y efecto blur -->
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-danger-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-danger-400 to-danger-600 p-3 rounded-xl">
-                        <span class="text-2xl">⚠️</span>
-                    </div>
-                </div>
+                
                 <h3 class="text-3xl font-extrabold text-neutral-900">Cubrir Exceso</h3>
             </div>
             <button onclick="closeCoverOverspendingModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
@@ -467,12 +422,7 @@
         <!-- Header con icono y efecto blur -->
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
-                        <span class="text-2xl">🏷️</span>
-                    </div>
-                </div>
+                
                 <h3 class="text-3xl font-extrabold text-neutral-900">Nueva Categoría</h3>
             </div>
             <button onclick="closeNewCategoryModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
@@ -535,12 +485,7 @@
         <!-- Header con icono y efecto blur -->
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-success-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-success-400 to-success-600 p-3 rounded-xl">
-                        <span class="text-2xl">📁</span>
-                    </div>
-                </div>
+                
                 <h3 class="text-3xl font-extrabold text-neutral-900">Nuevo Grupo</h3>
             </div>
             <button onclick="closeNewGroupModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>

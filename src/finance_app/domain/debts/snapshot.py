@@ -1,3 +1,4 @@
+"""Debt snapshot builder -- persists monthly principal snapshots."""
 from __future__ import annotations
 
 from datetime import date
@@ -12,10 +13,12 @@ from finance_app.models import DebtSnapshotMonthly
 
 
 def _month_start(day: date) -> date:
+    """Normalize a date to the first of its month."""
     return day.replace(day=1)
 
 
 def _iter_months(start_month: date, end_month: date) -> Iterable[date]:
+    """Yield first-of-month dates from *start_month* through *end_month*."""
     current = _month_start(start_month)
     end_month = _month_start(end_month)
     while current <= end_month:
@@ -29,6 +32,14 @@ def build_debt_snapshots(
     end_month: date,
     rebuild: bool = False,
 ) -> None:
+    """Create or refresh monthly principal snapshots for all open debts.
+
+    Args:
+        db: Database session.
+        start_month: First month to snapshot (inclusive).
+        end_month: Last month to snapshot (inclusive).
+        rebuild: If True, replace existing snapshots instead of skipping.
+    """
     for month_start in _iter_months(start_month, end_month):
         records = get_debts_principal(db, month_start)
         for record in records:

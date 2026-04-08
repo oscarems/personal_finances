@@ -20,7 +20,7 @@ def get_exchange_rate(db: Session) -> float:
     return rate.rate if rate else 4000.0
 
 
-def parse_date_range(start_date: Optional[str], end_date: Optional[str]) -> Tuple[date, date]:
+def parse_date_range(start_date: str | None, end_date: str | None) -> tuple[date, date]:
     """Parse ISO date strings, defaulting to current month."""
     today = date.today()
     if not start_date:
@@ -50,7 +50,7 @@ def convert_to_currency(amount: float, from_currency_id: int, to_currency_id: in
     return amount
 
 
-def expense_allocations(db: Session, start_date_obj: date, end_date_exclusive: date):
+def expense_allocations(db: Session, start_date_obj: date, end_date_exclusive: date) -> list[tuple]:
     """Return (transaction, category, abs_amount) tuples for expenses in range.
 
     When a transaction has splits, verifies that split amounts sum to the

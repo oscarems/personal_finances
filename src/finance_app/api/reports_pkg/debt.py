@@ -33,13 +33,14 @@ logger = logging.getLogger(__name__)
 def _calculate_debt_balance(
     db: Session, debt: Debt, as_of_date: date, today: date, include_projection: bool = True
 ) -> float:
+    """Thin wrapper around calculate_debt_balance_as_of for report use."""
     return calculate_debt_balance_as_of(
         db=db, debt=debt, as_of_date=as_of_date, today=today, include_projection=include_projection,
     )
 
 
 def _log_debt_mismatch(context: str, legacy_total: float, canonical_total: float) -> None:
-    if abs(legacy_total - canonical_total) > 0.01:
+    if abs(float(legacy_total) - float(canonical_total)) > 0.01:
         logger.error(
             "Debt principal mismatch in %s: legacy=%s canonical=%s",
             context, round(legacy_total, 2), round(canonical_total, 2),

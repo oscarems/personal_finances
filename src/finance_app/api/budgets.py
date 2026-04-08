@@ -13,7 +13,7 @@ from finance_app.services.budget_service import (
     assign_money_to_category,
     get_budget_overview,
     get_assigned_totals_by_currency,
-    calculate_available,
+    recalculate_budget_available,
     get_spent_transactions_to_date,
     get_category_budget_history
 )
@@ -244,7 +244,7 @@ def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(
     ).all()
 
     for b in source_budgets + target_budgets:
-        calculate_available(db, b)
+        recalculate_budget_available(db, b)
 
     db.commit()
 
@@ -305,7 +305,7 @@ def recalculate_savings_budgets(db: Session = Depends(get_db)):
                 has_multiple_currencies = len({b.currency_id for b in existing_budgets}) > 1
 
                 # Recalcular available
-                calculate_available(
+                recalculate_budget_available(
                     db,
                     budget,
                     include_all_currencies=not has_multiple_currencies

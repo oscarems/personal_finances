@@ -166,23 +166,18 @@
     }
 </style>
 
-<!-- Header Ultra Moderno -->
+<!-- Header -->
 <div class="page-header">
     <div>
-        <div class="flex items-center gap-4 mb-3">
-            <div class="page-icon bg-gradient-to-br from-success-500 to-primary-500">
-                <span class="text-2xl">📝</span>
-            </div>
-            <h2 class="page-title">Transacciones</h2>
-        </div>
-        <p class="page-subtitle ml-16">Historial completo de ingresos y gastos</p>
+        <h2 class="page-title">Transacciones</h2>
+        <p class="page-subtitle mt-1">Historial completo de ingresos y gastos</p>
     </div>
     <div class="page-actions">
-        <button onclick="openTransferModal()" class="btn-success flex items-center shadow-strong">
-            <span class="mr-2 text-xl">⇄</span> Nueva Transferencia
+        <button onclick="openTransferModal()" class="btn-success flex items-center">
+            Nueva Transferencia
         </button>
-        <button onclick="openCreateModal()" class="btn-primary flex items-center shadow-strong">
-            <span class="mr-2 text-xl">+</span> Nueva Transacción
+        <button onclick="openCreateModal()" class="btn-primary flex items-center">
+            + Nueva Transacción
         </button>
     </div>
 </div>
@@ -350,12 +345,7 @@
     <div class="bg-white card p-6 md:p-8 max-w-3xl w-full mx-0 md:mx-4 max-h-[95vh] md:max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300 rounded-t-2xl md:rounded-card">
         <div class="flex items-center justify-between mb-8">
             <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-primary-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-primary-400 to-primary-600 p-3 rounded-xl">
-                        <span class="text-2xl">📝</span>
-                    </div>
-                </div>
+                
                 <h3 id="modalTitle" class="text-3xl font-extrabold text-neutral-900">Nueva Transacción</h3>
             </div>
             <button onclick="closeTransactionModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors">
@@ -479,12 +469,7 @@
     <div class="bg-white card p-6 md:p-8 max-w-3xl w-full mx-0 md:mx-4 max-h-[95vh] md:max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300 rounded-t-2xl md:rounded-card">
         <div class="flex items-center justify-between mb-8">
             <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="absolute inset-0 bg-success-500 rounded-xl blur-md opacity-30"></div>
-                    <div class="relative bg-gradient-to-br from-success-400 to-success-600 p-3 rounded-xl">
-                        <span class="text-2xl">⇄</span>
-                    </div>
-                </div>
+                
                 <h3 class="text-3xl font-extrabold text-neutral-900">Nueva Transferencia</h3>
             </div>
             <button onclick="closeTransferModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors">

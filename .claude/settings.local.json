@@ -42,7 +42,10 @@
       "Bash(PYTHONPATH=src python -c \"from finance_app.api.chat import router; print\\('OK'\\)\")",
       "Bash(venv/Scripts/pip install:*)",
       "Bash(xargs grep:*)",
-      "Bash(pip list:*)"
+      "Bash(pip list:*)",
+      "Bash(PYTHONPATH=src python -c \"from finance_app.app import app; print\\('Import OK'\\)\")",
+      "Bash(PYTHONPATH=src python -m pytest tests/ -v --tb=short)",
+      "Bash(grep -rn '[^a-zA-Z_][0-9]\\\\{4,\\\\}[^a-zA-Z_0-9-]' --include=\"*.py\" api/ services/ domain/)"
     ]
   }
 }

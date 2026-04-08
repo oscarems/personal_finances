@@ -56,7 +56,6 @@ class Category(Base):
                                    lazy=True, cascade='all, delete-orphan')
     payees = relationship('Payee', back_populates='default_category', lazy=True)
     initial_currency = relationship('Currency', lazy=True)
-    ynab_mappings = relationship('YnabCategoryMapping', back_populates='current_category', lazy=True)
 
     def __repr__(self):
         return f'<Category {self.name}>'

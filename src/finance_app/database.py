@@ -1,7 +1,10 @@
+import logging
 from pathlib import Path
 import re
 import threading
 import shutil
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -25,14 +28,17 @@ _INIT_LOCK = threading.Lock()
 
 
 def normalize_db_name(name: str) -> str:
+    """Normalize a database name to lowercase trimmed form."""
     return name.strip().lower()
 
 
 def is_valid_db_name(name: str) -> bool:
+    """Validate that *name* is a safe database identifier (lowercase alphanumeric)."""
     return bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", name))
 
 
 def clear_database_cache(name: str) -> None:
+    """Dispose the engine and remove session/cache entries for a database."""
     normalized = normalize_db_name(name)
     engine_to_clear = _ENGINE_CACHE.pop(normalized, None)
     if engine_to_clear is not None:
@@ -42,6 +48,7 @@ def clear_database_cache(name: str) -> None:
 
 
 def delete_database(name: str) -> None:
+    """Delete a user-created SQLite database file (not primary or demo)."""
     name = normalize_db_name(name)
     if name in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
         raise ValueError("No se puede eliminar la base principal o demo.")
@@ -55,6 +62,13 @@ def delete_database(name: str) -> None:
 
 
 def duplicate_database(source: str, target: str) -> None:
+    """Copy a SQLite database file to create a new database with a different name.
+
+    Raises:
+        ValueError: If source equals target, or either is not SQLite.
+        FileNotFoundError: If source database does not exist.
+        FileExistsError: If target database already exists.
+    """
     source = normalize_db_name(source)
     target = normalize_db_name(target)
     if source == target:
@@ -73,6 +87,15 @@ def duplicate_database(source: str, target: str) -> None:
 
 
 def rename_database(source: str, target: str) -> None:
+    """Rename a user-created SQLite database file.
+
+    Primary and demo databases cannot be renamed.
+
+    Raises:
+        ValueError: If source is primary/demo, source equals target, or not SQLite.
+        FileNotFoundError: If source database does not exist.
+        FileExistsError: If target database already exists.
+    """
     source = normalize_db_name(source)
     target = normalize_db_name(target)
     if source in {PRIMARY_DB_ALIAS, DEMO_DB_ALIAS}:
@@ -93,12 +116,14 @@ def rename_database(source: str, target: str) -> None:
 
 
 def ensure_sqlite_directory(database_url: str) -> None:
+    """Create the parent directory for a SQLite database file if it does not exist."""
     if not database_url.startswith('sqlite:///'):
         return
     Path(database_url.replace('sqlite:///', '')).parent.mkdir(parents=True, exist_ok=True)
 
 
 def create_engine_for_url(database_url: str):
+    """Create a SQLAlchemy engine with appropriate connect_args for the URL scheme."""
     connect_args = {"check_same_thread": False} if database_url.startswith('sqlite:///') else {}
     return create_engine(database_url, connect_args=connect_args)
 
@@ -121,6 +146,11 @@ Base = declarative_base()
 
 
 def resolve_db_name(request: Request) -> str:
+    """Determine the database name from the request cookies.
+
+    Checks ``db_name`` cookie first, then falls back to the legacy
+    ``db_mode`` cookie, and finally to the default database name.
+    """
     raw_name = request.cookies.get("db_name")
     if raw_name:
         return normalize_db_name(raw_name)
@@ -131,6 +161,7 @@ def resolve_db_name(request: Request) -> str:
 
 
 def database_path_for(name: str) -> Path | None:
+    """Return the filesystem path for a named database, or None if not SQLite."""
     name = normalize_db_name(name)
     if name == PRIMARY_DB_ALIAS:
         return Path(SQLALCHEMY_DATABASE_URI.replace("sqlite:///", "")) if SQLALCHEMY_DATABASE_URI.startswith("sqlite:///") else None
@@ -140,6 +171,7 @@ def database_path_for(name: str) -> Path | None:
 
 
 def database_url_for(name: str) -> str:
+    """Return the SQLAlchemy database URL for a named database."""
     name = normalize_db_name(name)
     if name == PRIMARY_DB_ALIAS:
         return SQLALCHEMY_DATABASE_URI
@@ -149,6 +181,7 @@ def database_url_for(name: str) -> str:
 
 
 def database_exists(name: str) -> bool:
+    """Return True if the named database file exists (non-SQLite always returns True)."""
     db_path = database_path_for(name)
     if db_path is None:
         return True
@@ -156,6 +189,7 @@ def database_exists(name: str) -> bool:
 
 
 def list_databases() -> list[dict]:
+    """List all available databases (primary, demo, and user-created)."""
     entries: list[dict] = []
     existing = {path.stem for path in DATABASE_DIRECTORY.glob("*.db")}
     for alias, label in [(PRIMARY_DB_ALIAS, "Principal"), (DEMO_DB_ALIAS, "Demo")]:
@@ -176,6 +210,7 @@ def list_databases() -> list[dict]:
 
 
 def default_database_name() -> str:
+    """Return the name of the default database to use on startup."""
     if database_exists(PRIMARY_DB_ALIAS):
         return PRIMARY_DB_ALIAS
     dbs = list_databases()
@@ -186,6 +221,7 @@ def default_database_name() -> str:
 
 
 def get_engine_for_name(name: str):
+    """Return a cached SQLAlchemy engine for the named database, creating one if needed."""
     name = normalize_db_name(name)
     if name in _ENGINE_CACHE:
         return _ENGINE_CACHE[name]
@@ -197,6 +233,7 @@ def get_engine_for_name(name: str):
 
 
 def get_session_factory(name: str) -> sessionmaker:
+    """Return a cached sessionmaker for the named database, creating one if needed."""
     name = normalize_db_name(name)
     if name in _SESSION_CACHE:
         return _SESSION_CACHE[name]
@@ -207,6 +244,12 @@ def get_session_factory(name: str) -> sessionmaker:
 
 
 def ensure_database_initialized(name: str) -> None:
+    """Ensure tables exist and seed data is loaded for the named database.
+
+    Thread-safe: uses a lock to prevent concurrent initialization of the
+    same database. Subsequent calls for an already-initialized database are
+    no-ops.
+    """
     name = normalize_db_name(name)
     if name in _INITIALIZED_DATABASES:
         return
@@ -256,189 +299,88 @@ def get_db(request: Request):
         db.close()
 
 
-def init_db(engine_override=None):
-    """Initialize database - create all tables"""
-    # Import all models here to ensure they're registered
-    from finance_app.models import (
+def init_db(engine_override=None) -> None:
+    """Create all tables and apply pending SQLite schema migrations."""
+    # Import all models to register them with Base.metadata
+    from finance_app.models import (  # noqa: F401
         Currency, Account, CategoryGroup, Category,
         Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate,
         Debt, DebtPayment, DebtCategoryAllocation, DebtAmortizationMonthly,
         DebtSnapshotMonthly, DebtSnapshotProjectedMonthly,
-        YnabCategoryMapping, AlertRule, BudgetAlertState, ReconciliationSession,
+        AlertRule, BudgetAlertState, ReconciliationSession,
         EmailScrapeTransaction, PatrimonioAsset
     )
 
     active_engine = engine_override or engine
     Base.metadata.create_all(bind=active_engine)
-    ensure_sqlite_column(
-        table_name="recurring_transactions",
-        column_name="transaction_type",
-        column_definition="transaction_type VARCHAR(20) DEFAULT 'expense'",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="categories",
-        column_name="is_essential",
-        column_definition="is_essential BOOLEAN DEFAULT 0",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="categories",
-        column_name="is_emergency_fund",
-        column_definition="is_emergency_fund BOOLEAN DEFAULT 0",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="categories",
-        column_name="alerts_enabled",
-        column_definition="alerts_enabled BOOLEAN DEFAULT 1",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="is_adjustment",
-        column_definition="is_adjustment BOOLEAN DEFAULT 0",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="original_amount",
-        column_definition="original_amount FLOAT DEFAULT 0",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="original_currency_id",
-        column_definition="original_currency_id INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="fx_rate",
-        column_definition="fx_rate FLOAT",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="base_amount",
-        column_definition="base_amount FLOAT",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="base_currency_id",
-        column_definition="base_currency_id INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="investment_asset_id",
-        column_definition="investment_asset_id INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="debt_id",
-        column_definition="debt_id INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="source",
-        column_definition="source VARCHAR(50)",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="transactions",
-        column_name="source_id",
-        column_definition="source_id VARCHAR(120)",
-        engine_override=active_engine
-    )
-    ensure_sqlite_index(
-        index_name="uq_transactions_source_source_id",
-        index_definition="CREATE UNIQUE INDEX IF NOT EXISTS "
-                         "uq_transactions_source_source_id ON transactions (source, source_id)",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="loan_years",
-        column_definition="loan_years INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="category_id",
-        column_definition="category_id INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="has_insurance",
-        column_definition="has_insurance BOOLEAN DEFAULT 0",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="principal_balance",
-        column_definition="principal_balance NUMERIC(18, 6)",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="interest_balance",
-        column_definition="interest_balance NUMERIC(18, 6)",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="annual_interest_rate",
-        column_definition="annual_interest_rate NUMERIC(10, 6)",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="term_months",
-        column_definition="term_months INTEGER",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="next_due_date",
-        column_definition="next_due_date DATE",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="debts",
-        column_name="last_accrual_date",
-        column_definition="last_accrual_date DATE",
-        engine_override=active_engine
-    )
-    ensure_sqlite_column(
-        table_name="accounts",
-        column_name="country",
-        column_definition="country VARCHAR(50)",
-        engine_override=active_engine
-    )
-    # Patrimonio asset new columns
-    for col, defn in [
-        ("depreciation_method", "depreciation_method VARCHAR(40) DEFAULT 'sin_depreciacion'"),
-        ("depreciation_rate", "depreciation_rate FLOAT"),
-        ("depreciation_years", "depreciation_years INTEGER"),
-        ("depreciation_salvage_value", "depreciation_salvage_value NUMERIC(18,2)"),
-        ("depreciation_start_date", "depreciation_start_date DATE"),
-        ("return_rate", "return_rate FLOAT"),
-        ("return_amount", "return_amount NUMERIC(18,2)"),
-    ]:
-        ensure_sqlite_column(table_name="patrimonio_asset", column_name=col, column_definition=defn, engine_override=active_engine)
-    ensure_sqlite_column(
-        table_name="goals",
-        column_name="category_id",
-        column_definition="category_id INTEGER REFERENCES categories(id)",
-        engine_override=active_engine
-    )
+    _apply_sqlite_migrations(active_engine)
     _backfill_account_country(active_engine)
-    print("✓ Database tables created")
+    logger.info("Database tables created")
+
+
+# ---------------------------------------------------------------------------
+# Schema migration registry — each entry is (table, column, DDL definition)
+# ---------------------------------------------------------------------------
+
+_MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
+    ("recurring_transactions", "transaction_type", "transaction_type VARCHAR(20) DEFAULT 'expense'"),
+    ("categories", "is_essential", "is_essential BOOLEAN DEFAULT 0"),
+    ("categories", "is_emergency_fund", "is_emergency_fund BOOLEAN DEFAULT 0"),
+    ("categories", "alerts_enabled", "alerts_enabled BOOLEAN DEFAULT 1"),
+    ("transactions", "is_adjustment", "is_adjustment BOOLEAN DEFAULT 0"),
+    ("transactions", "original_amount", "original_amount FLOAT DEFAULT 0"),
+    ("transactions", "original_currency_id", "original_currency_id INTEGER"),
+    ("transactions", "fx_rate", "fx_rate FLOAT"),
+    ("transactions", "base_amount", "base_amount FLOAT"),
+    ("transactions", "base_currency_id", "base_currency_id INTEGER"),
+    ("transactions", "investment_asset_id", "investment_asset_id INTEGER"),
+    ("transactions", "debt_id", "debt_id INTEGER"),
+    ("transactions", "source", "source VARCHAR(50)"),
+    ("transactions", "source_id", "source_id VARCHAR(120)"),
+    ("debts", "loan_years", "loan_years INTEGER"),
+    ("debts", "category_id", "category_id INTEGER"),
+    ("debts", "has_insurance", "has_insurance BOOLEAN DEFAULT 0"),
+    ("debts", "principal_balance", "principal_balance NUMERIC(18, 6)"),
+    ("debts", "interest_balance", "interest_balance NUMERIC(18, 6)"),
+    ("debts", "annual_interest_rate", "annual_interest_rate NUMERIC(10, 6)"),
+    ("debts", "term_months", "term_months INTEGER"),
+    ("debts", "next_due_date", "next_due_date DATE"),
+    ("debts", "last_accrual_date", "last_accrual_date DATE"),
+    ("accounts", "country", "country VARCHAR(50)"),
+    ("patrimonio_asset", "depreciation_method", "depreciation_method VARCHAR(40) DEFAULT 'sin_depreciacion'"),
+    ("patrimonio_asset", "depreciation_rate", "depreciation_rate FLOAT"),
+    ("patrimonio_asset", "depreciation_years", "depreciation_years INTEGER"),
+    ("patrimonio_asset", "depreciation_salvage_value", "depreciation_salvage_value NUMERIC(18,2)"),
+    ("patrimonio_asset", "depreciation_start_date", "depreciation_start_date DATE"),
+    ("patrimonio_asset", "return_rate", "return_rate FLOAT"),
+    ("patrimonio_asset", "return_amount", "return_amount NUMERIC(18,2)"),
+    ("goals", "category_id", "category_id INTEGER REFERENCES categories(id)"),
+]
+
+_MIGRATION_INDEXES: list[tuple[str, str]] = [
+    (
+        "uq_transactions_source_source_id",
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "uq_transactions_source_source_id ON transactions (source, source_id)",
+    ),
+]
+
+
+def _apply_sqlite_migrations(active_engine) -> None:
+    """Ensure all migration columns and indexes exist."""
+    for table, column, definition in _MIGRATION_COLUMNS:
+        ensure_sqlite_column(
+            table_name=table,
+            column_name=column,
+            column_definition=definition,
+            engine_override=active_engine,
+        )
+    for index_name, index_ddl in _MIGRATION_INDEXES:
+        ensure_sqlite_index(
+            index_name=index_name,
+            index_definition=index_ddl,
+            engine_override=active_engine,
+        )
 
 
 ACCOUNT_COUNTRY_MAP: dict[str, str] = {
@@ -464,6 +406,7 @@ def ensure_sqlite_column(
     column_definition: str,
     engine_override=None
 ) -> None:
+    """Add a column to a SQLite table if it does not already exist."""
     active_engine = engine_override or engine
     if active_engine.url.drivername != "sqlite":
         return
@@ -484,6 +427,7 @@ def ensure_sqlite_index(
     index_definition: str,
     engine_override=None
 ) -> None:
+    """Create a SQLite index if it does not already exist."""
     active_engine = engine_override or engine
     if active_engine.url.drivername != "sqlite":
         return

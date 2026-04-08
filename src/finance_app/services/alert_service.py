@@ -54,7 +54,8 @@ def _get_period_progress(month_date: date, today: Optional[date] = None) -> Tupl
     return expected_percent, days_remaining
 
 
-def _resolve_category_config(category: Category) -> Dict[str, Dict[str, int]]:
+def _resolve_category_config(category: Category) -> dict[str, dict[str, int]]:
+    """Merge default thresholds/pacing_margins with per-category overrides."""
     override = None
     if category.id in BUDGET_ALERT_CATEGORY_OVERRIDES:
         override = BUDGET_ALERT_CATEGORY_OVERRIDES[category.id]
@@ -74,7 +75,8 @@ def _resolve_category_config(category: Category) -> Dict[str, Dict[str, int]]:
     }
 
 
-def _state_from_thresholds(percent_spent: float, thresholds: Dict[str, int]) -> str:
+def _state_from_thresholds(percent_spent: float, thresholds: dict[str, int]) -> str:
+    """Determine alert severity based on absolute spending percentage."""
     if percent_spent >= thresholds["critical"]:
         return "CRITICAL"
     if percent_spent >= thresholds["risk"]:
@@ -87,8 +89,9 @@ def _state_from_thresholds(percent_spent: float, thresholds: Dict[str, int]) -> 
 def _state_from_pacing(
     percent_spent: float,
     expected_percent: float,
-    pacing_margins: Dict[str, int]
-) -> Tuple[str, float]:
+    pacing_margins: dict[str, int]
+) -> tuple[str, float]:
+    """Determine alert severity based on spending pace vs expected progress."""
     overage = percent_spent - expected_percent
     if overage >= pacing_margins["critical"]:
         return "CRITICAL", overage
@@ -100,10 +103,12 @@ def _state_from_pacing(
 
 
 def _choose_final_state(threshold_state: str, pacing_state: str) -> str:
+    """Pick the more severe of threshold vs pacing alert states."""
     return threshold_state if ALERT_SEVERITY_ORDER[threshold_state] >= ALERT_SEVERITY_ORDER[pacing_state] else pacing_state
 
 
 def _format_amount(amount: float, currency_code: str) -> str:
+    """Format a monetary amount with appropriate decimal places for the currency."""
     decimals = 0 if currency_code == "COP" else 2
     return f"{amount:,.{decimals}f}"
 
@@ -139,10 +144,11 @@ def _build_alert_message(
 
 def _should_notify(
     current_state: str,
-    last_state: Optional[str],
-    last_notified_at: Optional[datetime],
+    last_state: str | None,
+    last_notified_at: datetime | None,
     cooldown_days: int
 ) -> bool:
+    """Decide whether to send a notification based on state change and cooldown."""
     if current_state == "OK":
         return False
     if last_state is None or current_state != last_state:
@@ -157,7 +163,21 @@ def get_budget_alerts(
     month_date: date,
     include_unconfigured: bool = True,
     currency_code: str = "COP"
-) -> List[dict]:
+) -> dict:
+    """Generate budget alerts for all expense categories in a month.
+
+    Combines threshold-based and pacing-based alerts, respects cooldowns,
+    and persists alert state for deduplication.
+
+    Args:
+        db: Database session.
+        month_date: First day of the month to analyze.
+        include_unconfigured: Include categories without explicit alert rules.
+        currency_code: Currency for display amounts.
+
+    Returns:
+        Dict with alerts list, category_states, expected_percent, and days_remaining.
+    """
     budget_data = get_month_budget(db, month_date, currency_code)
     expected_percent, days_remaining = _get_period_progress(month_date)
 
