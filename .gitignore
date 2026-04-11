@@ -38,3 +38,4 @@ data/uploads/*
 .DS_Store
 Thumbs.db
 compras.csv
+.claude/worktrees/agent-a1e56eb4/
