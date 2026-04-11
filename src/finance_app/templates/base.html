@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Personal Finances{% endblock %}</title>
 
-    <!-- Google Fonts - Plus Jakarta Sans -->
+    <!-- Google Fonts - Fraunces (display serif) + Inter Tight (body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -202,7 +202,9 @@
                         }
                     },
                     fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+                        sans: ['"Inter Tight"', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['"Fraunces"', 'Georgia', 'serif'],
+                        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
                     },
                     boxShadow: {
                         DEFAULT: '0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03)',
@@ -275,15 +277,17 @@
                 position: fixed;
                 top: 0; left: 0; right: 0;
                 height: 56px;
-                background: #111113;
-                border-bottom: 1px solid rgba(255,255,255,0.08);
+                background: linear-gradient(180deg,#1c1814,#14110d);
+                border-bottom: 1px solid rgba(212,172,92,0.12);
                 padding: 0 1rem;
                 z-index: 49;
             }
             .mobile-topbar-title {
-                font-size: 1rem;
-                font-weight: 700;
-                color: #fff;
+                font-family: 'Fraunces', Georgia, serif;
+                font-size: 1.15rem;
+                font-weight: 400;
+                color: #faf6ea;
+                letter-spacing: -0.02em;
             }
         }
 
@@ -381,11 +385,12 @@
 <body class="bg-neutral-50 antialiased">
     <div class="flex h-screen">
         <!-- Sidebar -->
-        <aside class="w-64 text-white flex flex-col border-r border-white/5" style="background:#111113">
+        <aside class="w-64 flex flex-col border-r" style="background:linear-gradient(180deg,#1c1814 0%,#14110d 100%);border-color:rgba(212,172,92,0.08);color:#f3ece0">
             <!-- Logo -->
-            <div class="px-5 py-4 border-b border-white/8">
-                <h1 class="text-base font-bold tracking-tight text-white">💰 Finanzas</h1>
-                <p class="text-slate-400 text-[11px] mt-0.5 font-medium">Gestión financiera personal</p>
+            <div class="px-5 py-5 border-b" style="border-color:rgba(212,172,92,0.1)">
+                <h1 class="text-[1.35rem] tracking-tight" style="font-family:'Fraunces',Georgia,serif;font-weight:400;font-variation-settings:'opsz' 96,'SOFT' 30;color:#faf6ea;letter-spacing:-0.025em">Finanzas</h1>
+                <p class="text-[10.5px] mt-1 tracking-[0.14em] uppercase" style="color:#a89d8c;font-weight:500">Gestión patrimonial</p>
+                <div class="mt-3 h-px w-10" style="background:linear-gradient(90deg,#d4ac5c,transparent)"></div>
             </div>
 
             <!-- Navegación principal -->
@@ -460,6 +465,10 @@
                         <span class="theme-toggle__label" id="themeToggleLabel">Modo oscuro</span>
                     </button>
                 </div>
+                <a href="/auth/logout" class="flex items-center gap-2 text-xs text-neutral-500 hover:text-red-400 transition mt-2 px-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/></svg>
+                    Cerrar sesión
+                </a>
                 <div class="flex items-center justify-end text-[10px] text-slate-500 mt-1">
                     <span>v2.0</span>
                 </div>
@@ -533,13 +542,37 @@
                 </button>
                 <span class="mobile-topbar-title">Finanzas</span>
             </div>
-            <div class="container mx-auto px-8 py-8">
+            <div class="container mx-auto px-4 py-4 md:px-8 md:py-8">
                 {% block content %}{% endblock %}
             </div>
         </main>
     </div>
     <!-- Overlay oscuro para cerrar sidebar en móvil -->
     <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <a href="/" data-nav="home">
+            <span class="nav-emoji">🏠</span>
+            <span>Inicio</span>
+        </a>
+        <a href="/budget" data-nav="budget">
+            <span class="nav-emoji">📊</span>
+            <span>Presupuesto</span>
+        </a>
+        <a href="/transactions" data-nav="transactions">
+            <span class="nav-emoji">💳</span>
+            <span>Movimientos</span>
+        </a>
+        <a href="/reports" data-nav="reports">
+            <span class="nav-emoji">📈</span>
+            <span>Análisis</span>
+        </a>
+        <a href="/debts" data-nav="debts">
+            <span class="nav-emoji">📉</span>
+            <span>Deudas</span>
+        </a>
+    </nav>
 
     <script>
         window.getThemeColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -882,6 +915,14 @@
             const navLinks = document.querySelectorAll('.nav-item');
 
             navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPath || (currentPath === '/' && href === '/')) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Mobile bottom nav active state
+            document.querySelectorAll('.mobile-bottom-nav a').forEach(link => {
                 const href = link.getAttribute('href');
                 if (href === currentPath || (currentPath === '/' && href === '/')) {
                     link.classList.add('active');

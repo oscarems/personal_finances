@@ -47,6 +47,7 @@ from finance_app.api import email_sender_rules
 from finance_app.api import chat as chat_module
 from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
+from finance_app.auth import router as auth_router, require_auth, register_auth_exception_handler, APP_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,11 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Initialise the database, generate recurring transactions and sync email on startup."""
+    if not APP_PASSWORD:
+        raise RuntimeError(
+            "APP_PASSWORD environment variable is not set. "
+            "Set it before starting the app (e.g. APP_PASSWORD=mysecret)."
+        )
     init_db()
     default_name = default_database_name()
     ensure_database_initialized(default_name)
@@ -69,7 +75,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     try:
         from finance_app.sync.email_scrape_sync import sync_email_transactions
         sync_email_transactions()
-    except (ImportError, RuntimeError) as exc:
+    except Exception as exc:
         logger.warning("Email sync skipped during startup: %s", exc)
     logger.info("Database initialized")
     yield
@@ -122,16 +128,24 @@ app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(patrimonio.router, prefix="/api/patrimonio", tags=["patrimonio"])
 app.include_router(email_sender_rules.router, prefix="/api/email-sender-rules", tags=["email-sender-rules"])
 app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
+app.include_router(auth_router)
+register_auth_exception_handler(app)
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Fly.io — no auth required."""
+    return {"status": "ok"}
 
 
 @app.get("/")
-async def home(request: Request) -> HTMLResponse:
+async def home(request: Request, _=Depends(require_auth)) -> HTMLResponse:
     """Home page — Dashboard."""
     return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/budget")
-async def budget_page(request: Request):
+async def budget_page(request: Request, _=Depends(require_auth)):
     """Budget page"""
     from datetime import date
     return templates.TemplateResponse("budget.html", {
@@ -141,84 +155,84 @@ async def budget_page(request: Request):
 
 
 @app.get("/transactions")
-async def transactions_page(request: Request):
+async def transactions_page(request: Request, _=Depends(require_auth)):
     """Transactions page"""
     return templates.TemplateResponse("transactions.html", {"request": request})
 
 
 @app.get("/accounts")
-async def accounts_page(request: Request):
+async def accounts_page(request: Request, _=Depends(require_auth)):
     """Accounts page"""
     return templates.TemplateResponse("accounts.html", {"request": request})
 
 
 @app.get("/advanced/gmail")
-async def advanced_gmail_page(request: Request):
+async def advanced_gmail_page(request: Request, _=Depends(require_auth)):
     """Gmail import preview page"""
     return templates.TemplateResponse("gmail_import.html", {"request": request})
 
 @app.get("/mortgage")
-async def mortgage_page(request: Request):
+async def mortgage_page(request: Request, _=Depends(require_auth)):
     """Mortgage simulator page"""
     return templates.TemplateResponse("mortgage.html", {"request": request})
 
 
 @app.get("/investment-simulator")
-async def investment_simulator_page(request: Request):
+async def investment_simulator_page(request: Request, _=Depends(require_auth)):
     """Investment simulator page"""
     return templates.TemplateResponse("investment_simulator.html", {"request": request})
 
 
 @app.get("/reports")
-async def reports_page(request: Request):
+async def reports_page(request: Request, _=Depends(require_auth)):
     """Reports and analytics page"""
     return templates.TemplateResponse("reports/index.html", {"request": request})
 
 @app.get("/patrimonio")
-async def patrimonio_page(request: Request):
+async def patrimonio_page(request: Request, _=Depends(require_auth)):
     """Patrimonio dashboard page"""
     return templates.TemplateResponse("patrimonio/patrimonio.html", {"request": request})
 
 
 
 @app.get("/recurring")
-async def recurring_page(request: Request):
+async def recurring_page(request: Request, _=Depends(require_auth)):
     """Recurring/automatic transactions page"""
     return templates.TemplateResponse("recurring.html", {"request": request})
 
 
 @app.get("/debts")
-async def debts_page(request: Request):
+async def debts_page(request: Request, _=Depends(require_auth)):
     """Debts management page"""
     return templates.TemplateResponse("debts.html", {"request": request})
 
 
 @app.get("/emergency-fund")
-async def emergency_fund_page(request: Request):
+async def emergency_fund_page(request: Request, _=Depends(require_auth)):
     """Emergency fund page"""
     return templates.TemplateResponse("emergency_fund.html", {"request": request})
 
 
-@app.get("/financial-health")
-async def financial_health_page(request: Request):
-    """Financial health dashboard"""
-    return templates.TemplateResponse("financial_health.html", {"request": request})
-
-
 @app.get("/goals")
-async def goals_page(request: Request):
+async def goals_page(request: Request, _=Depends(require_auth)):
     """Goals page"""
     return templates.TemplateResponse("goals.html", {"request": request})
 
 
+@app.get("/financial-health")
+async def financial_health_page(request: Request, _=Depends(require_auth)):
+    """Financial health (50/30/20 + adherence score) page"""
+    return templates.TemplateResponse("financial_health.html", {"request": request})
+
+
 @app.get("/chat")
-async def chat_page(request: Request):
+async def chat_page(request: Request, _=Depends(require_auth)):
     """Chat SQL page"""
     return templates.TemplateResponse("chat_ui.html", {"request": request})
 
 
 @app.get("/email-sender-rules")
-def email_sender_rules_page(request: Request, db: Session = Depends(get_db)):
+def email_sender_rules_page(request: Request, db: Session = Depends(get_db), _=Depends(require_auth)):
     accounts = db.query(Account).filter_by(is_closed=False).order_by(Account.name).all()
     return templates.TemplateResponse("email_sender_rules.html", {
         "request": request,

@@ -45,7 +45,13 @@
       "Bash(pip list:*)",
       "Bash(PYTHONPATH=src python -c \"from finance_app.app import app; print\\('Import OK'\\)\")",
       "Bash(PYTHONPATH=src python -m pytest tests/ -v --tb=short)",
-      "Bash(grep -rn '[^a-zA-Z_][0-9]\\\\{4,\\\\}[^a-zA-Z_0-9-]' --include=\"*.py\" api/ services/ domain/)"
+      "Bash(grep -rn '[^a-zA-Z_][0-9]\\\\{4,\\\\}[^a-zA-Z_0-9-]' --include=\"*.py\" api/ services/ domain/)",
+      "Bash(git rm:*)",
+      "Bash(PYTHONPATH=src python -c \"from finance_app.api.reports_pkg.financial_health import router; print\\('OK', [r.path for r in router.routes]\\)\")",
+      "Bash(APP_PASSWORD=test123 python -c \"from finance_app.auth import require_auth, register_auth_exception_handler, APP_PASSWORD; print\\('Auth module OK, APP_PASSWORD set:', bool\\(APP_PASSWORD\\)\\)\")",
+      "Bash(APP_PASSWORD=test123 PYTHONPATH=src python -c \"from finance_app.auth import require_auth, register_auth_exception_handler, APP_PASSWORD; print\\('Auth module OK, APP_PASSWORD set:', bool\\(APP_PASSWORD\\)\\)\")",
+      "Bash(APP_PASSWORD=test123 PYTHONPATH=src python -c \"from finance_app.auth import require_auth, register_auth_exception_handler, APP_PASSWORD; print\\('OK, APP_PASSWORD:', bool\\(APP_PASSWORD\\)\\)\")",
+      "Bash(APP_PASSWORD=test123 PYTHONPATH=src python -c \"from finance_app.app import app; print\\('App created OK, routes:', len\\(app.routes\\)\\)\")"
     ]
   }
 }

@@ -1,0 +1,52 @@
+# Databases — NEVER en la imagen; el volumen los provee en runtime
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Entorno virtual local
+venv/
+env/
+ENV/
+.venv/
+
+# Secretos y configuración local
+.env
+.env.local
+.env.*
+
+# Control de versiones
+.git/
+.gitignore
+
+# Herramientas de desarrollo y CI
+.github/
+.claude/
+.vscode/
+.idea/
+tests/
+docs/
+
+# Artefactos de build
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dependencias LangChain (no en prod)
+# (ya excluidas via requirements-prod.txt)
+
+# Worktrees temporales
+*.worktree

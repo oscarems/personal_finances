@@ -2,410 +2,411 @@
 
 {% block title %}Salud Financiera - Personal Finances{% endblock %}
 
-{% block extra_styles %}
-<style>
-    .badge-health {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 12px;
-        border-radius: var(--radius-pill);
-        font-size: 0.75rem;
-        font-weight: 600;
-        white-space: nowrap;
-        border: 1px solid transparent;
-    }
-    .badge-green {
-        background: var(--badge-success-bg);
-        color: var(--color-success-700);
-        border-color: var(--badge-success-border);
-    }
-    .badge-yellow {
-        background: var(--badge-warning-bg);
-        color: var(--color-warning-700);
-        border-color: var(--badge-warning-border);
-    }
-    .badge-red {
-        background: var(--badge-danger-bg);
-        color: var(--color-danger-700);
-        border-color: var(--badge-danger-border);
-    }
-
-    .health-progress-bar {
-        height: 10px;
-        border-radius: var(--radius-pill);
-        overflow: hidden;
-        background: var(--progress-track);
-    }
-    .health-progress-fill {
-        height: 100%;
-        border-radius: var(--radius-pill);
-        transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .fill-green { background-color: var(--color-success); }
-    .fill-yellow { background-color: var(--color-warning); }
-    .fill-red { background-color: var(--color-danger); }
-
-    .fh-heading { color: var(--color-text); }
-    .fh-text { color: var(--color-text-muted); }
-    .fh-text-soft { color: var(--color-text-soft); }
-    .fh-strong { color: var(--color-text); }
-    .fh-link { color: var(--color-primary); }
-    .fh-link:hover { color: var(--color-primary-600); }
-    .fh-hint { color: var(--color-warning); }
-    .fh-error { color: var(--color-danger); }
-    .fh-success { color: var(--color-success); }
-    .fh-muted-bg { background: var(--color-surface-muted); }
-    .fh-divider { border-color: var(--color-border); }
-
-    .skeleton {
-        background: linear-gradient(90deg, var(--bg-surface-muted) 25%, var(--bg-surface) 50%, var(--bg-surface-muted) 75%);
-        background-size: 200% 100%;
-        animation: shimmer 1.5s infinite;
-        border-radius: 8px;
-    }
-    @keyframes shimmer {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-    }
-
-    /* Modal */
-    .modal-backdrop {
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 50;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .modal-content {
-        background: var(--color-surface);
-        border-radius: var(--radius-card);
-        padding: 24px;
-        max-width: 420px;
-        width: 90%;
-        box-shadow: var(--shadow-strong);
-        border: 1px solid var(--color-border);
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<!-- Header -->
-<div class="page-header">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full">
+<div class="mb-8">
+    <div class="page-header flex flex-wrap items-end justify-between gap-4">
         <div>
-            <div class="flex items-center gap-4 mb-3">
-                <div class="page-icon" style="background:linear-gradient(135deg, var(--color-success), var(--color-success-700))">
-                    <span class="text-2xl">💚</span>
-                </div>
-                <h2 class="page-title">Salud Financiera</h2>
-            </div>
-            <p class="page-subtitle ml-16" id="subtitleText">Diagnostico del mes</p>
+            <h2 class="page-title">❤️ Salud Financiera</h2>
+            <p class="page-subtitle mt-2">
+                Evalúa tu presupuesto contra la regla 50/30/20 y qué tan bien cumples lo que asignaste.
+            </p>
         </div>
         <div class="flex items-center gap-3">
-            <input type="month" id="monthPicker"
-                   class="input-field px-3 py-2 text-sm">
-            <button onclick="openConfigModal()"
-                    class="btn btn-secondary">
-                ⚙ Configurar objetivos
-            </button>
+            <label class="text-sm text-neutral-600">Mes
+                <input id="fhMonth" type="month" class="ml-2 border border-neutral-300 rounded px-2 py-1 text-sm">
+            </label>
+            <label class="text-sm text-neutral-600">Moneda
+                <select id="fhCurrency" class="ml-2 border border-neutral-300 rounded px-2 py-1 text-sm">
+                    <option value="COP" selected>COP</option>
+                    <option value="USD">USD</option>
+                </select>
+            </label>
         </div>
     </div>
 </div>
 
-<!-- No income banner (hidden by default) -->
-<div id="noIncomeBanner" class="hidden mb-6 p-4 rounded-lg text-sm font-medium" style="background:var(--alert-warning-bg);border:1px solid var(--alert-warning-border);color:var(--color-warning-700)">
-    ⚠️ Sin ingresos registrados este mes. Los porcentajes no se pueden calcular.
-</div>
-
-<!-- Cards grid -->
-<div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <!-- Skeleton loading -->
-    <div class="card p-6"><div class="skeleton h-6 w-3/4 mb-4"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-2/3"></div></div>
-    <div class="card p-6"><div class="skeleton h-6 w-3/4 mb-4"></div><div class="skeleton h-10 w-1/2 mb-4"></div><div class="skeleton h-4 w-full"></div></div>
-    <div class="card p-6"><div class="skeleton h-6 w-3/4 mb-4"></div><div class="skeleton h-10 w-1/2 mb-4"></div><div class="skeleton h-4 w-full"></div></div>
-</div>
-
-<!-- Info section -->
-<div class="card p-6">
-    <h3 class="text-base font-semibold fh-heading mb-3">ℹ️ Como funciona el diagnostico</h3>
-    <ul class="text-sm fh-text space-y-2">
-        <li><strong>Necesidades</strong> = categorias marcadas como "esenciales" en <a href="/emergency-fund" class="fh-link hover:underline">Fondo de Emergencia</a></li>
-        <li><strong>Deseos</strong> = categorias de gasto no esenciales</li>
-        <li><strong>Ahorro</strong> = categorias configuradas como "acumular" en <a href="/budget" class="fh-link hover:underline">Presupuesto</a></li>
-        <li>Los objetivos se pueden personalizar con el boton ⚙ Configurar objetivos</li>
-    </ul>
-</div>
-
-<!-- Config Modal -->
-<div id="configModal" class="modal-backdrop hidden" onclick="if(event.target===this)closeConfigModal()">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <h3 class="text-lg font-bold fh-heading mb-4">⚙ Configurar Objetivos</h3>
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium fh-text mb-1">Necesidades (%)</label>
-                <input type="number" id="cfgNeeds" min="0" max="100" step="1"
-                       class="input-field w-full px-3 py-2 text-sm"
-                       oninput="validateConfigSum()">
-            </div>
-            <div>
-                <label class="block text-sm font-medium fh-text mb-1">Deseos (%)</label>
-                <input type="number" id="cfgWants" min="0" max="100" step="1"
-                       class="input-field w-full px-3 py-2 text-sm"
-                       oninput="validateConfigSum()">
-            </div>
-            <div>
-                <label class="block text-sm font-medium fh-text mb-1">Ahorro (%)</label>
-                <input type="number" id="cfgSavings" min="0" max="100" step="1"
-                       class="input-field w-full px-3 py-2 text-sm"
-                       oninput="validateConfigSum()">
-            </div>
-            <p id="cfgSumError" class="text-xs fh-error hidden">La suma debe ser exactamente 100%</p>
-            <p id="cfgSumOk" class="text-xs fh-success hidden">✓ Suma correcta: 100%</p>
-            <hr class="fh-divider">
-            <div>
-                <label class="block text-sm font-medium fh-text mb-1">Objetivo "Pagar primero el ahorro" (%)</label>
-                <input type="number" id="cfgPyf" min="0" max="100" step="1"
-                       class="input-field w-full px-3 py-2 text-sm">
-            </div>
+<!-- Editable 50/30/20 targets -->
+<div class="card p-6 mb-6">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h3 class="text-lg font-semibold text-neutral-800">🎯 Regla 50/30/20 (personalizable)</h3>
+            <p class="text-sm text-neutral-500 mt-1">
+                Ajusta los porcentajes objetivo para necesidades, deseos y ahorro. Se guardan en tu navegador.
+            </p>
         </div>
-        <div class="flex justify-end gap-3 mt-6">
-            <button onclick="closeConfigModal()"
-                    class="btn btn-secondary">
-                Cancelar
-            </button>
-            <button id="cfgSaveBtn" onclick="saveConfig()"
-                    class="btn btn-primary">
-                Guardar
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-emerald-700">Necesidades</span>
+                <input id="targetNeeds" type="number" min="0" max="100" step="1"
+                       class="w-16 border border-neutral-300 rounded px-2 py-1 text-sm text-right">
+                <span class="text-xs text-neutral-500">%</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-amber-700">Deseos</span>
+                <input id="targetWants" type="number" min="0" max="100" step="1"
+                       class="w-16 border border-neutral-300 rounded px-2 py-1 text-sm text-right">
+                <span class="text-xs text-neutral-500">%</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-blue-700">Ahorro</span>
+                <input id="targetSavings" type="number" min="0" max="100" step="1"
+                       class="w-16 border border-neutral-300 rounded px-2 py-1 text-sm text-right">
+                <span class="text-xs text-neutral-500">%</span>
+            </div>
+            <button id="resetTargets" class="text-xs text-neutral-500 hover:text-neutral-800 underline">
+                Restablecer 50/30/20
             </button>
         </div>
     </div>
+    <p id="targetSumHint" class="text-xs text-neutral-500 mt-2"></p>
 </div>
-{% endblock %}
 
-{% block scripts %}
+<!-- Scores -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="card p-6">
+        <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Puntaje general</h4>
+            <span id="overallGrade" class="text-2xl font-bold text-neutral-800">–</span>
+        </div>
+        <p id="overallScore" class="mt-3 text-4xl font-bold text-neutral-900">–</p>
+        <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
+            <div id="overallBar" class="h-full bg-emerald-500 transition-all" style="width:0%"></div>
+        </div>
+        <p class="text-xs text-neutral-500 mt-3">60% cumplimiento del presupuesto + 40% regla 50/30/20.</p>
+    </div>
+
+    <div class="card p-6">
+        <h4 class="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Cumplimiento del presupuesto</h4>
+        <p id="adherenceScore" class="mt-3 text-4xl font-bold text-neutral-900">–</p>
+        <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
+            <div id="adherenceBar" class="h-full bg-blue-500 transition-all" style="width:0%"></div>
+        </div>
+        <p class="text-xs text-neutral-500 mt-3">Qué tanto tu gasto real respeta lo que asignaste por categoría.</p>
+    </div>
+
+    <div class="card p-6">
+        <h4 class="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Regla 50/30/20</h4>
+        <p id="ruleScore" class="mt-3 text-4xl font-bold text-neutral-900">–</p>
+        <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
+            <div id="ruleBar" class="h-full bg-purple-500 transition-all" style="width:0%"></div>
+        </div>
+        <p class="text-xs text-neutral-500 mt-3">Qué tan bien distribuye tu presupuesto la regla personalizada.</p>
+    </div>
+</div>
+
+<!-- Buckets breakdown -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <div id="bucketNeeds" class="card p-6"></div>
+    <div id="bucketWants" class="card p-6"></div>
+    <div id="bucketSavings" class="card p-6"></div>
+</div>
+
+<!-- Income-based 50/30/20 analysis -->
+<div class="card p-6 mb-8">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-2">📊 Regla 50/30/20 vs Ingresos</h3>
+    <p class="text-sm text-neutral-500 mb-4">
+        Evalúa tu gasto real contra tus ingresos del mes (no contra lo presupuestado).
+    </p>
+    <div id="incomeAnalysis" class="text-sm text-neutral-600">Cargando…</div>
+</div>
+
+<!-- Over-budget categories -->
+<div class="card p-6 mb-8">
+    <h3 class="text-lg font-semibold text-neutral-800 mb-4">⚠️ Categorías con sobregasto</h3>
+    <div id="overBudgetTable" class="text-sm text-neutral-600">Cargando…</div>
+</div>
+
 <script>
-    const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+(function() {
+    const LS_KEY = "fh_targets_v1";
 
-    function getConfig() {
+    const els = {
+        month:     document.getElementById("fhMonth"),
+        currency:  document.getElementById("fhCurrency"),
+        tNeeds:    document.getElementById("targetNeeds"),
+        tWants:    document.getElementById("targetWants"),
+        tSavings:  document.getElementById("targetSavings"),
+        resetBtn:  document.getElementById("resetTargets"),
+        sumHint:   document.getElementById("targetSumHint"),
+        overall:   document.getElementById("overallScore"),
+        overallG:  document.getElementById("overallGrade"),
+        overallB:  document.getElementById("overallBar"),
+        adherence: document.getElementById("adherenceScore"),
+        adherenceB:document.getElementById("adherenceBar"),
+        rule:      document.getElementById("ruleScore"),
+        ruleB:     document.getElementById("ruleBar"),
+        bNeeds:    document.getElementById("bucketNeeds"),
+        bWants:    document.getElementById("bucketWants"),
+        bSavings:  document.getElementById("bucketSavings"),
+        overTable: document.getElementById("overBudgetTable"),
+        incomeAn:  document.getElementById("incomeAnalysis"),
+    };
+
+    // --- defaults & persistence ---
+    function loadTargets() {
         try {
-            const stored = localStorage.getItem('financial_health_config');
-            if (stored) return JSON.parse(stored);
-        } catch(e) {}
-        return { needs_pct: 50, wants_pct: 30, savings_pct: 20, pyf_target_pct: 20 };
+            const raw = localStorage.getItem(LS_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch (e) {}
+        return { needs: 50, wants: 30, savings: 20 };
+    }
+    function saveTargets(t) {
+        localStorage.setItem(LS_KEY, JSON.stringify(t));
     }
 
-    function saveConfigToStorage(cfg) {
-        localStorage.setItem('financial_health_config', JSON.stringify(cfg));
-    }
+    const initial = loadTargets();
+    els.tNeeds.value   = initial.needs;
+    els.tWants.value   = initial.wants;
+    els.tSavings.value = initial.savings;
 
-    function getStatus(actual, target) {
-        const diff = Math.abs(actual - target);
-        if (diff <= 5) return 'green';
-        if (diff <= 15) return 'yellow';
-        return 'red';
-    }
+    // default month = current
+    const today = new Date();
+    els.month.value = today.toISOString().slice(0, 7);
 
-    function getPyfStatus(actual, target) {
-        if (actual >= target) return 'green';
-        if (actual >= target - 5) return 'yellow';
-        return 'red';
-    }
-
-    function getEfStatus(months) {
-        if (months >= 6) return 'green';
-        if (months >= 3) return 'yellow';
-        return 'red';
-    }
-
-    function badgeHTML(status) {
-        const map = {
-            green: '<span class="badge-health badge-green">🟢 En buen camino</span>',
-            yellow: '<span class="badge-health badge-yellow">🟡 En progreso</span>',
-            red: '<span class="badge-health badge-red">🔴 Requiere atencion</span>',
-        };
-        return map[status] || '';
-    }
-
-    function fmtCOP(amount) {
-        return '$' + Math.round(amount).toLocaleString('es-CO');
-    }
-
-    function progressBarHTML(pct, status) {
-        const clamped = Math.max(0, Math.min(100, pct));
-        return `<div class="health-progress-bar w-full">
-            <div class="health-progress-fill fill-${status}" style="width:${clamped}%"></div>
-        </div>`;
-    }
-
-    function getGlobalRuleStatus(needsStatus, wantsStatus, savingsStatus) {
-        const statuses = [needsStatus, wantsStatus, savingsStatus];
-        const badCount = statuses.filter(s => s !== 'green').length;
-        if (badCount === 0) return 'green';
-        if (badCount === 1) return 'yellow';
-        return 'red';
-    }
-
-    function renderAll(data) {
-        const cfg = getConfig();
-        const noIncome = data.no_income_data || data.income.total === 0;
-
-        document.getElementById('noIncomeBanner').classList.toggle('hidden', !noIncome);
-
-        const r = data.rule_50_30_20;
-        const needsStatus = getStatus(r.needs.pct_of_income, cfg.needs_pct);
-        const wantsStatus = getStatus(r.wants.pct_of_income, cfg.wants_pct);
-        const savingsStatus = getStatus(r.savings.pct_of_income, cfg.savings_pct);
-        const globalStatus = getGlobalRuleStatus(needsStatus, wantsStatus, savingsStatus);
-
-        const pyf = data.pay_yourself_first;
-        const pyfStatus = getPyfStatus(pyf.savings_pct, cfg.pyf_target_pct);
-
-        const ef = data.emergency_fund;
-        const efStatus = getEfStatus(ef.months_coverage);
-        const efPct = Math.min(100, (ef.months_coverage / 6) * 100);
-        const efNeeded = ef.essential_expenses_total * 6;
-
-        const noEssentialHint = r.needs.categories.length === 0
-            ? '<p class="text-xs fh-hint mt-2">→ Marca tus gastos esenciales en <a href="/emergency-fund" class="underline">Fondo de Emergencia</a></p>'
-            : '';
-
-        function ruleRow(label, actual, target, status) {
-            const pctBar = noIncome ? 0 : Math.min(100, (actual / (data.income.total || 1)) * 100);
-            return `<div class="flex items-center justify-between mb-3">
-                <span class="text-sm font-medium fh-text w-24">${label}</span>
-                <div class="flex-1 mx-3">${progressBarHTML(pctBar, status)}</div>
-                <span class="text-sm font-semibold fh-heading w-28 text-right">${noIncome ? '-' : (actual / data.income.total * 100).toFixed(1)}% / ${target}%</span>
-            </div>`;
-        }
-
-        const card1 = `<div class="card p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold fh-heading">⚖️ Regla 50/30/20</h3>
-                ${badgeHTML(globalStatus)}
-            </div>
-            ${ruleRow('Necesidades', r.needs.amount, cfg.needs_pct, needsStatus)}
-            ${ruleRow('Deseos', r.wants.amount, cfg.wants_pct, wantsStatus)}
-            ${ruleRow('Ahorro', r.savings.amount, cfg.savings_pct, savingsStatus)}
-            ${noEssentialHint}
-            <div class="mt-3 p-2 rounded fh-muted-bg text-xs fh-text-soft">
-                <strong>Regla 50/30/20:</strong> Destina 50% a necesidades basicas, 30% a deseos y 20% a ahorro e inversiones.
-            </div>
-        </div>`;
-
-        const card2 = `<div class="card p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold fh-heading">🐷 Pagar primero el ahorro</h3>
-                ${badgeHTML(pyfStatus)}
-            </div>
-            <p class="text-3xl font-bold fh-heading mb-2">${noIncome ? '-' : pyf.savings_pct.toFixed(1)}% <span class="text-sm font-normal fh-text-soft">de tus ingresos</span></p>
-            <div class="mb-3">
-                ${progressBarHTML(noIncome ? 0 : Math.min(100, (pyf.savings_pct / cfg.pyf_target_pct) * 100), pyfStatus)}
-                <div class="flex justify-between text-xs fh-text-soft mt-1">
-                    <span>Actual: ${noIncome ? '-' : pyf.savings_pct.toFixed(1)}%</span>
-                    <span>Objetivo: ${cfg.pyf_target_pct}%</span>
-                </div>
-            </div>
-            <p class="text-sm fh-text">Estas ahorrando <strong class="fh-strong">${fmtCOP(pyf.savings_amount)}</strong> este mes</p>
-        </div>`;
-
-        const card3 = `<div class="card p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-semibold fh-heading">🆘 Fondo de emergencia</h3>
-                ${badgeHTML(efStatus)}
-            </div>
-            <p class="text-3xl font-bold fh-heading mb-2">${ef.months_coverage >= 999 ? '∞' : ef.months_coverage.toFixed(1)} <span class="text-sm font-normal fh-text-soft">${ef.months_coverage === 1 ? 'mes' : 'meses'} de cobertura</span></p>
-            <div class="mb-3">
-                ${progressBarHTML(efPct, efStatus)}
-                <div class="flex justify-between text-xs fh-text-soft mt-1">
-                    <span>${ef.months_coverage >= 999 ? '∞' : ef.months_coverage.toFixed(1)} meses</span>
-                    <span>Meta: 6 meses</span>
-                </div>
-            </div>
-            <p class="text-sm fh-text mb-2">Ahorrado: <strong class="fh-strong">${fmtCOP(ef.emergency_funds_total)}</strong> / Necesario: <strong class="fh-strong">${fmtCOP(efNeeded)}</strong></p>
-            <a href="/emergency-fund" class="text-sm fh-link hover:underline">Ver fondo de emergencia →</a>
-        </div>`;
-
-        document.getElementById('cardsGrid').innerHTML = card1 + card2 + card3;
-    }
-
-    async function loadHealthData(month, currencyId) {
-        // Show skeletons
-        document.getElementById('cardsGrid').innerHTML = `
-            <div class="card p-6"><div class="skeleton h-6 w-3/4 mb-4"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-full mb-2"></div><div class="skeleton h-4 w-2/3"></div></div>
-            <div class="card p-6"><div class="skeleton h-6 w-3/4 mb-4"></div><div class="skeleton h-10 w-1/2 mb-4"></div><div class="skeleton h-4 w-full"></div></div>
-            <div class="card p-6"><div class="skeleton h-6 w-3/4 mb-4"></div><div class="skeleton h-10 w-1/2 mb-4"></div><div class="skeleton h-4 w-full"></div></div>`;
-
+    // --- formatters ---
+    function fmtMoney(value, code) {
+        const n = Number(value || 0);
         try {
-            const res = await fetch(`/api/reports/financial-health?month=${month}&currency_id=${currencyId}`);
-            if (!res.ok) throw new Error('Error al cargar datos');
-            const data = await res.json();
-
-            // Update subtitle
-            const [y, m] = month.split('-');
-            document.getElementById('subtitleText').textContent = `Diagnostico de ${MONTH_NAMES[parseInt(m)-1]} ${y}`;
-
-            renderAll(data);
-        } catch(err) {
-            console.error(err);
-            document.getElementById('cardsGrid').innerHTML = `
-                <div class="col-span-3 card p-6 text-center fh-error">
-                    Error al cargar los datos de salud financiera. Intenta de nuevo.
-                </div>`;
+            return n.toLocaleString("es-CO", {
+                style: "currency",
+                currency: code || "COP",
+                maximumFractionDigits: 0,
+            });
+        } catch (e) {
+            return n.toFixed(0);
         }
     }
-
-    // Config modal
-    function openConfigModal() {
-        const cfg = getConfig();
-        document.getElementById('cfgNeeds').value = cfg.needs_pct;
-        document.getElementById('cfgWants').value = cfg.wants_pct;
-        document.getElementById('cfgSavings').value = cfg.savings_pct;
-        document.getElementById('cfgPyf').value = cfg.pyf_target_pct;
-        validateConfigSum();
-        document.getElementById('configModal').classList.remove('hidden');
+    function fmtPct(v) { return (Number(v || 0)).toFixed(1) + "%"; }
+    function scoreColor(s) {
+        if (s >= 90) return "text-emerald-600";
+        if (s >= 75) return "text-blue-600";
+        if (s >= 60) return "text-amber-600";
+        return "text-red-600";
+    }
+    function barColor(s) {
+        if (s >= 90) return "bg-emerald-500";
+        if (s >= 75) return "bg-blue-500";
+        if (s >= 60) return "bg-amber-500";
+        return "bg-red-500";
     }
 
-    function closeConfigModal() {
-        document.getElementById('configModal').classList.add('hidden');
+    function renderBucket(el, title, emoji, data, currencyCode, accent) {
+        const cats = data.categories || [];
+        const remaining = data.assigned - data.spent;
+        const spentPct = data.assigned > 0 ? Math.min(100, (data.spent / data.assigned) * 100) : 0;
+        const ruleScore = data.rule_score;
+        el.innerHTML = `
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-base font-semibold ${accent}">${emoji} ${title}</h4>
+                <span class="text-xs font-semibold ${scoreColor(ruleScore)}">Score ${ruleScore.toFixed(0)}/100</span>
+            </div>
+            <div class="flex items-baseline justify-between">
+                <span class="text-2xl font-bold text-neutral-900">${fmtPct(data.pct_of_assigned)}</span>
+                <span class="text-xs text-neutral-500">objetivo ${fmtPct(data.target_pct)}</span>
+            </div>
+            <div class="mt-1 text-xs text-neutral-500">
+                Asignado <strong>${fmtMoney(data.assigned, currencyCode)}</strong>
+                · Gastado <strong>${fmtMoney(data.spent, currencyCode)}</strong>
+            </div>
+            <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                <div class="h-full ${barColor(ruleScore)}" style="width:${spentPct.toFixed(1)}%"></div>
+            </div>
+            <div class="mt-4 max-h-56 overflow-y-auto pr-1">
+                ${cats.length === 0
+                    ? '<p class="text-xs text-neutral-400 italic">Sin categorías en este mes.</p>'
+                    : cats.map(c => `
+                        <div class="flex items-center justify-between py-1 text-xs border-b border-neutral-100 last:border-0">
+                            <span class="truncate text-neutral-700" title="${c.group_name} · ${c.category_name}">${c.category_name}</span>
+                            <span class="text-neutral-500 tabular-nums">
+                                ${fmtMoney(c.spent, currencyCode)} / ${fmtMoney(c.assigned, currencyCode)}
+                            </span>
+                        </div>
+                    `).join("")}
+            </div>
+        `;
     }
 
-    function validateConfigSum() {
-        const n = parseInt(document.getElementById('cfgNeeds').value) || 0;
-        const w = parseInt(document.getElementById('cfgWants').value) || 0;
-        const s = parseInt(document.getElementById('cfgSavings').value) || 0;
-        const total = n + w + s;
-        const ok = total === 100;
-        document.getElementById('cfgSumError').classList.toggle('hidden', ok);
-        document.getElementById('cfgSumOk').classList.toggle('hidden', !ok);
-        document.getElementById('cfgSaveBtn').disabled = !ok;
-        document.getElementById('cfgSaveBtn').classList.toggle('opacity-50', !ok);
-        document.getElementById('cfgSaveBtn').classList.toggle('cursor-not-allowed', !ok);
+    function renderOverBudget(list, currencyCode) {
+        if (!list || list.length === 0) {
+            els.overTable.innerHTML = '<p class="text-sm text-emerald-600">Ninguna categoría se excedió este mes. 🎉</p>';
+            return;
+        }
+        els.overTable.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs uppercase text-neutral-500 border-b">
+                            <th class="py-2">Categoría</th>
+                            <th class="py-2">Grupo</th>
+                            <th class="py-2 text-right">Asignado</th>
+                            <th class="py-2 text-right">Gastado</th>
+                            <th class="py-2 text-right">Exceso</th>
+                            <th class="py-2 text-right">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${list.map(c => `
+                            <tr class="border-b border-neutral-100">
+                                <td class="py-2 text-neutral-800">${c.category_name}</td>
+                                <td class="py-2 text-neutral-500">${c.group_name || ""}</td>
+                                <td class="py-2 text-right tabular-nums">${fmtMoney(c.assigned, currencyCode)}</td>
+                                <td class="py-2 text-right tabular-nums">${fmtMoney(c.spent, currencyCode)}</td>
+                                <td class="py-2 text-right tabular-nums text-red-600">+${fmtMoney(c.overspend, currencyCode)}</td>
+                                <td class="py-2 text-right tabular-nums text-red-600">+${c.overspend_pct.toFixed(0)}%</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        `;
     }
 
-    function saveConfig() {
-        const n = parseInt(document.getElementById('cfgNeeds').value) || 0;
-        const w = parseInt(document.getElementById('cfgWants').value) || 0;
-        const s = parseInt(document.getElementById('cfgSavings').value) || 0;
-        if (n + w + s !== 100) return;
-        const pyf = parseInt(document.getElementById('cfgPyf').value) || 20;
-        saveConfigToStorage({ needs_pct: n, wants_pct: w, savings_pct: s, pyf_target_pct: pyf });
-        closeConfigModal();
-        // Reload with current month
-        const month = document.getElementById('monthPicker').value;
-        loadHealthData(month, 1);
+    function renderIncomeAnalysis(ia, currencyCode) {
+        if (!ia || ia.total_income <= 0) {
+            els.incomeAn.innerHTML = '<p class="text-neutral-400 italic">No hay ingresos registrados este mes.</p>';
+            return;
+        }
+        const b = ia.buckets;
+        const bucketRows = [
+            { label: "🏠 Necesidades", key: "needs",   accent: "emerald", measureLabel: "gastado" },
+            { label: "🎉 Deseos",      key: "wants",   accent: "amber",   measureLabel: "gastado" },
+            { label: "💰 Ahorro",      key: "savings", accent: "blue",    measureLabel: "asignado" },
+        ];
+        const usedPct = (b.needs.pct_of_income + b.wants.pct_of_income + b.savings.pct_of_income);
+        els.incomeAn.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div class="bg-neutral-50 rounded-lg p-4 text-center">
+                    <p class="text-xs text-neutral-500 uppercase">Ingresos del mes</p>
+                    <p class="text-xl font-bold text-neutral-800 mt-1">${fmtMoney(ia.total_income, currencyCode)}</p>
+                </div>
+                <div class="bg-neutral-50 rounded-lg p-4 text-center">
+                    <p class="text-xs text-neutral-500 uppercase">Total gastado</p>
+                    <p class="text-xl font-bold text-neutral-800 mt-1">${fmtMoney(ia.total_spent, currencyCode)}</p>
+                </div>
+                <div class="bg-neutral-50 rounded-lg p-4 text-center">
+                    <p class="text-xs text-neutral-500 uppercase">Ingreso sin usar</p>
+                    <p class="text-xl font-bold ${ia.unspent_pct >= 0 ? 'text-emerald-600' : 'text-red-600'} mt-1">${fmtPct(ia.unspent_pct)}</p>
+                </div>
+                <div class="bg-neutral-50 rounded-lg p-4 text-center">
+                    <p class="text-xs text-neutral-500 uppercase">Score vs Ingresos</p>
+                    <p class="text-xl font-bold ${scoreColor(ia.score)} mt-1">${ia.score.toFixed(0)}/100 <span class="text-base">${ia.grade}</span></p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                ${bucketRows.map(r => {
+                    const d = b[r.key];
+                    const barW = Math.min(100, d.pct_of_income);
+                    const targetW = Math.min(100, d.target_pct);
+                    return `
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-medium text-${r.accent}-700">${r.label}</span>
+                            <span class="tabular-nums">
+                                ${fmtPct(d.pct_of_income)} de ingresos
+                                <span class="text-neutral-400 ml-1">(objetivo ${fmtPct(d.target_pct)})</span>
+                                · ${fmtMoney(d.value, currencyCode)} <span class="text-neutral-400">(${r.measureLabel})</span>
+                                · Score <span class="${scoreColor(d.rule_score)}">${d.rule_score.toFixed(0)}</span>
+                            </span>
+                        </div>
+                        <div class="relative h-3 bg-neutral-100 rounded-full overflow-hidden">
+                            <div class="h-full bg-${r.accent}-500 rounded-full" style="width:${barW.toFixed(1)}%"></div>
+                            <div class="absolute top-0 bottom-0 w-0.5 bg-neutral-800 opacity-40" style="left:${targetW.toFixed(1)}%" title="Objetivo ${fmtPct(d.target_pct)}"></div>
+                        </div>
+                    </div>`;
+                }).join("")}
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-medium text-neutral-500">Total usado</span>
+                        <span class="tabular-nums">${fmtPct(usedPct)} de ingresos</span>
+                    </div>
+                    <div class="h-3 bg-neutral-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-neutral-400 rounded-full" style="width:${Math.min(100, usedPct).toFixed(1)}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
-    // Init
-    document.addEventListener('DOMContentLoaded', () => {
-        const picker = document.getElementById('monthPicker');
-        const today = new Date();
-        const currentMonth = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
-        picker.value = currentMonth;
+    async function load() {
+        const needs   = Number(els.tNeeds.value) || 0;
+        const wants   = Number(els.tWants.value) || 0;
+        const savings = Number(els.tSavings.value) || 0;
+        saveTargets({ needs, wants, savings });
 
-        picker.addEventListener('change', () => {
-            loadHealthData(picker.value, 1);
-        });
+        const sum = needs + wants + savings;
+        if (sum === 100) {
+            els.sumHint.textContent = "Los porcentajes suman 100%. ✓";
+            els.sumHint.className = "text-xs text-emerald-600 mt-2";
+        } else {
+            els.sumHint.textContent = `Los porcentajes suman ${sum}%. Se normalizarán automáticamente para el cálculo.`;
+            els.sumHint.className = "text-xs text-amber-600 mt-2";
+        }
 
-        loadHealthData(currentMonth, 1);
+        const url = `/api/reports/financial-health?month=${els.month.value}` +
+                    `&currency_code=${els.currency.value}` +
+                    `&needs_target=${needs}&wants_target=${wants}&savings_target=${savings}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            els.overTable.textContent = (data && data.error) || "Error cargando datos.";
+            return;
+        }
+
+        const code = (data.currency && data.currency.code) || "COP";
+
+        // Scores
+        const o = data.scores.overall, a = data.scores.adherence, r = data.scores.rule;
+        els.overall.textContent   = o.toFixed(0);
+        els.overall.className     = "mt-3 text-4xl font-bold " + scoreColor(o);
+        els.overallG.textContent  = data.scores.grade;
+        els.overallG.className    = "text-2xl font-bold " + scoreColor(o);
+        els.overallB.style.width  = Math.max(0, Math.min(100, o)) + "%";
+        els.overallB.className    = "h-full transition-all " + barColor(o);
+
+        els.adherence.textContent = a.toFixed(0);
+        els.adherence.className   = "mt-3 text-4xl font-bold " + scoreColor(a);
+        els.adherenceB.style.width= Math.max(0, Math.min(100, a)) + "%";
+        els.adherenceB.className  = "h-full transition-all " + barColor(a);
+
+        els.rule.textContent      = r.toFixed(0);
+        els.rule.className        = "mt-3 text-4xl font-bold " + scoreColor(r);
+        els.ruleB.style.width     = Math.max(0, Math.min(100, r)) + "%";
+        els.ruleB.className       = "h-full transition-all " + barColor(r);
+
+        renderBucket(els.bNeeds,   "Necesidades", "🏠", data.buckets.needs,   code, "text-emerald-700");
+        renderBucket(els.bWants,   "Deseos",      "🎉", data.buckets.wants,   code, "text-amber-700");
+        renderBucket(els.bSavings, "Ahorro",      "💰", data.buckets.savings, code, "text-blue-700");
+        renderIncomeAnalysis(data.income_analysis, code);
+        renderOverBudget(data.over_budget_categories, code);
+    }
+
+    // Clamp targets so their sum never exceeds 100
+    function clampTargets(changedEl) {
+        const fields = [els.tNeeds, els.tWants, els.tSavings];
+        // Ensure no negative values
+        fields.forEach(f => { if (Number(f.value) < 0) f.value = 0; });
+        const others = fields.filter(f => f !== changedEl);
+        const current = Number(changedEl.value) || 0;
+        const otherSum = others.reduce((s, f) => s + (Number(f.value) || 0), 0);
+        if (current + otherSum > 100) {
+            changedEl.value = Math.max(0, 100 - otherSum);
+        }
+    }
+
+    // Wire up events
+    [els.tNeeds, els.tWants, els.tSavings].forEach(el => {
+        el.addEventListener("input", () => clampTargets(el));
+        el.addEventListener("change", load);
     });
+    [els.month, els.currency].forEach(el => {
+        el.addEventListener("change", load);
+    });
+    els.resetBtn.addEventListener("click", () => {
+        els.tNeeds.value = 50; els.tWants.value = 30; els.tSavings.value = 20;
+        load();
+    });
+
+    load();
+})();
 </script>
 {% endblock %}

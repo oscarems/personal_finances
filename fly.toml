@@ -1,0 +1,54 @@
+# fly.toml — Fincas Personales en Fly.io free tier
+# Docs: https://fly.io/docs/reference/configuration/
+
+app = "fincas-personales"
+primary_region = "iad"
+
+[build]
+
+[env]
+  # La app detecta HTTPS para cookies seguras
+  HTTPS = "true"
+  # Demo mode desactivado en prod (usar primary DB)
+  DEMO_MODE = "false"
+
+# ── Proceso web ───────────────────────────────────────────────────────────────
+[[services]]
+  protocol = "tcp"
+  internal_port = 8000
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  # Health check — tolerancia alta para cold starts del free tier
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+
+# ── Volumen persistente para SQLite ──────────────────────────────────────────
+# Crear con: fly volumes create fincas_data --size 1 --region iad
+[[mounts]]
+  source = "fincas_data"
+  destination = "/app/data"
+
+# ── Máquinas: solo 1 instancia (free tier tiene límite de 3 VMs compartidas) ─
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
