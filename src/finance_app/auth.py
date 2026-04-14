@@ -27,15 +27,8 @@ _signer = TimestampSigner(SECRET_KEY)
 
 
 def _valid_session(request: Request) -> bool:
-    """Return True if the request carries a valid, non-expired session cookie."""
-    token = request.cookies.get(COOKIE_NAME)
-    if not token:
-        return False
-    try:
-        _signer.unsign(token, max_age=MAX_AGE)
-        return True
-    except (BadSignature, SignatureExpired):
-        return False
+    """Authentication disabled — always returns True."""
+    return True
 
 
 # ---------------------------------------------------------------------------
