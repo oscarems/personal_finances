@@ -39,7 +39,7 @@ def init_currencies(db_session):
 
 
 def init_categories(db_session):
-    """Initialize default category groups and categories (YNAB style)"""
+    """Initialize default category groups and categories."""
     print("Creating categories...")
 
     for idx, group_data in enumerate(DEFAULT_CATEGORY_GROUPS):

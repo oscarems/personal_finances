@@ -1,5 +1,5 @@
 """
-Budgets API endpoints - Multi-moneda con rollover manual
+Budgets API endpoints - Multi-currency with manual rollover.
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -15,7 +15,8 @@ from finance_app.services.budget_service import (
     get_assigned_totals_by_currency,
     recalculate_budget_available,
     get_spent_transactions_to_date,
-    get_category_budget_history
+    get_category_budget_history,
+    recalculate_month,
 )
 from finance_app.models import BudgetMonth, Currency, Category
 
@@ -23,7 +24,7 @@ router = APIRouter()
 
 
 class BudgetAssignment(BaseModel):
-    """Schema para asignar presupuesto a una categoría"""
+    """Schema for assigning a budget to a category."""
     category_id: int
     amount: float
     month: date
@@ -33,7 +34,7 @@ class BudgetAssignment(BaseModel):
 
 
 class CoverOverspendingRequest(BaseModel):
-    """Schema para cubrir exceso de gasto entre categorías"""
+    """Schema for covering overspending between categories."""
     source_category_id: int
     target_category_id: int
     amount: float
@@ -103,7 +104,7 @@ def category_budget_history(
 @router.get("/category/{category_id}/{month}")
 def get_category_budgets(category_id: int, month: str, db: Session = Depends(get_db)):
     """
-    Obtiene los presupuestos de una categoría para un mes específico en TODAS las monedas.
+    Get budgets for a category in a specific month across ALL currencies.
 
     GET /api/budgets/category/5/2025-01
 
@@ -142,9 +143,9 @@ def get_category_budgets(category_id: int, month: str, db: Session = Depends(get
 @router.post("/assign")
 def assign_budget(assignment: BudgetAssignment, db: Session = Depends(get_db)):
     """
-    Asigna dinero a una categoría para un mes específico.
+    Assign money to a category for a specific month.
 
-    Si se proporciona rollover_type, actualiza el comportamiento de la categoría.
+    If rollover_type is provided, updates the category's rollover behavior.
     """
     currency = db.query(Currency).filter_by(code=assignment.currency_code).first()
     if not currency:
@@ -254,11 +255,11 @@ def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(
 @router.post("/recalculate-savings")
 def recalculate_savings_budgets(db: Session = Depends(get_db)):
     """
-    Recalcula todos los presupuestos de categorías de ahorro (accumulate).
+    Recalculate all budgets for savings (accumulate) categories.
 
-    Este endpoint corrige el problema donde el initial_amount no se aplicó
-    correctamente debido a un race condition. Recalcula todos los presupuestos
-    en orden cronológico para asegurar que el rollover funcione correctamente.
+    Fixes cases where initial_amount was not applied correctly due to a race
+    condition. Recalculates all budgets in chronological order to ensure
+    rollover works correctly.
     """
     from sqlalchemy import distinct
 
@@ -339,3 +340,17 @@ def recalculate_savings_budgets(db: Session = Depends(get_db)):
         "categories_updated": len(results),
         "details": results
     }
+
+
+@router.post("/recalculate/{year}/{month}")
+def recalculate_budget_month(year: int, month: int, db: Session = Depends(get_db)):
+    """
+    Force recalculation of assigned (inherited from prior month if not overridden)
+    and available for all categories in a given month.
+
+    Useful when reviewing a future month and wanting to sync with changes made in
+    prior months.
+    """
+    month_date = date(year, month, 1)
+    result = recalculate_month(db, month_date)
+    return {"success": True, **result}

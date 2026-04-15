@@ -205,7 +205,7 @@ def timeline_patrimonio(
     hasta_mes: int,
     db: Optional[Session] = None,
 ) -> list[dict]:
-    """Generate monthly patrimonio timeline from (desde_año, desde_mes) to (hasta_año, hasta_mes)."""
+    """Generate monthly net-worth timeline from (desde_año, desde_mes) to (hasta_año, hasta_mes)."""
     result = []
     y, m = desde_año, desde_mes
     while (y, m) <= (hasta_año, hasta_mes):

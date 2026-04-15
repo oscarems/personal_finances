@@ -1,11 +1,11 @@
-from sqlalchemy import Column, Integer, Float, Date, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, Float, Date, Text, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from finance_app.database import Base
 from datetime import datetime
 
 class BudgetMonth(Base):
     """
-    YNAB-style budget: cada categoría tiene asignación mensual
+    Monthly budget: each category has a monthly allocation.
     """
     __tablename__ = 'budget_months'
 
@@ -16,7 +16,9 @@ class BudgetMonth(Base):
     assigned = Column(Float, default=0.0)  # Money assigned to category
     activity = Column(Float, default=0.0)  # Actual spending (calculated)
     available = Column(Float, default=0.0)  # Available = assigned - activity + previous balance
-    initial_amount = Column(Float, default=0.0)  # Dinero acumulado inicial (for accumulate categories)
+    initial_amount = Column(Float, default=0.0)  # Initial accumulated amount (for accumulate categories)
+    initial_overridden = Column(Boolean, default=False)  # True = explicitly set by user; False = auto-derived from previous month
+    assigned_overridden = Column(Boolean, default=False)  # True = explicitly set by user; False = inherited from previous month
     notes = Column(Text)
 
     # Relationships

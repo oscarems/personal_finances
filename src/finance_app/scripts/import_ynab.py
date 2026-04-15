@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-YNAB Import Script
-==================
-Standalone script to import YNAB CSV export into the database.
+Budget CSV Import Script
+========================
+Standalone script to import a budget CSV export into the database.
 
 Usage:
-    python import_ynab.py <path_to_ynab_csv> [currency_code]
+    python import_ynab.py <path_to_csv> [currency_code]
 
 Example:
-    python import_ynab.py ~/Downloads/ynab_export.csv COP
+    python import_ynab.py ~/Downloads/budget_export.csv COP
     python import_ynab.py ./transactions.csv USD
 
 CSV Format:
-    Your YNAB CSV should have these columns:
+    The CSV file should have these columns:
     Account, Flag, Date, Payee, Category, Memo, Outflow, Inflow, Cleared
 
 Notes:
@@ -52,7 +52,7 @@ def main():
         sys.exit(1)
 
     print("=" * 60)
-    print("🔄 YNAB IMPORT")
+    print("🔄 CSV IMPORT")
     print("=" * 60)
     print(f"📁 File: {csv_file_path}")
     print(f"💰 Currency: {currency_code}")

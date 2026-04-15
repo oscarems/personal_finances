@@ -1,6 +1,6 @@
-# 🗄️ Estructura de Base de Datos - Personal Finances
+# Database Schema - Personal Finances
 
-## Diagrama de Entidad-Relación
+## Entity-Relationship Diagram
 
 ```mermaid
 erDiagram
@@ -24,7 +24,7 @@ erDiagram
         string code UK "COP, USD"
         string symbol "₱, US$"
         string name
-        float exchange_rate_to_base
+        numeric exchange_rate_to_base
         boolean is_base
         int decimals
         datetime updated_at
@@ -35,7 +35,7 @@ erDiagram
         string name
         string type "checking, savings, credit_card, cash"
         int currency_id FK
-        float balance
+        numeric balance
         boolean is_budget "Include in budget"
         boolean is_closed
         text notes
@@ -54,7 +54,7 @@ erDiagram
         int category_group_id FK
         string name
         string target_type "monthly, target_balance, debt"
-        float target_amount
+        numeric target_amount
         int sort_order
         boolean is_hidden
     }
@@ -73,12 +73,12 @@ erDiagram
         int category_id FK
         int investment_asset_id FK
         text memo
-        float amount "Positive=inflow, Negative=outflow"
+        numeric amount "Positive=inflow, Negative=outflow"
         int currency_id FK
         boolean cleared "Reconciliation status"
         boolean approved
         int transfer_account_id FK "If transfer"
-        string import_id "YNAB import dedupe"
+        string import_id "CSV import dedupe"
         datetime created_at
     }
 
@@ -87,152 +87,185 @@ erDiagram
         date month "First day of month"
         int category_id FK
         int currency_id FK
-        float assigned "Money assigned (YNAB: budgeted)"
-        float activity "Actual spending (calculated)"
-        float available "assigned - activity + prev_available"
+        numeric assigned "Money assigned this month"
+        numeric activity "Actual spending (calculated)"
+        numeric available "assigned - activity + prev_available"
         text notes
         unique month_category_currency
     }
 ```
 
-## Tablas Principales
+## Core Tables
 
-### 1. **currencies** - Monedas
-Gestiona las monedas soportadas (COP, USD) con tasas de cambio.
+### 1. **currencies**
+Manages supported currencies (COP, USD) with exchange rates.
 
-**Campos importantes:**
-- `code`: Código ISO de 3 letras (COP, USD)
-- `exchange_rate_to_base`: Tasa de conversión a moneda base (COP)
-- `is_base`: Marca la moneda base
-- `decimals`: Cantidad de decimales para mostrar
+**Key fields:**
+- `code`: ISO 3-letter code (COP, USD)
+- `exchange_rate_to_base`: Conversion rate to base currency (COP)
+- `is_base`: Marks the base currency
+- `decimals`: Number of decimal places to display
 
-### 2. **accounts** - Cuentas Bancarias
-Todas las cuentas financieras del usuario.
+### 2. **accounts**
+All financial accounts belonging to the user.
 
-**Tipos de cuenta:**
-- `checking`: Cuenta corriente
-- `savings`: Cuenta de ahorros
-- `credit_card`: Tarjeta de crédito
-- `cash`: Efectivo
+**Account types:**
+- `checking`: Checking account
+- `savings`: Savings account
+- `credit_card`: Credit card
+- `cash`: Physical cash
 
-**Campos importantes:**
-- `balance`: Saldo actual (calculado automáticamente)
-- `is_budget`: Si se incluye en el presupuesto
-- `currency_id`: Cada cuenta tiene una moneda específica
+**Key fields:**
+- `balance`: Current balance (auto-calculated from transactions)
+- `is_budget`: Whether to include in the budget
+- `currency_id`: Each account has a single currency
 
-### 3. **category_groups** - Grupos de Categorías
-Organiza las categorías en grupos (estilo YNAB).
+### 3. **category_groups**
+Organizes categories into groups.
 
-**Grupos predefinidos:**
-- Gastos Esenciales
-- Obligaciones Financieras
-- Gastos Discrecionales
-- Ahorros
-- Ingresos (marcado con `is_income=true`)
+**Pre-seeded groups:**
+- Essential Expenses (Gastos Esenciales)
+- Financial Obligations (Obligaciones Financieras)
+- Discretionary Spending (Gastos Discrecionales)
+- Savings (Ahorros)
+- Income — marked with `is_income=true`
 
-### 4. **categories** - Categorías
-Categorías individuales para clasificar transacciones.
+### 4. **categories**
+Individual categories for classifying transactions.
 
-**Ejemplos:**
-- Vivienda (en Gastos Esenciales)
-- Hipoteca (en Obligaciones Financieras)
-- Entretenimiento (en Gastos Discrecionales)
-- Salario (en Ingresos)
+**Examples:**
+- Housing (in Essential Expenses)
+- Mortgage (in Financial Obligations)
+- Entertainment (in Discretionary Spending)
+- Salary (in Income)
 
-**Campos importantes:**
-- `target_type`: Tipo de meta (mensual, balance objetivo, deuda)
-- `target_amount`: Monto objetivo para la categoría
+**Key fields:**
+- `target_type`: Goal type (`monthly`, `target_balance`, `debt`)
+- `target_amount`: Target amount for the category
 
-### 5. **payees** - Beneficiarios
-Personas o entidades que reciben/envían dinero.
+### 5. **payees**
+People or entities that send/receive money.
 
-**Características:**
-- `default_category_id`: Categoría asignada automáticamente
-- Permite auto-categorización de transacciones recurrentes
+**Features:**
+- `default_category_id`: Auto-assigned category for recurring payees
+- Enables auto-categorization of recurring transactions
 
-### 6. **transactions** - Transacciones
-Registro de todas las transacciones financieras.
+### 6. **transactions**
+Record of all financial transactions.
 
-**Campos importantes:**
+**Key fields:**
 - `amount`:
-  - Positivo = Ingreso (inflow)
-  - Negativo = Gasto (outflow)
-- `investment_asset_id`: Vincula un ingreso con una inversión registrada
-- `cleared`: Estado de reconciliación (confirmado vs pendiente)
-- `transfer_account_id`: Si es transferencia entre cuentas
-- `import_id`: ID único para evitar duplicados al importar de YNAB
+  - Positive = Income (inflow)
+  - Negative = Expense (outflow)
+- `investment_asset_id`: Links income to a registered investment
+- `cleared`: Reconciliation status (confirmed vs pending)
+- `transfer_account_id`: If it is an inter-account transfer
+- `import_id`: Unique ID to deduplicate CSV imports
 
-### 7. **budget_months** - Presupuesto Mensual (Estilo YNAB)
-Implementa el principio "Give every dollar a job".
+### 7. **budget_months** — Monthly Budget
+Implements the "Give every dollar a job" principle.
 
-**Campos importantes:**
-- `month`: Primer día del mes (2026-01-01)
-- `assigned`: Dinero asignado a esta categoría este mes
-- `activity`: Gasto real del mes (calculado desde transactions)
-- `available`: Dinero disponible = assigned - activity + mes_anterior
+**Key fields:**
+- `month`: First day of the month (e.g., 2026-01-01)
+- `assigned`: Money assigned to this category this month
+- `activity`: Actual spending (calculated from transactions)
+- `available`: Money remaining = assigned - activity + previous month rollover
 
-**Restricción única:** Solo un registro por mes + categoría + moneda
+**Unique constraint:** One record per month + category + currency
 
-## Relaciones Clave
+## Patrimonio Tables
 
-### Multi-Moneda
-- Cada **account** tiene una `currency_id`
-- Cada **transaction** tiene una `currency_id`
-- Cada **budget_month** tiene una `currency_id`
-- Permite presupuestos separados para COP y USD
+### **patrimonio_assets**
+Assets tracked in the net worth module.
 
-### Transferencias
-- Las **transactions** pueden tener `transfer_account_id`
-- Representa movimiento de dinero entre cuentas del usuario
-- No consumen presupuesto (son movimientos internos)
+**Asset types:** `inmueble` (real estate), `vehiculo` (vehicle), `otro` (other)
 
-### Presupuesto YNAB
-- **budget_months** vincula: mes + categoría + moneda
-- `assigned`: Cuánto planeas gastar
-- `activity`: Cuánto realmente gastaste (suma de transactions)
-- `available`: Cuánto te queda (incluye rollover del mes anterior)
+**Key fields:**
+- `valor_adquisicion`: Original acquisition value (`Numeric(18,2)`)
+- `fecha_adquisicion`: Acquisition date
+- `tasa_anual`: Annual appreciation/depreciation rate
+- `metodo_depreciacion`: Depreciation method (`linea_recta`, `saldo_decreciente`, `doble_saldo_decreciente`)
+- `return_rate`: Annual return percentage (for investment-type assets)
+- `return_amount`: Fixed annual return amount
+- `moneda_id`: Currency FK
 
-### Importación YNAB
-- **transactions** tienen `import_id` único
-- Formato: `ynab_{account}_{date}_{amount}_{payee}`
-- Evita duplicados al importar múltiples veces
+**Valuation formula:**
+```
+value = valor_adquisicion * (1 + tasa_anual) ^ max(0, year - year_acquisition - 1)
+```
+Acquisition year returns original value. Years before acquisition return 0.
 
-## Índices Importantes
+### **debts** (single source of truth)
+All debts — managed via `/debts`, read by Patrimonio.
+
+**Debt types:** `mortgage`, `credit_loan`, `credit_card`
+
+> Credit cards (`credit_card`) are excluded from net worth calculations. Only `mortgage` and `credit_loan` appear in Patrimonio.
+
+### **debt_amortization_monthly**
+Monthly amortization records per debt. Uses `Numeric(18,2)` for all monetary columns.
+
+## Key Relationships
+
+### Multi-Currency
+- Each `account` has a `currency_id`
+- Each `transaction` has a `currency_id`
+- Each `budget_month` has a `currency_id`
+- Each `patrimonio_asset` has a `moneda_id`
+- Enables separate COP and USD budgets and multi-currency net worth
+
+### Transfers
+- `transactions` may have a `transfer_account_id`
+- Represents money movement between the user's own accounts
+- Does not consume budget (internal movement)
+
+### Budget Logic
+- `budget_months` links: month + category + currency
+- `assigned`: How much you planned to spend
+- `activity`: How much you actually spent (sum of transactions)
+- `available`: How much remains (includes previous month rollover)
+
+### CSV Import
+- `transactions` have a unique `import_id`
+- Format: `csv_{account}_{date}_{amount}_{payee}`
+- Prevents duplicates when importing multiple times
+
+## Important Indexes
 
 ```sql
--- Transacciones ordenadas por fecha
+-- Transactions ordered by date
 CREATE INDEX idx_transactions_date ON transactions(date DESC);
 
--- Presupuesto por mes
+-- Budget lookup by month
 CREATE INDEX idx_budget_months_month ON budget_months(month);
 
--- Búsqueda de transacciones por cuenta
+-- Transactions by account
 CREATE INDEX idx_transactions_account ON transactions(account_id);
 
--- Búsqueda de transacciones por categoría
+-- Transactions by category
 CREATE INDEX idx_transactions_category ON transactions(category_id);
 ```
 
-## Queries Comunes
+## Common Queries
 
-### 1. Balance total por moneda
+### 1. Total balance by currency
 ```sql
 SELECT
     c.code,
     c.symbol,
-    SUM(a.balance) as total
+    SUM(a.balance) AS total
 FROM accounts a
 JOIN currencies c ON a.currency_id = c.id
 WHERE a.is_closed = FALSE
 GROUP BY c.code;
 ```
 
-### 2. Gastos del mes por categoría
+### 2. Monthly spending by category
 ```sql
 SELECT
-    cg.name as group_name,
-    cat.name as category_name,
-    SUM(ABS(t.amount)) as total
+    cg.name AS group_name,
+    cat.name AS category_name,
+    SUM(ABS(t.amount)) AS total
 FROM transactions t
 JOIN categories cat ON t.category_id = cat.id
 JOIN category_groups cg ON cat.category_group_id = cg.id
@@ -243,29 +276,29 @@ GROUP BY cg.name, cat.name
 ORDER BY total DESC;
 ```
 
-### 3. Presupuesto vs Real (mes actual)
+### 3. Budget vs actual (current month)
 ```sql
 SELECT
-    c.name as category,
+    c.name AS category,
     b.assigned,
-    ABS(b.activity) as spent,
+    ABS(b.activity) AS spent,
     b.available,
     CASE
         WHEN b.assigned > 0 THEN (ABS(b.activity) / b.assigned * 100)
         ELSE 0
-    END as percent_used
+    END AS percent_used
 FROM budget_months b
 JOIN categories c ON b.category_id = c.id
 WHERE b.month = '2026-01-01'
 ORDER BY percent_used DESC;
 ```
 
-### 4. Top 10 beneficiarios por gasto
+### 4. Top 10 payees by spending
 ```sql
 SELECT
     p.name,
-    COUNT(*) as transactions,
-    SUM(ABS(t.amount)) as total_spent
+    COUNT(*) AS transactions,
+    SUM(ABS(t.amount)) AS total_spent
 FROM transactions t
 JOIN payees p ON t.payee_id = p.id
 WHERE t.amount < 0
@@ -274,19 +307,24 @@ ORDER BY total_spent DESC
 LIMIT 10;
 ```
 
-## Migración y Seeders
+## Migration and Seed Data
 
-### Datos Iniciales
-- **currencies**: COP (base) y USD
-- **category_groups**: 5 grupos predefinidos
-- **categories**: ~20 categorías predefinidas
-- **accounts**: 2 cuentas de ejemplo (opcional)
+### Initial Seed Data
+- **currencies**: COP (base) and USD
+- **category_groups**: 5 pre-seeded groups
+- **categories**: ~20 pre-seeded categories
+- **accounts**: 2 sample accounts (optional)
 
-### Secuencia de Inicialización
-1. Crear todas las tablas
-2. Insertar currencies
-3. Insertar category_groups
-4. Insertar categories
-5. Opcionalmente, crear accounts de ejemplo
+### Initialization Sequence
+1. Create all tables
+2. Insert currencies
+3. Insert category_groups
+4. Insert categories
+5. Optionally create sample accounts
 
-Ver: `src/finance_app/init_db.py` para la implementación.
+See: `src/finance_app/init_db.py` for the implementation.
+
+### Running Migrations
+```bash
+python src/finance_app/scripts/migrate_db.py
+```

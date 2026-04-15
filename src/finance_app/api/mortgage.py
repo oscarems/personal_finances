@@ -1,9 +1,8 @@
 """
-Mortgage Simulator API - Con tasa efectiva anual y cuota fija
+Mortgage Simulator API - Fixed payment with effective annual rate.
 
-IMPORTANTE: Este simulador usa TASA EFECTIVA ANUAL (EA), que es el estándar en Colombia.
-La tasa efectiva anual considera la capitalización de intereses, a diferencia de la
-tasa nominal.
+Uses the EFFECTIVE ANNUAL RATE (EA), which is the standard in Colombia.
+The effective annual rate accounts for interest compounding, unlike the nominal rate.
 """
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -22,17 +21,17 @@ router = APIRouter()
 
 
 class MortgageRequest(BaseModel):
-    """Schema para solicitud de cálculo de hipoteca"""
-    principal: float  # Monto del préstamo
-    annual_rate: float  # Tasa efectiva anual como porcentaje (ej: 12.5 para 12.5% EA)
-    years: int  # Plazo en años (se convertirá a meses internamente)
+    """Schema for a mortgage calculation request."""
+    principal: float  # Loan amount
+    annual_rate: float  # Effective annual rate as a percentage (e.g. 12.5 for 12.5% EA)
+    years: int  # Term in years (converted to months internally)
     start_date: Optional[str] = None  # Fecha de inicio (opcional, default: hoy)
     extra_payment: Optional[float] = None  # Pago extra mensual al capital
     extra_payment_start_date: Optional[str] = None  # Fecha desde la que aplica el pago extra
 
 
 class AmortizationRow(BaseModel):
-    """Fila de la tabla de amortización"""
+    """Amortization table row."""
     payment_number: int
     date: str
     payment: float
@@ -43,7 +42,7 @@ class AmortizationRow(BaseModel):
 
 
 class MortgageResponse(BaseModel):
-    """Respuesta con cálculo completo de hipoteca"""
+    """Response with complete mortgage calculation."""
     monthly_payment: float
     total_interest: float
     total_paid: float
@@ -58,7 +57,7 @@ class MortgageResponse(BaseModel):
 
 
 class ScenarioRequest(BaseModel):
-    """Schema para comparar múltiples escenarios"""
+    """Schema for comparing multiple mortgage scenarios."""
     principal: float
     scenarios: List[dict]  # [{"name": "20 años 12%", "rate": 0.12, "years": 20}]
 
@@ -66,16 +65,16 @@ class ScenarioRequest(BaseModel):
 @router.post("/calculate", response_model=MortgageResponse)
 def calculate_mortgage(request: MortgageRequest):
     """
-    Calcula hipoteca con cuota fija y tasa efectiva anual.
+    Calculate a mortgage with fixed payment and effective annual rate.
 
     POST /api/mortgage/calculate
     {
         "principal": 300000000,
-        "annual_rate": 12.5,  // Tasa efectiva anual en % (12.5%)
+        "annual_rate": 12.5,  // Effective annual rate in % (12.5% EA)
         "years": 20,
-        "start_date": "2025-01-15",  // Opcional
-        "extra_payment": 500000,  // Opcional: abono extra mensual
-        "extra_payment_start_date": "2025-06-01"  // Opcional: desde cuándo aplica
+        "start_date": "2025-01-15",  // Optional
+        "extra_payment": 500000,  // Optional: extra monthly principal payment
+        "extra_payment_start_date": "2025-06-01"  // Optional: when extra payment starts
     }
     """
     # Convertir tasa de porcentaje a decimal
@@ -190,22 +189,22 @@ def calculate_mortgage(request: MortgageRequest):
 @router.post("/compare")
 def compare_mortgage_scenarios(request: ScenarioRequest):
     """
-    Compara múltiples escenarios de hipoteca.
+    Compare multiple mortgage scenarios.
 
     POST /api/mortgage/compare
     {
         "principal": 300000000,
         "scenarios": [
-            {"name": "20 años 12% EA", "rate": 0.12, "years": 20},
-            {"name": "30 años 10% EA", "rate": 0.10, "years": 30},
-            {"name": "15 años 14% EA", "rate": 0.14, "years": 15}
+            {"name": "20 years 12% EA", "rate": 0.12, "years": 20},
+            {"name": "30 years 10% EA", "rate": 0.10, "years": 30},
+            {"name": "15 years 14% EA", "rate": 0.14, "years": 15}
         ]
     }
 
-    Retorna cada escenario con:
-    - Cuota mensual
-    - Total de intereses
-    - Total a pagar
+    Returns each scenario with:
+    - Monthly payment
+    - Total interest
+    - Total paid
     """
     results = compare_scenarios(request.principal, request.scenarios)
     return {"scenarios": results}
@@ -213,7 +212,7 @@ def compare_mortgage_scenarios(request: ScenarioRequest):
 
 @router.get("/example")
 def get_example():
-    """Obtiene un ejemplo de cálculo de hipoteca"""
+    """Get an example mortgage calculation."""
     return {
         "principal": 300000000,  # $300M COP
         "annual_rate": 12.5,  # 12.5% EA

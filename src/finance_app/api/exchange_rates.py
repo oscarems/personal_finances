@@ -23,8 +23,8 @@ def get_current_rate(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene la tasa de cambio actual USD->COP
-    force_fetch: forzar consulta a APIs aunque ya exista tasa de hoy
+    Get the current USD->COP exchange rate.
+    force_fetch: force an API query even if today's rate already exists.
     """
     rate = get_current_exchange_rate(db, force_fetch=force_fetch)
 
@@ -54,7 +54,7 @@ def get_rate_history(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene el historial de tasas de cambio
+    Get the exchange rate history.
     """
     start_date = date.today() - timedelta(days=days)
 
@@ -79,7 +79,7 @@ def convert(
     db: Session = Depends(get_db)
 ):
     """
-    Convierte un monto de una moneda a otra
+    Convert an amount from one currency to another.
     """
     target_date = date.fromisoformat(rate_date) if rate_date else None
 

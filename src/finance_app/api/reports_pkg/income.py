@@ -390,7 +390,7 @@ def get_savings_allocation_rate(
     currency_id: int = 1,
     db: Session = Depends(get_db),
 ):
-    """Tasa de ahorro por asignacion: assigned in accumulate categories / total assigned."""
+    """Savings allocation rate: assigned in accumulate categories / total assigned."""
     today = date.today()
     if year is None:
         year = today.year

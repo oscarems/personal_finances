@@ -84,7 +84,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 # Create FastAPI app
 app = FastAPI(
     title="Personal Finances",
-    description="YNAB-style personal finance manager",
+    description="Personal finance manager",
     version="1.0.1",
     lifespan=lifespan,
 )

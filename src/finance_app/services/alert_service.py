@@ -29,11 +29,11 @@ ALERT_STATE_LABELS = {
 
 def _get_period_progress(month_date: date, today: Optional[date] = None) -> Tuple[float, int]:
     """
-    Calcula el % esperado de gasto con base en el progreso del periodo.
+    Calculate the expected spending percentage based on period progress.
 
-    Retorna:
-        expected_percent (float): porcentaje esperado (0-100)
-        days_remaining (int): días restantes en el periodo
+    Returns:
+        expected_percent (float): expected percentage (0-100)
+        days_remaining (int): days remaining in the period
     """
     current_day = today or date.today()
     days_in_month = calendar.monthrange(month_date.year, month_date.month)[1]

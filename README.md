@@ -1,40 +1,40 @@
 # Personal Finances
 
-Aplicación de finanzas personales estilo YNAB construida con FastAPI + SQLAlchemy + Jinja2. Multi-moneda (COP/USD), presupuesto, deudas, patrimonio neto y simulación de inversiones.
+A Personal finance manager built with FastAPI + SQLAlchemy + Jinja2. Multi-currency (COP/USD), budgeting, debt tracking, net worth (Patrimonio), and investment simulation.
 
 ---
 
-## Características
+## Features
 
-- **Presupuesto YNAB**: Categorías con rollover (ahorro acumulativo vs gasto mensual), Ready to Assign, asignaciones multi-moneda
-- **Multi-moneda**: COP y USD con conversión automática, tasas desde API con fallback, auditoría FX por transacción
-- **Patrimonio**: Activos (inmuebles, vehículos, otros) con depreciación y rendimiento. Deudas integradas desde el módulo de deudas. Timeline de patrimonio neto
-- **Deudas**: Hipotecas, créditos de consumo, tarjetas. Motor de amortización con pagos reales + proyectados. Timeline de saldo principal
-- **Metas financieras**: Tracking visual de objetivos de ahorro
-- **Fondo de emergencia**: Cálculo y seguimiento
-- **Reportes**: Gastos por categoría/tag/grupo, ingresos vs gastos, tendencias de balance, salud financiera
-- **Simulador de inversiones**: Proyecciones con interés compuesto
-- **Importador YNAB**: CSV con detección de categorías, transferencias y duplicados
-- **Transacciones recurrentes**: Automatización de pagos regulares
-- **Integración Gmail**: Scraping de transacciones desde correos bancarios
-- ~~**Integración Telegram**~~ *(deprecada)*
+- **Budgeting**: Categories with rollover (accumulate vs reset), Ready to Assign, multi-currency assignments
+- **Multi-currency**: COP and USD with automatic conversion, rates from external API with fallback, per-transaction FX audit
+- **Net Worth (Patrimonio)**: Assets (real estate, vehicles, other) with depreciation and returns. Debts integrated directly from the debts module. Net worth timeline
+- **Debts**: Mortgages, personal loans, credit cards. Hybrid amortization engine (real payments + projections). Principal balance timeline
+- **Financial Goals**: Visual tracking of savings objectives
+- **Emergency Fund**: Calculation and tracking
+- **Reports**: Spending by category/tag/group, income vs expenses, balance trends, financial health
+- **Investment Simulator**: Compound interest projections
+- **CSV Importer**: CSV import with category detection, transfer handling, and deduplication
+- **Recurring Transactions**: Automation of regular payments
+- **Gmail Integration**: Scraping transactions from bank notification emails
+- ~~**Telegram Integration**~~ *(deprecated)*
 
 ---
 
-## Inicio Rápido
+## Quick Start
 
-### Requisitos
+### Requirements
 
 - Python 3.10+
 
-### Instalación
+### Installation
 
 ```bash
 git clone https://github.com/oscarems/personal_finances.git
 cd personal_finances
 python -m venv venv
 
-# Activar entorno virtual
+# Activate virtual environment
 # Windows:
 venv\Scripts\activate
 # Linux/Mac:
@@ -43,15 +43,15 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Inicializar BD
+### Initialize Database
 
 ```bash
 python src/finance_app/scripts/init_db.py
 ```
 
-Crea SQLite en `data/finances.db` con monedas, categorías y grupos predefinidos.
+Creates SQLite at `data/finances.db` with pre-seeded currencies, categories, and groups.
 
-### Ejecutar
+### Run
 
 ```bash
 python run.py
@@ -60,15 +60,15 @@ python run.py
 - App: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
-### Modo Demo
+### Demo Mode
 
 ```bash
 DEMO_MODE=true python run.py
 ```
 
-Usa `data/finances_demo.db` sin tocar tu base real. También puedes cambiar la base desde el selector en el sidebar.
+Uses `data/finances_demo.db` without touching your real database. You can also switch databases from the sidebar selector.
 
-### Base de datos externa
+### External Database
 
 ```bash
 DATABASE_URL="postgresql+psycopg2://user:pass@localhost:5432/finanzas" python run.py
@@ -76,113 +76,113 @@ DATABASE_URL="postgresql+psycopg2://user:pass@localhost:5432/finanzas" python ru
 
 ---
 
-## Arquitectura
+## Architecture
 
 ```
 src/finance_app/
-├── app.py                    # FastAPI app + registro de rutas
-├── database.py               # Engine SQLAlchemy, sesiones
-├── config/settings.py        # Configuración centralizada
-├── models/                   # Modelos ORM
-│   ├── patrimonio_asset.py   # Activos con depreciación/rendimiento
-│   ├── debt.py               # Deudas + pagos
-│   └── debt_amortization.py  # Amortización mensual
-├── domain/                   # Lógica de dominio
-│   ├── debts/                # Proyecciones, snapshots, repositorio
-│   └── fx/                   # Conversión de moneda
-├── api/                      # Routers FastAPI
-│   ├── patrimonio.py         # CRUD activos + resumen/timeline
-│   ├── debts.py              # CRUD deudas + amortización
-│   ├── budgets.py            # Presupuesto mensual
-│   ├── reports_pkg/          # Reportes modulares (spending, income, balance, debt)
+├── app.py                    # FastAPI app + route registration
+├── database.py               # SQLAlchemy engine, sessions
+├── config/settings.py        # Centralized configuration
+├── models/                   # ORM models
+│   ├── patrimonio_asset.py   # Assets with depreciation/returns
+│   ├── debt.py               # Debts + payments
+│   └── debt_amortization.py  # Monthly amortization records
+├── domain/                   # Domain logic
+│   ├── debts/                # Projections, snapshots, repository
+│   └── fx/                   # Currency conversion
+├── api/                      # FastAPI routers
+│   ├── patrimonio.py         # Asset CRUD + summary/timeline
+│   ├── debts.py              # Debt CRUD + amortization
+│   ├── budgets.py            # Monthly budgeting
+│   ├── reports_pkg/          # Modular reports (spending, income, balance, debt)
 │   └── ...                   # accounts, goals, transactions, etc.
-├── services/                 # Lógica de negocio
-│   ├── debt/                 # Amortización, balance, timeline
-│   ├── patrimonio/           # Valoración de activos, patrimonio neto
-│   ├── mortgage/             # Cálculos hipotecarios
+├── services/                 # Business logic
+│   ├── debt/                 # Amortization, balance, timeline
+│   ├── patrimonio/           # Asset valuation, net worth
+│   ├── mortgage/             # Mortgage calculations
 │   └── ...                   # budget, transaction, alert, etc.
 ├── templates/                # Jinja2 + Tailwind CSS
-└── scripts/                  # Migración, importación, seeds
+└── scripts/                  # Migration, import, seed scripts
 ```
 
-### Convenciones de código
+### Code Conventions
 
-| Aspecto | Convención |
-|---------|-----------|
-| Moneda en modelos | `Numeric(18, 2)` — nunca `Float` |
-| Fechas | `datetime.date`, columnas `Date` |
-| Tasas de interés | Decimales (0.08 = 8%), anuales por defecto |
-| Transacciones | Negativo = gasto, positivo = ingreso |
-| Imports | Absolutos: `from finance_app.xxx import ...` |
+| Aspect | Convention |
+|--------|-----------|
+| Money columns | `Numeric(18, 2)` — never `Float` |
+| Dates | `datetime.date`, `Date` columns |
+| Interest rates | Decimals (0.08 = 8%), annual by default |
+| Transactions | Negative = expense, positive = income |
+| Imports | Absolute: `from finance_app.xxx import ...` |
 | Config | `from finance_app.config import ...` |
-| UI | Español, Tailwind utility classes |
-| API responses | Siempre incluir dict `currency` en valores monetarios |
+| UI | Spanish language, Tailwind utility classes |
+| API responses | Always include `currency` dict for monetary values |
 
-### Capas
+### Layers
 
-- **Calculators** (`services/*/calculator.py`): Funciones puras sin acceso a BD. Reciben objetos, retornan datos.
-- **Services** (`services/*_service.py`): Orquestación con acceso a BD. Llaman a calculators para la lógica.
-- **API routers** (`api/*.py`): Capa HTTP delgada. Validación, llamada a services, formato de respuesta. Sin lógica de negocio.
+- **Calculators** (`services/*/calculator.py`): Pure functions, no DB access. Accept objects, return data.
+- **Services** (`services/*_service.py`): Orchestration with DB access. Call calculators for math.
+- **API routers** (`api/*.py`): Thin HTTP layer. Validate input, call services, format response. No business logic.
 
-### Tasas de interés
+### Interest Rate Conventions
 
-- **Colombia (EA)**: Tasa efectiva anual → `mensual = (1 + anual)^(1/12) - 1`
-- **EEUU (APR)**: Tasa nominal → `mensual = anual / 12`
-- Default: `effective`. Documentar convención en `debt.notes`.
-
----
-
-## Módulos Principales
-
-### Presupuesto
-
-- **Ready to Assign** = Total en cuentas - Total asignado
-- **Rollover Reset**: Lo no gastado vuelve a Ready to Assign el próximo mes (gastos mensuales)
-- **Rollover Accumulate**: Lo no gastado se acumula (ahorros, metas)
-- Asignaciones en COP o USD, suma convertida a la moneda de visualización
-
-### Patrimonio
-
-Sistema unificado de patrimonio neto:
-- **Activos**: `inmueble`, `vehiculo`, `otro` con métodos de depreciación (línea recta, saldo decreciente, doble saldo)
-- **Deudas**: Lee directamente del modelo `Debt` (hipotecas + créditos de consumo). No duplica datos.
-- **Valoración**: Anual desde fecha de adquisición con tasa de retorno configurable
-- **Timeline**: 24 meses pasados + 24 futuros
-
-### Deudas
-
-- Tipos: `mortgage`, `credit_loan`, `credit_card`
-- Motor de amortización híbrido: pagos reales registrados + proyección futura
-- Timeline de saldo principal con proyecciones
-- Tarjetas de crédito solo en `/debts`, no en patrimonio
-
-### Reportes
-
-Módulo `api/reports_pkg/` con archivos separados:
-- `spending.py` — Gastos por categoría, tag, grupo, tendencias
-- `income.py` — Ingresos vs gastos, presupuesto vs real, tasa de ahorro
-- `balance.py` — Tendencia de balance, historial por cuenta
-- `debt.py` — Historial de deuda, timeline principal, proyección de liquidación
+- **Colombia (EA)**: Effective annual rate → `monthly = (1 + annual)^(1/12) - 1`
+- **US (APR)**: Nominal rate → `monthly = annual / 12`
+- Default: `effective`. Document convention in `debt.notes`.
 
 ---
 
-## API REST
+## Core Modules
 
-Documentación interactiva en http://localhost:8000/docs
+### Budget
+
+- **Ready to Assign** = Total in accounts - Total assigned
+- **Rollover Reset**: Unspent money returns to Ready to Assign next month (for monthly expenses)
+- **Rollover Accumulate**: Unspent money carries forward (for savings and goals)
+- Assignments in COP or USD, summed and converted to the display currency
+
+### Net Worth (Patrimonio)
+
+Unified net worth system:
+- **Assets**: `inmueble`, `vehiculo`, `otro` with depreciation methods (straight-line, declining balance, double declining)
+- **Debts**: Reads directly from the `Debt` model (mortgages + personal loans). No data duplication.
+- **Valuation**: Annual from acquisition date with configurable return rate
+- **Timeline**: 24 months past + 24 months future
+
+### Debts
+
+- Types: `mortgage`, `credit_loan`, `credit_card`
+- Hybrid amortization engine: real recorded payments + future projections
+- Principal balance timeline with projections
+- Credit cards appear only in `/debts`, not in net worth
+
+### Reports
+
+Module `api/reports_pkg/` split into focused files:
+- `spending.py` — Spending by category, tag, group, trends
+- `income.py` — Income vs expenses, budget vs actual, savings rate
+- `balance.py` — Balance trend, account history
+- `debt.py` — Debt history, principal timeline, payoff projection
+
+---
+
+## REST API
+
+Interactive documentation at http://localhost:8000/docs
 
 ```
-GET/POST       /api/accounts/              # Cuentas
-GET/POST       /api/transactions/          # Transacciones
-POST           /api/transactions/transfer  # Transferencias
-GET/POST       /api/budgets/               # Presupuesto
-GET/POST/PUT   /api/debts/                 # Deudas
-GET/POST/PUT/DELETE /api/patrimonio/activos/  # Activos patrimonio
-GET            /api/patrimonio/resumen     # Resumen patrimonio
-GET            /api/patrimonio/timeline    # Timeline patrimonio neto
-GET            /api/reports/               # Reportes
-GET            /api/exchange-rates/        # Tasas de cambio
-POST           /api/import/ynab            # Importar YNAB CSV
-GET/POST       /api/goals/                 # Metas financieras
+GET/POST            /api/accounts/                 # Accounts
+GET/POST            /api/transactions/             # Transactions
+POST                /api/transactions/transfer     # Transfers
+GET/POST            /api/budgets/                  # Budget
+GET/POST/PUT        /api/debts/                    # Debts
+GET/POST/PUT/DELETE /api/patrimonio/activos/       # Net worth assets
+GET                 /api/patrimonio/resumen        # Net worth summary
+GET                 /api/patrimonio/timeline       # Net worth timeline
+GET                 /api/reports/                  # Reports
+GET                 /api/exchange-rates/           # Exchange rates
+POST                /api/import/csv              # Import budget CSV
+GET/POST            /api/goals/                    # Financial goals
 ```
 
 ---
@@ -190,67 +190,65 @@ GET/POST       /api/goals/                 # Metas financieras
 ## Testing
 
 ```bash
-# Todos los tests
+# All tests
 python -m pytest tests/ -v
 
-# Test específico
+# Specific test
 python -m pytest tests/test_patrimonio_calculator.py -v
 ```
 
-- Tests de calculators con valores esperados hardcoded y tolerancias explícitas
-- `SimpleNamespace` o dataclasses para mock de modelos (sin BD cuando sea posible)
-- Tests de API con SQLite in-memory y override de `get_db`
+- Calculator tests use hardcoded expected values with explicit tolerances for floating-point math
+- Use `SimpleNamespace` or dataclasses to mock models (avoid DB when possible)
+- API tests use in-memory SQLite with `get_db` override
 
 ---
 
-## Configuración Opcional
+## Optional Configuration
 
-### Integración con Gmail (opcional)
+### Gmail Integration
 
-Permite que la app lea correos bancarios y los importe como transacciones
-automáticamente. Requiere una cuenta Gmail y configuración de acceso seguro.
+Allows the app to read bank notification emails and import them as transactions automatically. Requires a Gmail account with secure access configured.
 
-#### Paso a paso para configurar
+#### Setup Steps
 
-**1. Habilitar IMAP en Gmail**
-1. Abre Gmail → Configuración (ícono de engranaje) → Ver todos los ajustes
-2. Ve a la pestaña **"Reenvío y correo POP/IMAP"**
-3. En la sección IMAP, selecciona **"Habilitar IMAP"**
-4. Guarda los cambios
+**1. Enable IMAP in Gmail**
+1. Open Gmail → Settings (gear icon) → See all settings
+2. Go to the **"Forwarding and POP/IMAP"** tab
+3. Under IMAP, select **"Enable IMAP"**
+4. Save changes
 
-**2. Activar verificación en dos pasos**
-1. Ve a [myaccount.google.com/security](https://myaccount.google.com/security)
-2. En "Cómo inicias sesión en Google", activa **"Verificación en dos pasos"**
-3. Sigue el asistente de configuración
+**2. Enable Two-Step Verification**
+1. Go to [myaccount.google.com/security](https://myaccount.google.com/security)
+2. Under "How you sign in to Google", enable **"2-Step Verification"**
+3. Follow the setup wizard
 
-**3. Generar una App Password**
-1. Ve a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-2. En "Seleccionar aplicación" elige **"Correo"**
-3. En "Seleccionar dispositivo" elige **"Otro (nombre personalizado)"** → escribe `fincas`
-4. Haz clic en **Generar**
-5. Copia la contraseña de 16 caracteres (formato: `xxxx xxxx xxxx xxxx`)
+**3. Generate an App Password**
+1. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. Choose application **"Mail"**
+3. Choose device **"Other (custom name)"** → type `finances`
+4. Click **Generate**
+5. Copy the 16-character password (format: `xxxx xxxx xxxx xxxx`)
 
-**4. Configurar en .env**
+**4. Configure in .env**
 
 ```bash
-GMAIL_EMAIL="tucorreo@gmail.com"
+GMAIL_EMAIL="yourmail@gmail.com"
 GMAIL_APP_PASSWORD="xxxx xxxx xxxx xxxx"
 ```
 
-> ⚠️ Usa la App Password generada, **no** tu contraseña normal de Gmail.
-> La App Password tiene espacios — cópiala exactamente como aparece.
+> Use the generated App Password, **not** your regular Gmail password.
+> The App Password has spaces — copy it exactly as shown.
 
-**Correos bancarios soportados actualmente:**
+**Supported bank emails:**
 - Bancolombia (Colombia)
-- BAC / bancos Panamá
+- BAC / Panamá banks
 - Mastercard Black
 
-Una vez configurado, ve a **Avanzado → Importar Gmail** en la aplicación
-para revisar y registrar los correos detectados.
+Once configured, go to **Advanced → Import Gmail** in the app to review and register detected emails.
 
-### Tasas de Cambio
+### Exchange Rates
 
-Fallback en orden: tasa del día en BD → API primaria → API fallback → promedio últimos 5 días → default (4000 COP/USD).
+Fallback order: today's rate in DB → primary API → fallback API → 5-day average → default (4000 COP/USD).
 
 ---
 
@@ -262,6 +260,6 @@ Fallback en orden: tasa del día en BD → API primaria → API fallback → pro
 
 ---
 
-## Licencia
+## License
 
-Proyecto de uso personal. Inspirado en la metodología YNAB.
+Personal use project.

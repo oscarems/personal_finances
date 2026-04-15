@@ -32,7 +32,7 @@ class Transaction(Base):
     transfer_account_id = Column(Integer, ForeignKey('accounts.id'))  # If transfer
     investment_asset_id = Column(Integer, nullable=True)  # legacy column, FK to wealth_assets removed
     is_adjustment = Column(Boolean, default=False)  # Balance adjustment transaction
-    import_id = Column(String(100))  # YNAB import ID to avoid duplicates
+    import_id = Column(String(100))  # Deduplication ID used during CSV import
     source = Column(String(50))
     source_id = Column(String(120))
     created_at = Column(DateTime, default=datetime.utcnow)

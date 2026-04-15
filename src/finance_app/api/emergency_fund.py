@@ -44,15 +44,15 @@ def get_emergency_coverage(
     db: Session = Depends(get_db)
 ):
     """
-    Calcula la cobertura de emergencia (cuántos meses de gastos esenciales
-    están cubiertos por los fondos de emergencia).
+    Calculate emergency coverage (how many months of essential expenses
+    are covered by the emergency funds).
 
     Query params:
-    - month: Mes en formato YYYY-MM-DD (opcional, default: mes actual)
-    - currency_id: ID de la moneda objetivo (default: 1 = COP)
+    - month: Month in YYYY-MM-DD format (optional, default: current month)
+    - currency_id: Target currency ID (default: 1 = COP)
 
     Returns:
-        EmergencyCoverageResponse con detalles de cobertura
+        EmergencyCoverageResponse with coverage details.
     """
     month_date = None
     if month:
@@ -72,11 +72,11 @@ def get_essential_monthly_expenses(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene el total de gastos esenciales mensuales.
+    Get total monthly essential expenses.
 
     Query params:
-    - month: Mes en formato YYYY-MM-DD (opcional, default: mes actual)
-    - currency_id: ID de la moneda objetivo (default: 1 = COP)
+    - month: Month in YYYY-MM-DD format (optional, default: current month)
+    - currency_id: Target currency ID (default: 1 = COP)
     """
     month_date = date.today().replace(day=1)
     if month:
@@ -95,10 +95,10 @@ def get_emergency_fund_balances(
     db: Session = Depends(get_db)
 ):
     """
-    Obtiene el total de fondos de emergencia disponibles.
+    Get total available emergency funds.
 
     Query params:
-    - currency_id: ID de la moneda objetivo (default: 1 = COP)
+    - currency_id: Target currency ID (default: 1 = COP)
     """
     funds = get_emergency_funds(db, currency_id)
     return funds
@@ -107,14 +107,14 @@ def get_emergency_fund_balances(
 @router.get("/categories")
 def get_categories_with_flags(db: Session = Depends(get_db)):
     """
-    Obtiene todas las categorías con sus flags de emergencia.
+    Get all categories with their emergency flags.
 
     Returns:
-        Lista de categorías con campos:
+        List of categories with fields:
         - id, name, category_group_name
-        - is_essential: Si es un gasto esencial
-        - is_emergency_fund: Si es un fondo de emergencia
-        - rollover_type: 'accumulate' o 'reset'
+        - is_essential: Whether this is an essential expense
+        - is_emergency_fund: Whether this is an emergency fund
+        - rollover_type: 'accumulate' or 'reset'
     """
     categories = db.query(Category).filter_by(is_hidden=False).all()
 
@@ -140,14 +140,14 @@ def update_category_flags(
     db: Session = Depends(get_db)
 ):
     """
-    Actualiza los flags de emergencia de una categoría.
+    Update the emergency flags for a category.
 
     Args:
-        category_id: ID de la categoría a actualizar
-        flags: Objeto con is_essential y/o is_emergency_fund
+        category_id: ID of the category to update.
+        flags: Object with is_essential and/or is_emergency_fund.
 
     Returns:
-        Categoría actualizada
+        Updated category.
     """
     category = db.query(Category).get(category_id)
     if not category:
@@ -175,12 +175,12 @@ def update_category_flags(
 @router.get("/debug")
 def debug_emergency_fund(db: Session = Depends(get_db)):
     """
-    Endpoint de debug para diagnosticar problemas con el cálculo.
+    Debug endpoint to diagnose calculation issues.
 
-    Returns información detallada sobre:
-    - Categorías marcadas como esenciales
-    - Categorías marcadas como fondos de emergencia
-    - Presupuestos disponibles para cada una
+    Returns detailed information about:
+    - Categories marked as essential
+    - Categories marked as emergency funds
+    - Available budgets for each
     """
     from finance_app.models import BudgetMonth
 

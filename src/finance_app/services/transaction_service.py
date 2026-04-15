@@ -1,5 +1,5 @@
 """
-Transaction service for CRUD operations
+Transaction service for CRUD operations.
 """
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
@@ -669,44 +669,43 @@ def create_adjustment(db: Session, data):
 
 def create_transfer(db: Session, data):
     """
-    Crea una transferencia entre dos cuentas propias.
+    Create a transfer between two accounts.
 
-    Una transferencia NO es una sola transacción, sino DOS transacciones vinculadas:
-        1. Transacción de SALIDA (negativa) en la cuenta origen
-        2. Transacción de ENTRADA (positiva) en la cuenta destino
+    A transfer is NOT a single transaction but TWO linked transactions:
+        1. An OUTGOING transaction (negative) from the source account.
+        2. An INCOMING transaction (positive) to the destination account.
 
-    Ambas transacciones están vinculadas mediante el campo transfer_account_id, que
-    apunta al ID de la cuenta contraria. Esto permite identificarlas como transferencias
-    y eliminarlas juntas si se borra una.
+    Both transactions are linked via the transfer_account_id field, which
+    points to the opposing account. This allows them to be identified as
+    transfers and deleted together when one is removed.
 
-    IMPORTANTE - Multi-moneda:
-        Soporta transferencias entre cuentas de diferentes monedas. Si las monedas son
-        diferentes, convierte automáticamente usando la tasa de cambio actual.
+    Multi-currency: Supports transfers between accounts in different currencies.
+    If currencies differ, the amount is automatically converted using the current rate.
 
-        Ejemplo: Transferir $100 USD de cuenta USD a cuenta COP
-            - Salida de cuenta USD: -$100 USD
-            - Entrada a cuenta COP: +$400,000 COP (usando tasa 4000)
+        Example: Transfer $100 USD from a USD account to a COP account
+            - USD account debit: -$100 USD
+            - COP account credit: +$400,000 COP (at rate 4000)
 
     Args:
-        db (Session): Sesión de base de datos
-        data (dict): Datos de la transferencia con claves:
-            - from_account_id (int): ID de cuenta origen
-            - to_account_id (int): ID de cuenta destino
-            - date (date): Fecha de la transferencia
-            - amount (float): Monto en moneda origen (siempre positivo)
-            - from_currency_id (int): ID de moneda origen
-            - to_currency_id (int): ID de moneda destino
-            - memo (str, opcional): Nota o descripción
-            - cleared (bool, opcional): Si está conciliada (default: False)
+        db (Session): Database session.
+        data (dict): Transfer data with keys:
+            - from_account_id (int): Source account ID.
+            - to_account_id (int): Destination account ID.
+            - date (date): Transfer date.
+            - amount (float): Amount in source currency (always positive).
+            - from_currency_id (int): Source currency ID.
+            - to_currency_id (int): Destination currency ID.
+            - memo (str, optional): Note or description.
+            - cleared (bool, optional): Whether cleared (default: False).
 
     Returns:
-        list[Transaction, Transaction]: Lista con [transacción_salida, transacción_entrada]
+        list[Transaction, Transaction]: [outgoing_transaction, incoming_transaction]
 
     Raises:
-        ValueError: Si from_account_id o to_account_id no existen
+        ValueError: If from_account_id or to_account_id do not exist.
 
-    Ejemplos:
-        # Transferencia misma moneda
+    Examples:
+        # Same-currency transfer
         >>> data = {
         ...     'from_account_id': 1,
         ...     'to_account_id': 2,
@@ -714,7 +713,7 @@ def create_transfer(db: Session, data):
         ...     'amount': 500000,
         ...     'from_currency_id': 1,  # COP
         ...     'to_currency_id': 1,    # COP
-        ...     'memo': 'Ahorro mensual',
+        ...     'memo': 'Monthly savings',
         ...     'cleared': True
         ... }
         >>> txns = create_transfer(db, data)

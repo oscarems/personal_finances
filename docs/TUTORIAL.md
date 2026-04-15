@@ -1,513 +1,486 @@
-# 📚 Tutorial - Personal Finances (YNAB-style)
+# User Guide - Personal Finances
 
-**Sistema de finanzas personales multi-moneda basado en la metodología YNAB**
-
----
-
-## 📖 Tabla de Contenidos
-
-1. [Introducción](#introducción)
-2. [Primeros Pasos](#primeros-pasos)
-3. [Conceptos Clave](#conceptos-clave)
-4. [Cuentas](#cuentas)
-5. [Presupuesto](#presupuesto)
-6. [Transacciones](#transacciones)
-7. [Transferencias](#transferencias)
-8. [Reportes](#reportes)
-9. [Importar desde YNAB](#importar-desde-ynab)
-10. [Transacciones Recurrentes](#transacciones-recurrentes)
-11. [Multi-Moneda](#multi-moneda)
-12. [Tips y Mejores Prácticas](#tips-y-mejores-prácticas)
+**A multi-currency personal finance system**
 
 ---
 
-## Introducción
+## Table of Contents
 
-Este sistema implementa la metodología YNAB (You Need A Budget) con soporte multi-moneda (COP/USD). La filosofía es simple:
-
-**"Dale un propósito a cada peso"**
-
-En lugar de mirar hacia atrás preguntándote "¿En qué gasté?", miras hacia adelante: "¿Qué necesito que este dinero haga antes de recibir más?"
+1. [Introduction](#introduction)
+2. [Getting Started](#getting-started)
+3. [Key Concepts](#key-concepts)
+4. [Accounts](#accounts)
+5. [Budget](#budget)
+6. [Transactions](#transactions)
+7. [Transfers](#transfers)
+8. [Net Worth (Patrimonio)](#net-worth-patrimonio)
+9. [Debts](#debts)
+10. [Reports](#reports)
+11. [Importing from CSV](#importing-from-csv)
+12. [Recurring Transactions](#recurring-transactions)
+13. [Multi-Currency](#multi-currency)
+14. [Tips and Best Practices](#tips-and-best-practices)
+15. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Primeros Pasos
+## Introduction
 
-### 1. Iniciar el Sistema
+The budgeting philosophy is simple:
+
+**"Give every peso a purpose"**
+
+Instead of looking back asking "Where did my money go?", you look forward: "What do I need this money to do before I get paid again?"
+
+---
+
+## Getting Started
+
+### 1. Start the System
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 pip install -r requirements.txt
 
-# Inicializar base de datos
+# Initialize database
 python src/finance_app/scripts/init_db.py
 
-# Iniciar servidor
+# Start server
 python run.py
 ```
 
-El servidor estará disponible en `http://localhost:8000`
+The server will be available at `http://localhost:8000`
 
-### 2. Primer Login
+### 2. First Access
 
-La aplicación abre directamente (sin autenticación por ahora). Verás:
-- Dashboard con resumen
-- Sidebar con navegación
-
----
-
-## Conceptos Clave
-
-### 1. **Ready to Assign (Disponible para Asignar)**
-Es el dinero que tienes en tus cuentas pero que **NO** tiene un propósito asignado todavía.
-
-**Fórmula:**
-```
-Ready to Assign = Total en Cuentas - Total Asignado en Presupuesto
-```
-
-**Objetivo:** Llevar esto a $0 asignando cada peso a una categoría.
-
-### 2. **Categorías con Rollover**
-Hay dos tipos:
-
-**🔁 Reset (Reiniciar):**
-- Lo no gastado vuelve a "Ready to Assign" el próximo mes
-- Usa esto para gastos mensuales regulares (mercado, servicios)
-
-**🔄 Accumulate (Acumular):**
-- Lo no gastado se queda en la categoría
-- Usa esto para ahorros y metas (vacaciones, emergencias)
-
-### 3. **Four Rules of YNAB**
-
-1. **Give Every Dollar a Job**: Asigna cada peso a una categoría
-2. **Embrace Your True Expenses**: Planea para gastos irregulares
-3. **Roll With The Punches**: Ajusta tu presupuesto cuando cambien las cosas
-4. **Age Your Money**: Trata de vivir con dinero del mes pasado
+The app opens directly (no authentication required). You will see:
+- A dashboard with a summary
+- A sidebar with navigation links
 
 ---
 
-## Cuentas
+## Key Concepts
 
-### Tipos de Cuenta Soportados
+### 1. **Ready to Assign**
+Money you have in your accounts that has **no assigned purpose** yet.
 
-| Tipo | Descripción | Campos Especiales |
-|------|-------------|-------------------|
-| 💳 Corriente | Cuenta bancaria diaria | - |
-| 🏦 Ahorros | Cuenta de ahorros | Tasa de interés |
-| 💳 Tarjeta Crédito | Tarjeta de crédito | Cupo, día de pago |
-| 💰 Crédito Libre | Crédito personal | Tasa, cuota mensual, monto original |
-| 🏠 Hipoteca | Préstamo hipotecario | Tasa, cuota mensual, monto original |
-| 📜 CDT | Certificado depósito | Tasa, fecha vencimiento, monto original |
-| 📈 Inversión | Cuenta de inversiones | - |
-| 💵 Efectivo | Dinero en efectivo | - |
+**Formula:**
+```
+Ready to Assign = Total in Accounts - Total Assigned in Budget
+```
 
-### Crear una Cuenta
+**Goal:** Bring this to $0 by assigning every peso to a category.
 
-1. Ve a **"Cuentas"**
-2. Click **"+ Nueva Cuenta"**
-3. Completa:
-   - **Nombre**: Ej. "Davivienda Corriente"
-   - **Tipo**: Selecciona de la lista
-   - **Moneda**: COP o USD
-   - **Saldo Inicial**: Balance actual de la cuenta
-   - **Campos opcionales**: Según el tipo de cuenta
-4. Click **"Guardar"**
+### 2. **Categories with Rollover**
+Two types:
 
-**Importante:**
-- Cada cuenta tiene **una sola moneda oficial**
-- Verás la conversión a la otra moneda automáticamente
-- Marca "Incluir en presupuesto" para cuentas normales
-- Desmarca para cuentas de seguimiento (inversiones, hipotecas)
+**Reset:**
+- Unspent money returns to "Ready to Assign" next month
+- Use for regular monthly expenses (groceries, utilities)
 
-### Vista de Cuentas
+**Accumulate:**
+- Unspent money stays in the category
+- Use for savings and goals (vacation, emergency fund)
 
-Verás tarjetas con:
-- Nombre y tipo
-- Saldo en moneda oficial (grande)
-- Conversión a otra moneda (pequeño)
-- Ícono según tipo
+### 3. **Four Rules**
+
+1. **Give Every Dollar a Job**: Assign every peso to a category
+2. **Embrace Your True Expenses**: Plan for irregular expenses
+3. **Roll With The Punches**: Adjust your budget when things change
+4. **Age Your Money**: Try to live on last month's money
 
 ---
 
-## Presupuesto
+## Accounts
 
-### Estructura
+### Supported Account Types
 
-**Grupos de Categorías** → **Categorías**
+| Type | Description | Special Fields |
+|------|-------------|----------------|
+| Checking | Daily bank account | — |
+| Savings | Savings account | Interest rate |
+| Credit Card | Credit card | Credit limit, payment due day |
+| Personal Loan | Personal loan | Rate, monthly payment, original amount |
+| Mortgage | Home loan | Rate, monthly payment, original amount |
+| CDT | Certificate of deposit | Rate, maturity date, original amount |
+| Investment | Investment account | — |
+| Cash | Physical cash | — |
 
-Ejemplo:
-```
-📌 Needs (Grupo)
-   ├─ Gym (Categoría)
-   ├─ Cosméticos
-   └─ Transporte
+### Creating an Account
 
-🏠 Hogar (Grupo)
-   ├─ Arriendo
-   ├─ Mercado
-   └─ Servicios
-```
+1. Go to **"Accounts"**
+2. Click **"+ New Account"**
+3. Fill in:
+   - **Name**: e.g., "Davivienda Checking"
+   - **Type**: Select from the list
+   - **Currency**: COP or USD
+   - **Initial Balance**: Current balance of the account
+   - **Optional fields**: Depending on account type
+4. Click **"Save"**
 
-### Asignar Dinero
-
-1. Ve a **"Presupuesto"**
-2. Mira tu **"Disponible para Asignar"** (arriba)
-3. Click en una categoría
-4. Ingresa el monto a asignar
-5. Click **"Asignar"**
-
-### Columnas del Presupuesto
-
-| Columna | Significado |
-|---------|-------------|
-| **Asignado** | Dinero que planeaste usar |
-| **Gastado** | Dinero realmente gastado |
-| **Disponible** | Lo que te queda (Asignado - Gastado) |
-
-**Barra de progreso:**
-- 🟢 Verde: < 80% gastado
-- 🟡 Amarillo: 80-100% gastado
-- 🔴 Rojo: > 100% gastado (sobregiro!)
-
-### Selector de Moneda
-
-Arriba a la derecha puedes cambiar entre COP y USD:
-- **NO separa los presupuestos**
-- Solo cambia cómo **visualizas** los montos
-- Suma asignaciones de ambas monedas convertidas
-
-**Ejemplo:**
-Si asignas:
-- $100 USD a "Mercado"
-- $400,000 COP a "Mercado"
-
-Al ver en COP verás: **$800,000 COP** (suma convertida)
+**Important:**
+- Each account has **one official currency**
+- Conversion to the other currency is shown automatically
+- Check "Include in budget" for regular accounts
+- Uncheck for tracking accounts (investments, mortgages)
 
 ---
 
-## Transacciones
+## Budget
 
-### Crear Transacción
+### Structure
 
-1. Ve a **"Transacciones"**
-2. Click **"+ Nueva Transacción"**
-3. Completa:
-   - **Fecha**: Fecha de la transacción (si es anterior a la fecha de creación de la cuenta, no afecta el saldo actual)
-   - **Cuenta**: De qué cuenta sale/entra
-   - **Beneficiario**: Ej. "Éxito", "Mi Empleador"
-   - **Categoría**: A qué categoría pertenece
-   - **Monto**:
-     - Positivo = Ingreso
-     - Negativo = Gasto
-   - **Moneda**: COP o USD
-   - **Memo**: Notas opcionales
-4. Check **"✓ Transacción reconciliada"** si ya confirmaste con banco
-5. Click **"Guardar"**
+**Category Groups** → **Categories**
 
-### Tipos de Transacciones
-
-**💰 Ingreso (monto positivo):**
+Example:
 ```
-Cuenta: Davivienda Corriente
-Beneficiario: Mi Empleador
-Categoría: Salario (categoría Income)
-Monto: +5000000 COP
+Needs (Group)
+   ├─ Gym (Category)
+   ├─ Personal care
+   └─ Transportation
+
+Home (Group)
+   ├─ Rent
+   ├─ Groceries
+   └─ Utilities
 ```
 
-**💸 Gasto (monto negativo):**
-```
-Cuenta: Davivienda Corriente
-Beneficiario: Éxito
-Categoría: Mercado
-Monto: -150000 COP
-```
+### Assigning Money
 
-### Filtros
+1. Go to **"Budget"**
+2. Check your **"Ready to Assign"** (at the top)
+3. Click on a category
+4. Enter the amount to assign
+5. Click **"Assign"**
 
-Usa los filtros arriba para:
-- Ver solo transacciones de una cuenta
-- Ver solo de una categoría
-- Limitar cantidad mostrada
+### Budget Columns
+
+| Column | Meaning |
+|--------|---------|
+| **Assigned** | Money you planned to spend |
+| **Spent** | Money actually spent |
+| **Available** | What remains (Assigned - Spent) |
+
+**Progress bar:**
+- Green: < 80% spent
+- Yellow: 80–100% spent
+- Red: > 100% spent (overspent!)
+
+### Currency Selector
+
+In the top right you can toggle between COP and USD:
+- Does **NOT** separate the budgets
+- Only changes how amounts are **displayed**
+- Sums assignments from both currencies after conversion
+
+**Example:**
+If you assign:
+- $100 USD to "Groceries"
+- $400,000 COP to "Groceries"
+
+Viewing in COP you see: **~$800,000 COP** (sum after conversion at current rate)
 
 ---
 
-## Transferencias
+## Transactions
 
-### ¿Cuándo usar Transferencias?
+### Creating a Transaction
 
-Cuando mueves dinero **entre tus propias cuentas**:
-- Ahorros → Corriente
+1. Go to **"Transactions"**
+2. Click **"+ New Transaction"**
+3. Fill in:
+   - **Date**: Transaction date
+   - **Account**: Which account it comes from/goes to
+   - **Payee**: e.g., "Éxito", "My Employer"
+   - **Category**: Which category it belongs to
+   - **Amount**:
+     - Positive = Income
+     - Negative = Expense
+   - **Currency**: COP or USD
+   - **Memo**: Optional notes
+4. Check **"Reconciled"** if you have confirmed it with your bank
+5. Click **"Save"**
+
+### Transaction Types
+
+**Income (positive amount):**
+```
+Account: Davivienda Checking
+Payee: My Employer
+Category: Salary (income category)
+Amount: +5,000,000 COP
+```
+
+**Expense (negative amount):**
+```
+Account: Davivienda Checking
+Payee: Éxito
+Category: Groceries
+Amount: -150,000 COP
+```
+
+---
+
+## Transfers
+
+### When to Use Transfers
+
+When moving money **between your own accounts**:
+- Savings → Checking
 - USD → COP
-- Efectivo → Banco
+- Cash → Bank
 
-**NO uses transferencias para:**
-- Pagos a terceros
-- Compras
-- Ingresos
+**Do NOT use transfers for:**
+- Payments to third parties
+- Purchases
+- Income
 
-### Crear Transferencia
+### Creating a Transfer
 
-1. Ve a **"Transacciones"**
-2. Click **"⇄ Nueva Transferencia"**
-3. Completa:
-   - **Fecha**: Fecha de la transferencia (si es anterior a la fecha de creación de una cuenta, no afecta su saldo actual)
-   - **Desde**: Cuenta origen (fondo rojo)
-   - **Moneda origen**: COP o USD
-   - **Hacia**: Cuenta destino (fondo verde)
-   - **Moneda destino**: COP o USD
-   - **Monto**: Cantidad a transferir (en moneda origen)
-   - **Memo**: Opcional
-4. Click **"Crear Transferencia"**
+1. Go to **"Transactions"**
+2. Click **"New Transfer"**
+3. Fill in:
+   - **Date**: Transfer date
+   - **From**: Source account
+   - **Source currency**: COP or USD
+   - **To**: Destination account
+   - **Destination currency**: COP or USD
+   - **Amount**: Amount to transfer (in source currency)
+   - **Memo**: Optional
+4. Click **"Create Transfer"**
 
-**Magia automática:**
-- Crea 2 transacciones vinculadas:
-  - Salida (-) de cuenta origen
-  - Entrada (+) en cuenta destino
-- Si las monedas son diferentes, **convierte automáticamente**
-- Al eliminar una, elimina ambas
+**Auto-magic:**
+- Creates 2 linked transactions:
+  - Outflow (-) from source account
+  - Inflow (+) at destination account
+- If currencies differ, **automatically converts**
+- Deleting one deletes both
 
-**Ejemplo:**
+**Example:**
 ```
-Desde: Ahorros USD ($100 USD)
-Hacia: Corriente COP
-Resultado:
-  - Ahorros USD: -$100 USD
-  - Corriente COP: +$400,000 COP (con tasa 4000)
-```
-
----
-
-## Reportes
-
-### Tipos de Reportes
-
-1. **Expenses by Category** (Gastos por Categoría)
-   - Pie chart de tus gastos
-   - Filtra por fecha y categoría
-
-2. **Income vs Expenses** (Ingresos vs Gastos)
-   - Comparación mensual
-   - Filtra por rango de fechas
-
-3. **Spending Trends** (Tendencias de Gasto)
-   - Ver cómo cambian tus gastos en el tiempo
-
-### Generar Reporte
-
-1. Ve a **"Reportes"**
-2. Selecciona tipo de reporte
-3. Ajusta filtros (fechas, categorías)
-4. Click **"Generar Reporte"**
-
----
-
-## Importar desde YNAB
-
-### Exportar desde YNAB
-
-1. En YNAB web, ve a tu presupuesto
-2. Click en el nombre del presupuesto (arriba izquierda)
-3. **"Export Budget Data"**
-4. Selecciona **"Register"** (todas las transacciones)
-5. Descarga el CSV
-
-### Importar
-
-1. En nuestra app, ve a **"Importar"** (o `/import`)
-2. Click **"Seleccionar archivo"**
-3. Elige el CSV de YNAB
-4. Click **"Importar"**
-
-**El sistema:**
-- Crea payees automáticamente
-- Asocia categorías por nombre
-- Asocia cuentas por nombre
-- Parsea fechas en formato DD/MM/YYYY
-- Muestra resumen de éxito/errores
-
----
-
-## Transacciones Recurrentes
-
-### Crear Recurrencia
-
-1. Ve a `/recurring` (no hay link en menú aún)
-2. Click **"+ Nueva Recurrencia"**
-3. Completa:
-   - Cuenta, beneficiario, categoría
-   - Monto y moneda
-   - **Frecuencia**:
-     - Daily (diaria)
-     - Weekly (semanal)
-     - Monthly (mensual)
-     - Yearly (anual)
-   - **Fecha inicio**: Cuándo empieza
-   - **Fecha fin**: Opcional, cuándo termina
-
-### Generar Transacciones
-
-Las transacciones recurrentes se generan automáticamente:
-- El sistema revisa diariamente
-- Crea transacciones hasta hoy
-- Puedes forzar generación desde `/recurring`
-
-**Ejemplo:**
-```
-Arriendo mensual:
-- Monto: -1,500,000 COP
-- Frecuencia: Monthly
-- Inicio: 01/01/2024
-- Día: 1 (cada mes el día 1)
+From: USD Savings ($100 USD)
+To: COP Checking
+Result:
+  - USD Savings: -$100 USD
+  - COP Checking: +$400,000 COP (at rate 4000)
 ```
 
 ---
 
-## Multi-Moneda
+## Net Worth (Patrimonio)
 
-### Características
+The unified net worth system. Tracks both assets and long-term debts.
 
-**✅ Lo que el sistema hace:**
-- Cada cuenta tiene **1 moneda oficial**
-- Muestra conversión a la otra moneda en todas partes
-- Presupuesto unificado (suma ambas monedas)
-- Transferencias con conversión automática
-- Tasa de cambio real desde API (con fallbacks)
+### Assets
 
-**🔍 Conversiones:**
-- API primaria (exchangerate-api.com)
-- API fallback (exchangerate.host)
-- Promedio últimos 5 días
-- Default: 4000 COP por USD
+**Asset types:**
+- `inmueble`: Real estate (apartment, house, land)
+- `vehiculo`: Vehicles (car, motorcycle)
+- `otro`: Other assets (equipment, art, etc.)
 
-### Presupuesto Multi-Moneda
+**Valuation:**
+- Valued annually from the acquisition date
+- Formula: `value = acquisition_value * (1 + annual_rate) ^ max(0, year - acquisition_year - 1)`
+- Acquisition year returns the original value
 
-**Cómo funciona:**
+**Depreciation methods:**
+- Straight-line (`linea_recta`)
+- Declining balance (`saldo_decreciente`)
+- Double declining balance (`doble_saldo_decreciente`)
 
-1. Puedes asignar dinero en cualquier moneda a cualquier categoría
-2. El sistema suma todo convertido a la moneda que estés viendo
-3. "Ready to Assign" considera **todas** tus cuentas
+### Debts in Net Worth
 
-**Ejemplo:**
-Tienes:
-- $500 USD en banco
-- $2,000,000 COP en banco
+- Patrimonio reads debts directly from the `/debts` module (no duplication)
+- Includes: mortgages and personal loans
+- Excludes: credit cards (managed separately in `/debts`)
+- Uses the hybrid amortization engine (real payments + projections)
 
-Presupuesto en COP muestra:
-- Ready to Assign: $4,000,000 COP
-  (= $2,000,000 + $500 × 4000)
+### Net Worth Timeline
 
----
-
-## Tips y Mejores Prácticas
-
-### 1. **Empieza Simple**
-
-No necesitas todas las categorías el primer día:
-```
-✅ Empieza con:
-   - Mercado
-   - Transporte
-   - Servicios
-   - Otros
-
-❌ Evita:
-   - 50 categorías ultra-específicas
-```
-
-### 2. **Budget Before You Get Paid**
-
-Cuando sepas cuánto vas a recibir:
-1. Registra el ingreso (positivo)
-2. Asigna ese dinero a categorías
-3. Lleva "Ready to Assign" a $0
-
-### 3. **Use Memos**
-
-Los memos son útiles para:
-- Recordar qué era esa transacción
-- Detalles (ej: "Compra silla oficina")
-- Número de factura
-
-### 4. **Reconcilia Regularmente**
-
-Cada semana:
-1. Compara tus transacciones con el banco
-2. Marca como reconciliadas (✓)
-3. Corrige diferencias
-
-### 5. **Categorías Accumulate para Metas**
-
-Usa **"accumulate"** para:
-- Fondo de emergencia
-- Vacaciones
-- Regalos navideños
-- Seguro anual
-
-El dinero se acumula mes a mes.
-
-### 6. **No Temas Mover Dinero**
-
-Si gastaste de más en "Mercado":
-1. Mueve dinero de otra categoría
-2. Ajusta el presupuesto
-3. No te sientas mal - es normal!
-
-**Regla de Oro:** Nunca gastes sin cubrir en el presupuesto.
-
-### 7. **Transferencias entre Monedas**
-
-Para cambiar USD a COP:
-```
-Transferencia:
-  Desde: Cuenta USD
-  Hacia: Cuenta COP
-  Monto: 100 USD
-
-Automáticamente convierte a COP
-```
-
-### 8. **Presupuesto en Tu Moneda Principal**
-
-Si gastas principalmente en COP:
-- Ve el presupuesto en COP
-- Verás conversiones pequeñas de USD
-
-Si gastas en ambas:
-- Alterna entre vistas
-- El presupuesto es el mismo, solo cambia la visualización
+- Dashboard shows 24 months past + 24 months future
+- Charts assets, debts, and net worth over time
 
 ---
 
-## Arquitectura del Sistema
+## Debts
 
-### Backend (FastAPI + SQLAlchemy)
+### Debt Types
 
+| Type | Description |
+|------|-------------|
+| `mortgage` | Home mortgage |
+| `credit_loan` | Personal/consumer loan |
+| `credit_card` | Credit card |
+
+### Amortization Engine
+
+The hybrid engine calculates balances using:
+1. **Real payments**: Recorded `DebtPayment` entries
+2. **Projected payments**: Future payments based on the amortization schedule
+
+This gives accurate current balances even without entering every payment.
+
+### Interest Rate Conventions
+
+- **Colombia (EA)**: Effective annual rate → `monthly = (1 + annual)^(1/12) - 1`
+- **US (APR)**: Nominal rate → `monthly = annual / 12`
+- Document the convention used in `debt.notes`
+
+---
+
+## Reports
+
+### Report Types
+
+1. **Spending by Category** — Pie chart of your expenses; filter by date and category
+2. **Spending by Group** — Expenses grouped by category group
+3. **Spending Trends** — How spending changes over time
+4. **Income vs Expenses** — Monthly comparison; filter by date range
+5. **Budget vs Actual** — Planned vs real for each category
+6. **Savings Rate** — What percentage of income you saved
+7. **Balance Trend** — Account balance evolution
+8. **Debt Summary** — Debt balances and payoff projections
+
+All reports support multi-currency: you can view everything in COP or USD, with automatic conversion applied.
+
+---
+
+## Importing from CSV
+
+### Prepare Your CSV
+
+Export your transactions from your previous app or bank, or use the format described below. The importer expects a CSV with columns: `Account`, `Date`, `Payee`, `Category`, `Memo`, `Outflow`, `Inflow`.
+
+### Import
+
+1. In this app, go to **"Import"** (or `/import`)
+2. Click **"Select file"**
+3. Choose the budget CSV file
+4. Click **"Import"**
+
+**The system will:**
+- Create payees automatically
+- Match categories by name
+- Match accounts by name
+- Parse dates in DD/MM/YYYY format
+- Show a success/error summary
+
+---
+
+## Recurring Transactions
+
+### Creating a Recurring Entry
+
+1. Go to `/recurring`
+2. Click **"+ New Recurring"**
+3. Fill in:
+   - Account, payee, category
+   - Amount and currency
+   - **Frequency**: Daily, Weekly, Monthly, Yearly
+   - **Start date**: When it begins
+   - **End date**: Optional, when it stops
+
+### How Transactions Are Generated
+
+- The system checks daily and creates transactions up to today
+- You can trigger generation manually from `/recurring`
+
+**Example:**
 ```
-src/finance_app/
-├── models/          # Modelos de base de datos
-├── services/        # Lógica de negocio
-├── api/            # Endpoints REST
-└── utils/          # Utilidades (importers, etc.)
+Monthly rent:
+- Amount: -1,500,000 COP
+- Frequency: Monthly
+- Start: 01/01/2024
+- Day: 1 (every 1st of the month)
 ```
 
-### Frontend (HTML + Vanilla JS)
+---
 
+## Multi-Currency
+
+### How It Works
+
+- Each account has **one official currency**
+- Conversion to the other currency is shown everywhere
+- Budget is unified (sums both currencies)
+- Transfers support automatic conversion
+- Exchange rates come from an external API with multiple fallbacks
+
+### Exchange Rate Fallback Order
+
+1. Today's rate stored in DB
+2. Primary exchange rate API
+3. Fallback exchange rate API
+4. 5-day average from DB
+5. Default: 4,000 COP/USD
+
+### Multi-Currency Budget Example
+
+You have:
+- $500 USD in bank
+- $2,000,000 COP in bank
+
+Budget in COP shows:
+- Ready to Assign: ~$4,000,000 COP
+  (= $2,000,000 + $500 × 4,000)
+
+---
+
+## Tips and Best Practices
+
+### 1. Start Simple
+
+You don't need every category on day one:
 ```
-src/finance_app/
-└── templates/      # Páginas HTML con Tailwind CSS
+Start with:
+  - Groceries
+  - Transportation
+  - Utilities
+  - Other
+
+Avoid:
+  - 50 hyper-specific categories
 ```
 
-### Base de Datos (SQLite)
+### 2. Budget Before You Get Paid
 
-Tablas principales:
-- `accounts` - Cuentas
-- `transactions` - Transacciones
-- `categories` / `category_groups` - Categorías
-- `budget_months` - Asignaciones presupuestarias
-- `exchange_rates` - Tasas históricas
-- `recurring_transactions` - Recurrencias
+When you know how much you'll earn:
+1. Record the income (positive)
+2. Assign that money to categories
+3. Bring "Ready to Assign" to $0
+
+### 3. Use Memos
+
+Memos are useful for:
+- Remembering what a transaction was
+- Details (e.g., "Office chair purchase")
+- Invoice numbers
+
+### 4. Reconcile Regularly
+
+Every week:
+1. Compare your transactions with your bank statement
+2. Mark them as reconciled
+3. Correct any differences
+
+### 5. Use Accumulate for Goals
+
+Use **"accumulate"** for:
+- Emergency fund
+- Vacation
+- Holiday gifts
+- Annual insurance
+
+Money builds up month after month.
+
+### 6. Don't Be Afraid to Move Money
+
+If you overspent on "Groceries":
+1. Move money from another category
+2. Adjust the budget
+3. Don't feel bad — this is normal!
+
+**Golden rule:** Never spend without covering it in the budget.
 
 ---
 
@@ -515,87 +488,50 @@ Tablas principales:
 
 ### "no such column" error
 
-**Problema:** Base de datos desactualizada
+**Problem:** Outdated database schema
 
-**Solución:**
+**Solution:**
 ```bash
-# CUIDADO: Borra todos los datos
-del data/finances.db  # Windows
-rm data/finances.db   # Linux/Mac
+python src/finance_app/scripts/migrate_db.py
+```
+
+If that doesn't work, reinitialize (WARNING: deletes all data):
+```bash
+# Windows
+del data\finances.db
+# Linux/Mac
+rm data/finances.db
 
 python src/finance_app/scripts/init_db.py
 ```
 
-### Gráficos no cargan
+### Charts not loading
 
-**Problema:** Chart.js no cargó
+**Problem:** Chart.js did not load
 
-**Solución:**
-- Revisa conexión a internet
-- Abre consola del navegador (F12) y mira errores
+**Solution:**
+- Check your internet connection (Tailwind and Chart.js load from CDN)
+- Open the browser console (F12) and check for errors
 
-### Tasa de cambio incorrecta
+### Incorrect exchange rate
 
-**Problema:** API no responde
+**Problem:** External API not responding
 
-**Solución:** El sistema usa fallbacks automáticos:
-1. API principal
-2. API secundaria
-3. Promedio últimos 5 días
-4. Default 4000
+**Solution:** The system uses automatic fallbacks — if the API is down, it uses the last stored rate or defaults to 4,000 COP/USD. Restart the server to trigger a fresh fetch.
 
-Si quieres forzar actualización, reinicia el servidor.
+### Duplicate transactions after import
 
-### Transacciones duplicadas en importación
+**Problem:** Imported twice
 
-**Problema:** Importaste dos veces
+**Solution:**
+- Delete duplicates manually
+- Or reset the database and re-import
 
-**Solución:**
-- Borra las duplicadas manualmente
-- O resetea la base de datos y vuelve a importar
+### No categories available in transaction form
 
----
+**Solution:**
+```bash
+python src/finance_app/scripts/seed_categories.py
+```
 
-## Próximas Funcionalidades
-
-**En roadmap:**
-- [ ] Dashboard con gráficos reales
-- [ ] Búsqueda avanzada de transacciones
-- [ ] Split transactions (dividir transacciones)
-- [ ] Goals/Metas con tracking
-- [ ] Age of Money
-- [ ] Mobile app (PWA)
-- [ ] Autenticación multi-usuario
-- [ ] Backup automático
-- [ ] Exportar a Excel/CSV
-
----
-
-## Soporte
-
-**Encontraste un bug?**
-- Abre un issue en GitHub
-
-**Preguntas?**
-- Lee este tutorial
-- Revisa la documentación de YNAB (metodología similar)
-
----
-
-## Créditos
-
-**Metodología:** Basado en YNAB (You Need A Budget)
-**Stack:** FastAPI, SQLAlchemy, SQLite, Tailwind CSS
-**Desarrollado por:** [Tu nombre/organización]
-
----
-
-## Licencia
-
-[Tu licencia aquí]
-
----
-
-**¡Feliz presupuesto! 💰**
-
-Recuerda: El objetivo no es restringir, sino **dar propósito** a tu dinero.
+Or from the UI: go to Transactions, look for the yellow warning banner, and click "Create Default Categories".

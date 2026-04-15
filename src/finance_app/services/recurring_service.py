@@ -1,6 +1,6 @@
 """
 Recurring Transaction Service
-Handles generation of transactions from recurring rules
+Handles generation of transactions from recurring rules.
 """
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta

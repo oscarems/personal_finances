@@ -1,8 +1,8 @@
 """
-Mortgage Service - Calculadora de hipotecas con cuota fija y tasa efectiva anual
+Mortgage Service - Mortgage calculator using fixed monthly payment and effective annual rate.
 
-Este servicio calcula hipotecas usando el sistema de cuota fija (amortización francesa)
-con tasa efectiva anual, que es el estándar en Colombia.
+Calculates mortgages using the French amortization system (fixed payment) with an
+effective annual rate, which is the standard in Colombia.
 """
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
@@ -11,53 +11,53 @@ from typing import List, Dict
 
 def calculate_monthly_payment(principal: float, annual_rate: float, years: int) -> float:
     """
-    Calcula la cuota mensual fija de una hipoteca.
+    Calculate the fixed monthly payment for a mortgage.
 
-    Usa el sistema de amortización francesa (cuota fija) donde cada mes se paga
-    la misma cantidad, pero la composición cambia: al inicio se pagan más intereses
-    y menos capital, y al final más capital y menos intereses.
+    Uses the French amortization system (fixed payment): each month the same
+    amount is paid, but the composition changes — initially more interest and
+    less principal, and later more principal and less interest.
 
-    IMPORTANTE - Tasa Efectiva Anual:
-        En Colombia las hipotecas usan tasa efectiva anual (EA), no tasa nominal.
-        La tasa efectiva anual considera la capitalización de intereses.
+    Effective Annual Rate:
+        Mortgages in Colombia use the effective annual rate (EA), not a nominal rate.
+        The EA accounts for interest compounding.
 
-    Fórmula:
-        Cuota = P * [r(1+r)^n] / [(1+r)^n - 1]
+    Formula:
+        Payment = P * [r(1+r)^n] / [(1+r)^n - 1]
 
-        Donde:
-            P = Principal (monto del préstamo)
-            r = Tasa mensual efectiva
-            n = Número de cuotas (meses)
+        Where:
+            P = Principal (loan amount)
+            r = Effective monthly rate
+            n = Number of payments (months)
 
-    Conversión de tasa anual a mensual:
-        r_mensual = (1 + r_anual)^(1/12) - 1
+    Annual to monthly rate conversion:
+        r_monthly = (1 + r_annual)^(1/12) - 1
 
-        Ejemplo: Tasa EA 12% anual
-            r_mensual = (1 + 0.12)^(1/12) - 1 = 0.009488793 (0.9488%)
+        Example: 12% EA annual rate
+            r_monthly = (1 + 0.12)^(1/12) - 1 = 0.009488793 (0.9488%)
 
     Args:
-        principal (float): Monto del préstamo (valor de la casa - cuota inicial)
-        annual_rate (float): Tasa efectiva anual como decimal (ej: 0.12 para 12%)
-        years (int): Plazo en años
+        principal (float): Loan amount (home value minus down payment).
+        annual_rate (float): Effective annual rate as a decimal (e.g. 0.12 for 12%).
+        years (int): Loan term in years.
 
     Returns:
-        float: Cuota mensual fija
+        float: Fixed monthly payment amount.
 
-    Ejemplos:
-        # Hipoteca de $300,000,000 COP a 12% EA por 20 años
-        >>> cuota = calculate_monthly_payment(300000000, 0.12, 20)
-        >>> print(f"${cuota:,.0f}")
+    Examples:
+        # Mortgage of $300,000,000 COP at 12% EA for 20 years
+        >>> payment = calculate_monthly_payment(300000000, 0.12, 20)
+        >>> print(f"${payment:,.0f}")
         $3,302,177
 
-        # Hipoteca de $100,000 USD a 7.5% EA por 30 años
-        >>> cuota = calculate_monthly_payment(100000, 0.075, 30)
-        >>> print(f"${cuota:,.2f}")
+        # Mortgage of $100,000 USD at 7.5% EA for 30 years
+        >>> payment = calculate_monthly_payment(100000, 0.075, 30)
+        >>> print(f"${payment:,.2f}")
         $699.21
 
-    Notas:
-        - Si la tasa es 0%, la cuota es simplemente principal / número_de_meses
-        - La tasa debe ser efectiva anual, no nominal
-        - El plazo se calcula en meses (years * 12)
+    Notes:
+        - If the rate is 0%, the payment is simply principal / number_of_months.
+        - The rate must be an effective annual rate, not nominal.
+        - The term is calculated in months (years * 12).
     """
     if annual_rate == 0:
         # Sin intereses, solo dividir el principal
@@ -86,22 +86,22 @@ def generate_amortization_schedule(
     start_date: date = None
 ) -> List[Dict]:
     """
-    Genera la tabla de amortización completa de una hipoteca.
+    Generate the full amortization schedule for a mortgage.
 
-    La tabla muestra mes a mes:
-        - Cuota total (siempre igual en sistema de cuota fija)
-        - Intereses del mes (se reduce con el tiempo)
-        - Abono a capital (aumenta con el tiempo)
-        - Saldo restante (disminuye hasta llegar a 0)
+    Shows month by month:
+        - Total payment (always the same with fixed-payment system)
+        - Monthly interest (decreases over time)
+        - Principal portion (increases over time)
+        - Remaining balance (decreases to 0)
 
     Args:
-        principal (float): Monto del préstamo
-        annual_rate (float): Tasa efectiva anual (decimal)
-        years (int): Plazo en años
-        start_date (date, opcional): Fecha de inicio del crédito (default: hoy)
+        principal (float): Loan amount.
+        annual_rate (float): Effective annual rate (decimal).
+        years (int): Loan term in years.
+        start_date (date, optional): Loan start date (default: today).
 
     Returns:
-        List[Dict]: Lista de diccionarios, uno por cada cuota:
+        List[Dict]: List of dicts, one per payment:
             [
                 {
                     'payment_number': 1,
@@ -114,24 +114,23 @@ def generate_amortization_schedule(
                 ...
             ]
 
-    Ejemplo:
+    Example:
         >>> schedule = generate_amortization_schedule(300000000, 0.12, 20,
         ...                                           start_date=date(2025, 1, 15))
-        >>> print(f"Cuota 1:")
-        >>> print(f"  Interés: ${schedule[0]['interest']:,.0f}")
-        >>> print(f"  Capital: ${schedule[0]['principal']:,.0f}")
-        >>> print(f"  Saldo: ${schedule[0]['balance']:,.0f}")
+        >>> print(f"Payment 1:")
+        >>> print(f"  Interest: ${schedule[0]['interest']:,.0f}")
+        >>> print(f"  Principal: ${schedule[0]['principal']:,.0f}")
+        >>> print(f"  Balance: ${schedule[0]['balance']:,.0f}")
 
-        Cuota 1:
-          Interés: $1,843,910
-          Capital: $1,458,267
-          Saldo: $298,541,732
+        Payment 1:
+          Interest: $1,843,910
+          Principal: $1,458,267
+          Balance: $298,541,732
 
-    Notas:
-        - En los primeros meses, la mayor parte de la cuota son intereses
-        - En los últimos meses, la mayor parte son abono a capital
-        - El saldo siempre llega exactamente a 0 en la última cuota
-        - Útil para ver cuánto pagarías en total de intereses
+    Notes:
+        - In early months most of the payment is interest.
+        - In later months most of the payment is principal.
+        - The balance reaches exactly 0 on the final payment.
     """
     if start_date is None:
         start_date = date.today()
@@ -188,10 +187,10 @@ def generate_amortization_schedule_with_extra(
     extra_payment_start_date: date = None
 ) -> List[Dict]:
     """
-    Genera la tabla de amortización aplicando abonos extra mensuales al capital.
+    Generate the amortization schedule with additional monthly principal payments.
 
-    Cada mes se paga la cuota fija + el abono extra (a partir de la fecha indicada),
-    reduciendo el plazo total.
+    Each month the fixed payment plus the extra amount (from the specified start date)
+    is applied, reducing the total term.
     """
     if start_date is None:
         start_date = date.today()
@@ -237,31 +236,31 @@ def generate_amortization_schedule_with_extra(
 
 def calculate_total_interest(principal: float, annual_rate: float, years: int) -> float:
     """
-    Calcula el total de intereses que pagarás durante toda la vida del crédito.
+    Calculate the total interest paid over the life of a loan.
 
-    Esta función es útil para entender el costo real del crédito. Muchas veces
-    terminas pagando casi el doble del valor original del préstamo.
+    Useful for understanding the real cost of a loan: often you end up paying
+    close to double the original principal.
 
     Args:
-        principal (float): Monto del préstamo
-        annual_rate (float): Tasa efectiva anual (decimal)
-        years (int): Plazo en años
+        principal (float): Loan amount.
+        annual_rate (float): Effective annual rate (decimal).
+        years (int): Term in years.
 
     Returns:
-        float: Total de intereses a pagar
+        float: Total interest paid.
 
-    Ejemplo:
+    Example:
         >>> total_interest = calculate_total_interest(300000000, 0.12, 20)
-        >>> print(f"Intereses totales: ${total_interest:,.0f}")
-        Intereses totales: $492,522,491
+        >>> print(f"Total interest: ${total_interest:,.0f}")
+        Total interest: $492,522,491
 
         >>> monthly_payment = calculate_monthly_payment(300000000, 0.12, 20)
         >>> total_paid = monthly_payment * 20 * 12
-        >>> print(f"Total a pagar: ${total_paid:,.0f}")
-        Total a pagar: $792,522,491
+        >>> print(f"Total paid: ${total_paid:,.0f}")
+        Total paid: $792,522,491
 
-    Fórmula:
-        Intereses totales = (Cuota mensual * Número de cuotas) - Principal
+    Formula:
+        Total interest = (Monthly payment * Number of payments) - Principal
     """
     monthly_payment = calculate_monthly_payment(principal, annual_rate, years)
     total_paid = monthly_payment * years * 12
@@ -277,43 +276,43 @@ def calculate_remaining_balance(
     payments_made: int
 ) -> Dict:
     """
-    Calcula el saldo restante después de haber pagado N cuotas.
+    Calculate the remaining balance after N payments have been made.
 
-    Útil para:
-        - Saber cuánto debes todavía
-        - Calcular cuánto necesitas para liquidar la deuda
-        - Ver tu progreso en el pago de la hipoteca
+    Useful for:
+        - Knowing how much you still owe
+        - Calculating how much you need to pay off the loan
+        - Tracking your mortgage payoff progress
 
     Args:
-        principal (float): Monto original del préstamo
-        annual_rate (float): Tasa efectiva anual (decimal)
-        years (int): Plazo original en años
-        payments_made (int): Número de cuotas ya pagadas
+        principal (float): Original loan amount.
+        annual_rate (float): Effective annual rate (decimal).
+        years (int): Original term in years.
+        payments_made (int): Number of payments already made.
 
     Returns:
-        Dict: Información del saldo actual:
+        Dict: Current balance information:
             {
-                'remaining_balance': float,      # Saldo pendiente
-                'remaining_payments': int,       # Cuotas que faltan
-                'total_paid': float,             # Total pagado hasta ahora
-                'principal_paid': float,         # Capital abonado
-                'interest_paid': float,          # Intereses pagados
-                'percentage_paid': float         # % del capital pagado
+                'remaining_balance': float,      # Outstanding balance
+                'remaining_payments': int,       # Payments remaining
+                'total_paid': float,             # Total paid so far
+                'principal_paid': float,         # Principal portion paid
+                'interest_paid': float,          # Interest paid
+                'percentage_paid': float         # % of principal paid
             }
 
-    Ejemplo:
-        >>> # Después de 5 años pagando (60 cuotas)
+    Example:
+        >>> # After 5 years of payments (60 installments)
         >>> status = calculate_remaining_balance(300000000, 0.12, 20, 60)
-        >>> print(f"Saldo restante: ${status['remaining_balance']:,.0f}")
-        >>> print(f"Has pagado: {status['percentage_paid']:.1f}% del capital")
+        >>> print(f"Remaining balance: ${status['remaining_balance']:,.0f}")
+        >>> print(f"Paid: {status['percentage_paid']:.1f}% of principal")
 
-        Saldo restante: $265,327,841
-        Has pagado: 11.6% del capital
+        Remaining balance: $265,327,841
+        Paid: 11.6% of principal
 
-    Notas:
-        - En los primeros años pagas principalmente intereses
-        - El capital se paga más rápido en los últimos años
-        - Es normal tener aún 80-90% de deuda después de 5-10 años
+    Notes:
+        - In early years most of each payment is interest.
+        - Principal paydown accelerates in later years.
+        - Having 80-90% of debt remaining after 5-10 years is normal.
     """
     if payments_made >= years * 12:
         return {
@@ -358,24 +357,24 @@ def calculate_remaining_balance(
 
 def compare_scenarios(principal: float, scenarios: List[Dict]) -> List[Dict]:
     """
-    Compara múltiples escenarios de hipoteca (diferentes tasas o plazos).
+    Compare multiple mortgage scenarios (different rates or terms).
 
-    Útil para decidir entre diferentes opciones de crédito.
+    Useful for choosing between different loan options.
 
     Args:
-        principal (float): Monto del préstamo (igual para todos)
-        scenarios (List[Dict]): Lista de escenarios a comparar:
+        principal (float): Loan amount (same for all scenarios).
+        scenarios (List[Dict]): List of scenarios to compare:
             [
-                {'name': '20 años 12%', 'rate': 0.12, 'years': 20},
-                {'name': '30 años 10%', 'rate': 0.10, 'years': 30},
+                {'name': '20 years 12%', 'rate': 0.12, 'years': 20},
+                {'name': '30 years 10%', 'rate': 0.10, 'years': 30},
                 ...
             ]
 
     Returns:
-        List[Dict]: Mismos escenarios con información calculada:
+        List[Dict]: Same scenarios with calculated information:
             [
                 {
-                    'name': '20 años 12%',
+                    'name': '20 years 12%',
                     'rate': 0.12,
                     'years': 20,
                     'monthly_payment': 3302177.15,
@@ -441,18 +440,18 @@ def calculate_early_payoff(
     extra_monthly_payment: float
 ) -> Dict:
     """
-    Calcula el ahorro al hacer abonos extra mensuales al capital.
+    Calculate savings from making extra monthly principal payments.
 
-    Hacer abonos extraordinarios reduce dramáticamente los intereses y el plazo.
+    Extra payments dramatically reduce total interest and the loan term.
 
     Args:
-        principal (float): Monto del préstamo
-        annual_rate (float): Tasa efectiva anual
-        years (int): Plazo original en años
-        extra_monthly_payment (float): Abono extra cada mes al capital
+        principal (float): Loan amount.
+        annual_rate (float): Effective annual rate.
+        years (int): Original term in years.
+        extra_monthly_payment (float): Extra monthly principal payment.
 
     Returns:
-        Dict: Comparación con/sin abonos extra:
+        Dict: Comparison with/without extra payments:
             {
                 'original': {
                     'months': 240,
@@ -460,9 +459,9 @@ def calculate_early_payoff(
                     'monthly_payment': 3302177.15
                 },
                 'with_extra': {
-                    'months': 180,  # Se reduce el plazo
-                    'total_interest': 320000000.00,  # Menos intereses
-                    'monthly_payment': 3802177.15,  # Cuota + extra
+                    'months': 180,  # Reduced term
+                    'total_interest': 320000000.00,  # Lower interest
+                    'monthly_payment': 3802177.15,  # Payment + extra
                     'months_saved': 60,
                     'interest_saved': 172522491.23
                 }

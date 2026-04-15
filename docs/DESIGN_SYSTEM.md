@@ -1,232 +1,217 @@
-# Sistema de Diseño - Finanzas Personal
+# Design System - Personal Finances
 
-## 📋 Resumen de Mejoras Visuales
+## Overview
 
-Este documento describe el nuevo sistema de diseño implementado en la aplicación de Finanzas Personal.
+This document describes the design system implemented in the Personal Finances app. All UI components use Tailwind CSS (CDN) with custom extensions defined in `base.html`.
 
-## 🎨 Paleta de Colores
+---
 
-### Colores Principales
+## Color Palette
 
-| Color | Uso | Código HEX |
-|-------|-----|------------|
-| **Primary (Azul)** | Acciones principales, enlaces, elementos interactivos | `#2563EB` (600) |
-| **Success (Verde)** | Ingresos, confirmaciones, estados positivos | `#059669` (600) |
-| **Danger (Rojo)** | Gastos, alertas, deudas | `#DC2626` (600) |
-| **Warning (Naranja)** | Advertencias, atención requerida | `#EA580C` (600) |
-| **Accent (Púrpura)** | Elementos destacados, gráficos especiales | `#9333EA` (600) |
-| **Neutral (Grises)** | Texto, fondos, elementos neutrales | `#374151` (700) |
+### Core Colors
 
-### Gradientes
+| Color | Use | HEX |
+|-------|-----|-----|
+| **Primary (Blue)** | Primary actions, links, interactive elements | `#2563EB` (600) |
+| **Success (Green)** | Income, confirmations, positive states | `#059669` (600) |
+| **Danger (Red)** | Expenses, alerts, debts | `#DC2626` (600) |
+| **Warning (Orange)** | Warnings, items requiring attention | `#EA580C` (600) |
+| **Accent (Purple)** | Highlighted elements, special charts | `#9333EA` (600) |
+| **Neutral (Gray)** | Text, backgrounds, neutral elements | `#374151` (700) |
+
+### Gradients
 
 - **Primary Gradient**: `from-primary-500 to-primary-700`
 - **Success Gradient**: `from-success-500 to-success-700`
 - **Accent Gradient**: `from-accent-500 to-accent-700`
-- **Danger Gradient**: `from-danger-50 to-danger-100` (para fondos)
+- **Danger Gradient**: `from-danger-50 to-danger-100` (for backgrounds)
 
-## 🔤 Tipografía
+---
 
-### Fuente Principal
-- **Familia**: Inter (Google Fonts)
-- **Pesos**: 300, 400, 500, 600, 700, 800
-- **Características**: Moderna, profesional, alta legibilidad
+## Typography
 
-### Jerarquía Tipográfica
+### Primary Font
+- **Family**: Inter (Google Fonts)
+- **Weights**: 300, 400, 500, 600, 700, 800
+- **Characteristics**: Modern, professional, highly legible
 
-| Elemento | Clases Tailwind | Uso |
-|----------|----------------|-----|
-| **Título Principal** | `text-4xl font-bold text-neutral-900 tracking-tight` | Títulos de página |
-| **Título Sección** | `text-2xl font-bold text-neutral-900` | Títulos de secciones |
-| **Subtítulo** | `text-xl font-bold text-neutral-800` | Subtítulos de cards |
-| **Cuerpo** | `text-base text-neutral-600` | Texto general |
-| **Labels** | `text-sm font-bold text-neutral-700 uppercase tracking-wide` | Etiquetas de formularios |
-| **Pequeño** | `text-xs text-neutral-500` | Texto secundario |
+### Type Scale
 
-## 📦 Componentes
+| Element | Tailwind Classes | Use |
+|---------|-----------------|-----|
+| **Page Title** | `text-4xl font-bold text-neutral-900 tracking-tight` | Page headings |
+| **Section Title** | `text-2xl font-bold text-neutral-900` | Section headings |
+| **Subtitle** | `text-xl font-bold text-neutral-800` | Card subtitles |
+| **Body** | `text-base text-neutral-600` | General text |
+| **Labels** | `text-sm font-bold text-neutral-700 uppercase tracking-wide` | Form labels |
+| **Small** | `text-xs text-neutral-500` | Secondary text |
 
-### Botones
+---
 
-#### Clases de Botón Estandarizadas
+## Components
+
+### Buttons
 
 ```css
-.btn-primary    /* Acciones principales - Azul */
-.btn-success    /* Acciones positivas - Verde */
-.btn-danger     /* Acciones destructivas - Rojo */
-.btn-secondary  /* Acciones secundarias - Gris */
+.btn-primary    /* Primary actions — Blue */
+.btn-success    /* Positive actions — Green */
+.btn-danger     /* Destructive actions — Red */
+.btn-secondary  /* Secondary actions — Gray */
 ```
 
-**Características**:
+**Properties:**
 - Padding: `px-5 py-2.5`
 - Border radius: `rounded-button` (8px)
-- Transiciones suaves
-- Estados hover y active
-- Sombras sutiles
+- Smooth transitions
+- Hover and active states
+- Subtle shadows
 
 ### Cards
 
-#### Clases de Card
-
 ```css
-.card                    /* Card básica blanca */
-.card-gradient-primary   /* Card con gradiente azul */
-.card-gradient-success   /* Card con gradiente verde */
-.card-gradient-accent    /* Card con gradiente púrpura */
+.card                    /* Plain white card */
+.card-gradient-primary   /* Blue gradient card */
+.card-gradient-success   /* Green gradient card */
+.card-gradient-accent    /* Purple gradient card */
 ```
 
-**Características**:
+**Properties:**
 - Border radius: `rounded-card` (12px)
-- Sombras: `shadow-soft` (normal), `shadow-medium` (hover)
-- Transiciones suaves en hover
+- Shadows: `shadow-soft` (default), `shadow-medium` (hover)
+- Smooth hover transitions
 
 ### Inputs
 
-#### Clase de Input Estandarizada
-
 ```css
-.input-field    /* Input de formulario */
+.input-field    /* Standard form input */
 ```
 
-**Características**:
+**Properties:**
 - Padding: `px-4 py-2.5`
 - Border: `border-neutral-300`
-- Focus: Ring azul primario
+- Focus: Primary blue ring
 - Border radius: `rounded-button` (8px)
-- Estado disabled con fondo gris
+- Disabled state with gray background
 
-### Badges y Tags
-
-```css
-.badge              /* Badge base */
-.badge-success      /* Badge verde */
-.badge-danger       /* Badge rojo */
-.badge-warning      /* Badge naranja */
-.badge-primary      /* Badge azul */
-```
-
-### Alertas
+### Badges
 
 ```css
-.alert              /* Alerta base */
-.alert-success      /* Alerta verde */
-.alert-danger       /* Alerta roja */
-.alert-warning      /* Alerta naranja */
-.alert-info         /* Alerta azul */
+.badge          /* Base badge */
+.badge-success  /* Green badge */
+.badge-danger   /* Red badge */
+.badge-warning  /* Orange badge */
+.badge-primary  /* Blue badge */
 ```
 
-**Características**:
-- Border izquierdo de 4px
-- Fondos suaves de 50% del color
+### Alerts
+
+```css
+.alert          /* Base alert */
+.alert-success  /* Green alert */
+.alert-danger   /* Red alert */
+.alert-warning  /* Orange alert */
+.alert-info     /* Blue alert */
+```
+
+**Properties:**
+- 4px left border
+- Soft 50-tone background
 - Padding: `p-4`
 - Border radius: `rounded-lg`
 
-## 🎯 Iconografía
+---
 
-### Sistema de Iconos
+## Iconography
 
-La aplicación utiliza emojis como iconografía principal con las siguientes mejoras:
+The app uses emojis as the primary icon system:
 
-- **Tamaño**: `text-xl` a `text-3xl` según contexto
-- **Presentación**: Envueltos en divs con fondo de color y border-radius
-- **Consistencia**: Iconos específicos para cada sección
+- **Size**: `text-xl` to `text-3xl` depending on context
+- **Presentation**: Wrapped in divs with a colored background and border-radius
+- **Consistency**: Specific icons per section
 
-#### Mapeo de Iconos
+### Icon Mapping
 
-| Sección | Icono | Contexto |
-|---------|-------|----------|
-| Dashboard | 📊 | Resumen general |
-| Presupuesto | 💰 | Gestión de presupuesto |
-| Transacciones | 📝 | Lista de transacciones |
-| Cuentas | 🏦 | Gestión de cuentas |
-| Deudas | 💳 | Seguimiento de deudas |
-| Reportes | 📈 | Análisis y gráficos |
-| Fondos Emergencia | 🆘 | Fondo de emergencia |
+| Section | Icon | Context |
+|---------|------|---------|
+| Dashboard | 📊 | General overview |
+| Budget | 💰 | Budget management |
+| Transactions | 📝 | Transaction list |
+| Accounts | 🏦 | Account management |
+| Debts | 💳 | Debt tracking |
+| Net Worth | 🏛️ | Patrimonio dashboard |
+| Reports | 📈 | Analytics and charts |
+| Emergency Fund | 🆘 | Emergency fund tracking |
 
-## 🎨 Mejoras Visuales por Sección
+---
+
+## Section-Specific Styles
 
 ### Sidebar
 
-- **Fondo**: Gradiente de gris oscuro (`from-neutral-900 to-neutral-800`)
-- **Logo**: Con fondo gradiente y sombra
-- **Navegación**: Items con estados hover y active
-- **Agrupación**: Secciones categorizadas (Principal, Gestión, Herramientas)
+- **Background**: Dark gray gradient (`from-neutral-900 to-neutral-800`)
+- **Logo**: Gradient background with shadow
+- **Navigation**: Items with hover and active states
+- **Grouping**: Categorized sections (Main, Management, Tools)
 
 ### Dashboard
 
-#### Total Accounts Summary
-- Cards con gradientes para métricas principales
-- Iconos representativos para cada métrica
-- Separadores sutiles entre secciones
+- Cards with gradients for key metrics
+- Representative icons per metric
+- Subtle section dividers
 
-#### Summary Cards
-- Border lateral de color según el tipo de dato
-- Iconos contextuales
-- Hover effect con sombra incrementada
+### Budget
 
-#### Gráficos
-- Colores del sistema de diseño
-- Tooltips mejorados
-- Leyendas con estilos consistentes
-- Líneas más gruesas y puntos destacados
+- Summary banner cards with distinct gradients
+- Collapsible group headers
+- Visual status states for categories
+- Progress bars with semantic colors
+- Modals with backdrop blur and elevated shadows
 
-#### Tablas
-- Badges para categorías
-- Pills con color para montos
-- Hover effect en filas
-- Headers con estilo profesional
+### Charts (Chart.js)
 
-### Presupuesto
+- **Font**: Inter
+- **Colors**: Design system palette
+- **Tooltips**: Dark background with border radius
+- **Legends**: Consistent with the design
 
-#### Banners de Resumen
-- Cards con gradientes distintivos
-- Tipografía mejorada
-- Información secundaria claramente separada
+---
 
-#### Modales
-- Backdrop con blur
-- Cards elevadas con sombras
-- Campos de formulario con colores distintivos por moneda
-- Botones con estilos consistentes
+## Animations and Transitions
 
-#### Grupos y Categorías
-- Headers colapsables
-- Estados visuales claros
-- Badges para tipos de categoría
-- Progress bars con colores semánticos
-
-## 🎭 Animaciones y Transiciones
-
-### Transiciones Globales
+### Global Transition
 
 ```css
 --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 ```
 
-### Elementos Animados
+### Animated Elements
 
-- **Botones**: Hover y active states
-- **Cards**: Elevación en hover
-- **Nav Items**: Background y color en hover
-- **Progress Bars**: Width con cubic-bezier
-- **Modales**: Fade in/out con backdrop blur
+- **Buttons**: Hover and active states
+- **Cards**: Elevation on hover
+- **Nav Items**: Background and color on hover
+- **Progress Bars**: Width with cubic-bezier easing
+- **Modals**: Fade in/out with backdrop blur
 
-## 📐 Sistema de Espaciado
+---
 
-### Grid y Layout
+## Spacing System
+
+### Grid and Layout
 
 - **Container**: `mx-auto px-8 py-8`
-- **Grid gaps**: `gap-6` (24px) para grids principales
-- **Espaciado vertical**: `space-y-6` entre secciones
+- **Grid gaps**: `gap-6` (24px) for main grids
+- **Vertical spacing**: `space-y-6` between sections
 
-### Padding y Margin
+### Padding and Margin
 
-- **Cards**: `p-6` a `p-8`
-- **Modales**: `p-8`
+- **Cards**: `p-6` to `p-8`
+- **Modals**: `p-8`
 - **Inputs**: `px-4 py-2.5`
-- **Botones**: `px-5 py-2.5`
+- **Buttons**: `px-5 py-2.5`
 
-## 🎨 Sombras
+---
 
-### Sistema de Sombras
+## Shadow System
 
 ```css
 --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -234,81 +219,70 @@ La aplicación utiliza emojis como iconografía principal con las siguientes mej
 --shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.16);
 ```
 
-### Uso
+| Context | Shadow |
+|---------|--------|
+| Cards (default) | `shadow-soft` |
+| Cards (hover) | `shadow-medium` |
+| Modals | `shadow-strong` |
+| Buttons | `shadow-sm` (default), `shadow-md` (hover) |
 
-- **Cards**: `shadow-soft` (normal), `shadow-medium` (hover)
-- **Modales**: `shadow-strong`
-- **Botones**: `shadow-sm` (normal), `shadow-md` (hover)
+---
 
-## 📱 Responsividad
+## Responsive Design
 
-### Breakpoints (Tailwind)
+### Breakpoints (Tailwind defaults)
 
 - **sm**: 640px
 - **md**: 768px
 - **lg**: 1024px
 - **xl**: 1280px
 
-### Patrones Responsivos
+### Common Patterns
 
 - Grids: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
 - Flexbox: `flex-col lg:flex-row`
-- Espaciado: `gap-4 md:gap-6`
+- Spacing: `gap-4 md:gap-6`
 
-## ✨ Características de Accesibilidad
+---
 
-- **Contraste**: Todos los textos cumplen WCAG AA
-- **Focus states**: Rings visibles en todos los inputs
-- **Tamaños táctiles**: Mínimo 44x44px para elementos interactivos
-- **Jerarquía semántica**: Uso correcto de headings
+## Accessibility
 
-## 🔧 Implementación Técnica
+- **Contrast**: All text meets WCAG AA standards
+- **Focus states**: Visible rings on all interactive elements
+- **Touch targets**: Minimum 44×44px for interactive elements
+- **Semantic hierarchy**: Correct heading levels used throughout
+
+---
+
+## Technical Implementation
 
 ### Tailwind Configuration
 
-El sistema usa Tailwind CSS vía CDN con configuración personalizada inline:
+Tailwind CSS is loaded via CDN with inline custom configuration in `base.html`:
 
 ```javascript
 tailwind.config = {
     theme: {
         extend: {
-            colors: { /* colores personalizados */ },
+            colors: { /* custom colors */ },
             fontFamily: { sans: ['Inter', ...] },
-            boxShadow: { /* sombras personalizadas */ },
-            borderRadius: { /* radios personalizados */ }
+            boxShadow: { /* custom shadows */ },
+            borderRadius: { /* custom radii */ }
         }
     }
 }
 ```
 
-### CSS Personalizado
+### Custom CSS
 
-Componentes reutilizables definidos en `<style>` de base.html:
-- Clases de botones (`.btn-*`)
-- Clases de cards (`.card*`)
-- Clases de inputs (`.input-field`)
-- Clases de badges (`.badge*`)
-- Clases de alertas (`.alert*`)
-
-## 📊 Chart.js Styling
-
-### Configuración de Gráficos
-
-- **Fuente**: Inter
-- **Colores**: Paleta del sistema de diseño
-- **Tooltips**: Fondo oscuro con border radius
-- **Leyendas**: Estilos consistentes con el diseño
-
-## 🚀 Mejoras Futuras Sugeridas
-
-1. **Modo Oscuro**: Implementar tema oscuro completo
-2. **Animaciones**: Añadir micro-interacciones más elaboradas
-3. **Iconos SVG**: Reemplazar emojis por iconos SVG profesionales
-4. **Sistema de Temas**: Permitir personalización de colores
-5. **Componentes Reutilizables**: Crear librería de componentes más extensa
+Reusable component classes are defined in the `<style>` block of `base.html`:
+- Button classes (`.btn-*`)
+- Card classes (`.card*`)
+- Input class (`.input-field`)
+- Badge classes (`.badge*`)
+- Alert classes (`.alert*`)
 
 ---
 
-**Versión**: 1.0.0
-**Fecha**: 2026-01-19
-**Autor**: Sistema de Diseño UX/UI
+**Version**: 1.1.0
+**Last updated**: 2026-04

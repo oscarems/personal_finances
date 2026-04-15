@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script para reiniciar la base de datos
-Elimina todas las transacciones, categorías, presupuestos y resetea los balances de las cuentas a 0
+Script to reset the database.
+Deletes all transactions, categories, budgets and resets account balances to 0.
 """
 
 from finance_app.database import SessionLocal, engine, Base
@@ -16,11 +16,11 @@ import sys
 
 def reset_database(keep_accounts=True, keep_categories=True):
     """
-    Reinicia la base de datos eliminando datos seleccionados
+    Reset the database by deleting selected data.
 
     Args:
-        keep_accounts: Si True, mantiene las cuentas pero resetea sus balances a 0
-        keep_categories: Si True, mantiene las categorías y grupos de categorías
+        keep_accounts: If True, keeps accounts but resets their balances to 0.
+        keep_categories: If True, keeps categories and category groups.
     """
     db = SessionLocal()
 
@@ -149,7 +149,7 @@ def reset_database(keep_accounts=True, keep_categories=True):
 
 def full_reset():
     """
-    Reinicio completo: elimina TODO incluyendo cuentas y categorías
+    Full reset: deletes EVERYTHING including accounts and categories.
     """
     print("\n⚠️  ATENCIÓN: Esto eliminará TODOS los datos de la base de datos")
     print("   Incluyendo: transacciones, cuentas, categorías, presupuestos, etc.")
@@ -163,7 +163,7 @@ def full_reset():
 
 def soft_reset():
     """
-    Reinicio suave: mantiene cuentas y categorías, solo elimina transacciones y presupuestos
+    Soft reset: keeps accounts and categories, only deletes transactions and budgets.
     """
     print("\n⚠️  Esto eliminará transacciones, presupuestos y reseteará balances a 0")
     print("   Se mantendrán: cuentas, categorías y grupos de categorías")

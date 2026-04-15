@@ -1,5 +1,5 @@
 """
-Debts API endpoints - Gestión de deudas
+Debts API endpoints - Debt management.
 """
 from __future__ import annotations
 

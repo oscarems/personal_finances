@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script seguro para agregar categorías predeterminadas a la base de datos.
-Solo agrega categorías si no existen, sin afectar datos existentes.
+Safe script to add default categories to the database.
+Only adds categories if they do not already exist, without affecting existing data.
 """
 import sys
 from pathlib import Path
@@ -15,7 +15,7 @@ from finance_app.config import DEFAULT_CATEGORY_GROUPS
 
 
 def seed_categories():
-    """Agrega categorías predeterminadas si no existen"""
+    """Add default categories if they do not already exist."""
     db_session = SessionLocal()
 
     try:

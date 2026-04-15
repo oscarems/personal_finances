@@ -10,6 +10,9 @@
         <p class="page-subtitle mt-1">Dale un propósito a cada peso - Asigna en COP o USD</p>
     </div>
     <div class="page-actions">
+        <button id="recalculateMonthBtn" onclick="recalculateMonth()" class="btn-secondary flex items-center hidden" title="Sincronizar asignado y disponible con el mes anterior">
+            <span class="mr-1">↻</span> Recalcular
+        </button>
         <button onclick="openNewGroupModal()" class="btn-primary flex items-center">
             <span class="mr-1">+</span> Nuevo Grupo
         </button>
@@ -132,61 +135,110 @@
 
 <!-- Category Detail/History Modal -->
 <div id="categoryDetailModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
-    <div class="bg-white card p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300">
-        <div class="flex items-center justify-between mb-5">
+    <div class="bg-white rounded-2xl w-full mx-4 max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200" style="max-width:860px">
+
+        <!-- Header -->
+        <div class="sticky top-0 bg-white border-b border-neutral-100 px-7 py-4 flex items-center justify-between z-10">
             <div>
-                <h3 class="text-lg font-bold text-neutral-900" id="detailCategoryName"></h3>
-                <p class="text-xs text-neutral-500" id="detailCategoryType"></p>
+                <h3 class="text-xl font-bold text-neutral-900" id="detailCategoryName"></h3>
+                <p class="text-xs text-neutral-400 mt-0.5" id="detailCategoryType"></p>
             </div>
-            <button onclick="closeCategoryDetailModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-xl leading-none">&times;</button>
-        </div>
-
-        <!-- Months selector -->
-        <div class="flex items-center gap-3 mb-6">
-            <label class="text-sm font-bold text-neutral-700 uppercase tracking-wide">Meses:</label>
-            <select id="detailMonthsSelect" onchange="loadCategoryHistory()" class="input-field w-auto">
-                <option value="3">Últimos 3 meses</option>
-                <option value="6">Últimos 6 meses</option>
-                <option value="12">Últimos 12 meses</option>
-            </select>
-            <button onclick="openAssignModalFromDetail()" class="btn-primary ml-auto flex items-center gap-2">
-                Asignar Dinero
-            </button>
-        </div>
-
-        <!-- Timeline Chart -->
-        <div class="mb-6">
-            <h4 class="text-lg font-bold text-neutral-800 mb-3" id="detailChartTitle">Evolución</h4>
-            <div class="bg-neutral-50 rounded-xl p-4" style="height: 260px;">
-                <canvas id="detailTimelineChart"></canvas>
+            <div class="flex items-center gap-3">
+                <select id="detailMonthsSelect" onchange="loadCategoryHistory()" class="text-xs border border-neutral-200 rounded-lg px-3 py-1.5 text-neutral-600 bg-white focus:outline-none focus:ring-2 focus:ring-primary-300">
+                    <option value="current">Mes actual</option>
+                    <option value="3">Últimos 3 meses</option>
+                    <option value="6" selected>Últimos 6 meses</option>
+                    <option value="12">Últimos 12 meses</option>
+                </select>
+                <button onclick="openAssignModalFromDetail()" class="btn-primary text-sm px-4 py-1.5">Asignar</button>
+                <button onclick="closeCategoryDetailModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-2xl font-light leading-none ml-1">&times;</button>
             </div>
         </div>
 
-        <!-- Monthly History Table -->
-        <div class="mb-6">
-            <h4 class="text-lg font-bold text-neutral-800 mb-3">Histórico Mensual</h4>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="bg-neutral-100 text-neutral-600 uppercase text-xs tracking-wide">
-                            <th class="px-4 py-3 text-left">Mes</th>
-                            <th class="px-4 py-3 text-right">Asignado</th>
-                            <th class="px-4 py-3 text-right">Gastado</th>
-                            <th class="px-4 py-3 text-right">Disponible</th>
-                        </tr>
-                    </thead>
-                    <tbody id="detailHistoryBody" class="divide-y divide-neutral-100">
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <div class="px-7 py-5 space-y-6">
 
-        <!-- Transactions List -->
-        <div>
-            <h4 class="text-lg font-bold text-neutral-800 mb-3">Transacciones</h4>
-            <div id="detailTransactionsContainer" class="space-y-2 max-h-80 overflow-y-auto">
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-3 gap-3">
+                <div class="bg-neutral-50 rounded-xl p-4">
+                    <p class="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">Promedio mensual</p>
+                    <p class="text-xl font-bold text-neutral-800" id="kpiAvgMonthly">—</p>
+                </div>
+                <div class="bg-neutral-50 rounded-xl p-4">
+                    <p class="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">Día con más gasto</p>
+                    <p class="text-xl font-bold text-neutral-800" id="kpiTopDay">—</p>
+                </div>
+                <div class="bg-neutral-50 rounded-xl p-4">
+                    <p class="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">Total en el período</p>
+                    <p class="text-xl font-bold text-neutral-800" id="kpiTotal">—</p>
+                </div>
             </div>
-            <p id="detailNoTransactions" class="hidden text-neutral-400 text-sm italic py-4 text-center">Sin transacciones en este período</p>
+
+            <!-- Row: Evolución mensual + Día de semana -->
+            <div class="grid grid-cols-5 gap-4">
+                <!-- Evolución mensual (wider) -->
+                <div class="col-span-3 bg-neutral-50 rounded-xl p-4">
+                    <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-3" id="detailChartTitle">Evolución Mensual</p>
+                    <div style="height:180px">
+                        <canvas id="detailTimelineChart"></canvas>
+                    </div>
+                </div>
+                <!-- Día de semana (narrower) -->
+                <div class="col-span-2 bg-neutral-50 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide">Por día de semana</p>
+                        <div class="flex rounded border border-neutral-200 overflow-hidden text-xs font-semibold">
+                            <button id="dowViewTotal" onclick="setDowView('total')" class="px-2 py-1 bg-primary-600 text-white transition-colors">Total</button>
+                            <button id="dowViewAvg" onclick="setDowView('avg')" class="px-2 py-1 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">Promedio</button>
+                        </div>
+                    </div>
+                    <div style="height:168px">
+                        <canvas id="dowChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gastos en el tiempo (timeline con toggle) -->
+            <div class="bg-neutral-50 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide">Gastos en el tiempo</p>
+                    <div class="flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
+                        <button id="txViewMonthly" onclick="setTxView('monthly')" class="px-3 py-1 bg-primary-600 text-white transition-colors">Mensual</button>
+                        <button id="txViewWeekly" onclick="setTxView('weekly')" class="px-3 py-1 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">Semanal</button>
+                        <button id="txViewDaily" onclick="setTxView('daily')" class="px-3 py-1 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">Diario</button>
+                    </div>
+                </div>
+                <div style="height:180px">
+                    <canvas id="txTimelineChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Histórico mensual (tabla compacta) -->
+            <div>
+                <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-3">Histórico mensual</p>
+                <div class="overflow-x-auto rounded-xl border border-neutral-100">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-neutral-50 text-neutral-500 uppercase text-xs tracking-wide">
+                                <th class="px-4 py-2.5 text-left">Mes</th>
+                                <th class="px-4 py-2.5 text-right">Asignado</th>
+                                <th class="px-4 py-2.5 text-right">Gastado</th>
+                                <th class="px-4 py-2.5 text-right">Disponible</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailHistoryBody" class="divide-y divide-neutral-50 bg-white">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Transacciones -->
+            <div>
+                <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-3">Transacciones</p>
+                <div id="detailTransactionsContainer" class="space-y-1 max-h-56 overflow-y-auto">
+                </div>
+                <p id="detailNoTransactions" class="hidden text-neutral-400 text-sm italic py-4 text-center">Sin transacciones en este período</p>
+            </div>
+
         </div>
     </div>
 </div>
@@ -729,6 +781,17 @@
             const year = currentMonth.getFullYear();
             const month = currentMonth.getMonth() + 1;
 
+            // Show/hide recalculate button for future months
+            const today = new Date();
+            const todayFirstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const isFutureMonth = currentMonth > todayFirstOfMonth;
+            const recalcBtn = document.getElementById('recalculateMonthBtn');
+            if (isFutureMonth) {
+                recalcBtn.classList.remove('hidden');
+            } else {
+                recalcBtn.classList.add('hidden');
+            }
+
             // Load budget in BOTH currencies
             const [resCOP, resUSD] = await Promise.all([
                 fetch(`/api/budgets/month/${year}/${month}?currency_code=COP`),
@@ -742,6 +805,30 @@
             displayBudget(dataCOP, dataUSD, alertsPayload);
         } catch (error) {
             console.error('Error loading budget:', error);
+        }
+    }
+
+    async function recalculateMonth() {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth() + 1;
+        const btn = document.getElementById('recalculateMonthBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="mr-1">↻</span> Recalculando...';
+        try {
+            const res = await fetch(`/api/budgets/recalculate/${year}/${month}`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                await loadBudget();
+            } else {
+                alert('Error al recalcular el presupuesto');
+            }
+        } catch (error) {
+            console.error('Error recalculating budget:', error);
+            alert('Error al recalcular el presupuesto');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     }
 
@@ -2090,13 +2177,54 @@
 
     // Category Detail Modal
     let detailCategoryData = null;
+    let detailTxView = 'monthly';
+    let detailDowView = 'total';
+    let detailAllTransactions = [];
+    let txTimelineChart = null;
+    let dowChart = null;
+
+    function setDowView(view) {
+        detailDowView = view;
+        ['total','avg'].forEach(v => {
+            const btn = document.getElementById(`dowView${v.charAt(0).toUpperCase() + v.slice(1)}`);
+            if (v === view) {
+                btn.classList.add('bg-primary-600','text-white');
+                btn.classList.remove('bg-white','text-neutral-600');
+            } else {
+                btn.classList.remove('bg-primary-600','text-white');
+                btn.classList.add('bg-white','text-neutral-600');
+            }
+        });
+        renderDowChart(detailAllTransactions);
+    }
+
+    function setTxView(view) {
+        detailTxView = view;
+        ['monthly', 'weekly', 'daily'].forEach(v => {
+            const btn = document.getElementById(`txView${v.charAt(0).toUpperCase() + v.slice(1)}`);
+            if (v === view) {
+                btn.classList.add('bg-primary-600', 'text-white');
+                btn.classList.remove('bg-white', 'text-neutral-600');
+            } else {
+                btn.classList.remove('bg-primary-600', 'text-white');
+                btn.classList.add('bg-white', 'text-neutral-600');
+            }
+        });
+        renderTxChart(detailAllTransactions);
+        renderTransactions(detailAllTransactions);
+    }
 
     function openCategoryDetailModal(categoryData) {
         detailCategoryData = categoryData;
+        detailTxView = 'monthly';
+        detailDowView = 'total';
+        detailAllTransactions = [];
+        setTxView('monthly');
+        setDowView('total');
         document.getElementById('detailCategoryName').textContent = categoryData.category_name;
         const typeLabel = categoryData.rollover_type === 'accumulate' ? '🎯 Ahorro' : '💰 Gasto Mensual';
         document.getElementById('detailCategoryType').textContent = typeLabel;
-        document.getElementById('detailMonthsSelect').value = '6';
+        document.getElementById('detailMonthsSelect').value = '6'; // default: últimos 6 meses
         document.getElementById('categoryDetailModal').classList.remove('hidden');
         loadCategoryHistory();
     }
@@ -2104,6 +2232,8 @@
     function closeCategoryDetailModal() {
         detailCategoryData = null;
         if (detailChart) { detailChart.destroy(); detailChart = null; }
+        if (txTimelineChart) { txTimelineChart.destroy(); txTimelineChart = null; }
+        if (dowChart) { dowChart.destroy(); dowChart = null; }
         document.getElementById('categoryDetailModal').classList.add('hidden');
     }
 
@@ -2117,12 +2247,26 @@
 
     async function loadCategoryHistory() {
         if (!detailCategoryData) return;
-        const months = parseInt(document.getElementById('detailMonthsSelect').value);
+        const sel = document.getElementById('detailMonthsSelect').value;
         const categoryId = detailCategoryData.category_id;
 
         try {
-            const res = await fetch(`/api/budgets/category/${categoryId}/history?months=${months}`);
+            let url;
+            if (sel === 'current') {
+                url = `/api/budgets/category/${categoryId}/history?months=1`;
+            } else {
+                url = `/api/budgets/category/${categoryId}/history?months=${parseInt(sel)}`;
+            }
+            const res = await fetch(url);
             const data = await res.json();
+            // If "mes actual", filter transactions to current month only
+            if (sel === 'current') {
+                const now = currentMonth;
+                const yr = now.getFullYear();
+                const mo = String(now.getMonth() + 1).padStart(2, '0');
+                const prefix = `${yr}-${mo}`;
+                data.transactions = data.transactions.filter(tx => tx.date.startsWith(prefix));
+            }
             renderCategoryHistory(data);
         } catch (error) {
             console.error('Error loading category history:', error);
@@ -2267,32 +2411,376 @@
             `;
         }).join('');
 
-        // Render transactions
+        // Store transactions and render with current view
+        detailAllTransactions = data.transactions;
+        renderKpis(data.monthly_summary, detailAllTransactions);
+        renderDowChart(detailAllTransactions);
+        renderTxChart(detailAllTransactions);
+        renderTransactions(detailAllTransactions);
+    }
+
+    function renderKpis(monthlySummary, transactions) {
+        const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+        // Total spent (COP equiv, only expenses)
+        const total = transactions.reduce((s, tx) => {
+            if (tx.amount >= 0) return s;
+            return s + (tx.currency_code === 'USD'
+                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
+                : Math.abs(tx.amount));
+        }, 0);
+
+        // Average monthly from monthlySummary
+        const months = monthlySummary.filter(m => m.total_activity < 0);
+        const avg = months.length ? months.reduce((s, m) => s + Math.abs(m.total_activity), 0) / months.length : 0;
+
+        // Top day of week
+        const dowTotals = [0,0,0,0,0,0,0];
+        for (const tx of transactions) {
+            if (tx.amount >= 0) continue;
+            const d = new Date(tx.date + 'T00:00:00');
+            const val = tx.currency_code === 'USD'
+                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
+                : Math.abs(tx.amount);
+            dowTotals[d.getDay()] += val;
+        }
+        const topDowIdx = dowTotals.indexOf(Math.max(...dowTotals));
+        const topDow = Math.max(...dowTotals) > 0 ? dayNames[topDowIdx] : '—';
+
+        document.getElementById('kpiAvgMonthly').textContent = avg > 0 ? '$' + formatAmount(avg, 0) : '—';
+        document.getElementById('kpiTopDay').textContent = topDow;
+        document.getElementById('kpiTotal').textContent = total > 0 ? '$' + formatAmount(total, 0) : '—';
+    }
+
+    function renderDowChart(transactions) {
+        const dayLabels = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+        // JS getDay: 0=Sun → remap Mon-first: Mon=0, Sun=6
+        const dowTotals = [0,0,0,0,0,0,0];
+        const dowCounts = [0,0,0,0,0,0,0]; // number of distinct days with transactions
+        const dowDaysSeen = Array.from({length:7}, () => new Set());
+
+        for (const tx of transactions) {
+            if (tx.amount >= 0) continue;
+            const d = new Date(tx.date + 'T00:00:00');
+            const jsDay = d.getDay();
+            const idx = jsDay === 0 ? 6 : jsDay - 1;
+            const val = tx.currency_code === 'USD'
+                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
+                : Math.abs(tx.amount);
+            dowTotals[idx] += val;
+            dowDaysSeen[idx].add(tx.date);
+        }
+        for (let i = 0; i < 7; i++) dowCounts[i] = dowDaysSeen[i].size || 1;
+
+        const dowAvgs = dowTotals.map((t, i) => t / dowCounts[i]);
+        const data = detailDowView === 'avg' ? dowAvgs : dowTotals;
+
+        const maxVal = Math.max(...data);
+        const bgColors = data.map(v =>
+            v === maxVal && v > 0 ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.25)'
+        );
+        const borderColors = data.map(v =>
+            v === maxVal && v > 0 ? '#ef4444' : 'rgba(239,68,68,0.4)'
+        );
+
+        if (dowChart) { dowChart.destroy(); dowChart = null; }
+        const canvas = document.getElementById('dowChart');
+        if (!canvas) return;
+
+        dowChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: dayLabels,
+                datasets: [{
+                    data,
+                    backgroundColor: bgColors,
+                    borderColor: borderColors,
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const i = ctx.dataIndex;
+                                const totalStr = '$' + formatAmount(dowTotals[i], 0);
+                                const avgStr = '$' + formatAmount(dowAvgs[i], 0);
+                                const occ = dowDaysSeen[i].size;
+                                return [
+                                    ` Total: ${totalStr}`,
+                                    ` Promedio: ${avgStr} (${occ} ${occ === 1 ? 'vez' : 'veces'})`,
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => '$' + formatAmount(v, 0), font: { size: 9 } },
+                        grid: { color: 'rgba(0,0,0,0.04)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11, weight: 'bold' } }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderTxChart(transactions) {
+        const shortMonthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+        function getMonday(d) {
+            const day = d.getDay() || 7;
+            const mon = new Date(d);
+            mon.setDate(d.getDate() - day + 1);
+            return mon;
+        }
+
+        function getGroupKey(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            if (detailTxView === 'monthly') {
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            } else if (detailTxView === 'weekly') {
+                return getMonday(d).toISOString().slice(0, 10);
+            } else {
+                return dateStr;
+            }
+        }
+
+        function getGroupLabel(key) {
+            if (detailTxView === 'monthly') {
+                const [year, month] = key.split('-');
+                return `${shortMonthNames[parseInt(month) - 1]} ${year}`;
+            } else if (detailTxView === 'weekly') {
+                const mon = new Date(key + 'T00:00:00');
+                const sun = new Date(mon);
+                sun.setDate(mon.getDate() + 6);
+                return `${mon.getDate()} ${shortMonthNames[mon.getMonth()]} – ${sun.getDate()} ${shortMonthNames[sun.getMonth()]}`;
+            } else {
+                const d = new Date(key + 'T00:00:00');
+                return `${dayNames[d.getDay()]} ${d.getDate()} ${shortMonthNames[d.getMonth()]}`;
+            }
+        }
+
+        // Aggregate spending (absolute value of expenses) per group
+        const groups = {};
+        for (const tx of transactions) {
+            if (tx.amount >= 0) continue;
+            const key = getGroupKey(tx.date);
+            const val = tx.currency_code === 'USD'
+                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
+                : Math.abs(tx.amount);
+            groups[key] = (groups[key] || 0) + val;
+        }
+
+        const sortedKeys = Object.keys(groups).sort();
+        const labels = sortedKeys.map(getGroupLabel);
+        const values = sortedKeys.map(k => groups[k]);
+
+        // In daily view: detect which indices are Mondays (week starts)
+        const weekStartIndices = new Set();
+        if (detailTxView === 'daily') {
+            sortedKeys.forEach((key, i) => {
+                const d = new Date(key + 'T00:00:00');
+                if (d.getDay() === 1) weekStartIndices.add(i); // Monday
+            });
+        }
+
+        if (txTimelineChart) { txTimelineChart.destroy(); txTimelineChart = null; }
+
+        const canvas = document.getElementById('txTimelineChart');
+        if (!canvas || !sortedKeys.length) return;
+
+        // Custom plugin: draw vertical dashed lines at week starts
+        const weekSeparatorPlugin = {
+            id: 'weekSeparator',
+            afterDraw(chart) {
+                if (detailTxView !== 'daily' || !weekStartIndices.size) return;
+                const { ctx: c, chartArea, scales } = chart;
+                c.save();
+                c.strokeStyle = 'rgba(99,102,241,0.35)';
+                c.lineWidth = 1.5;
+                c.setLineDash([4, 4]);
+                weekStartIndices.forEach(i => {
+                    const x = scales.x.getPixelForIndex(i);
+                    c.beginPath();
+                    c.moveTo(x, chartArea.top);
+                    c.lineTo(x, chartArea.bottom);
+                    c.stroke();
+                });
+                c.restore();
+            }
+        };
+
+        const ctx = canvas.getContext('2d');
+        txTimelineChart = new Chart(ctx, {
+            type: 'line',
+            plugins: [weekSeparatorPlugin],
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Gastos',
+                    data: values,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239,68,68,0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2.5,
+                    pointRadius: values.length <= 31 ? 4 : 2,
+                    pointBackgroundColor: sortedKeys.map((k, i) =>
+                        weekStartIndices.has(i) ? '#6366f1' : '#ef4444'
+                    ),
+                    pointBorderColor: sortedKeys.map((k, i) =>
+                        weekStartIndices.has(i) ? '#6366f1' : '#ef4444'
+                    ),
+                    pointRadius: sortedKeys.map((k, i) =>
+                        weekStartIndices.has(i) ? 6 : (values.length <= 31 ? 4 : 2)
+                    ),
+                    pointHoverRadius: 7,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: items => labels[items[0].dataIndex],
+                            label: item => {
+                                const i = item.dataIndex;
+                                const weekMark = weekStartIndices.has(i) ? ' · inicio de semana' : '';
+                                return ' $' + formatAmount(item.parsed.y, 0) + weekMark;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: v => '$' + formatAmount(v, 0) },
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            maxRotation: detailTxView === 'daily' ? 45 : 0,
+                            font: { size: 10 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderTransactions(transactions) {
         const container = document.getElementById('detailTransactionsContainer');
         const noTx = document.getElementById('detailNoTransactions');
 
-        if (!data.transactions.length) {
+        if (!transactions.length) {
             container.innerHTML = '';
             noTx.classList.remove('hidden');
             return;
         }
 
         noTx.classList.add('hidden');
-        container.innerHTML = data.transactions.map(tx => {
+
+        const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const shortMonthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+        function getGroupKey(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            if (detailTxView === 'monthly') {
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            } else if (detailTxView === 'weekly') {
+                // ISO week: find monday of the week
+                const day = d.getDay() || 7; // Mon=1 ... Sun=7
+                const monday = new Date(d);
+                monday.setDate(d.getDate() - day + 1);
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                return monday.toISOString().slice(0, 10) + '|' + sunday.toISOString().slice(0, 10);
+            } else {
+                return dateStr;
+            }
+        }
+
+        function getGroupLabel(key) {
+            if (detailTxView === 'monthly') {
+                const [year, month] = key.split('-');
+                return `${monthNames[parseInt(month) - 1]} ${year}`;
+            } else if (detailTxView === 'weekly') {
+                const [mondayStr, sundayStr] = key.split('|');
+                const mon = new Date(mondayStr + 'T00:00:00');
+                const sun = new Date(sundayStr + 'T00:00:00');
+                return `${mon.getDate()} ${shortMonthNames[mon.getMonth()]} – ${sun.getDate()} ${shortMonthNames[sun.getMonth()]} ${sun.getFullYear()}`;
+            } else {
+                const d = new Date(key + 'T00:00:00');
+                return `${d.getDate()} ${shortMonthNames[d.getMonth()]} ${d.getFullYear()}`;
+            }
+        }
+
+        // Group transactions
+        const groups = {};
+        for (const tx of transactions) {
+            const key = getGroupKey(tx.date);
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(tx);
+        }
+
+        const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+
+        function renderTxItem(tx) {
             const amountClass = tx.amount < 0 ? 'text-red-600' : 'text-green-600';
             const sign = tx.amount < 0 ? '-' : '+';
             const symbol = tx.currency_code === 'USD' ? 'US$' : '$';
             const decimals = tx.currency_code === 'USD' ? 2 : 0;
-
+            const dateLabel = detailTxView !== 'daily' ? `${tx.date} · ` : '';
             return `
-                <div class="flex items-center justify-between px-4 py-3 bg-neutral-50 rounded-lg hover:bg-neutral-100 transition-colors">
+                <div class="flex items-center justify-between px-4 py-2.5 bg-white rounded-lg hover:bg-neutral-50 transition-colors border border-neutral-100">
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-neutral-800 truncate">${tx.memo || 'Sin descripción'}</p>
-                        <p class="text-xs text-neutral-400">${tx.date} · ${tx.account_name || ''}</p>
+                        <p class="text-xs text-neutral-400">${dateLabel}${tx.account_name || ''}</p>
                     </div>
                     <p class="text-sm font-bold ${amountClass} ml-4 whitespace-nowrap">
                         ${sign}${symbol}${formatAmount(Math.abs(tx.amount), decimals)}
                     </p>
+                </div>
+            `;
+        }
+
+        container.innerHTML = sortedKeys.map(key => {
+            const txs = groups[key];
+            // Compute group total in COP equivalent
+            const total = txs.reduce((sum, tx) => {
+                const val = tx.currency_code === 'USD'
+                    ? tx.amount * (EXCHANGE_RATE_USD_TO_COP || 1)
+                    : tx.amount;
+                return sum + val;
+            }, 0);
+            const totalClass = total < 0 ? 'text-red-500' : 'text-green-600';
+            const sign = total < 0 ? '-' : '+';
+
+            return `
+                <div class="mb-3">
+                    <div class="flex items-center justify-between px-2 py-1 mb-1">
+                        <span class="text-xs font-bold text-neutral-500 uppercase tracking-wide">${getGroupLabel(key)}</span>
+                        <span class="text-xs font-bold ${totalClass}">${sign}$${formatAmount(Math.abs(total), 0)}</span>
+                    </div>
+                    <div class="space-y-1">
+                        ${txs.map(renderTxItem).join('')}
+                    </div>
                 </div>
             `;
         }).join('');

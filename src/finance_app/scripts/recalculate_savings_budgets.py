@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Script para recalcular todos los presupuestos de categorías de ahorro (accumulate).
+Script to recalculate all budgets for savings (accumulate) categories.
 
-Este script corrige el problema donde el initial_amount no se aplicó correctamente
-debido a un race condition en el frontend. Recalcula todos los presupuestos en orden
-cronológico para asegurar que el rollover funcione correctamente.
+Fixes the issue where initial_amount was not applied correctly due to a
+frontend race condition. Recalculates all budgets in chronological order
+to ensure rollover works correctly.
 """
 
 from finance_app.database import SessionLocal
@@ -14,7 +14,7 @@ from sqlalchemy import distinct
 
 def recalculate_all_savings_budgets():
     """
-    Recalcula todos los presupuestos de categorías con rollover_type='accumulate'
+    Recalculate all budgets for categories with rollover_type='accumulate'.
     """
     db = SessionLocal()
 

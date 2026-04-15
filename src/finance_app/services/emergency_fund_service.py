@@ -1,5 +1,5 @@
 """
-Emergency Fund Service - Calcula cobertura de gastos esenciales
+Emergency Fund Service - Calculates essential expense coverage.
 """
 from datetime import date
 from dateutil.relativedelta import relativedelta
@@ -11,26 +11,26 @@ from finance_app.services.exchange_rate_service import convert_currency
 
 def get_monthly_essential_expenses(db: Session, month_date: date, target_currency_id: int = 1):
     """
-    Calcula el total de gastos esenciales mensuales para un mes dado.
+    Calculate total monthly essential expenses for a given month.
 
-    Si no hay presupuesto para el mes especificado, busca el mes más reciente
-    con presupuesto asignado para obtener un estimado.
+    If no budget exists for the specified month, falls back to the most recent
+    month with an assigned budget to produce an estimate.
 
     Args:
-        db: Sesión de base de datos
-        month_date: Mes a calcular (primer día del mes)
-        target_currency_id: Moneda objetivo para la conversión (default: COP=1)
+        db: Database session.
+        month_date: Month to calculate (first day of the month).
+        target_currency_id: Target currency for conversion (default: COP=1).
 
     Returns:
         dict: {
-            'total': float,  # Total en moneda objetivo
-            'currency_code': str,  # Código de moneda
-            'categories': [  # Lista de categorías esenciales
+            'total': float,  # Total in target currency
+            'currency_code': str,  # Currency code
+            'categories': [  # List of essential categories
                 {
                     'id': int,
                     'name': str,
-                    'assigned': float,  # Asignado en moneda original
-                    'assigned_converted': float,  # Asignado convertido
+                    'assigned': float,  # Assigned in original currency
+                    'assigned_converted': float,  # Converted assigned amount
                     'currency_code': str
                 }
             ]
@@ -109,25 +109,25 @@ def get_monthly_essential_expenses(db: Session, month_date: date, target_currenc
 
 def get_emergency_funds(db: Session, target_currency_id: int = 1):
     """
-    Calcula el total de fondos de emergencia disponibles.
+    Calculate the total available emergency funds.
 
-    Los fondos de emergencia son categorías marcadas con is_emergency_fund=True
-    que tienen rollover_type='accumulate' (savings).
+    Emergency funds are categories marked with is_emergency_fund=True
+    that have rollover_type='accumulate' (savings).
 
     Args:
-        db: Sesión de base de datos
-        target_currency_id: Moneda objetivo para la conversión (default: COP=1)
+        db: Database session.
+        target_currency_id: Target currency for conversion (default: COP=1).
 
     Returns:
         dict: {
-            'total': float,  # Total en moneda objetivo
-            'currency_code': str,  # Código de moneda
-            'funds': [  # Lista de fondos
+            'total': float,  # Total in target currency
+            'currency_code': str,  # Currency code
+            'funds': [  # List of funds
                 {
                     'id': int,
                     'name': str,
-                    'balance': float,  # Balance en moneda original
-                    'balance_converted': float,  # Balance convertido
+                    'balance': float,  # Balance in original currency
+                    'balance_converted': float,  # Converted balance
                     'currency_code': str
                 }
             ]
@@ -209,23 +209,23 @@ def get_emergency_funds(db: Session, target_currency_id: int = 1):
 
 def calculate_emergency_coverage(db: Session, month_date: date = None, target_currency_id: int = 1):
     """
-    Calcula cuántos meses de cobertura tiene el usuario con sus fondos de emergencia.
+    Calculate how many months of coverage the user has with their emergency funds.
 
-    Fórmula: Meses = Total Fondos de Emergencia / Gastos Esenciales Mensuales
+    Formula: Months = Total Emergency Funds / Monthly Essential Expenses
 
     Args:
-        db: Sesión de base de datos
-        month_date: Mes a usar para calcular gastos (default: mes actual)
-        target_currency_id: Moneda objetivo (default: COP=1)
+        db: Database session.
+        month_date: Month to use for expense calculation (default: current month).
+        target_currency_id: Target currency (default: COP=1).
 
     Returns:
         dict: {
-            'months_coverage': float,  # Número de meses de cobertura
-            'emergency_funds_total': float,  # Total de fondos
-            'essential_expenses_total': float,  # Total de gastos esenciales
-            'currency_code': str,  # Código de moneda
+            'months_coverage': float,  # Number of months of coverage
+            'emergency_funds_total': float,  # Total funds
+            'essential_expenses_total': float,  # Total essential expenses
+            'currency_code': str,  # Currency code
             'status': str,  # 'excellent', 'good', 'fair', 'poor', 'critical'
-            'recommendation': str  # Recomendación basada en cobertura
+            'recommendation': str  # Recommendation based on coverage
         }
     """
     if month_date is None:

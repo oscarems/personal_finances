@@ -77,7 +77,7 @@ BUDGET_ALERT_CATEGORY_OVERRIDES = {}
 BUDGET_ALERT_COOLDOWN_DAYS = int(os.getenv('BUDGET_ALERT_COOLDOWN_DAYS', '3'))
 
 # ---------------------------------------------------------------------------
-# Budget categories (YNAB style)
+# Default budget category groups
 # ---------------------------------------------------------------------------
 DEFAULT_CATEGORY_GROUPS = [
     {

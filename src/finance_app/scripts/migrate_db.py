@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script para migrar la base de datos agregando columnas nuevas.
+Script to migrate the database by adding new columns.
 """
 import sqlite3
 import sys
@@ -321,6 +321,52 @@ def migrate_database(db_path: Path | None = None):
         # --- initial_amount column on budget_months ---
         cursor.execute("PRAGMA table_info(budget_months)")
         budget_columns = [row[1] for row in cursor.fetchall()]
+
+        if 'initial_overridden' in budget_columns:
+            print("✓ La columna 'initial_overridden' ya existe en budget_months")
+        else:
+            print("🔧 Agregando columna 'initial_overridden' a la tabla budget_months...")
+            cursor.execute("ALTER TABLE budget_months ADD COLUMN initial_overridden BOOLEAN DEFAULT 0")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
+            # Backfill: marcar como overridden solo los meses "semilla" (primer mes de la categoría/moneda con initial != 0)
+            # Todos los demás se quedan en False para que se auto-deriven del mes anterior
+            cursor.execute("""
+                UPDATE budget_months
+                SET initial_overridden = 1
+                WHERE initial_amount != 0.0
+                AND NOT EXISTS (
+                    SELECT 1 FROM budget_months prev
+                    WHERE prev.category_id = budget_months.category_id
+                    AND prev.currency_id = budget_months.currency_id
+                    AND prev.month < budget_months.month
+                )
+            """)
+            conn.commit()
+            print("✅ Backfill initial_overridden completado (seeds marcados como overridden)")
+
+        if 'assigned_overridden' in budget_columns:
+            print("✓ La columna 'assigned_overridden' ya existe en budget_months")
+        else:
+            print("🔧 Agregando columna 'assigned_overridden' a la tabla budget_months...")
+            cursor.execute("ALTER TABLE budget_months ADD COLUMN assigned_overridden BOOLEAN DEFAULT 0")
+            # Backfill: marcar como overridden solo los meses donde el assigned difiere del mes anterior
+            # (o donde no hay mes anterior). Si el assigned coincide con el mes anterior, probablemente
+            # fue heredado automaticamente y NO debe bloquear el cascade.
+            cursor.execute("""
+                UPDATE budget_months SET assigned_overridden = 1
+                WHERE assigned != 0.0
+                AND NOT EXISTS (
+                    SELECT 1 FROM budget_months prev
+                    WHERE prev.category_id = budget_months.category_id
+                    AND prev.currency_id = budget_months.currency_id
+                    AND prev.month = date(budget_months.month, '-1 month')
+                    AND prev.assigned = budget_months.assigned
+                )
+            """)
+            conn.commit()
+            print("✅ Columna agregada y backfill completado")
 
         if 'initial_amount' in budget_columns:
             print("✓ La columna 'initial_amount' ya existe en budget_months")

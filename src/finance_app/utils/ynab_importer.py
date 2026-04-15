@@ -1,6 +1,6 @@
 """
-YNAB CSV Importer
-Handles the specific YNAB export format with columns:
+Budget CSV Importer
+Handles the budget CSV export format with columns:
 Account, Flag, Date, Payee, Category, Memo, Outflow, Inflow, Cleared
 """
 import pandas as pd
@@ -15,8 +15,8 @@ from finance_app.services.transaction_service import build_transaction_audit_fie
 
 def parse_ynab_date(date_str):
     """
-    Parse YNAB date string (handle various formats and ######)
-    Priority order: DD/MM/YYYY (most common YNAB format)
+    Parse CSV date string (handle various formats and ######).
+    Priority order: DD/MM/YYYY (most common CSV export format).
     """
     if not date_str or date_str == '########' or pd.isna(date_str):
         return None
@@ -29,9 +29,9 @@ def parse_ynab_date(date_str):
         if date_str.lower() == 'nan':
             return None
 
-        # Try common date formats - DD/MM/YYYY FIRST (YNAB export format)
+        # Try common date formats - DD/MM/YYYY FIRST (CSV export format)
         formats = [
-            '%d/%m/%Y',      # 15/01/2024 (YNAB default format)
+            '%d/%m/%Y',      # 15/01/2024 (default CSV format)
             '%d-%m-%Y',      # 15-01-2024
             '%d.%m.%Y',      # 15.01.2024
             '%d/%m/%y',      # 15/01/24
@@ -72,8 +72,8 @@ def parse_amount(amount_str):
 
 def parse_category(category_str):
     """
-    Parse YNAB category format: "Group: Category"
-    Returns tuple (group_name, category_name)
+    Parse CSV category format: "Group: Category".
+    Returns tuple (group_name, category_name).
     """
     if not category_str or pd.isna(category_str):
         return None, None
@@ -98,8 +98,8 @@ def parse_category(category_str):
 
 def get_or_create_category(db: Session, group_name: str, category_name: str, is_transfer: bool = False):
     """
-    Get or create category from YNAB import
-    Returns category_id or None
+    Get or create a category from a CSV import.
+    Returns category_id or None.
     """
     if is_transfer:
         # Skip transfers for now, or handle specially
@@ -117,7 +117,7 @@ def get_or_create_category(db: Session, group_name: str, category_name: str, is_
         return category.id
 
     # If not found, try to map to existing categories
-    # Create mapping for common YNAB -> our categories
+    # Create mapping for common CSV categories -> our categories
     category_mapping = {
         'gym': 'Entretenimiento',
         'administracion': 'Vivienda',
@@ -172,7 +172,7 @@ def get_or_create_category(db: Session, group_name: str, category_name: str, is_
 
 
 def get_or_create_account(db: Session, account_name: str, default_currency_id: int):
-    """Get or create account from YNAB import"""
+    """Get or create an account from a CSV import."""
     if not account_name or pd.isna(account_name):
         return None
 
@@ -199,8 +199,8 @@ def get_or_create_account(db: Session, account_name: str, default_currency_id: i
 
 def import_ynab_csv(db: Session, csv_file_path: str, default_currency_code: str = 'COP'):
     """
-    Import YNAB CSV file
-    Returns dict with import statistics
+    Import a budget CSV file.
+    Returns a dict with import statistics.
     """
     stats = {
         'total_rows': 0,
@@ -220,7 +220,7 @@ def import_ynab_csv(db: Session, csv_file_path: str, default_currency_code: str 
         df = pd.read_csv(csv_file_path, dtype={'Date': str})
         stats['total_rows'] = len(df)
 
-        print(f"📂 Importing {stats['total_rows']} transactions from YNAB...")
+        print(f"📂 Importing {stats['total_rows']} transactions from CSV...")
         print(f"   CSV columns: {list(df.columns)}")
 
         # Show first date as example
@@ -290,7 +290,7 @@ def import_ynab_csv(db: Session, csv_file_path: str, default_currency_code: str 
                 cleared = (str(cleared_str).lower() == 'cleared')
 
                 # Create import_id to avoid duplicates
-                import_id = f"ynab_{account_name}_{transaction_date}_{amount}_{payee_name}"
+                import_id = f"csv_{account_name}_{transaction_date}_{amount}_{payee_name}"
 
                 # Check if already imported
                 existing = db.query(Transaction).filter_by(import_id=import_id).first()

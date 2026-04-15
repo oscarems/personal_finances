@@ -1,5 +1,5 @@
 """
-Debt Model - Gestión de deudas (tarjetas de crédito, préstamos, hipotecas)
+Debt Model - Manages debts (credit cards, loans, mortgages).
 """
 from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date, Numeric
 from sqlalchemy.orm import relationship
@@ -9,10 +9,10 @@ from datetime import date
 
 class Debt(Base):
     """
-    Modelo para gestionar deudas de diferentes tipos:
-    - Tarjetas de crédito (credit_card)
-    - Créditos de libre inversión (credit_loan)
-    - Hipotecas (mortgage)
+    Model for managing debts of different types:
+    - Credit cards (credit_card)
+    - Personal loans (credit_loan)
+    - Mortgages (mortgage)
     """
     __tablename__ = 'debts'
 
@@ -20,46 +20,46 @@ class Debt(Base):
     account_id = Column(Integer, ForeignKey('accounts.id'), nullable=False)
     category_id = Column(Integer, ForeignKey('categories.id'))
 
-    # Información básica
-    name = Column(String(200), nullable=False)  # Nombre descriptivo de la deuda
+    # Basic information
+    name = Column(String(200), nullable=False)  # Descriptive debt name
     debt_type = Column(String(50), nullable=False)  # 'credit_card', 'credit_loan', 'mortgage'
     currency_code = Column(String(3), ForeignKey('currencies.code'), nullable=False, default='COP')
 
-    # Montos
-    original_amount = Column(Float, nullable=False)  # Monto original de la deuda
-    current_balance = Column(Float, nullable=False)  # Saldo actual
-    credit_limit = Column(Float)  # Cupo/límite (solo para tarjetas de crédito)
+    # Amounts
+    original_amount = Column(Float, nullable=False)  # Original debt amount
+    current_balance = Column(Float, nullable=False)  # Current balance
+    credit_limit = Column(Float)  # Credit limit (credit cards only)
 
-    # Tasas y pagos
-    interest_rate = Column(Float)  # Tasa de interés anual (%)
-    monthly_payment = Column(Float)  # Cuota mensual
-    minimum_payment = Column(Float)  # Pago mínimo (para tarjetas de crédito)
-    loan_years = Column(Integer)  # Plazo en años (créditos e hipotecas)
+    # Rates and payments
+    interest_rate = Column(Float)  # Annual interest rate (%)
+    monthly_payment = Column(Float)  # Monthly payment amount
+    minimum_payment = Column(Float)  # Minimum payment (credit cards)
+    loan_years = Column(Integer)  # Term in years (loans and mortgages)
 
-    # Fechas
-    start_date = Column(Date, nullable=False)  # Fecha de inicio de la deuda
-    due_date = Column(Date)  # Fecha de vencimiento total del préstamo
-    payment_day = Column(Integer)  # Día del mes para pago (1-31)
-    last_accrual_date = Column(Date)  # Fecha del último cálculo de intereses
+    # Dates
+    start_date = Column(Date, nullable=False)  # Debt start date
+    due_date = Column(Date)  # Full loan maturity date
+    payment_day = Column(Integer)  # Day of month for payment (1-31)
+    last_accrual_date = Column(Date)  # Date of last interest accrual
 
-    # Información adicional
-    institution = Column(String(200))  # Entidad financiera
-    account_number = Column(String(100))  # Número de cuenta/tarjeta (últimos 4 dígitos)
-    notes = Column(String(500))  # Notas adicionales
+    # Additional information
+    institution = Column(String(200))  # Financial institution
+    account_number = Column(String(100))  # Account/card number (last 4 digits)
+    notes = Column(String(500))  # Additional notes
 
-    # Estado
-    is_active = Column(Boolean, default=True)  # Si la deuda está activa
-    is_consolidated = Column(Boolean, default=False)  # Si fue consolidada en otra deuda
-    has_insurance = Column(Boolean, default=False)  # Si la cuota incluye seguros
+    # Status
+    is_active = Column(Boolean, default=True)  # Whether the debt is active
+    is_consolidated = Column(Boolean, default=False)  # Whether consolidated into another debt
+    has_insurance = Column(Boolean, default=False)  # Whether the payment includes insurance
 
-    # Saldos detallados (opcional para préstamos/hipotecas)
+    # Detailed balances (optional for loans/mortgages)
     principal_balance = Column(Numeric(18, 6))
     interest_balance = Column(Numeric(18, 6))
-    annual_interest_rate = Column(Numeric(10, 6))  # Decimal (0.12) o porcentaje (12)
+    annual_interest_rate = Column(Numeric(10, 6))  # Decimal (0.12) or percentage (12)
     term_months = Column(Integer)
     next_due_date = Column(Date)
 
-    # Relaciones
+    # Relationships
     account = relationship('Account', back_populates='debts')
     category = relationship('Category')
     currency = relationship('Currency')
@@ -70,7 +70,7 @@ class Debt(Base):
         return f'<Debt {self.name} ({self.debt_type}): {self.currency_code} {self.current_balance}>'
 
     def to_dict(self, include_payments=False):
-        """Convierte la deuda a diccionario"""
+        """Convert the debt to a dictionary."""
         data = {
             'id': self.id,
             'account_id': self.account_id,
@@ -97,7 +97,7 @@ class Debt(Base):
             'has_insurance': self.has_insurance,
         }
 
-        # Cálculos adicionales
+        # Additional calculations
         if self.original_amount and self.original_amount > 0:
             data['paid_percentage'] = ((self.original_amount - self.current_balance) / self.original_amount) * 100
         else:
@@ -130,17 +130,17 @@ class Debt(Base):
         return data
 
     def calculate_remaining_months(self):
-        """Calcula los meses restantes de la deuda"""
+        """Calculate remaining months until the debt is paid off."""
         if not self.monthly_payment or self.monthly_payment <= 0:
             return None
         if self.current_balance <= 0:
             return 0
 
-        # Cálculo simple sin intereses
+        # Simple calculation without interest
         return int(self.current_balance / self.monthly_payment) + 1
 
     def calculate_total_interest(self):
-        """Calcula el interés total a pagar (estimado)"""
+        """Calculate total estimated interest to pay."""
         if not self.interest_rate or not self.monthly_payment:
             return None
 
@@ -154,23 +154,23 @@ class Debt(Base):
 
 class DebtPayment(Base):
     """
-    Registro de pagos realizados a una deuda
+    Record of payments made toward a debt.
     """
     __tablename__ = 'debt_payments'
 
     id = Column(Integer, primary_key=True)
     debt_id = Column(Integer, ForeignKey('debts.id'), nullable=False)
-    transaction_id = Column(Integer, ForeignKey('transactions.id'))  # Vinculado a transacción si existe
+    transaction_id = Column(Integer, ForeignKey('transactions.id'))  # Linked transaction if exists
 
-    # Información del pago
+    # Payment information
     payment_date = Column(Date, nullable=False)
-    amount = Column(Float, nullable=False)  # Monto total del pago
-    principal = Column(Float)  # Pago a capital
-    interest = Column(Float)  # Pago a intereses
-    fees = Column(Float, default=0)  # Comisiones/cargos adicionales
+    amount = Column(Float, nullable=False)  # Total payment amount
+    principal = Column(Float)  # Principal portion
+    interest = Column(Float)  # Interest portion
+    fees = Column(Float, default=0)  # Additional fees/charges
 
-    # Balance después del pago
-    balance_after = Column(Float)  # Saldo después del pago
+    # Balance after payment
+    balance_after = Column(Float)  # Balance remaining after payment
 
     notes = Column(String(500))
 

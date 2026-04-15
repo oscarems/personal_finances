@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script de prueba para leer y visualizar CSV de YNAB
-Úsalo para probar tu archivo CSV antes de importarlo
+Test script to read and preview a budget CSV file.
+Use this to validate your CSV file before importing it.
 """
 import sys
 import csv
@@ -25,7 +25,7 @@ def print_separator(widths):
 
 
 def read_ynab_csv(csv_path):
-    """Lee y muestra el contenido del CSV de YNAB"""
+    """Read and display the contents of the budget CSV file."""
 
     if not Path(csv_path).exists():
         print(f"❌ Error: Archivo no encontrado: {csv_path}")
