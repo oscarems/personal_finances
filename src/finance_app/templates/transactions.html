@@ -31,8 +31,8 @@
     .transactions-table th {
         letter-spacing: .06em;
         font-size: 0.68rem;
-        color: #5f6b7a;
-        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        color: var(--text-soft);
+        background: var(--table-head-bg);
         border-bottom: 1px solid var(--table-border);
     }
 
@@ -76,7 +76,7 @@
     }
 
     .tx-payee small {
-        color: #7b8794;
+        color: var(--text-soft);
         font-size: 0.72rem;
     }
 
@@ -98,7 +98,7 @@
         gap: .75rem;
         padding: .9rem 1rem;
         border-bottom: 1px solid var(--color-border);
-        background: linear-gradient(180deg, rgba(248, 250, 252, .95) 0%, rgba(255, 255, 255, .95) 100%);
+        background: var(--bg-surface);
     }
 
     .transactions-metrics {
@@ -112,7 +112,7 @@
         border: 1px solid var(--color-border);
         border-radius: 12px;
         padding: .45rem .65rem;
-        background: #fff;
+        background: var(--bg-surface);
     }
 
     .metric-chip p {
@@ -122,7 +122,7 @@
 
     .metric-chip .label {
         font-size: .68rem;
-        color: #64748b;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: .05em;
     }
@@ -131,7 +131,7 @@
         margin-top: .2rem;
         font-size: .94rem;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--text-primary);
     }
 
     .toolbar-actions {
@@ -142,8 +142,8 @@
 
     .density-btn {
         border: 1px solid var(--color-border);
-        background: #f8fafc;
-        color: #334155;
+        background: var(--bg-surface-muted);
+        color: var(--text-secondary);
         border-radius: 999px;
         font-size: .75rem;
         font-weight: 600;
@@ -208,60 +208,371 @@
     </div>
 </div>
 
-<!-- Filters moderno -->
-<div class="card-hover-lift p-8 mb-8">
-    <h3 class="text-xl font-bold text-neutral-800 mb-6 flex items-center">
-        <span class="text-2xl mr-3">🔍</span>
-        Filtros de Búsqueda
-    </h3>
-    <div class="grid grid-cols-1 md:grid-cols-8 gap-4">
-        <div>
-            <label class="block text-sm font-bold text-neutral-700 mb-2">Cuenta</label>
-            <select id="filterAccount" onchange="loadTransactions()" class="input-field">
+<!-- Filters -->
+<style>
+    .filter-bar {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        background: var(--color-surface, #fff);
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 4px rgba(15,23,42,.05);
+        position: relative;
+        z-index: 20;
+    }
+
+    .filter-bar-main {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        padding: .75rem 1rem;
+        flex-wrap: wrap;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .filter-search-wrap {
+        flex: 1;
+        min-width: 180px;
+        position: relative;
+    }
+
+    .filter-search-wrap svg {
+        position: absolute;
+        left: .7rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-soft, #94a3b8);
+        pointer-events: none;
+        width: 15px;
+        height: 15px;
+    }
+
+    .filter-search-input {
+        width: 100%;
+        border: 1px solid var(--input-border, #e2e8f0);
+        border-radius: 999px;
+        padding: .42rem .75rem .42rem 2rem;
+        font-size: .82rem;
+        background: var(--input-bg, #f8fafc);
+        color: var(--color-text, #1e293b);
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    .filter-search-input:focus {
+        outline: none;
+        border-color: var(--color-primary, #6366f1);
+        box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+        background: var(--color-surface, #fff);
+    }
+
+    .filter-quick-dates {
+        display: flex;
+        align-items: center;
+        gap: .3rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-date-chip {
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 999px;
+        padding: .3rem .7rem;
+        font-size: .74rem;
+        font-weight: 600;
+        color: var(--text-secondary, #64748b);
+        background: transparent;
+        cursor: pointer;
+        transition: all .15s;
+        white-space: nowrap;
+    }
+
+    .filter-date-chip:hover {
+        border-color: var(--color-primary, #6366f1);
+        color: var(--color-primary, #6366f1);
+        background: rgba(99,102,241,.06);
+    }
+
+    .filter-date-chip.active {
+        border-color: var(--color-primary, #6366f1);
+        background: var(--color-primary, #6366f1);
+        color: #fff;
+    }
+
+    .filter-divider {
+        width: 1px;
+        height: 24px;
+        background: var(--color-border, #e2e8f0);
+        flex-shrink: 0;
+    }
+
+    .filter-advanced-toggle {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 999px;
+        padding: .3rem .75rem;
+        font-size: .74rem;
+        font-weight: 600;
+        color: var(--text-secondary, #64748b);
+        background: transparent;
+        cursor: pointer;
+        transition: all .15s;
+        white-space: nowrap;
+    }
+
+    .filter-advanced-toggle:hover {
+        border-color: var(--color-primary, #6366f1);
+        color: var(--color-primary, #6366f1);
+    }
+
+    .filter-advanced-toggle.open {
+        border-color: var(--color-primary, #6366f1);
+        color: var(--color-primary, #6366f1);
+        background: rgba(99,102,241,.06);
+    }
+
+    .filter-advanced-toggle .toggle-arrow {
+        transition: transform .2s;
+        display: inline-block;
+    }
+
+    .filter-advanced-toggle.open .toggle-arrow {
+        transform: rotate(180deg);
+    }
+
+    .filter-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        background: var(--color-primary, #6366f1);
+        color: #fff;
+        font-size: .6rem;
+        font-weight: 700;
+        padding: 0 4px;
+    }
+
+    .filter-clear-btn {
+        display: flex;
+        align-items: center;
+        gap: .3rem;
+        border: none;
+        background: none;
+        font-size: .75rem;
+        font-weight: 600;
+        color: var(--text-soft, #94a3b8);
+        cursor: pointer;
+        padding: .3rem .4rem;
+        border-radius: 6px;
+        transition: color .15s;
+        white-space: nowrap;
+    }
+
+    .filter-clear-btn:hover { color: #ef4444; }
+
+    .filter-advanced-panel {
+        border-top: 1px solid var(--color-border, #e2e8f0);
+        padding: .9rem 1rem;
+        display: none;
+        background: var(--bg-surface-muted, #f8fafc);
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: end;
+        position: relative;
+        z-index: 30;
+    }
+
+    .filter-advanced-panel.open {
+        display: flex;
+    }
+
+    .filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: .3rem;
+        min-width: 130px;
+    }
+
+    .filter-field label {
+        font-size: .67rem;
+        font-weight: 700;
+        color: var(--text-soft, #94a3b8);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+    }
+
+    .filter-field select,
+    .filter-field input[type="date"] {
+        border: 1px solid var(--input-border, #e2e8f0);
+        border-radius: 8px;
+        padding: .38rem .65rem;
+        font-size: .8rem;
+        background: var(--input-bg, #fff);
+        color: var(--color-text, #1e293b);
+        height: 34px;
+    }
+
+    /* Enhanced searchable select inside filter panel */
+    .filter-field .search-select-wrapper {
+        min-width: 0;
+    }
+
+    .filter-field .search-select-wrapper > button {
+        border: 1px solid var(--input-border, #e2e8f0) !important;
+        border-radius: 8px !important;
+        padding: .38rem 1.8rem .38rem .65rem !important;
+        font-size: .8rem !important;
+        background: var(--input-bg, #fff) !important;
+        color: var(--color-text, #1e293b) !important;
+        height: 34px !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-shadow: none !important;
+        font-weight: 400 !important;
+    }
+
+    .filter-field .search-select-wrapper > button:focus,
+    .filter-field .search-select-wrapper > button:hover {
+        border-color: var(--color-primary, #6366f1) !important;
+        outline: none !important;
+    }
+
+    .filter-active-chips {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .45rem 1rem;
+        border-top: 1px solid var(--color-border, #e2e8f0);
+        flex-wrap: wrap;
+        background: var(--color-surface, #fff);
+    }
+
+    .filter-active-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        border: 1px solid var(--color-border, #e2e8f0);
+        border-radius: 999px;
+        padding: .2rem .5rem .2rem .65rem;
+        font-size: .72rem;
+        font-weight: 600;
+        color: var(--text-secondary, #475569);
+        background: var(--color-surface, #fff);
+    }
+
+    .filter-active-chip button {
+        display: flex;
+        align-items: center;
+        color: var(--text-soft, #94a3b8);
+        transition: color .12s;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .filter-active-chip button:hover { color: #ef4444; }
+</style>
+
+<div class="filter-bar" id="filterBar">
+    <!-- Main row: search + quick dates + toggle -->
+    <div class="filter-bar-main">
+        <!-- Search -->
+        <div class="filter-search-wrap">
+            <svg viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9 3a6 6 0 100 12A6 6 0 009 3zM1 9a8 8 0 1114.32 4.906l3.387 3.387a1 1 0 01-1.414 1.414l-3.387-3.387A8 8 0 011 9z" clip-rule="evenodd"/>
+            </svg>
+            <input type="text" id="filterSearch" class="filter-search-input" placeholder="Buscar por beneficiario o memo..." oninput="onSearchInput()">
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <!-- Quick date presets -->
+        <div class="filter-quick-dates">
+            <button class="filter-date-chip" data-preset="today" onclick="applyDatePreset('today', this)">Hoy</button>
+            <button class="filter-date-chip" data-preset="week" onclick="applyDatePreset('week', this)">Esta semana</button>
+            <button class="filter-date-chip active" data-preset="month" onclick="applyDatePreset('month', this)">Este mes</button>
+            <button class="filter-date-chip" data-preset="quarter" onclick="applyDatePreset('quarter', this)">Trimestre</button>
+            <button class="filter-date-chip" data-preset="year" onclick="applyDatePreset('year', this)">Este año</button>
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <!-- Sort (always visible) -->
+        <div style="display:flex;align-items:center;gap:.4rem;">
+            <svg style="width:14px;height:14px;color:var(--text-soft,#94a3b8);flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M7 12h10M11 17h2"/></svg>
+            <select id="filterSort" onchange="displayTransactions()" style="border:none;background:none;font-size:.78rem;font-weight:600;color:var(--text-secondary,#475569);cursor:pointer;padding:.2rem .1rem;">
+                <option value="date_desc" selected>Fecha ↓</option>
+                <option value="date_asc">Fecha ↑</option>
+                <option value="account">Cuenta</option>
+                <option value="category">Categoría</option>
+                <option value="amount_desc">Monto ↓</option>
+                <option value="amount_asc">Monto ↑</option>
+            </select>
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <!-- Advanced toggle -->
+        <button class="filter-advanced-toggle" id="advancedToggle" onclick="toggleAdvancedFilters()">
+            <svg style="width:13px;height:13px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+            Filtros
+            <span class="filter-badge" id="advancedBadge" style="display:none;">0</span>
+            <span class="toggle-arrow">▾</span>
+        </button>
+
+        <!-- Clear -->
+        <button class="filter-clear-btn" id="clearFiltersBtn" onclick="clearFilters()" style="display:none;">
+            <svg style="width:12px;height:12px;" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            Limpiar
+        </button>
+    </div>
+
+    <!-- Advanced panel -->
+    <div class="filter-advanced-panel" id="advancedPanel">
+        <div class="filter-field">
+            <label>Cuenta</label>
+            <select id="filterAccount" onchange="onAdvancedFilterChange()">
                 <option value="">Todas las cuentas</option>
             </select>
         </div>
-        <div>
-            <label class="block text-sm font-bold text-neutral-700 mb-2">Categoría</label>
-            <select id="filterCategory" onchange="loadTransactions()" class="input-field">
+        <div class="filter-field">
+            <label>Categoría</label>
+            <select id="filterCategory" onchange="onAdvancedFilterChange()">
                 <option value="">Todas las categorías</option>
             </select>
         </div>
-        <div>
-            <label class="block text-sm font-bold text-neutral-700 mb-2">Desde</label>
-            <input type="date" id="filterStartDate" onchange="loadTransactions()" class="input-field date-input">
+        <div class="filter-field">
+            <label>Desde</label>
+            <input type="date" id="filterStartDate" onchange="onAdvancedFilterChange()">
         </div>
-        <div>
-            <label class="block text-sm font-bold text-neutral-700 mb-2">Hasta</label>
-            <input type="date" id="filterEndDate" onchange="loadTransactions()" class="input-field date-input">
+        <div class="filter-field">
+            <label>Hasta</label>
+            <input type="date" id="filterEndDate" onchange="onAdvancedFilterChange()">
         </div>
-        <div>
-            <label class="block text-sm font-bold text-neutral-700 mb-2">Límite</label>
-            <select id="filterLimit" onchange="loadTransactions()" class="input-field">
-                <option value="50">Últimas 50</option>
-                <option value="100" selected>Últimas 100</option>
-                <option value="200">Últimas 200</option>
-                <option value="500">Últimas 500</option>
+        <div class="filter-field">
+            <label>Límite</label>
+            <select id="filterLimit" onchange="onAdvancedFilterChange()">
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
                 <option value="0">Todas</option>
             </select>
         </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Ordenar por</label>
-            <select id="filterSort" onchange="displayTransactions()" class="input-field">
-                <option value="date_desc" selected>Fecha (más reciente)</option>
-                <option value="date_asc">Fecha (más antigua)</option>
-                <option value="account">Cuenta</option>
-                <option value="category">Categoría</option>
-                <option value="amount_desc">Monto (mayor)</option>
-                <option value="amount_asc">Monto (menor)</option>
-            </select>
-        </div>
-        <div class="flex items-end">
-            <button onclick="clearFilters()" class="btn-secondary w-full">
-                Limpiar Filtros
-            </button>
-        </div>
     </div>
+
+    <!-- Active filter chips row (shown when filters are active) -->
+    <div class="filter-active-chips" id="activeChipsRow" style="display:none;"></div>
 </div>
 
 <!-- Last manual transactions per account -->
@@ -574,12 +885,151 @@
     let transactionDetailSelected = null;
     let isSavingTransaction = false;
     let transactionFormSnapshot = null;
+    let transactionFormInitialState = null;
     let selectedTransactionId = null;
     let inlineEditingTransactionId = null;
     let inlineEditingField = null;
     let tableDensity = 'comfortable';
+    let searchDebounceTimer = null;
+    let activeDatePreset = 'month';
+
+    // ── Filter bar helpers ──────────────────────────────────────────────────
+
+    function applyDatePreset(preset, btn) {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+        let start, end;
+        if (preset === 'today') {
+            start = end = fmt(now);
+        } else if (preset === 'week') {
+            const day = now.getDay() || 7;
+            const mon = new Date(now); mon.setDate(now.getDate() - day + 1);
+            const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+            start = fmt(mon); end = fmt(sun);
+        } else if (preset === 'month') {
+            start = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+            end   = fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+        } else if (preset === 'quarter') {
+            const q = Math.floor(now.getMonth() / 3);
+            start = fmt(new Date(now.getFullYear(), q * 3, 1));
+            end   = fmt(new Date(now.getFullYear(), q * 3 + 3, 0));
+        } else if (preset === 'year') {
+            start = `${now.getFullYear()}-01-01`;
+            end   = `${now.getFullYear()}-12-31`;
+        }
+
+        document.getElementById('filterStartDate').value = start || '';
+        document.getElementById('filterEndDate').value   = end   || '';
+
+        // Toggle active chip style
+        document.querySelectorAll('.filter-date-chip').forEach(c => c.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        activeDatePreset = preset;
+
+        loadTransactions();
+        updateFilterUI();
+    }
+
+    function toggleAdvancedFilters() {
+        const panel = document.getElementById('advancedPanel');
+        const toggle = document.getElementById('advancedToggle');
+        const isOpen = panel.classList.contains('open');
+        panel.classList.toggle('open', !isOpen);
+        toggle.classList.toggle('open', !isOpen);
+    }
+
+    function onSearchInput() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            displayTransactions();
+            updateFilterUI();
+        }, 180);
+    }
+
+    function onAdvancedFilterChange() {
+        // Clear date preset highlight when user edits dates manually
+        document.querySelectorAll('.filter-date-chip').forEach(c => c.classList.remove('active'));
+        activeDatePreset = null;
+        loadTransactions();
+        updateFilterUI();
+    }
+
+    function updateFilterUI() {
+        const search   = (document.getElementById('filterSearch')?.value || '').trim();
+        const account  = document.getElementById('filterAccount')?.value;
+        const category = document.getElementById('filterCategory')?.value;
+        const start    = document.getElementById('filterStartDate')?.value;
+        const end      = document.getElementById('filterEndDate')?.value;
+        const limit    = document.getElementById('filterLimit')?.value;
+
+        const activeCount = [account, category, start, end].filter(Boolean).length;
+
+        // Badge on advanced toggle
+        const badge = document.getElementById('advancedBadge');
+        if (activeCount > 0) { badge.textContent = activeCount; badge.style.display = ''; }
+        else { badge.style.display = 'none'; }
+
+        // Clear button visibility
+        const hasAny = search || account || category || start || end || limit !== '100';
+        document.getElementById('clearFiltersBtn').style.display = hasAny ? '' : 'none';
+
+        // Active chips row
+        const chips = [];
+        if (search) chips.push({ label: `"${search}"`, clear: () => { document.getElementById('filterSearch').value = ''; displayTransactions(); updateFilterUI(); } });
+        if (account) {
+            const acc = accounts.find(a => String(a.id) === account);
+            chips.push({ label: acc ? acc.name : 'Cuenta', clear: () => { document.getElementById('filterAccount').value = ''; loadTransactions(); updateFilterUI(); } });
+        }
+        if (category) {
+            const cat = categories.find(c => String(c.id) === category);
+            chips.push({ label: cat ? cat.name : 'Categoría', clear: () => { document.getElementById('filterCategory').value = ''; loadTransactions(); updateFilterUI(); } });
+        }
+        if (start || end) {
+            const label = start && end ? `${start} → ${end}` : (start || end);
+            chips.push({ label, clear: () => {
+                document.getElementById('filterStartDate').value = '';
+                document.getElementById('filterEndDate').value = '';
+                document.querySelectorAll('.filter-date-chip').forEach(c => c.classList.remove('active'));
+                activeDatePreset = null;
+                loadTransactions(); updateFilterUI();
+            }});
+        }
+
+        const row = document.getElementById('activeChipsRow');
+        if (chips.length > 0) {
+            row.style.display = '';
+            row.innerHTML = '<span style="font-size:.68rem;font-weight:700;color:var(--text-soft,#94a3b8);text-transform:uppercase;letter-spacing:.06em;margin-right:.2rem;">Activos:</span>'
+                + chips.map((ch, i) => `
+                    <span class="filter-active-chip">
+                        ${escapeHtml(ch.label)}
+                        <button onclick="filterChipClear(${i})" title="Quitar filtro">
+                            <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </span>`).join('');
+            window._filterChipClears = chips.map(c => c.clear);
+        } else {
+            row.style.display = 'none';
+            row.innerHTML = '';
+            window._filterChipClears = [];
+        }
+    }
+
+    function filterChipClear(i) {
+        if (window._filterChipClears && window._filterChipClears[i]) {
+            window._filterChipClears[i]();
+        }
+    }
 
     document.addEventListener('DOMContentLoaded', async function() {
+        // Apply "this month" preset dates before first load
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        document.getElementById('filterStartDate').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-01`;
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        document.getElementById('filterEndDate').value = `${lastDay.getFullYear()}-${pad(lastDay.getMonth()+1)}-${pad(lastDay.getDate())}`;
+
         await loadAccounts();
         await loadLastManualTransactions();
         await loadCategories();
@@ -589,11 +1039,13 @@
         await loadTransactions();
         setDefaultDate();
         syncTransactionFormSnapshot();
+        updateFilterUI();
         document.addEventListener('keydown', handleTransactionKeyboardNavigation);
     });
 
     function setDefaultDate() {
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         document.getElementById('txDate').value = today;
     }
 
@@ -617,7 +1069,6 @@
             });
 
             renderLastManualTransactions();
-            populateTelegramAccountOptions();
             populateCreditCardPaymentSources();
         } catch (error) {
             console.error('Error loading accounts:', error);
@@ -827,7 +1278,16 @@
         const table = document.getElementById('transactionsTable');
         const emptyState = document.getElementById('emptyState');
 
-        if (transactions.length === 0) {
+        // Client-side search filter
+        const searchTerm = (document.getElementById('filterSearch')?.value || '').trim().toLowerCase();
+        const filtered = searchTerm
+            ? transactions.filter(tx =>
+                (tx.payee_name || '').toLowerCase().includes(searchTerm) ||
+                (tx.memo || '').toLowerCase().includes(searchTerm) ||
+                (tx.category_name || '').toLowerCase().includes(searchTerm))
+            : transactions;
+
+        if (filtered.length === 0) {
             table.innerHTML = '';
             emptyState.classList.remove('hidden');
             renderTransactionsMetrics([]);
@@ -836,7 +1296,7 @@
 
         emptyState.classList.add('hidden');
 
-        const sortedTransactions = sortTransactions(transactions);
+        const sortedTransactions = sortTransactions(filtered);
         renderTransactionsMetrics(sortedTransactions);
         if (!selectedTransactionId || !sortedTransactions.some(tx => tx.id === selectedTransactionId)) {
             selectedTransactionId = sortedTransactions[0].id;
@@ -1055,7 +1515,126 @@
         inlineEditingField = field;
         displayTransactions();
         const input = document.getElementById(`inlineEditInput-${transactionId}-${field}`);
-        input?.focus();
+        if (field === 'category' && input) {
+            enhanceSelectWithSearchFixed(input, { placeholder: 'Buscar categoría...' });
+        } else {
+            input?.focus();
+        }
+    }
+
+    function enhanceSelectWithSearchFixed(selectEl, options = {}) {
+        if (!selectEl || selectEl.dataset.enhanced) return;
+        selectEl.dataset.enhanced = 'true';
+        const placeholder = options.placeholder || 'Buscar...';
+
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;width:100%;';
+        selectEl.parentNode.insertBefore(wrapper, selectEl);
+
+        const display = document.createElement('button');
+        display.type = 'button';
+        display.className = 'tx-inline-input';
+        display.style.cssText = 'text-align:left;width:100%;cursor:pointer;position:relative;padding-right:1.5rem;';
+        const selectedOpt = selectEl.options[selectEl.selectedIndex];
+        display.textContent = selectedOpt ? selectedOpt.textContent : '';
+
+        const arrow = document.createElement('span');
+        arrow.innerHTML = '&#9662;';
+        arrow.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;font-size:0.75rem;';
+        display.appendChild(arrow);
+
+        // Panel uses position:fixed to escape table overflow clipping
+        const panel = document.createElement('div');
+        panel.style.cssText = 'display:none;position:fixed;z-index:9999;background:var(--bg-surface,#fff);border:1px solid var(--border-muted,#e2e8f0);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.14);max-height:320px;overflow:hidden;min-width:200px;';
+        document.body.appendChild(panel);
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = placeholder;
+        searchInput.style.cssText = 'width:100%;border:none;border-bottom:1px solid var(--border-muted,#e2e8f0);border-radius:10px 10px 0 0;padding:0.45rem 0.65rem;font-size:0.8rem;outline:none;background:var(--input-bg,#fff);color:var(--color-text,#1e293b);box-sizing:border-box;';
+
+        const optList = document.createElement('div');
+        optList.style.cssText = 'max-height:260px;overflow-y:auto;';
+
+        panel.appendChild(searchInput);
+        panel.appendChild(optList);
+        wrapper.appendChild(display);
+        selectEl.style.cssText = 'position:absolute;opacity:0;pointer-events:none;height:0;width:0;';
+        wrapper.appendChild(selectEl);
+
+        function positionPanel() {
+            const rect = display.getBoundingClientRect();
+            const panelH = 320;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const top = spaceBelow >= 150 ? rect.bottom + 4 : rect.top - panelH - 4;
+            panel.style.top = `${top}px`;
+            panel.style.left = `${rect.left}px`;
+            panel.style.width = `${rect.width}px`;
+        }
+
+        function buildOptions(filter) {
+            optList.innerHTML = '';
+            const lf = (filter || '').toLowerCase();
+            const groups = selectEl.querySelectorAll('optgroup');
+            const direct = selectEl.querySelectorAll(':scope > option');
+
+            function addOpt(opt, container) {
+                if (lf && !opt.textContent.toLowerCase().includes(lf)) return false;
+                const item = document.createElement('div');
+                item.textContent = opt.textContent;
+                item.dataset.value = opt.value;
+                item.style.cssText = 'padding:7px 12px;cursor:pointer;font-size:0.8rem;color:var(--color-text,#1e293b);';
+                if (opt.value === selectEl.value) { item.style.background = 'var(--table-row-hover,#f0f4ff)'; item.style.fontWeight = '600'; }
+                item.addEventListener('mouseenter', () => item.style.background = 'var(--table-row-hover,#f0f4ff)');
+                item.addEventListener('mouseleave', () => { if (opt.value !== selectEl.value) item.style.background = ''; });
+                item.addEventListener('click', () => {
+                    selectEl.value = opt.value;
+                    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    display.childNodes[0].textContent = opt.textContent;
+                    closePanel();
+                });
+                container.appendChild(item);
+                return true;
+            }
+
+            direct.forEach(opt => addOpt(opt, optList));
+            groups.forEach(group => {
+                const temp = document.createElement('div');
+                const added = [];
+                group.querySelectorAll('option').forEach(opt => { if (addOpt(opt, temp)) added.push(true); });
+                if (added.length) {
+                    const hdr = document.createElement('div');
+                    hdr.textContent = group.label;
+                    hdr.style.cssText = 'padding:6px 12px 3px;font-size:0.65rem;font-weight:700;color:var(--text-soft,#94a3b8);text-transform:uppercase;letter-spacing:0.06em;';
+                    optList.appendChild(hdr);
+                    optList.appendChild(temp);
+                }
+            });
+        }
+
+        function openPanel() {
+            positionPanel();
+            panel.style.display = 'block';
+            buildOptions('');
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        function closePanel() { panel.style.display = 'none'; }
+
+        display.addEventListener('click', e => { e.stopPropagation(); panel.style.display === 'none' ? openPanel() : closePanel(); });
+        searchInput.addEventListener('input', () => buildOptions(searchInput.value));
+        searchInput.addEventListener('click', e => e.stopPropagation());
+
+        const outsideClick = e => {
+            if (!wrapper.contains(e.target) && !panel.contains(e.target)) {
+                closePanel();
+                document.removeEventListener('click', outsideClick);
+            }
+        };
+        document.addEventListener('click', outsideClick);
+
+        // Auto-open
+        openPanel();
     }
 
     async function saveInlineEdit(transactionId, field) {
@@ -1402,8 +1981,7 @@
         editingTransactionOriginal = transaction;
         document.getElementById('modalTitle').textContent = 'Editar Transacción';
         const txDateInput = document.getElementById('txDate');
-        txDateInput.value = transaction.date;
-        txDateInput.dispatchEvent(new Event('change'));
+        txDateInput.value = transaction.date ? transaction.date.split('T')[0] : '';
         document.getElementById('txAccount').value = transaction.account_id;
         document.getElementById('txPayee').value = transaction.payee_name || '';
         document.getElementById('txCategory').value = transaction.category_id || '';
@@ -1639,20 +2217,27 @@
     }
 
     function clearFilters() {
+        document.getElementById('filterSearch').value = '';
         document.getElementById('filterAccount').value = '';
         document.getElementById('filterCategory').value = '';
         document.getElementById('filterStartDate').value = '';
         document.getElementById('filterEndDate').value = '';
         document.getElementById('filterLimit').value = '100';
         document.getElementById('filterSort').value = 'date_desc';
-        loadTransactions();
+        // Reset to current month preset
+        document.querySelectorAll('.filter-date-chip').forEach(c => c.classList.remove('active'));
+        const monthChip = document.querySelector('[data-preset="month"]');
+        if (monthChip) applyDatePreset('month', monthChip);
+        else loadTransactions();
+        updateFilterUI();
     }
 
 
     // Transfer modal functionsns
     function openTransferModal() {
         document.getElementById('transferForm').reset();
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         document.getElementById('transferDate').value = today;
 
         // Populate account dropdowns
@@ -1794,6 +2379,7 @@
             alert('Error al crear las categorías');
         }
     }
+
 
 </script>
 {% endblock %}

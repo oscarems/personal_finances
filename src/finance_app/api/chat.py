@@ -23,7 +23,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 
 @router.get("/", response_class=HTMLResponse)
 def chat_page(request: Request):
-    return templates.TemplateResponse("chat_ui.html", {"request": request})
+    return templates.TemplateResponse("chat_ui.html", context={"request": request})
 
 
 @router.get("/modelos")

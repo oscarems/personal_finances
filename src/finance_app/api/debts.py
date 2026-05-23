@@ -38,11 +38,36 @@ from finance_app.services.debt.helpers import (
     payment_source_label,
     get_credit_card_current_balance,
     build_mortgage_payment_history,
+    build_loan_payment_history,
     debt_to_dict_with_calculated_balance,
+    calculate_credit_card_monthly_interest,
+    calculate_suggested_minimum_payment,
 )
 from finance_app.domain.fx.service import convert_to_cop
+from finance_app.services.debt.simulator import simulate_payoff
 
 router = APIRouter()
+
+
+@router.get("/simulator")
+def debt_simulator(
+    extra_payment: float = 0.0,
+    strategy: str = "avalanche",
+    db: Session = Depends(get_db),
+):
+    """Simula el pago anticipado de deudas activas con un monto extra mensual."""
+    debts = db.query(Debt).filter(Debt.is_active == True).all()
+    if not debts:
+        return {
+            "payoff_date": None,
+            "payoff_date_extra": None,
+            "total_interest": 0.0,
+            "total_interest_extra": 0.0,
+            "interest_saved": 0.0,
+            "months_saved": 0,
+            "monthly_breakdown": [],
+        }
+    return simulate_payoff(debts, extra_payment, strategy)
 
 
 # Pydantic Schemas
@@ -103,6 +128,13 @@ class DebtPaymentCreate(BaseModel):
 
 class DebtCategoryAllocationUpdate(BaseModel):
     category_ids: List[int]
+
+
+class DebtBalanceConfirm(BaseModel):
+    """Schema for confirming a debt balance against a bank statement"""
+    confirmed_balance: float
+    confirmed_balance_date: date
+    notes: Optional[str] = None
 
 
 @router.get("/{debt_id}/category-allocations")
@@ -199,7 +231,9 @@ def get_debts_summary(db: Session = Depends(get_db)):
         'average_interest_rate': 0,
         'total_monthly_payment': {},
         'debts_near_payoff': [],
-        'high_interest_debts': []
+        'high_interest_debts': [],
+        'high_utilization_alerts': [],  # Credit cards with utilization > 30%
+        'total_monthly_interest_credit_cards': {},  # Estimated interest cost across all CC
     }
 
     if not eligible_debts:
@@ -272,8 +306,34 @@ def get_debts_summary(db: Session = Depends(get_db)):
                 'balance': current_balance
             })
 
+        # Credit card specific: utilization alerts + monthly interest cost
+        if debt.debt_type == "credit_card":
+            effective_limit = debt.credit_limit or 0.0
+            if not effective_limit and debt.account:
+                effective_limit = getattr(debt.account, 'credit_limit', None) or 0.0
+            if effective_limit > 0 and current_balance > 0:
+                utilization = (current_balance / effective_limit) * 100
+                if utilization >= 30:
+                    summary['high_utilization_alerts'].append({
+                        'id': debt.id,
+                        'name': debt.name,
+                        'utilization_pct': round(utilization, 1),
+                        'balance': current_balance,
+                        'credit_limit': effective_limit,
+                        'severity': 'critical' if utilization >= 70 else 'warning',
+                    })
+
+            monthly_interest = calculate_credit_card_monthly_interest(debt)
+            if monthly_interest > 0:
+                cc = debt.currency_code or 'COP'
+                summary['total_monthly_interest_credit_cards'].setdefault(cc, 0.0)
+                summary['total_monthly_interest_credit_cards'][cc] += monthly_interest
+
     if interest_count > 0:
         summary['average_interest_rate'] = total_interest_sum / interest_count
+
+    # Sort high utilization alerts worst first
+    summary['high_utilization_alerts'].sort(key=lambda x: x['utilization_pct'], reverse=True)
 
     return summary
 
@@ -298,6 +358,36 @@ def get_debt(debt_id: int, include_payments: bool = False, db: Session = Depends
     )
 
 
+@router.post("/{debt_id}/confirm-balance")
+def confirm_debt_balance(debt_id: int, payload: DebtBalanceConfirm, db: Session = Depends(get_db)):
+    """Confirm the real debt balance from a bank statement.
+
+    Records the confirmed balance and date so it can be compared against the
+    calculated balance from the amortization engine.  Optionally adjusts the
+    debt's `current_balance` for credit-card debts where there is no amortization
+    schedule to derive a balance from.
+    """
+    debt = db.query(Debt).filter_by(id=debt_id).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+
+    debt.confirmed_balance = payload.confirmed_balance
+    debt.confirmed_balance_date = payload.confirmed_balance_date
+    if payload.notes:
+        existing_notes = debt.notes or ""
+        stamp = f"[Saldo confirmado {payload.confirmed_balance_date}: {payload.notes}]"
+        debt.notes = (existing_notes + " " + stamp).strip()
+
+    db.commit()
+    db.refresh(debt)
+
+    result = debt_to_dict_with_calculated_balance(debt, db)
+    calculated = result.get("current_balance", 0) or 0
+    confirmed = float(debt.confirmed_balance)
+    result["balance_discrepancy"] = round(confirmed - calculated, 2)
+    return result
+
+
 @router.post("/")
 def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
     account = db.query(Account).filter_by(id=debt_data.account_id).first()
@@ -310,6 +400,26 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
             status_code=400,
             detail=f"Invalid debt_type. Must be one of: {', '.join(valid_types)}"
         )
+
+    # Type-specific validation
+    if debt_data.debt_type == "credit_card":
+        if not debt_data.credit_limit or debt_data.credit_limit <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="credit_limit es requerido para tarjetas de crédito."
+            )
+    elif debt_data.debt_type == "credit_loan":
+        if not debt_data.monthly_payment and not debt_data.loan_years:
+            raise HTTPException(
+                status_code=400,
+                detail="Se requiere monthly_payment o loan_years para préstamos (credit_loan)."
+            )
+    elif debt_data.debt_type == "mortgage":
+        if not debt_data.monthly_payment and not debt_data.loan_years:
+            raise HTTPException(
+                status_code=400,
+                detail="Se requiere monthly_payment o loan_years para hipotecas."
+            )
 
     current_balance = debt_data.current_balance
     if debt_data.debt_type == "mortgage" and current_balance is None:
@@ -367,6 +477,9 @@ def update_debt(debt_id: int, debt_update: DebtUpdate, db: Session = Depends(get
 
     update_data = debt_update.dict(exclude_unset=True)
     if debt.debt_type == "mortgage" and "current_balance" in update_data:
+        # Mortgage balance is derived from the amortization schedule (real payments + projection).
+        # Manual edits would conflict with the engine calculation, so we reject them here.
+        # To adjust the balance, register a payment via POST /{debt_id}/payments instead.
         update_data.pop("current_balance")
     for field, value in update_data.items():
         setattr(debt, field, value)
@@ -438,21 +551,54 @@ def get_debt_timeline(
     months = _iter_months(start_month, end_month)
 
     current_month = today.replace(day=1)
-    ensure_debt_amortization_records(db, start_month, end_month)
 
-    debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
-    debt_ids = [debt.id for debt in debts]
-    amortization_records = fetch_amortization_range(db, start_month, end_month, debt_ids)
+    # Separate debts: loans/mortgages use amortization records; credit cards use account balance.
+    loan_debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
+    credit_card_debts = db.query(Debt).filter(Debt.debt_type == "credit_card").all()
 
+    loan_debt_ids = [debt.id for debt in loan_debts]
+    if loan_debt_ids:
+        ensure_debt_amortization_records(db, start_month, end_month)
+    amortization_records = fetch_amortization_range(db, start_month, end_month, loan_debt_ids) if loan_debt_ids else {}
+
+    all_debts = loan_debts + credit_card_debts
     per_debt = {
         str(debt.id): {
             "name": debt.name,
+            "debt_type": debt.debt_type,
             "currency_code": debt.currency_code,
             "principal_cop_by_month": [],
             "principal_original_by_month": [],
         }
-        for debt in debts
+        for debt in all_debts
     }
+
+    # Pre-compute projected credit card balances for future months.
+    # Each future month reduces the balance by (payment - interest), simulating
+    # the user paying the minimum (or monthly_payment if set) every month.
+    cc_projected_balances: dict[int, dict[date, float]] = {}
+    next_month = (current_month + relativedelta(months=1))
+    for debt in credit_card_debts:
+        current_cc_balance = max(
+            0.0,
+            -(float(debt.account.balance or 0.0)) if debt.account else float(debt.current_balance or 0.0)
+        )
+        payment = float(debt.monthly_payment or debt.minimum_payment or 0.0)
+        annual_rate_raw = debt.annual_interest_rate or debt.interest_rate
+        annual = float(annual_rate_raw) if annual_rate_raw else 0.0
+        annual_decimal = annual / 100 if annual > 1 else annual
+        monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1 if annual_decimal > 0 else 0.0
+
+        projected: dict[date, float] = {}
+        balance = current_cc_balance
+        for proj_month in months:
+            if proj_month < next_month:
+                continue
+            interest = balance * monthly_rate
+            principal_paid = max(0.0, payment - interest)
+            balance = max(0.0, balance - principal_paid)
+            projected[proj_month] = round(balance, 2)
+        cc_projected_balances[debt.id] = projected
 
     totals_cop_by_month = []
     month_labels = []
@@ -460,7 +606,8 @@ def get_debt_timeline(
     for month in months:
         month_labels.append(month.strftime("%Y-%m"))
         total_cop = 0.0
-        for debt in debts:
+
+        for debt in loan_debts:
             record = amortization_records.get((debt.id, month))
             if record:
                 principal_original = float(record.principal_remaining)
@@ -469,9 +616,25 @@ def get_debt_timeline(
             else:
                 principal_original = 0.0
                 principal_cop = 0.0
-
             per_debt[str(debt.id)]["principal_cop_by_month"].append(round(principal_cop, 2))
             per_debt[str(debt.id)]["principal_original_by_month"].append(round(principal_original, 2))
+
+        # Credit cards: past/present months use real account balance;
+        # future months project balance declining by payment - interest each period.
+        for debt in credit_card_debts:
+            current_cc_balance = max(
+                0.0,
+                -(float(debt.account.balance or 0.0)) if debt.account else float(debt.current_balance or 0.0)
+            )
+            if month <= current_month:
+                cc_balance = current_cc_balance
+            else:
+                # Use pre-computed projected balance from cc_projected_balances
+                cc_balance = cc_projected_balances.get(debt.id, {}).get(month, current_cc_balance)
+            principal_cop = float(convert_to_cop(cc_balance, debt.currency_code, month, db=db))
+            total_cop += principal_cop
+            per_debt[str(debt.id)]["principal_cop_by_month"].append(round(principal_cop, 2))
+            per_debt[str(debt.id)]["principal_original_by_month"].append(round(cc_balance, 2))
 
         totals_cop_by_month.append(round(total_cop, 2))
 
@@ -522,8 +685,10 @@ def get_debt_payments(debt_id: int, db: Session = Depends(get_db)):
     if not debt:
         raise HTTPException(status_code=404, detail="Debt not found")
 
-    if debt.debt_type == "mortgage":
-        payments = build_mortgage_payment_history(debt, db)
+    if debt.debt_type in {"mortgage", "credit_loan"}:
+        # Use unified history builder: merges DebtPayment + MortgagePaymentAllocation
+        # (allocations only apply to mortgages, so credit_loan gets plain DebtPayments).
+        payments = build_loan_payment_history(debt, db)
         return sorted(
             payments,
             key=lambda payment: date.fromisoformat(payment["payment_date"]),
@@ -558,7 +723,10 @@ def create_debt_payment(debt_id: int, payment_data: DebtPaymentCreate, db: Sessi
         interest=payment_data.interest,
         fees=payment_data.fees,
     )
-    if debt.debt_type == "mortgage":
+    # For amortized debts (mortgage, credit_loan), balance_after is computed from
+    # the amortization schedule after the payment is saved — not derived manually.
+    # For credit cards, balance comes from the linked account (updated externally).
+    if debt.debt_type in {"mortgage", "credit_loan"}:
         balance_after = None
     else:
         balance_after = debt.current_balance - principal_amount
@@ -578,9 +746,14 @@ def create_debt_payment(debt_id: int, payment_data: DebtPaymentCreate, db: Sessi
     db.add(new_payment)
     db.flush()
 
-    if debt.debt_type == "mortgage":
+    if debt.debt_type in {"mortgage", "credit_loan"}:
+        # Recalculate balance from the amortization schedule so it stays consistent
+        # with the engine — manual subtraction can drift from scheduled amortization.
         debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=payment_data.payment_date)
         new_payment.balance_after = debt.current_balance
+    elif debt.debt_type == "credit_card":
+        # Credit card balance is authoritative from the linked account balance.
+        debt.current_balance = get_credit_card_current_balance(debt)
     else:
         debt.current_balance = balance_after
 
@@ -619,8 +792,10 @@ def delete_debt_payment(debt_id: int, payment_id: int, db: Session = Depends(get
     db.delete(payment)
     db.flush()
 
-    if debt.debt_type == "mortgage":
+    if debt.debt_type in {"mortgage", "credit_loan"}:
         debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=payment.payment_date)
+    elif debt.debt_type == "credit_card":
+        debt.current_balance = get_credit_card_current_balance(debt)
     else:
         debt.current_balance += principal_amount
 

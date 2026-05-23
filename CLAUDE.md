@@ -1,199 +1,139 @@
-# Personal Finances - Claude Code Guide
+# CLAUDE.md — Personal Finances
 
-## Project Overview
-YNAB-style personal finance manager built with FastAPI + SQLAlchemy + Jinja2 templates.
-Supports multi-currency (COP/USD), budgeting, debt tracking, net worth (Patrimonio),
-and investment simulation.
+## Stack & Commands
+
+```bash
+# Run
+python run.py
+
+# Test (full suite)
+pytest tests/ -v
+
+# Test (financial calculators only — run before ANY calculator change)
+pytest tests/test_amortization*.py tests/test_patrimonio*.py tests/test_calculators*.py -v
+
+# Lint
+ruff check . && ruff format --check .
+
+# DB migration (NO Alembic — manual scripts only)
+python scripts/migrate_db.py
+```
+
+**Stack:** Python · FastAPI · SQLite · Jinja2 · Tailwind · vanilla JS · no frontend build pipeline.
+
+---
 
 ## Architecture
 
 ```
-src/finance_app/
-├── app.py                  # FastAPI app, route registration, startup
-├── database.py             # SQLAlchemy engine, session, init
-├── init_db.py              # Database initialization with seed data
-├── config/
-│   ├── __init__.py         # Re-exports all config constants
-│   └── settings.py         # All configuration (DB, currencies, alerts, account types, env settings)
-├── models/                 # SQLAlchemy ORM models
-│   ├── patrimonio_asset.py # PatrimonioAsset model (inmueble, vehiculo, otro) with depreciation + return fields
-│   ├── debt.py             # Debt + DebtPayment models (single source of truth for all debts)
-│   └── debt_amortization.py # DebtAmortizationMonthly (Numeric(18,2) columns)
-├── domain/                 # Domain logic (tightly coupled to finance_app)
-│   ├── debts/              # Debt projections, snapshots, repository
-│   │   ├── types.py        # Data classes (DebtPrincipalRecord)
-│   │   ├── repository.py   # Data access (fetch_debts, fetch_snapshots)
-│   │   ├── service.py      # Business logic (get_debts_principal)
-│   │   ├── snapshot.py     # Snapshot building
-│   │   └── projection.py   # Debt principal timeline projections
-│   └── fx/
-│       └── service.py      # Currency conversion (to_cop, from_cop) with fallback
-├── api/                    # FastAPI routers (REST endpoints)
-│   ├── patrimonio.py       # Patrimonio CRUD + resumen/timeline endpoints
-│   ├── reports_pkg/        # Report endpoints (modular)
-│   │   ├── __init__.py     # Aggregated router
-│   │   ├── common.py       # Shared helpers (currency, dates, queries)
-│   │   ├── spending.py     # Spending by category/tag/group
-│   │   ├── income.py       # Income vs expenses, budget comparisons
-│   │   ├── balance.py      # Balance trends, account history
-│   │   └── debt.py         # Debt balance, principal timeline, payoff
-│   └── ...                 # Other API modules (accounts, budgets, debts, etc.)
-├── services/               # Business logic services
-│   ├── debt/               # Debt-related services (see services/debt/README.md)
-│   │   ├── amortization_engine.py  # Core amortization calculation engine
-│   │   ├── amortization_service.py # Amortization record management
-│   │   ├── balance_service.py      # Debt balance calculations
-│   │   ├── helpers.py              # Debt payment helpers (extracted from api/debts.py)
-│   │   ├── timeline.py            # Debt principal timeline builder
-│   │   └── README.md              # Module documentation
-│   ├── patrimonio/         # Patrimonio (unified net worth) services
-│   │   ├── calculator.py          # Asset valuation, debt balance via AmortizationEngine, net worth timeline
-│   │   └── __init__.py
-│   ├── mortgage/           # Mortgage-related services
-│   │   ├── service.py              # Mortgage calculations
-│   │   └── allocation_service.py   # Payment allocation logic
-│   ├── transaction_service.py      # Transaction CRUD + currency conversion
-│   ├── transaction_allocation_service.py
-│   ├── budget_service.py
-│   ├── exchange_rate_service.py    # External API rate fetching
-│   ├── alert_service.py
-│   ├── emergency_fund_service.py
-│   ├── goal_service.py
-│   ├── investment_simulator_service.py
-│   ├── microsoft_graph_service.py
-│   ├── reconciliation_service.py
-│   └── recurring_service.py
-├── templates/
-│   ├── base.html           # Layout with sidebar navigation
-│   ├── patrimonio/         # Patrimonio pages (dashboard, activos, deudas)
-│   ├── reports/            # Report page templates
-│   └── ...                 # Other page templates
-├── static/styles/          # CSS (design-system.css)
-├── sync/                   # Email sync modules
-│   ├── email_scrape.py     # CLI wrapper
-│   └── email_scrape_sync.py # Email scraping implementation
-├── scripts/                # CLI scripts (migrations, imports)
-│   ├── init_db.py          # DB initialization wrapper
-│   ├── import_ynab.py      # YNAB CSV import
-│   ├── generate_recurring.py
-│   ├── migrate_db.py
-│   ├── seed_categories.py
-│   ├── reset_database.py
-│   ├── recalculate_savings_budgets.py
-│   └── test_csv_reader.py
-└── utils/
-    └── ynab_importer.py    # YNAB CSV parsing utility
+models → services/calculators → api routers → templates
 ```
 
-## Tech Stack
-- **Backend**: FastAPI + Uvicorn
-- **ORM**: SQLAlchemy (SQLite)
-- **Templates**: Jinja2 + Tailwind CSS (CDN)
-- **Charts**: Chart.js
-- **Language**: Python 3.x, HTML/JS frontend
+- Monolithic, server-rendered, desktop-first. No SPA, no microservices.
+- Business logic lives in services/calculators, never in routers or templates.
+- COP = base currency. USD = secondary. All conversions via exchange rate services only.
 
-## Key Commands
+---
 
-```bash
-# Run the app
-python run.py
-# or
-uvicorn finance_app.app:app --reload --host 0.0.0.0 --port 8000
+## Financial Precision Rules
 
-# Run tests
-python -m pytest tests/ -v
+- DB money columns: `Numeric(18, 2)` — NEVER `Float`.
+- Python calcs: currently `float` (known tech debt). Do NOT introduce more float-based financial logic. New critical calculators → use `Decimal`.
+- Debt balances in patrimonio always from: `AmortizationEngine.balance_as_of(..., mode="hybrid")`
 
-# Run a specific test
-python -m pytest tests/test_patrimonio_calculator.py -v
+---
+
+## Source of Truth
+
+```
+Transactions → Calculated Balances → Reports / Patrimonio / Cash Flow
 ```
 
-## Key Conventions
+Manual reconciliations are authoritative checkpoints. Recalculation MUST NOT override balances after a reconciliation date. Never silently mutate historical balances.
 
-- **Currency**: COP (id=1) is base currency, USD (id=2). Exchange rate stored in `exchange_rates` table.
-- **Dates**: All date ranges default to current month. Minimum supported: January 2026.
-- **Transactions**: Negative = expense, Positive = income. Transfers use `transfer_account_id`.
-- **Debt types**: `mortgage`, `credit_loan`, `credit_card`.
-- **Patrimonio types**: Assets are `inmueble`, `vehiculo`, `otro`. Debts are `hipoteca`, `consumo` (no `tarjeta` — credit cards are managed in `/debts`).
-- **Templates**: Extend `base.html`. Spanish language UI. Use Tailwind utility classes.
-- **API responses**: Always include `currency` dict when returning monetary values.
-- **Import style**: Use `from finance_app.xxx import ...` (absolute within the package). Config imports use `from finance_app.config import ...`.
-- **Monetary columns**: Always use `Numeric(precision=18, scale=2)` for money. Never use `Float` — it causes rounding errors.
-- **Patrimonio reads Debt directly**: Patrimonio uses the `Debt` model (not a separate table) for net worth calculations. The `AmortizationEngine` is called directly with `Debt` objects.
+---
 
-## Best Practices
+## Always / Never
 
-### Data Types
-- **Money**: `Numeric(18, 2)` in SQLAlchemy models. Never `Float`.
-- **Dates**: Use `datetime.date` objects. Store as `Date` columns, not strings.
-- **Rates**: Store as decimals (0.08 = 8%). Annual unless `debt.notes` says otherwise.
+**Always:**
+- Ask questions before implementing if requirements are ambiguous.
+- Inspect existing templates before creating UI — reuse existing patterns.
+- Use CSS variables and semantic classes (`design-system.css`).
+- Use `SimpleNamespace`/dataclasses for mocks in calculator tests (no DB deps).
+- Include currency metadata in all reports.
 
-### Module Structure
-- **Calculators** (`services/*/calculator.py`): Pure functions, no DB access. Take model objects or dataclasses as input, return dicts/lists. Easy to test.
-- **Services** (`services/*_service.py`): Orchestration layer with DB access. Call calculators for math.
-- **API routers** (`api/*.py`): Thin HTTP layer. Validate input, call services, format response. No business logic.
+**Never:**
+- Use `Float` for money in DB schema.
+- Use inline styles or hardcoded colors in templates.
+- Introduce React, Vue, or any frontend build system.
+- Modify `amortization_engine.py` without running its full test suite first.
+- Use Alembic — schema changes use `scripts/migrate_db.py` only (SQLite simplicity is intentional, not an oversight).
+- Create new UI components if an equivalent pattern exists in the design system.
 
-### Adding New Financial Modules
-1. Create SQLAlchemy model in `models/` with `Numeric(18,2)` for money fields.
-2. Write calculator in `services/<module>/calculator.py` — pure functions first.
-3. Write tests against the calculator with known expected values.
-4. Build API router in `api/<module>.py`, register in `app.py`.
-5. Create Jinja2 template in `templates/<module>/`, add sidebar link in `base.html`.
+---
 
-### Testing
-- Test calculators with hardcoded expected values and explicit tolerances for floating-point math.
-- Use `SimpleNamespace` or dataclasses to mock model objects in calculator tests — avoid DB when possible.
-- For API tests, use in-memory SQLite with `get_db` override.
-- Name test files `tests/test_<module>.py`. Group related tests in classes.
+## Protected Files — High Risk
 
-### Interest Rate Conventions
-- Colombian rates are typically **effective annual (EA)**: `monthly = (1 + annual)^(1/12) - 1`
-- US-style rates are **nominal (APR)**: `monthly = annual / 12`
-- Default to `effective` unless specified. Document convention in `debt.notes`.
+```
+services/debt/amortization_engine.py   ← affects debt, patrimonio, cash flow, projections
+services/patrimonio/calculator.py
+database.py
+models/
+scripts/migrate_db.py
+static/styles/design-system.css
+.env
+```
 
-### Currency
-- All monetary API responses include a `currency` dict.
-- COP is base (id=1). USD (id=2) converts via `exchange_rates` table.
-- Patrimonio module stores `moneda_id` per asset/debt for multi-currency support.
+Changes to protected files require explicit user approval.
 
-## Patrimonio Module
+---
 
-The **single unified net worth system**. All asset valuation and long-term debt tracking flows through Patrimonio (the legacy `services/wealth/` system has been consolidated here).
+## Approval Required Before
 
-### Asset Valuation
-- Valuation on January 1st each year, constant through Dec.
-- Formula: `value = valor_adquisicion * (1 + tasa_anual) ^ max(0, year - year_acquisition - 1)`
-- Acquisition year returns original value. Before acquisition returns 0.
-- **Depreciation methods** (`metodo_depreciacion`): `linea_recta`, `saldo_decreciente`, `doble_saldo_decreciente`.
-- **Return fields**: `return_rate` (percentage) and `return_amount` (fixed annual) for investment-type assets.
+Schema changes · file renames/moves · public API signature changes · new dependencies · deleting tests · `.env` edits · large refactors · rewriting financial formulas.
 
-### Debts in Patrimonio
-- **Single source of truth**: Debts are managed in `/debts` (Debt model). Patrimonio reads directly from the `debts` table, filtering mortgage + credit_loan (excludes credit cards).
-- **No separate PatrimonioDebt model** — eliminated to avoid data duplication and sync issues.
-- Patrimonio uses the `AmortizationEngine` in hybrid mode (real payments + projected) for balance calculations.
-- **No credit cards in patrimonio**: Tarjetas de credito are managed only in `/debts`.
+When in doubt: **STOP and ask.**
 
-### API Endpoints (`/api/patrimonio/`)
-- `GET /resumen?año=&mes=` — Summary with assets, debts, net worth
-- `GET /timeline?desde=YYYY-MM&hasta=YYYY-MM` — Monthly timeline
-- CRUD: `/activos` (assets only — debts managed via `/api/debts`)
-- `GET /activos/{id}/timeline`, `GET /deudas/{id}/amortizacion` (read-only for debts)
+---
 
-### Frontend Pages
-- `/patrimonio` — Dashboard with summary cards + Chart.js timeline (24mo past + 24mo future)
-- `/patrimonio/activos` — Asset list with valuations, timeline chart, add/edit forms
-- `/patrimonio/deudas` — Read-only debt view with progress bars and amortization table (edit in `/debts`)
+## Verification Checklist (before marking a task done)
 
-## Report System (api/reports_pkg/)
+1. Run relevant test suite (see Commands above).
+2. If touching a financial calculator → run full calculator tests + spot-check with hardcoded expected values.
+3. If touching UI → confirm no inline styles, no hardcoded colors, existing design-system classes used.
+4. If touching DB schema → confirm `migrate_db.py` updated and backward compatibility preserved.
+5. If touching patrimonio or cash flow → confirm `amortization_engine.py` was NOT modified without tests passing.
 
-The report module is split into focused files:
-- `common.py` — Shared utilities: `get_exchange_rate()`, `parse_date_range()`, `convert_to_currency()`, expense allocation helpers
-- `spending.py` — `/spending-by-category`, `/spending-by-tag`, `/spending-by-group`, `/spending-trends`
-- `income.py` — `/income-vs-expenses`, `/budget-income-expenses`, `/top-income-expenses`, `/budget-vs-actual`, `/savings-rate`, `/summary`, `/period-summary`
-- `balance.py` — `/balance-trend`, `/account-balance-history`
-- `debt.py` — `/debt-balance-history`, `/debt-principal-timeline`, `/debt-summary`, `/debt-payoff-projection`
+---
 
-## Testing
-- Tests live in `tests/` directory
-- Use in-memory SQLite for test isolation
-- Import API functions directly for unit testing (e.g., `from finance_app.api.patrimonio import ...`)
-- Calculator/service tests should use plain objects or dataclasses, not DB sessions when possible
+## Why These Decisions Exist
+
+| Decision | Why |
+|---|---|
+| SQLite, no Alembic | Single-user system; simplicity over tooling overhead; manual scripts give full control |
+| No soft-delete | Reduces complexity; hard delete is sufficient for a personal system |
+| Float tech debt | Introduced before Decimal discipline was enforced; don't expand it, migrate incrementally |
+| No formal month-close | Reports recalculate dynamically; reconciliation checkpoints serve the same purpose |
+| Jinja2 server-render | Desktop-only personal tool; SSR is simpler and sufficient |
+
+---
+
+## Debt System Scope
+
+Supported: `mortgage` · `credit_loan` · `credit_card`
+
+Out of scope (do not implement without discussion): UVR / inflation-indexed loans · late-interest calc · daily accrual · revolving credit simulation · installment credit-card engine.
+
+→ Full debt semantics: `@docs/debt-system.md`
+→ Frontend conventions: `@docs/frontend-conventions.md`
+→ Current sprint / active work: `@MEMORY.md`
+
+---
+
+## Anti-patterns (errores recurrentes — llenar según experiencia)
+
+<!-- Agrega aquí los errores que Claude repite. Ejemplo:
+- NEVER suggest using Alembic — already decided against it.
+- NEVER put query logic inside Jinja2 templates.
+- NEVER create a new CSS component when card/button/table pattern already exists.
+-->

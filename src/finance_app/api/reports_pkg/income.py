@@ -140,12 +140,13 @@ def get_budget_income_expenses(
         current_date += relativedelta(months=1)
 
     currency = db.query(Currency).get(currency_id)
+    currency_dict = currency.to_dict() if currency else None
 
     return {
         'months': results,
         'period': f'{start_date.strftime("%b %Y")} - {end_date.strftime("%b %Y")}',
         'note': note,
-        'currency': currency.to_dict() if currency else None
+        'currency': currency_dict,
     }
 
 

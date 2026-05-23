@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración inicial — Personal Finances</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles/design-system.css?v=300">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        (function() {
+            const stored = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-theme', stored || (prefersDark ? 'dark' : 'light'));
+        })();
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Syne"', 'system-ui', 'sans-serif'],
+                        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd',
+                            300: '#7dd3fc', 400: '#38bdf8', 500: '#0ea5e9',
+                            600: '#0284c7', 700: '#0369a1', 800: '#075985', 900: '#0c4a6e'
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg-primary); color: var(--color-text); }
+        .font-display { font-family: 'Syne', system-ui, sans-serif; }
+
+        .step-panel { display: none; }
+        .step-panel.active { display: block; }
+
+        .currency-card {
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 2px solid var(--border-muted);
+            border-radius: var(--radius-card);
+            padding: 0.75rem 1rem;
+            background: var(--bg-surface);
+        }
+        .currency-card:hover { border-color: var(--color-primary); background: var(--info-bg-soft); }
+        .currency-card.selected { border-color: var(--color-primary-600); background: var(--info-bg-strong); }
+        .currency-card.selected .check { display: flex; }
+        .currency-card .check { display: none; }
+
+        .progress-step {
+            width: 2rem; height: 2rem;
+            border-radius: 9999px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 600;
+            transition: all 0.2s;
+        }
+        .progress-step.done { background: var(--color-primary-600); color: #fff; }
+        .progress-step.active { background: var(--color-primary-600); color: #fff; box-shadow: 0 0 0 4px rgba(2,132,199,0.2); }
+        .progress-step.pending { background: var(--border-strong); color: var(--text-soft); }
+
+        input[type="text"], input[type="email"], input[type="password"], input[type="number"], select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--input-border);
+            border-radius: var(--radius-button);
+            font-size: 0.875rem;
+            font-family: var(--font-sans);
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            background: var(--input-bg);
+            color: var(--color-text);
+        }
+        input:focus, select:focus { border-color: var(--color-primary-600); box-shadow: var(--focus-ring); }
+        label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 0.25rem; display: block; }
+
+        .btn-primary {
+            background: var(--color-primary-600); color: #fff; font-weight: 600;
+            font-family: var(--font-sans);
+            padding: 0.75rem 2rem; border-radius: var(--radius-button);
+            transition: background 0.15s;
+            border: none; cursor: pointer;
+        }
+        .btn-primary:hover { background: var(--color-primary-700); }
+        .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .btn-ghost {
+            color: var(--text-secondary); font-weight: 500;
+            font-family: var(--font-sans);
+            padding: 0.75rem 1.5rem; border-radius: var(--radius-button);
+            transition: color 0.15s; background: none; border: none; cursor: pointer;
+        }
+        .btn-ghost:hover { color: var(--text-primary); }
+    </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-4" style="background:var(--bg-primary)">
+
+<div class="w-full max-w-lg">
+
+    <!-- Logo / header -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-12 h-12 bg-primary-600 rounded-xl mb-3">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <h1 class="font-display text-2xl font-semibold text-gray-900">Personal Finances</h1>
+        <p class="text-sm text-gray-500 mt-1">Configuración inicial</p>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="flex items-center justify-center gap-2 mb-8" id="progressBar">
+        <div class="progress-step active" id="ps1">1</div>
+        <div class="w-8 h-px bg-gray-200" id="pl1"></div>
+        <div class="progress-step pending" id="ps2">2</div>
+        <div class="w-8 h-px bg-gray-200" id="pl2"></div>
+        <div class="progress-step pending" id="ps3">3</div>
+        <div class="w-8 h-px bg-gray-200" id="pl3"></div>
+        <div class="progress-step pending" id="ps4">4</div>
+    </div>
+
+    <!-- Card -->
+    <div class="rounded-2xl p-8" style="background:var(--bg-surface);border:1px solid var(--border-muted);box-shadow:var(--shadow-medium)">
+
+        <!-- ── PASO 1: Bienvenida ── -->
+        <div class="step-panel active" id="step1">
+            <h2 class="font-display text-xl font-semibold text-gray-900 mb-2">Bienvenido</h2>
+            <p class="text-sm text-gray-500 mb-6">
+                Vamos a configurar tu espacio en unos pasos rápidos. Solo necesitas elegir tus monedas
+                y crear tu primera cuenta para empezar.
+            </p>
+
+            <div class="space-y-3 mb-8">
+                <div class="flex items-start gap-3">
+                    <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-primary-600 text-xs font-bold">1</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">Elige tus monedas</p>
+                        <p class="text-xs text-gray-500">Moneda principal y una secundaria opcional</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-primary-600 text-xs font-bold">2</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">Crea tu primera cuenta</p>
+                        <p class="text-xs text-gray-500">Cuenta bancaria, ahorros o efectivo</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <span class="text-primary-600 text-xs font-bold">3</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">Gmail (opcional)</p>
+                        <p class="text-xs text-gray-500">Importa transacciones automáticamente desde el correo</p>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-primary w-full" onclick="goToStep(2)">Empezar →</button>
+        </div>
+
+        <!-- ── PASO 2: Monedas ── -->
+        <div class="step-panel" id="step2">
+            <h2 class="font-display text-xl font-semibold text-gray-900 mb-1">Elige tus monedas</h2>
+            <p class="text-sm text-gray-500 mb-6">
+                La moneda principal es la base de todos tus reportes. La secundaria es opcional.
+            </p>
+
+            <!-- Moneda principal -->
+            <div class="mb-5">
+                <label>Moneda principal <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <input type="text" id="baseCurrencySearch" placeholder="Buscar moneda (ej. Peso, USD...)"
+                           oninput="filterCurrencies('base')" onfocus="showDropdown('base')" autocomplete="off">
+                    <div id="baseCurrencyDropdown"
+                         class="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden max-h-48 overflow-y-auto">
+                    </div>
+                </div>
+                <div id="baseCurrencySelected" class="mt-2 hidden">
+                    <div class="currency-card selected flex items-center justify-between">
+                        <div>
+                            <span class="font-semibold text-gray-900" id="baseSelectedCode"></span>
+                            <span class="text-gray-500 text-sm ml-2" id="baseSelectedName"></span>
+                        </div>
+                        <button onclick="clearCurrency('base')" class="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Moneda secundaria -->
+            <div class="mb-6">
+                <label>Moneda secundaria <span class="text-gray-400">(opcional)</span></label>
+                <div class="relative">
+                    <input type="text" id="secCurrencySearch" placeholder="Buscar moneda secundaria..."
+                           oninput="filterCurrencies('sec')" onfocus="showDropdown('sec')" autocomplete="off">
+                    <div id="secCurrencyDropdown"
+                         class="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden max-h-48 overflow-y-auto">
+                    </div>
+                </div>
+                <div id="secCurrencySelected" class="mt-2 hidden">
+                    <div class="currency-card selected flex items-center justify-between">
+                        <div>
+                            <span class="font-semibold text-gray-900" id="secSelectedCode"></span>
+                            <span class="text-gray-500 text-sm ml-2" id="secSelectedName"></span>
+                        </div>
+                        <button onclick="clearCurrency('sec')" class="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Puedes añadir más monedas después desde configuración.</p>
+            </div>
+
+            <div class="flex gap-3">
+                <button class="btn-ghost" onclick="goToStep(1)">← Atrás</button>
+                <button class="btn-primary flex-1" id="btnStep2Next" onclick="goToStep(3)" disabled>
+                    Continuar →
+                </button>
+            </div>
+        </div>
+
+        <!-- ── PASO 3: Primera cuenta ── -->
+        <div class="step-panel" id="step3">
+            <h2 class="font-display text-xl font-semibold text-gray-900 mb-1">Primera cuenta</h2>
+            <p class="text-sm text-gray-500 mb-6">
+                Crea tu cuenta principal. Podrás añadir más cuentas después.
+            </p>
+
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label>Nombre de la cuenta <span class="text-red-500">*</span></label>
+                    <input type="text" id="accountName" placeholder="ej. Cuenta Corriente Bancolombia"
+                           oninput="validateStep3()">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label>Tipo de cuenta <span class="text-red-500">*</span></label>
+                        <select id="accountType" onchange="validateStep3()">
+                            <option value="">— Seleccionar —</option>
+                            <option value="checking">Cuenta Corriente</option>
+                            <option value="savings">Cuenta de Ahorros</option>
+                            <option value="cash">Efectivo</option>
+                            <option value="investment">Inversión</option>
+                            <option value="credit_card">Tarjeta de Crédito</option>
+                            <option value="cdt">CDT</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Moneda <span class="text-red-500">*</span></label>
+                        <select id="accountCurrency" onchange="validateStep3()">
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label>Saldo inicial</label>
+                    <input type="number" id="accountBalance" value="0" step="any" placeholder="0">
+                    <p class="text-xs text-gray-400 mt-1">Deja en 0 si no tienes saldo actual o si prefieres añadirlo luego.</p>
+                </div>
+
+                <div>
+                    <label>País (opcional)</label>
+                    <input type="text" id="accountCountry" placeholder="ej. Colombia">
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button class="btn-ghost" onclick="goToStep(2)">← Atrás</button>
+                <button class="btn-primary flex-1" id="btnStep3Next" onclick="goToStep(4)" disabled>
+                    Continuar →
+                </button>
+            </div>
+        </div>
+
+        <!-- ── PASO 4: Gmail ── -->
+        <div class="step-panel" id="step4">
+            <h2 class="font-display text-xl font-semibold text-gray-900 mb-1">Importación por Gmail</h2>
+            <p class="text-sm text-gray-500 mb-2">
+                Conecta tu Gmail para importar transacciones automáticamente desde correos bancarios.
+            </p>
+            <p class="text-xs text-gray-400 mb-5">
+                Requiere una <strong>App Password</strong> de Google (no tu contraseña normal).
+                Puedes configurarlo ahora o más adelante desde Ajustes.
+            </p>
+
+            <div id="gmailForm" class="space-y-4 mb-4">
+                <div>
+                    <label>Correo Gmail</label>
+                    <input type="email" id="gmailEmail" placeholder="tucorreo@gmail.com">
+                </div>
+                <div>
+                    <label>App Password <span class="text-gray-400">(16 caracteres)</span></label>
+                    <input type="password" id="gmailPassword" placeholder="xxxx xxxx xxxx xxxx">
+                </div>
+
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+                    <p class="font-semibold mb-1">Cómo obtener tu App Password:</p>
+                    <ol class="list-decimal list-inside space-y-0.5">
+                        <li>Activa verificación en 2 pasos en tu cuenta Google</li>
+                        <li>Ve a <strong>myaccount.google.com/apppasswords</strong></li>
+                        <li>Crea una contraseña para "Mail" → "Otro (finances)"</li>
+                        <li>Copia los 16 caracteres generados</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button class="btn-ghost" onclick="goToStep(3)">← Atrás</button>
+                <button class="btn-ghost flex-1 border border-gray-200 rounded-lg hover:bg-gray-50"
+                        onclick="completeSetup(false)">
+                    Omitir por ahora
+                </button>
+                <button class="btn-primary" onclick="completeSetup(true)" id="btnFinish">
+                    Finalizar
+                </button>
+            </div>
+        </div>
+
+    </div><!-- /card -->
+
+    <!-- Error global -->
+    <div id="errorMsg" class="mt-4 hidden bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700"></div>
+
+</div><!-- /wrapper -->
+
+<script>
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let allCurrencies = [];
+let selectedBase = null;   // { code, name, symbol }
+let selectedSec  = null;
+
+// ---------------------------------------------------------------------------
+// Boot: load currencies
+// ---------------------------------------------------------------------------
+async function loadCurrencies() {
+    try {
+        const res = await fetch('/api/setup/currencies');
+        allCurrencies = await res.json();
+        populateAccountCurrencySelect();
+    } catch(e) {
+        showError('No se pudieron cargar las monedas. Recarga la página.');
+    }
+}
+
+loadCurrencies();
+
+// ---------------------------------------------------------------------------
+// Navigation
+// ---------------------------------------------------------------------------
+function goToStep(n) {
+    if (n === 3) populateAccountCurrencySelect();
+
+    document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('step' + n).classList.add('active');
+
+    for (let i = 1; i <= 4; i++) {
+        const el = document.getElementById('ps' + i);
+        const ln = document.getElementById('pl' + i);
+        el.classList.remove('done', 'active', 'pending');
+        if (i < n)       { el.classList.add('done');    if(ln) ln.classList.replace('bg-gray-200','bg-primary-400'); }
+        else if (i === n){ el.classList.add('active');  if(ln) ln.classList.replace('bg-primary-400','bg-gray-200'); }
+        else             { el.classList.add('pending'); if(ln) ln.classList.replace('bg-primary-400','bg-gray-200'); }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Currency search
+// ---------------------------------------------------------------------------
+function filterCurrencies(which) {
+    const inputId  = which === 'base' ? 'baseCurrencySearch' : 'secCurrencySearch';
+    const dropId   = which === 'base' ? 'baseCurrencyDropdown' : 'secCurrencyDropdown';
+    const query = document.getElementById(inputId).value.toLowerCase();
+    const drop  = document.getElementById(dropId);
+
+    const filtered = allCurrencies.filter(c => {
+        const matchQuery = !query || c.code.toLowerCase().includes(query) || c.name.toLowerCase().includes(query);
+        const notOther = which === 'base'
+            ? (!selectedSec || c.code !== selectedSec.code)
+            : (!selectedBase || c.code !== selectedBase.code);
+        return matchQuery && notOther;
+    });
+
+    drop.innerHTML = '';
+    if (!filtered.length) {
+        drop.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">Sin resultados</div>';
+    }
+    filtered.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm';
+        div.innerHTML = `<span class="font-semibold text-gray-800 w-10">${c.code}</span>
+                         <span class="text-gray-500">${c.name}</span>
+                         <span class="ml-auto text-gray-400">${c.symbol}</span>`;
+        div.onclick = () => selectCurrency(which, c);
+        drop.appendChild(div);
+    });
+    drop.classList.remove('hidden');
+}
+
+function showDropdown(which) {
+    filterCurrencies(which);
+}
+
+function selectCurrency(which, c) {
+    const dropId   = which === 'base' ? 'baseCurrencyDropdown' : 'secCurrencyDropdown';
+    const searchId = which === 'base' ? 'baseCurrencySearch'   : 'secCurrencySearch';
+    const selDiv   = which === 'base' ? 'baseCurrencySelected' : 'secCurrencySelected';
+    const codeEl   = which === 'base' ? 'baseSelectedCode'     : 'secSelectedCode';
+    const nameEl   = which === 'base' ? 'baseSelectedName'     : 'secSelectedName';
+
+    if (which === 'base') selectedBase = c; else selectedSec = c;
+
+    document.getElementById(codeEl).textContent = c.code;
+    document.getElementById(nameEl).textContent = c.name + ' (' + c.symbol + ')';
+    document.getElementById(selDiv).classList.remove('hidden');
+    document.getElementById(searchId).classList.add('hidden');
+    document.getElementById(dropId).classList.add('hidden');
+
+    validateStep2();
+}
+
+function clearCurrency(which) {
+    const searchId = which === 'base' ? 'baseCurrencySearch' : 'secCurrencySearch';
+    const selDiv   = which === 'base' ? 'baseCurrencySelected' : 'secCurrencySelected';
+    if (which === 'base') selectedBase = null; else selectedSec = null;
+
+    document.getElementById(searchId).value = '';
+    document.getElementById(searchId).classList.remove('hidden');
+    document.getElementById(selDiv).classList.add('hidden');
+    validateStep2();
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', e => {
+    ['baseCurrencyDropdown','secCurrencyDropdown'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el.contains(e.target) && !el.classList.contains('hidden')) {
+            el.classList.add('hidden');
+        }
+    });
+});
+
+function validateStep2() {
+    document.getElementById('btnStep2Next').disabled = !selectedBase;
+}
+
+// ---------------------------------------------------------------------------
+// Account currency select
+// ---------------------------------------------------------------------------
+function populateAccountCurrencySelect() {
+    const sel = document.getElementById('accountCurrency');
+    sel.innerHTML = '';
+    const chosen = [selectedBase, selectedSec].filter(Boolean);
+    const list = chosen.length ? chosen : allCurrencies;
+    list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.code;
+        opt.textContent = c.code + ' — ' + c.name;
+        sel.appendChild(opt);
+    });
+    validateStep3();
+}
+
+function validateStep3() {
+    const name = document.getElementById('accountName').value.trim();
+    const type = document.getElementById('accountType').value;
+    const cur  = document.getElementById('accountCurrency').value;
+    document.getElementById('btnStep3Next').disabled = !(name && type && cur);
+}
+
+// ---------------------------------------------------------------------------
+// Finish
+// ---------------------------------------------------------------------------
+async function completeSetup(includeGmail) {
+    hideError();
+
+    const payload = {
+        currencies: {
+            base_code: selectedBase.code,
+            secondary_code: selectedSec ? selectedSec.code : null,
+        },
+        account: {
+            name: document.getElementById('accountName').value.trim(),
+            type: document.getElementById('accountType').value,
+            currency_code: document.getElementById('accountCurrency').value,
+            balance: parseFloat(document.getElementById('accountBalance').value) || 0,
+            country: document.getElementById('accountCountry').value.trim() || null,
+        },
+        gmail_email: null,
+        gmail_app_password: null,
+    };
+
+    if (includeGmail) {
+        const email = document.getElementById('gmailEmail').value.trim();
+        const pw    = document.getElementById('gmailPassword').value.trim();
+        if (email) payload.gmail_email = email;
+        if (pw)    payload.gmail_app_password = pw;
+    }
+
+    const btn = document.getElementById('btnFinish');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+        const res = await fetch('/api/setup/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            showError(err.detail || 'Error al completar la configuración.');
+            btn.disabled = false;
+            btn.textContent = 'Finalizar';
+            return;
+        }
+
+        // Success — redirect to dashboard
+        window.location.href = '/';
+    } catch(e) {
+        showError('Error de red. Verifica tu conexión.');
+        btn.disabled = false;
+        btn.textContent = 'Finalizar';
+    }
+}
+
+function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+}
+function hideError() {
+    document.getElementById('errorMsg').classList.add('hidden');
+}
+</script>
+
+</body>
+</html>

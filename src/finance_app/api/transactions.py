@@ -81,6 +81,62 @@ class TransactionUpdate(BaseModel):
     cleared: Optional[bool] = None
 
 
+class BulkUpdateBody(BaseModel):
+    ids: List[int]
+    category_id: Optional[int] = None
+    tag_ids: Optional[List[int]] = None
+    notes: Optional[str] = None
+
+
+class BulkDeleteBody(BaseModel):
+    ids: List[int]
+
+
+@router.patch("/bulk")
+def bulk_update_transactions(body: BulkUpdateBody, db: Session = Depends(get_db)):
+    """Bulk update category, tags, and/or notes on multiple transactions."""
+    if not body.ids:
+        raise HTTPException(status_code=400, detail="No transaction IDs provided.")
+    updated = 0
+    for tx in db.query(Transaction).filter(Transaction.id.in_(body.ids)).all():
+        if body.category_id is not None:
+            tx.category_id = body.category_id if body.category_id != 0 else None
+        if body.notes is not None:
+            tx.memo = body.notes or None
+        if body.tag_ids is not None:
+            from finance_app.models.tag import Tag, TransactionTag
+            db.query(TransactionTag).filter_by(transaction_id=tx.id).delete()
+            for tag_id in body.tag_ids:
+                tag = db.query(Tag).filter_by(id=tag_id).first()
+                if tag:
+                    db.add(TransactionTag(transaction_id=tx.id, tag_id=tag_id))
+        updated += 1
+    db.commit()
+    return {"success": True, "updated": updated}
+
+
+@router.delete("/bulk")
+def bulk_delete_transactions(body: BulkDeleteBody, db: Session = Depends(get_db)):
+    """Bulk delete multiple transactions by ID."""
+    if not body.ids:
+        raise HTTPException(status_code=400, detail="No transaction IDs provided.")
+    deleted = 0
+    errors = []
+    for tx in db.query(Transaction).filter(Transaction.id.in_(body.ids)).all():
+        reason = tx.delete_block_reason() if hasattr(tx, 'delete_block_reason') else None
+        if reason:
+            errors.append({"id": tx.id, "reason": reason})
+            continue
+        try:
+            success = delete_transaction(db, tx.id)
+            if success:
+                deleted += 1
+        except (ValueError, Exception) as exc:
+            errors.append({"id": tx.id, "reason": str(exc)})
+    db.commit()
+    return {"success": True, "deleted": deleted, "errors": errors}
+
+
 @router.get("/")
 def list_transactions(
     account_id: Optional[int] = None,

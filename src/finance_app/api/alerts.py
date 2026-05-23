@@ -157,3 +157,17 @@ def bulk_update_smart_notif(payload: SmartNotifBulkUpdate, db: Session = Depends
     )
     db.commit()
     return {"updated": len(payload.category_ids), "enabled": payload.enabled}
+
+
+@router.get("/count")
+def get_alerts_count(
+    month: Optional[date] = None,
+    db: Session = Depends(get_db)
+):
+    """Return the number of active (non-OK) budget alerts for the topbar badge."""
+    if not month:
+        today = date.today()
+        month = date(today.year, today.month, 1)
+    payload = get_budget_alerts(db, month, include_unconfigured=True, currency_code="COP")
+    count = len(payload["alerts"])
+    return {"count": count, "month": month.isoformat()}

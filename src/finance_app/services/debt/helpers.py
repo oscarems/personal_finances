@@ -15,6 +15,7 @@ from finance_app.models import (
     DebtPayment,
     MortgagePaymentAllocation,
 )
+
 from finance_app.services.debt.balance_service import (
     calculate_scheduled_principal_balance,
 )
@@ -22,6 +23,58 @@ from finance_app.services.debt.amortization_service import (
     ensure_debt_amortization_records,
     fetch_amortization_for_month,
 )
+
+
+def calculate_credit_card_monthly_interest(debt: Debt) -> float:
+    """Estimate the monthly interest charge on a credit card balance.
+
+    Uses the effective annual rate convention: monthly = (1 + annual)^(1/12) - 1.
+    Falls back to nominal (annual / 12) when annual_interest_rate is not set.
+
+    Args:
+        debt: Debt model instance with debt_type == 'credit_card'.
+
+    Returns:
+        Estimated interest amount for the current month (always >= 0).
+    """
+    balance = float(debt.current_balance or 0.0)
+    if balance <= 0:
+        return 0.0
+
+    annual_rate_raw = debt.annual_interest_rate or debt.interest_rate
+    if not annual_rate_raw:
+        return 0.0
+
+    annual = float(annual_rate_raw)
+    annual_decimal = annual / 100 if annual > 1 else annual
+    monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1
+    return round(balance * monthly_rate, 2)
+
+
+def calculate_suggested_minimum_payment(debt: Debt) -> float:
+    """Calculate the suggested minimum payment for a credit card.
+
+    Formula (standard): max(stored minimum, monthly_interest + 1% of balance).
+    This ensures the payment at least covers interest plus a small principal chunk.
+    If both interest rate and balance are unknown, returns the stored minimum.
+
+    Args:
+        debt: Debt model instance with debt_type == 'credit_card'.
+
+    Returns:
+        Suggested minimum payment (always >= 0).
+    """
+    stored_min = float(debt.minimum_payment or 0.0)
+    balance = float(debt.current_balance or 0.0)
+    if balance <= 0:
+        return 0.0
+
+    monthly_interest = calculate_credit_card_monthly_interest(debt)
+    # 1% of balance covers a token principal reduction
+    principal_chunk = balance * 0.01
+    calculated = monthly_interest + principal_chunk
+
+    return round(max(stored_min, calculated), 2)
 
 
 def payment_principal_amount(payment: DebtPayment) -> float:
@@ -223,10 +276,12 @@ def _apply_running_balance(payments: list[dict], original_amount: float) -> list
 
 
 def build_mortgage_payment_history(debt: Debt, db: Session) -> list[dict]:
-    """Build a unified, chronologically sorted payment history for a mortgage.
+    """Build a unified, chronologically sorted payment history for a mortgage or credit_loan.
 
-    Merges DebtPayment records and MortgagePaymentAllocation records,
+    Merges DebtPayment records and MortgagePaymentAllocation records (for mortgages),
     deduplicating by transaction_id, then computes a running balance.
+
+    Works for both ``mortgage`` and ``credit_loan`` debt types.
 
     Args:
         debt: Debt model instance.
@@ -236,6 +291,8 @@ def build_mortgage_payment_history(debt: Debt, db: Session) -> list[dict]:
         List of payment dicts with running ``balance_after``.
     """
     debt_entries, allocations = _build_debt_payment_entries(debt, db)
+    # MortgagePaymentAllocation is only populated for mortgages; for credit_loan
+    # allocation_entries will be empty, which is correct.
     allocation_entries = _build_allocation_entries(allocations)
 
     payments = debt_entries + allocation_entries
@@ -244,6 +301,10 @@ def build_mortgage_payment_history(debt: Debt, db: Session) -> list[dict]:
 
     original_balance = debt.original_amount if debt.original_amount is not None else (debt.current_balance or 0.0)
     return _apply_running_balance(payments, original_balance)
+
+
+# Alias for clarity — works for both mortgage and credit_loan.
+build_loan_payment_history = build_mortgage_payment_history
 
 
 def debt_to_dict_with_calculated_balance(
@@ -272,6 +333,25 @@ def debt_to_dict_with_calculated_balance(
         data["current_balance"] = get_credit_card_current_balance(debt)
         if debt.original_amount and debt.original_amount > 0:
             data["paid_percentage"] = ((debt.original_amount - data["current_balance"]) / debt.original_amount) * 100
+        # Credit-card specific enrichment: interest estimate + suggested minimum payment
+        data["monthly_interest_estimate"] = calculate_credit_card_monthly_interest(debt)
+        data["suggested_minimum_payment"] = calculate_suggested_minimum_payment(debt)
+        # Utilization thresholds for UI alerts
+        util = data.get("utilization_percentage")
+        if util is not None:
+            if util >= 70:
+                data["utilization_alert"] = "critical"
+            elif util >= 30:
+                data["utilization_alert"] = "warning"
+            else:
+                data["utilization_alert"] = "ok"
+        else:
+            data["utilization_alert"] = "unknown"
+        # Reconciliation discrepancy for credit cards
+        if debt.confirmed_balance is not None:
+            data["balance_discrepancy"] = round(float(debt.confirmed_balance) - data["current_balance"], 2)
+        else:
+            data["balance_discrepancy"] = None
         return data
 
     today = date.today()
@@ -292,4 +372,12 @@ def debt_to_dict_with_calculated_balance(
     data["current_balance"] = calculated_balance
     if debt.original_amount and debt.original_amount > 0:
         data["paid_percentage"] = ((debt.original_amount - calculated_balance) / debt.original_amount) * 100
+
+    # Reconciliation: compare confirmed balance (from bank statement) with calculated
+    if debt.confirmed_balance is not None:
+        confirmed = float(debt.confirmed_balance)
+        data["balance_discrepancy"] = round(confirmed - float(calculated_balance), 2)
+    else:
+        data["balance_discrepancy"] = None
+
     return data

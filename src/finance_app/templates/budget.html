@@ -1,2814 +1,1145 @@
 {% extends "base.html" %}
-
-{% block title %}Presupuesto - Personal Finances{% endblock %}
+{% block title %}Presupuesto — Personal Finances{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<div class="page-header">
-    <div>
-        <h2 class="page-title">Presupuesto</h2>
-        <p class="page-subtitle mt-1">Dale un propósito a cada peso - Asigna en COP o USD</p>
+<style>
+/* ================================================================
+   Budget page — bridged to global design system
+   All color vars reference design-system.css variables
+   ================================================================ */
+.bud {
+  --serif:       var(--font-display);
+  --sans:        var(--font-sans);
+  --mono:        var(--font-mono);
+
+  --bg:          var(--bg-primary);
+  --surface:     var(--bg-surface);
+  --surface-alt: var(--bg-surface-muted);
+  --line:        var(--border-muted);
+  --line-strong: var(--border-strong);
+  --ink:         var(--text-primary);
+  --ink-2:       var(--text-secondary);
+  --ink-3:       var(--text-soft);
+  --blue:        var(--color-primary-600);
+  --blue-dim:    var(--badge-primary-bg);
+  --blue-ring:   var(--border-focus);
+  --green:       var(--color-success-600);
+  --green-dim:   var(--badge-success-bg);
+  --red:         var(--color-danger-600);
+  --red-dim:     var(--badge-danger-bg);
+  --amber:       var(--color-warning-600);
+
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--ink);
+  min-height: calc(100vh - 3.5rem);
+  margin: -1rem -1rem -2rem;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 768px) { .bud { margin: -2rem -2rem -3rem; } }
+.bud *, .bud *::before, .bud *::after { box-sizing: border-box; }
+
+/* ----------------------------------------------------------------
+   TOP BAR
+   ---------------------------------------------------------------- */
+.bud-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: .7rem 2rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  position: sticky; top: 0; z-index: 10;
+}
+
+/* Month nav — center column */
+.bud-mnav {
+  display: flex; align-items: center; justify-content: center; gap: .3rem;
+}
+.bud-mbtn {
+  width: 30px; height: 30px; border: none; background: none;
+  color: var(--ink-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 5px; transition: background .1s, color .1s;
+}
+.bud-mbtn:hover { background: var(--line); color: var(--ink); }
+.bud-mbtn svg { width: 13px; height: 13px; stroke-width: 2.5; }
+.bud-mlabel {
+  font-family: var(--serif);
+  font-size: 1rem; font-weight: 700;
+  color: var(--ink); letter-spacing: -0.02em;
+  min-width: 190px; text-align: center; padding: 0 .4rem;
+}
+
+/* Right actions */
+.bud-bar-right {
+  display: flex; align-items: center; justify-content: flex-end; gap: .4rem;
+}
+.bud-action {
+  display: inline-flex; align-items: center; gap: .28rem;
+  padding: .36rem .75rem;
+  font-family: var(--sans); font-size: .71rem; font-weight: 600;
+  border-radius: 6px; cursor: pointer; transition: all .12s;
+  white-space: nowrap; letter-spacing: .01em;
+}
+.bud-action svg { width: 11px; height: 11px; flex-shrink: 0; }
+.bud-action-ghost {
+  background: transparent; border: 1px solid var(--line); color: var(--ink-2);
+}
+.bud-action-ghost:hover { background: var(--line); color: var(--ink); }
+.bud-action-primary {
+  background: var(--blue); border: none; color: #fff;
+}
+.bud-action-primary:hover { filter: brightness(1.1); }
+
+/* ----------------------------------------------------------------
+   STATS CARDS GRID
+   ---------------------------------------------------------------- */
+.bud-stats {
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding: 1.1rem 2rem;
+  flex-shrink: 0;
+}
+.bud-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: .8rem;
+  max-width: 1060px;
+  margin: 0 auto;
+}
+@media (max-width: 1000px) { .bud-stats-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px)  { .bud-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.bud-stat {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: .95rem 1.1rem;
+  border-left: 3px solid var(--line-strong);
+  box-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px var(--line);
+  display: flex; flex-direction: column; gap: .08rem;
+  transition: box-shadow .15s;
+}
+.bud-stat:hover { box-shadow: 0 3px 10px rgba(0,0,0,.09), 0 0 0 1px var(--line); }
+
+.bud-stat-lbl {
+  font-size: .56rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: .12rem;
+}
+.bud-stat-val {
+  font-family: var(--mono); font-size: .95rem; font-weight: 700;
+  color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.bud-stat-val.neg { color: var(--red); }
+.bud-stat-val.pos { color: var(--green); }
+.bud-stat-usd  { font-family: var(--mono); font-size: .6rem; color: var(--ink-3); margin-top: .06rem; }
+.bud-stat-note { font-size: .57rem; color: var(--ink-3); margin-top: .06rem; }
+.bud-stat-note.neg { color: var(--red); }
+
+/* ----------------------------------------------------------------
+   MAIN CONTENT — flat table layout
+   ---------------------------------------------------------------- */
+.bud-body {
+  flex: 1; overflow-y: auto; scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  padding: 1.8rem 2rem 5rem;
+}
+.bud-inner {
+  max-width: 1060px; margin: 0 auto; width: 100%;
+  display: flex; flex-direction: column; gap: 2.2rem;
+}
+
+/* Loading */
+.bud-loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 6rem; gap: .65rem; color: var(--ink-3); font-size: .8rem;
+}
+.bud-spinner {
+  width: 22px; height: 22px; border: 2px solid var(--line);
+  border-top-color: var(--blue); border-radius: 50%;
+  animation: bspin .7s linear infinite;
+}
+@keyframes bspin { to { transform: rotate(360deg); } }
+
+/* ----------------------------------------------------------------
+   GROUP — editorial separator style
+   ---------------------------------------------------------------- */
+.bud-group {
+  scroll-margin-top: 4.5rem;
+}
+
+.bud-group-hd {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding-bottom: .5rem;
+  border-bottom: 2.5px solid var(--ink);
+  cursor: pointer; user-select: none; gap: 1rem; transition: opacity .1s;
+}
+.bud-group-hd:hover { opacity: .85; }
+.bud-group.income-group .bud-group-hd { border-bottom-color: var(--green); }
+
+.bud-group-hd-left { display: flex; align-items: center; gap: .6rem; }
+.bud-group-chev {
+  width: 13px; height: 13px; color: var(--ink-3);
+  transition: transform .2s; flex-shrink: 0;
+}
+.bud-group.collapsed .bud-group-chev { transform: rotate(-90deg); }
+
+.bud-group-title {
+  font-family: var(--sans); font-size: .65rem; font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--ink);
+}
+.bud-group.income-group .bud-group-title { color: var(--green); }
+
+.bud-group-n {
+  font-family: var(--mono); font-size: .6rem; color: var(--ink-3);
+  background: var(--line); border-radius: 99px; padding: .05rem .35rem;
+}
+.bud-group-addbtn {
+  font-size: .57rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-3); background: transparent;
+  border: 1px dashed var(--line-strong); border-radius: 4px;
+  padding: .1rem .32rem; cursor: pointer; font-family: var(--sans);
+  opacity: 0.55; transition: all .12s;
+}
+.bud-group-hd:hover .bud-group-addbtn { opacity: 1; }
+.bud-group-addbtn:hover { color: var(--blue); border-color: var(--blue); opacity: 1; background: var(--blue-dim); }
+
+.bud-group-totals { display: flex; gap: 1.4rem; align-items: flex-end; flex-shrink: 0; }
+.bud-gtot { display: flex; flex-direction: column; align-items: flex-end; }
+.bud-gtot-lbl {
+  font-size: .48rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: .05rem;
+}
+.bud-gtot-val {
+  font-family: var(--mono); font-size: .7rem; font-weight: 600;
+  color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.bud-gtot-val.neg { color: var(--red); }
+.bud-gtot-val.pos { color: var(--green); }
+
+/* Column labels */
+.bud-col-hd {
+  display: grid;
+  grid-template-columns: 1.4fr .85fr 100px 108px 108px;
+  gap: .5rem;
+  padding: .3rem .4rem;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--line);
+}
+.bud-col-hd span {
+  font-size: .48rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase;
+  color: var(--ink-3); text-align: right;
+}
+.bud-col-hd span:first-child  { text-align: left; }
+.bud-col-hd span:nth-child(2) { text-align: left; }
+
+/* ----------------------------------------------------------------
+   CATEGORY ROW
+   ---------------------------------------------------------------- */
+.bud-row {
+  display: grid;
+  grid-template-columns: 1.4fr .85fr 100px 108px 108px;
+  gap: .5rem;
+  padding: .62rem .4rem;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  transition: background .1s;
+}
+.bud-row:last-child { border-bottom: none; }
+.bud-row:hover { background: var(--table-row-hover); }
+.bud-row.overspent { background: var(--red-dim); }
+.bud-row.overspent:hover { background: rgba(197,43,43,.12); }
+
+/* Name */
+.bud-row-name { display: flex; align-items: center; gap: .4rem; min-width: 0; }
+.bud-row-name-text {
+  font-family: var(--sans); font-size: .82rem; font-weight: 500;
+  color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bud-badge {
+  font-size: .46rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: .06rem .26rem; border-radius: 99px; flex-shrink: 0;
+  background: var(--green-dim); color: var(--green);
+  border: 1px solid rgba(12,107,58,.2);
+}
+
+/* Progress bar */
+.bud-bar-cell { display: flex; flex-direction: column; gap: .2rem; }
+.bud-bar-track {
+  height: 2px; background: var(--line); border-radius: 99px; overflow: hidden; position: relative;
+}
+.bud-bar-fill {
+  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px;
+  background: var(--green); transition: width .55s cubic-bezier(.4,0,.2,1);
+}
+.bud-bar-fill.warn { background: var(--amber); }
+.bud-bar-fill.over { background: var(--red); width: 100% !important; }
+.bud-bar-fill.savings { background: var(--blue); }
+.bud-bar-pct {
+  font-family: var(--mono); font-size: .52rem; color: var(--ink-3);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+/* Category inline edit button */
+.bud-cat-edit-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 4px;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--ink-3); flex-shrink: 0;
+  opacity: 0.35; transition: opacity .1s, background .1s, color .1s;
+  padding: 0;
+}
+.bud-cat-edit-btn svg { width: 10px; height: 10px; }
+.bud-row:hover .bud-cat-edit-btn { opacity: 1; }
+.bud-cat-edit-btn:focus { opacity: 1; outline: 2px solid var(--blue); outline-offset: 2px; }
+.bud-cat-edit-btn:hover { background: var(--blue-dim); color: var(--blue); }
+
+/* Number cell */
+.bud-num { display: flex; flex-direction: column; align-items: flex-end; }
+.bud-num-cop {
+  font-family: var(--mono); font-size: .79rem; font-weight: 500;
+  color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: -.015em; line-height: 1.2;
+}
+.bud-num-usd { font-family: var(--mono); font-size: .57rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.bud-num-cop.hv    { color: var(--ink); font-weight: 600; }
+.bud-num-cop.spent { color: var(--red); }
+.bud-num-cop.pos   { color: var(--green); font-weight: 600; }
+.bud-num-cop.neg   { color: var(--red);   font-weight: 600; }
+
+/* Assigned inline edit */
+.bud-asgn { display: flex; flex-direction: column; align-items: flex-end; width: 100%; }
+.bud-asgn-pill {
+  cursor: pointer; padding: .22rem .4rem; border-radius: 6px;
+  border: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: flex-end; width: 100%;
+  transition: background .1s, border-color .1s, box-shadow .1s; position: relative;
+  background: var(--surface-alt);
+}
+.bud-asgn-pill:hover { background: var(--blue-dim); border-color: var(--blue-ring); box-shadow: 0 0 0 2px var(--blue-ring); }
+.bud-pill-icon { position: absolute; left: .18rem; top: .18rem; opacity: 0; transition: opacity .1s; pointer-events: none; }
+.bud-pill-icon svg { width: 8px; height: 8px; color: var(--blue); }
+.bud-asgn-pill:hover .bud-pill-icon { opacity: 1; }
+.bud-asgn-inp {
+  font-family: var(--mono); font-size: .79rem; font-variant-numeric: tabular-nums;
+  color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--blue);
+  border-radius: 6px; padding: .22rem .4rem; text-align: right; width: 100%;
+  outline: none; box-shadow: 0 0 0 3px var(--blue-ring); display: none;
+}
+.bud-asgn-inp.on { display: block; }
+.bud-asgn-edit { display: none; flex-direction: row; gap: .25rem; align-items: center; }
+.bud-asgn-edit.on { display: flex; }
+.bud-cur-sel {
+  font-family: var(--mono); font-size: .72rem; color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--blue); border-radius: 6px; padding: .18rem .2rem;
+  outline: none; cursor: pointer; flex-shrink: 0;
+}
+.bud-num-usd-click { cursor: pointer; }
+.bud-num-usd-click:hover { text-decoration: underline; }
+
+/* Available + cover */
+.bud-avail-cell { display: flex; align-items: center; justify-content: flex-end; gap: .3rem; }
+.bud-cover-btn {
+  font-size: .49rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--red); background: var(--red-dim); border: 1px solid rgba(197,43,43,.25);
+  border-radius: 3px; padding: .1rem .26rem; cursor: pointer; white-space: nowrap;
+  transition: background .12s; font-family: var(--sans); flex-shrink: 0;
+}
+.bud-cover-btn:hover { background: rgba(197,43,43,.15); }
+
+/* Income separator */
+.bud-inc-sep { display: flex; align-items: center; gap: .8rem; padding: .3rem 0 .1rem; }
+.bud-inc-sep-text {
+  font-size: .53rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--green); white-space: nowrap;
+}
+.bud-inc-sep::before,
+.bud-inc-sep::after { content: ''; flex: 1; height: 1px; background: rgba(12,107,58,.2); }
+
+/* ----------------------------------------------------------------
+   MODALS
+   ---------------------------------------------------------------- */
+.bud-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
+  opacity: 0; pointer-events: none; transition: opacity .18s;
+}
+.bud-overlay.open { opacity: 1; pointer-events: all; }
+.bud-modal {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 1.6rem; width: 340px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.12);
+  transform: scale(.95) translateY(14px);
+  transition: transform .22s cubic-bezier(.34,1.56,.64,1);
+}
+.bud-overlay.open .bud-modal { transform: scale(1) translateY(0); }
+.bud-modal-title {
+  font-family: var(--serif); font-size: 1.1rem; font-weight: 700;
+  letter-spacing: -0.02em; color: var(--ink); margin-bottom: .14rem;
+}
+.bud-modal-sub { font-size: .72rem; color: var(--ink-3); margin-bottom: 1rem; line-height: 1.5; }
+.bud-modal-sub strong { color: var(--red); }
+.bud-flabel {
+  display: block; font-size: .57rem; font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--ink-2); margin-bottom: .34rem;
+}
+.bud-inp, .bud-sel {
+  width: 100%; padding: .46rem .58rem;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--surface-alt); color: var(--ink);
+  font-size: .83rem; font-family: var(--sans); margin-bottom: .72rem; outline: none;
+}
+.bud-inp:focus, .bud-sel:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-ring); }
+.bud-checklabel { display: flex; align-items: center; gap: .5rem; margin-bottom: .9rem; font-size: .8rem; color: var(--ink-2); cursor: pointer; }
+.bud-modal-footer { display: flex; gap: .4rem; justify-content: flex-end; }
+.bud-mdbtn { padding: .42rem .86rem; border-radius: 7px; font-size: .73rem; font-weight: 600; cursor: pointer; font-family: var(--sans); transition: all .12s; border: none; }
+.bud-mdbtn-cancel { background: transparent; border: 1px solid var(--line); color: var(--ink-2); }
+.bud-mdbtn-cancel:hover { background: var(--line); }
+.bud-mdbtn-primary { background: var(--blue); color: #fff; }
+.bud-mdbtn-primary:hover { filter: brightness(1.08); }
+.bud-mdbtn-primary:disabled { opacity: .4; cursor: not-allowed; filter: none; }
+.bud-mdbtn-danger { background: var(--red); color: #fff; }
+.bud-mdbtn-danger:hover { filter: brightness(1.07); }
+
+/* ----------------------------------------------------------------
+   TOAST
+   ---------------------------------------------------------------- */
+.bud-toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 200;
+  background: var(--ink); color: var(--surface);
+  border-radius: 7px; padding: .5rem .9rem;
+  font-size: .73rem; font-weight: 600; letter-spacing: .01em;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18);
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .2s, transform .2s; pointer-events: none;
+  max-width: 300px; font-family: var(--sans);
+}
+.bud-toast.show { opacity: 1; transform: translateY(0); }
+.bud-toast.err { background: var(--red); }
+</style>
+
+<div class="bud" id="budRoot">
+
+  <!-- ─── TOP BAR ─── -->
+  <div class="bud-bar">
+    <!-- left: empty spacer -->
+    <div></div>
+
+    <!-- center: month navigation -->
+    <div class="bud-mnav">
+      <button class="bud-mbtn" id="budPrev">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="bud-mlabel" id="budMonthLbl">&#8212;</span>
+      <button class="bud-mbtn" id="budNext">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>
-    <div class="page-actions">
-        <button id="recalculateMonthBtn" onclick="recalculateMonth()" class="btn-secondary flex items-center hidden" title="Sincronizar asignado y disponible con el mes anterior">
-            <span class="mr-1">↻</span> Recalcular
-        </button>
-        <button onclick="openNewGroupModal()" class="btn-primary flex items-center">
-            <span class="mr-1">+</span> Nuevo Grupo
-        </button>
-        <input type="month" id="monthSelect" class="input-field date-input shadow-medium" value="{{ current_month }}">
+
+    <!-- right: actions -->
+    <div class="bud-bar-right">
+      <button class="bud-action bud-action-ghost" id="budRecalc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Recalcular
+      </button>
+      <button class="bud-action bud-action-ghost" id="budInitMonth">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14"/><path d="M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+        Inicializar mes
+      </button>
+      <button class="bud-action bud-action-primary" id="budAddGroup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nuevo grupo
+      </button>
     </div>
+  </div>
+
+  <!-- ─── STATS CARDS ─── -->
+  <div class="bud-stats">
+    <div class="bud-stats-grid">
+      <div class="bud-stat" style="border-left-color:#0C6B3A">
+        <div class="bud-stat-lbl">Listo para asignar</div>
+        <div class="bud-stat-val" id="budRtaVal">&#8212;</div>
+        <div class="bud-stat-usd" id="budRtaUsd"></div>
+        <div class="bud-stat-note" id="budRtaNote"></div>
+      </div>
+      <div class="bud-stat" style="border-left-color:#1A4FFF">
+        <div class="bud-stat-lbl">Asignado</div>
+        <div class="bud-stat-val" id="budAsgnVal">&#8212;</div>
+        <div class="bud-stat-usd" id="budAsgnUsd"></div>
+      </div>
+      <div class="bud-stat" style="border-left-color:#C97818">
+        <div class="bud-stat-lbl">Gastado</div>
+        <div class="bud-stat-val" id="budActVal">&#8212;</div>
+        <div class="bud-stat-usd" id="budActUsd"></div>
+      </div>
+      <div class="bud-stat" style="border-left-color:#0C6B3A">
+        <div class="bud-stat-lbl">Disponible</div>
+        <div class="bud-stat-val" id="budAvailVal">&#8212;</div>
+        <div class="bud-stat-usd" id="budAvailUsd"></div>
+      </div>
+      <div class="bud-stat" style="border-left-color:#7C3AED">
+        <div class="bud-stat-lbl">En cuentas</div>
+        <div class="bud-stat-val" id="budAcctVal">&#8212;</div>
+        <div class="bud-stat-usd" id="budAcctUsd"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── MAIN CONTENT ─── -->
+  <div class="bud-body">
+    <div class="bud-inner">
+      <div class="bud-loading" id="budLoading">
+        <div class="bud-spinner"></div>
+        <span>Cargando presupuesto&hellip;</span>
+      </div>
+      <div id="budGroups" style="display:none; flex-direction:column; gap:2.2rem;"></div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Editar categoría ─── -->
+  <div class="bud-overlay" id="mEditCat">
+    <div class="bud-modal" style="max-width:420px">
+      <div class="bud-modal-title">Editar categor&iacute;a</div>
+      <input type="hidden" id="mEditCatId">
+      <label class="bud-flabel">Nombre</label>
+      <input class="bud-inp" id="mEditCatName" type="text" autocomplete="off">
+      <label class="bud-flabel">Grupo</label>
+      <select class="bud-sel" id="mEditCatGroup"></select>
+      <label class="bud-flabel">Tipo de rollover</label>
+      <select class="bud-sel" id="mEditCatRollover">
+        <option value="reset">Reset mensual (gasto normal)</option>
+        <option value="accumulate">Acumular (ahorro)</option>
+      </select>
+      <label class="bud-flabel">Notas</label>
+      <textarea class="bud-inp" id="mEditCatNotes" rows="2" style="resize:vertical;min-height:52px" placeholder="Descripci&oacute;n opcional&hellip;"></textarea>
+      <div style="border-top:1px solid var(--border);margin:.9rem 0 .7rem"></div>
+      <label class="bud-flabel" style="font-weight:600;color:var(--ink)">Presupuesto este mes</label>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:.5rem;align-items:center;margin-top:.1rem">
+        <select class="bud-sel" id="mEditCatAsgnCur" style="width:auto">
+          <option value="COP">COP</option>
+          <option value="USD">USD</option>
+        </select>
+        <input class="bud-inp" id="mEditCatAsgnAmt" type="number" min="0" step="1000" placeholder="0">
+      </div>
+      <div class="bud-modal-footer" style="justify-content:space-between">
+        <button class="bud-mdbtn bud-mdbtn-danger" id="mEditCatDelete">Eliminar</button>
+        <div style="display:flex;gap:.4rem">
+          <button class="bud-mdbtn bud-mdbtn-cancel" id="mEditCatCancel">Cancelar</button>
+          <button class="bud-mdbtn bud-mdbtn-primary" id="mEditCatOk">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Cubrir exceso ─── -->
+  <div class="bud-overlay" id="mCover">
+    <div class="bud-modal">
+      <div class="bud-modal-title">Cubrir exceso de gasto</div>
+      <div class="bud-modal-sub">Mover fondos hacia <strong id="mCoverName"></strong></div>
+      <label class="bud-flabel">Tomar fondos de</label>
+      <select class="bud-sel" id="mCoverSrc"></select>
+      <div class="bud-modal-footer">
+        <button class="bud-mdbtn bud-mdbtn-cancel" id="mCoverCancel">Cancelar</button>
+        <button class="bud-mdbtn bud-mdbtn-danger" id="mCoverOk">Cubrir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Nueva categoría ─── -->
+  <div class="bud-overlay" id="mNewCat">
+    <div class="bud-modal">
+      <div class="bud-modal-title">Nueva categor&iacute;a</div>
+      <label class="bud-flabel">Nombre</label>
+      <input class="bud-inp" id="mCatName" type="text" placeholder="Ej: Netflix, Mercado…" autocomplete="off">
+      <label class="bud-flabel">Tipo</label>
+      <select class="bud-sel" id="mCatRollover">
+        <option value="reset">Reset mensual (gasto normal)</option>
+        <option value="accumulate">Acumular (ahorro)</option>
+      </select>
+      <div class="bud-modal-footer">
+        <button class="bud-mdbtn bud-mdbtn-cancel" id="mCatCancel">Cancelar</button>
+        <button class="bud-mdbtn bud-mdbtn-primary" id="mCatOk">Crear</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Nuevo grupo ─── -->
+  <div class="bud-overlay" id="mNewGroup">
+    <div class="bud-modal">
+      <div class="bud-modal-title">Nuevo grupo</div>
+      <label class="bud-flabel">Nombre del grupo</label>
+      <input class="bud-inp" id="mGroupName" type="text" placeholder="Ej: Hogar, Transporte…" autocomplete="off">
+      <label class="bud-checklabel">
+        <input type="checkbox" id="mGroupIsIncome"> Es grupo de ingresos
+      </label>
+      <div class="bud-modal-footer">
+        <button class="bud-mdbtn bud-mdbtn-cancel" id="mGroupCancel">Cancelar</button>
+        <button class="bud-mdbtn bud-mdbtn-primary" id="mGroupOk">Crear</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bud-toast" id="budToast"></div>
+
 </div>
 
-<!-- Budget Summary Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
-    <!-- Total Assigned This Month -->
-    <div class="bg-sky-50 rounded-2xl shadow-sm p-6 border border-sky-100 hover:shadow-md transition-all duration-200">
-        <div class="flex items-center justify-between mb-4">
-            <p class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Asignado este Mes</p>
-            <div class="w-2.5 h-2.5 rounded-full bg-sky-400"></div>
-        </div>
-        <p class="text-3xl font-bold text-sky-900 mb-1" id="totalAssignedTotalCOP">$0</p>
-        <p class="text-sm text-sky-400 font-medium" id="totalAssignedTotalUSD">US$0.00</p>
-    </div>
-
-    <!-- Total Spent This Month -->
-    <div class="bg-rose-50 rounded-2xl shadow-sm p-6 border border-rose-100 hover:shadow-md transition-all duration-200">
-        <div class="flex items-center justify-between mb-4">
-            <p class="text-xs font-semibold text-rose-400 uppercase tracking-wider">Gastado este Mes</p>
-            <div class="w-2.5 h-2.5 rounded-full bg-rose-400"></div>
-        </div>
-        <p class="text-3xl font-bold text-rose-900 mb-1" id="totalSpentCOP">$0</p>
-        <p class="text-sm text-rose-400 font-medium" id="totalSpentUSD">US$0.00</p>
-    </div>
-
-    <!-- Ready to Assign -->
-    <div id="readyToAssignCard" class="bg-indigo-50 rounded-2xl shadow-sm p-6 border border-indigo-100 hover:shadow-md transition-all duration-200">
-        <div class="flex items-center justify-between mb-4">
-            <p class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Listo para Asignar</p>
-            <span class="text-lg" id="readyToAssignIcon">💰</span>
-        </div>
-        <p class="text-3xl font-bold text-indigo-900 mb-1" id="readyToAssignTotalCOP">$0</p>
-        <p class="text-sm text-indigo-400 font-medium" id="readyToAssignTotalUSD">US$0.00</p>
-        <div class="mt-4 pt-3 border-t border-indigo-100 space-y-1 text-xs text-indigo-400">
-            <p id="readyToAssignBreakdownCOP">En cuentas: $0 · Disponible: $0</p>
-            <p id="readyToAssignBreakdownUSD">En cuentas: US$0.00 · Disponible: US$0.00</p>
-            <p id="readyToAssignNegativeNote" class="hidden text-red-500">
-                Negativo cuando lo disponible supera el dinero en cuentas.
-            </p>
-        </div>
-    </div>
-</div>
-
-<!-- Budget Distribution Bar Chart -->
-<div class="card p-6 mb-6">
-    <h3 class="text-base font-bold text-neutral-800 mb-5">
-        Distribución del Presupuesto por Categoría
-    </h3>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="chart-panel flex items-center justify-center rounded-lg p-4 bg-neutral-50">
-            <canvas id="budgetBarChart"></canvas>
-        </div>
-        <div id="budgetChartLegend" class="chart-legend overflow-y-auto rounded-lg p-4 bg-neutral-50 border border-neutral-100">
-        </div>
-    </div>
-</div>
-
-<!-- Spending Distribution Bar Chart -->
-<div class="card p-6 mb-6">
-    <h3 class="text-base font-bold text-neutral-800 mb-5">
-        Distribución del Gasto por Categoría
-    </h3>
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="chart-panel flex items-center justify-center rounded-lg p-4 bg-neutral-50">
-            <canvas id="budgetSpendingChart"></canvas>
-        </div>
-        <div id="budgetSpendingLegend" class="chart-legend overflow-y-auto rounded-lg p-4 bg-neutral-50 border border-neutral-100">
-        </div>
-    </div>
-</div>
-
-<!-- Overallocated Alert con diseño mejorado -->
-<div id="budgetOverallocatedAlert" class="hidden alert alert-danger mb-8">
-    <div class="flex items-start space-x-4">
-        <div class="text-sm font-bold text-danger-600">Alerta</div>
-        <div class="flex-1">
-            <p class="font-bold text-lg text-danger-900 mb-2">Tu presupuesto disponible supera el dinero en tus cuentas</p>
-            <p class="text-sm text-danger-800 mb-3">
-                Ajusta las asignaciones o los saldos de tus cuentas (excluyendo deudas) para corregirlo.
-            </p>
-            <div class="bg-danger-100 rounded-card p-3 inline-block">
-                <p class="text-sm font-semibold text-danger-900">
-                    Exceso: <span id="overallocatedCOP" class="font-bold">$0</span> /
-                    <span id="overallocatedUSD" class="font-bold">US$0.00</span>
-                </p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Smart Alerts Panel -->
-<div class="card-hover-lift p-6 mb-8">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <h3 class="text-xl font-bold text-neutral-800">Panel de Alertas Inteligentes</h3>
-            <p id="budgetAlertsMeta" class="text-sm text-neutral-500 mt-1">-</p>
-        </div>
-        <div class="flex items-center gap-2">
-            <span class="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Filtro</span>
-            <select id="budgetAlertFilter" class="input-field text-sm py-2 px-3">
-                <option value="ALL">Todas</option>
-                <option value="CRITICAL">Críticas</option>
-                <option value="RISK">Riesgo</option>
-                <option value="WARNING">Advertencia</option>
-            </select>
-        </div>
-    </div>
-    <div id="budgetAlertsList" class="space-y-3 mt-4"></div>
-    <p id="budgetAlertsEmpty" class="text-sm text-neutral-500 mt-4 hidden">Sin alertas nuevas en este periodo.</p>
-</div>
-
-<!-- Budget Groups -->
-<div id="budgetGroups" class="space-y-6">
-    <!-- Budget groups will be loaded here -->
-</div>
-
-<!-- Category Detail/History Modal -->
-<div id="categoryDetailModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
-    <div class="bg-white rounded-2xl w-full mx-4 max-h-[92vh] overflow-y-auto shadow-2xl border border-neutral-200" style="max-width:860px">
-
-        <!-- Header -->
-        <div class="sticky top-0 bg-white border-b border-neutral-100 px-7 py-4 flex items-center justify-between z-10">
-            <div>
-                <h3 class="text-xl font-bold text-neutral-900" id="detailCategoryName"></h3>
-                <p class="text-xs text-neutral-400 mt-0.5" id="detailCategoryType"></p>
-            </div>
-            <div class="flex items-center gap-3">
-                <select id="detailMonthsSelect" onchange="loadCategoryHistory()" class="text-xs border border-neutral-200 rounded-lg px-3 py-1.5 text-neutral-600 bg-white focus:outline-none focus:ring-2 focus:ring-primary-300">
-                    <option value="current">Mes actual</option>
-                    <option value="3">Últimos 3 meses</option>
-                    <option value="6" selected>Últimos 6 meses</option>
-                    <option value="12">Últimos 12 meses</option>
-                </select>
-                <button onclick="openAssignModalFromDetail()" class="btn-primary text-sm px-4 py-1.5">Asignar</button>
-                <button onclick="closeCategoryDetailModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-2xl font-light leading-none ml-1">&times;</button>
-            </div>
-        </div>
-
-        <div class="px-7 py-5 space-y-6">
-
-            <!-- KPI Cards -->
-            <div class="grid grid-cols-3 gap-3">
-                <div class="bg-neutral-50 rounded-xl p-4">
-                    <p class="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">Promedio mensual</p>
-                    <p class="text-xl font-bold text-neutral-800" id="kpiAvgMonthly">—</p>
-                </div>
-                <div class="bg-neutral-50 rounded-xl p-4">
-                    <p class="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">Día con más gasto</p>
-                    <p class="text-xl font-bold text-neutral-800" id="kpiTopDay">—</p>
-                </div>
-                <div class="bg-neutral-50 rounded-xl p-4">
-                    <p class="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-1">Total en el período</p>
-                    <p class="text-xl font-bold text-neutral-800" id="kpiTotal">—</p>
-                </div>
-            </div>
-
-            <!-- Row: Evolución mensual + Día de semana -->
-            <div class="grid grid-cols-5 gap-4">
-                <!-- Evolución mensual (wider) -->
-                <div class="col-span-3 bg-neutral-50 rounded-xl p-4">
-                    <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-3" id="detailChartTitle">Evolución Mensual</p>
-                    <div style="height:180px">
-                        <canvas id="detailTimelineChart"></canvas>
-                    </div>
-                </div>
-                <!-- Día de semana (narrower) -->
-                <div class="col-span-2 bg-neutral-50 rounded-xl p-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide">Por día de semana</p>
-                        <div class="flex rounded border border-neutral-200 overflow-hidden text-xs font-semibold">
-                            <button id="dowViewTotal" onclick="setDowView('total')" class="px-2 py-1 bg-primary-600 text-white transition-colors">Total</button>
-                            <button id="dowViewAvg" onclick="setDowView('avg')" class="px-2 py-1 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">Promedio</button>
-                        </div>
-                    </div>
-                    <div style="height:168px">
-                        <canvas id="dowChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Gastos en el tiempo (timeline con toggle) -->
-            <div class="bg-neutral-50 rounded-xl p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide">Gastos en el tiempo</p>
-                    <div class="flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
-                        <button id="txViewMonthly" onclick="setTxView('monthly')" class="px-3 py-1 bg-primary-600 text-white transition-colors">Mensual</button>
-                        <button id="txViewWeekly" onclick="setTxView('weekly')" class="px-3 py-1 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">Semanal</button>
-                        <button id="txViewDaily" onclick="setTxView('daily')" class="px-3 py-1 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">Diario</button>
-                    </div>
-                </div>
-                <div style="height:180px">
-                    <canvas id="txTimelineChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Histórico mensual (tabla compacta) -->
-            <div>
-                <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-3">Histórico mensual</p>
-                <div class="overflow-x-auto rounded-xl border border-neutral-100">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-neutral-50 text-neutral-500 uppercase text-xs tracking-wide">
-                                <th class="px-4 py-2.5 text-left">Mes</th>
-                                <th class="px-4 py-2.5 text-right">Asignado</th>
-                                <th class="px-4 py-2.5 text-right">Gastado</th>
-                                <th class="px-4 py-2.5 text-right">Disponible</th>
-                            </tr>
-                        </thead>
-                        <tbody id="detailHistoryBody" class="divide-y divide-neutral-50 bg-white">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Transacciones -->
-            <div>
-                <p class="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-3">Transacciones</p>
-                <div id="detailTransactionsContainer" class="space-y-1 max-h-56 overflow-y-auto">
-                </div>
-                <p id="detailNoTransactions" class="hidden text-neutral-400 text-sm italic py-4 text-center">Sin transacciones en este período</p>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-<!-- Assign Money Modal - Diseño mejorado -->
-<div id="assignModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
-    <div class="bg-white card p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl border-2 border-neutral-300">
-        <!-- Header con icono y efecto blur -->
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-                
-                <h3 class="text-3xl font-extrabold text-neutral-900">Asignar Dinero</h3>
-            </div>
-            <button onclick="closeAssignModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
-        </div>
-
-        <!-- Category Name -->
-        <div class="mb-6">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Categoría</label>
-            <input type="text" id="modalCategoryName" readonly class="input-field bg-neutral-50 cursor-not-allowed font-semibold">
-        </div>
-
-        <!-- Rollover Behavior Selection -->
-        <div class="mb-6">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Comportamiento</label>
-            <div class="relative">
-                <select id="modalRolloverType" onchange="toggleInitialAmountField()" class="input-field cursor-pointer appearance-none pr-10">
-                    <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
-                    <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
-                </select>
-                <!-- Icono de dropdown -->
-                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <svg class="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </div>
-            </div>
-            <div class="mt-3 alert alert-info">
-                <p class="text-xs">
-                    <strong class="font-bold">Gasto Mensual:</strong> El dinero no gastado vuelve a "Disponible para Asignar"<br>
-                    <strong class="font-bold">Meta/Ahorro:</strong> El dinero no gastado se acumula para el siguiente mes
-                </p>
-            </div>
-        </div>
-
-        <!-- 50/30/20 Classification (only for expense categories, not accumulate) -->
-        <div id="classificationSection" class="mb-6">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Clasificación 50/30/20</label>
-            <div class="flex gap-3">
-                <label class="flex-1 cursor-pointer">
-                    <input type="radio" name="modalClassification" value="need" class="peer hidden">
-                    <div class="peer-checked:ring-2 peer-checked:ring-amber-400 peer-checked:bg-amber-50 border-2 border-neutral-200 peer-checked:border-amber-400 rounded-xl p-3 text-center transition-all hover:border-amber-300">
-                        <span class="text-lg">⚖️</span>
-                        <p class="text-xs font-bold text-neutral-700 mt-1">Necesidad</p>
-                        <p class="text-[0.6rem] text-neutral-400">50%</p>
-                    </div>
-                </label>
-                <label class="flex-1 cursor-pointer">
-                    <input type="radio" name="modalClassification" value="want" class="peer hidden">
-                    <div class="peer-checked:ring-2 peer-checked:ring-purple-400 peer-checked:bg-purple-50 border-2 border-neutral-200 peer-checked:border-purple-400 rounded-xl p-3 text-center transition-all hover:border-purple-300">
-                        <span class="text-lg">✨</span>
-                        <p class="text-xs font-bold text-neutral-700 mt-1">Deseo</p>
-                        <p class="text-[0.6rem] text-neutral-400">30%</p>
-                    </div>
-                </label>
-            </div>
-        </div>
-
-        <!-- Initial Amount Field (only for savings/accumulate categories) -->
-        <div id="initialAmountSection" class="mb-6 hidden">
-            <div class="relative overflow-hidden bg-gradient-to-br from-secondary-500 to-secondary-600 p-6 rounded-card shadow-strong border-2 border-secondary-400">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-                <div class="relative">
-                    <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
-                        <span class="text-2xl mr-2">💎</span>
-                        Dinero Acumulado (Inicial)
-                    </label>
-                    <div class="flex space-x-3">
-                        <div class="relative">
-                            <select id="modalInitialCurrency" class="px-4 py-3 pr-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 font-bold focus:ring-4 focus:ring-secondary-300 focus:border-secondary-400 transition-all cursor-pointer appearance-none shadow-medium hover:shadow-strong">
-                                <option value="COP" class="text-neutral-900">COP</option>
-                                <option value="USD" class="text-neutral-900">USD</option>
-                            </select>
-                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="relative flex-1">
-                            <span class="absolute left-4 top-3.5 text-secondary-600 font-bold text-lg">$</span>
-                            <input type="number" id="modalInitialAmount"
-                                   class="w-full px-4 py-3 pl-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 placeholder-neutral-400 text-xl font-bold focus:ring-4 focus:ring-secondary-300 focus:border-secondary-400 transition-all shadow-medium hover:shadow-strong hover:border-secondary-300 cursor-text"
-                                   placeholder="0"
-                                   step="1000"
-                                   oninput="updateAvailablePreview()">
-                        </div>
-                    </div>
-                    <p class="text-sm text-white/90 mt-3 font-medium">
-                        Por defecto muestra el disponible del mes anterior.
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Single currency assignment field -->
-        <div class="mb-6">
-            <div class="relative overflow-hidden bg-gradient-to-br from-primary-500 to-primary-600 p-6 rounded-card shadow-strong border-2 border-primary-400">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-                <div class="relative">
-                    <label class="block text-sm font-extrabold text-white mb-4 uppercase tracking-widest flex items-center">
-                        <span class="text-2xl mr-2">💵</span>
-                        Presupuesto Asignado
-                    </label>
-                    <div class="flex space-x-3">
-                        <div class="relative">
-                            <select id="modalBudgetCurrency" onchange="updateBudgetConversion()" class="px-4 py-3 pr-10 border-2 border-white rounded-xl bg-white backdrop-blur-sm text-neutral-900 font-bold focus:ring-4 focus:ring-primary-300 focus:border-primary-400 transition-all cursor-pointer appearance-none shadow-medium hover:shadow-strong text-xl">
-                                <option value="COP">COP</option>
-                                <option value="USD">USD</option>
-                            </select>
-                            <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                <svg class="w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="relative flex-1">
-                            <span class="absolute left-4 top-3.5 text-primary-600 font-bold text-xl z-10">$</span>
-                            <input type="number" id="modalBudgetAmount"
-                                   class="w-full px-4 py-3 pl-10 border-2 border-white rounded-xl bg-white text-neutral-900 placeholder-neutral-400 text-2xl font-bold focus:ring-4 focus:ring-primary-200 focus:border-primary-500 transition-all shadow-medium hover:shadow-strong cursor-text"
-                                   placeholder="0"
-                                   step="1000"
-                                   oninput="updateBudgetConversion()">
-                        </div>
-                    </div>
-                    <p class="text-sm text-white/95 mt-3 font-semibold bg-black/20 px-3 py-2 rounded-card" id="budgetConversionHint"></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Available preview for accumulate categories -->
-        <div id="availablePreviewSection" class="mb-6 hidden">
-            <div class="bg-neutral-800 text-white p-5 rounded-card shadow-strong">
-                <p class="text-sm font-bold uppercase tracking-wide mb-2">Nuevo Disponible</p>
-                <p class="text-2xl font-extrabold" id="availablePreviewAmount">$0</p>
-                <p class="text-xs text-neutral-400 mt-2" id="availablePreviewFormula"></p>
-            </div>
-        </div>
-
-        <div class="mb-6 border border-neutral-200 rounded-card p-4 bg-neutral-50">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Alertas inteligentes</label>
-            <div class="flex items-center justify-between gap-4">
-                <label class="flex items-center gap-3 text-sm font-medium text-neutral-700">
-                    <input type="checkbox" id="modalAlertsEnabled" class="h-4 w-4 text-primary-600 border-neutral-300 rounded" checked>
-                    <span>Activar alertas</span>
-                </label>
-                <span id="modalAlertsDisabledNote" class="text-xs font-semibold text-neutral-500 hidden">Alertas desactivadas</span>
-            </div>
-            <p class="text-xs text-neutral-500 mt-2">Desactiva esta opción si no quieres recibir alertas ni resaltados por severidad en esta categoría.</p>
-        </div>
-
-        <!-- Buttons -->
-        <div class="flex justify-end space-x-3">
-            <button onclick="closeAssignModal()" class="btn-secondary">
-                Cancelar
-            </button>
-            <button onclick="saveAssignment()" class="btn-primary">
-                Guardar Presupuesto
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Cover Overspending Modal -->
-<div id="coverOverspendingModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
-    <div class="bg-white card p-8 max-w-xl w-full mx-4 shadow-2xl border-2 border-neutral-300">
-        <!-- Header con icono y efecto blur -->
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-                
-                <h3 class="text-3xl font-extrabold text-neutral-900">Cubrir Exceso</h3>
-            </div>
-            <button onclick="closeCoverOverspendingModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
-        </div>
-
-        <div class="mb-4">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Categoría con exceso</label>
-            <input type="text" id="coverOverspendingCategory" readonly class="input-field bg-neutral-50 font-semibold">
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
-                <select id="coverOverspendingCurrency" onchange="updateCoverOverspendingCurrency()" class="input-field">
-                    <option value="COP">🇨🇴 COP</option>
-                    <option value="USD">🇺🇸 USD</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Monto a cubrir</label>
-                <input type="number" id="coverOverspendingAmount"
-                       class="input-field text-xl"
-                       placeholder="0"
-                       step="0.01"
-                       onInput="updateCoverOverspendingHint()">
-                <p class="text-xs text-neutral-500 mt-1 font-medium" id="coverOverspendingHint"></p>
-            </div>
-        </div>
-
-        <div class="mb-6">
-            <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">💸 ¿De qué categorías se toma el dinero?</label>
-            <div id="coverOverspendingSources" class="space-y-3"></div>
-            <button type="button" id="coverOverspendingAddSource" onclick="addCoverOverspendingSourceRow()" class="btn-secondary mt-3">
-                + Agregar fuente
-            </button>
-            <p class="text-xs text-neutral-600 mt-2 font-medium" id="coverOverspendingSourceHint"></p>
-        </div>
-
-        <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
-            <button onclick="closeCoverOverspendingModal()" class="btn-secondary">
-                Cancelar
-            </button>
-            <button onclick="coverOverspending()" id="coverOverspendingSubmit" class="btn-danger">
-                ✅ Cubrir Exceso
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- New Category Modal -->
-<div id="newCategoryModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
-    <div class="bg-white card p-8 max-w-md w-full mx-4 shadow-2xl border-2 border-neutral-300">
-        <!-- Header con icono y efecto blur -->
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-                
-                <h3 class="text-3xl font-extrabold text-neutral-900">Nueva Categoría</h3>
-            </div>
-            <button onclick="closeNewCategoryModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
-        </div>
-        <form id="newCategoryForm">
-            <input type="hidden" id="newCategoryGroupId">
-            <div class="mb-5">
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Grupo</label>
-                <input type="text" id="newCategoryGroupName" readonly class="input-field bg-neutral-50 font-semibold">
-            </div>
-            <div class="mb-5">
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Nombre de la Categoría</label>
-                <input type="text" id="newCategoryName" required class="input-field" placeholder="Ej: Netflix, Gasolina, etc.">
-            </div>
-            <div class="mb-6">
-                <label id="newCategoryRolloverLabel" class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Comportamiento</label>
-                <select id="newCategoryRollover" class="input-field">
-                    <option value="reset">💰 Gasto Mensual (se resetea cada mes)</option>
-                    <option value="accumulate">🎯 Meta/Ahorro (se acumula mes a mes)</option>
-                </select>
-            </div>
-            <div id="newCategoryIncomeFields" class="mb-6 hidden space-y-4">
-                <p class="text-xs font-semibold text-success-700 bg-success-100 border border-success-200 rounded-lg px-3 py-2">
-                    Esta categoría será un ingreso automático asociado a una transacción recurrente.
-                </p>
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cantidad</label>
-                    <input type="number" id="newCategoryIncomeAmount" class="input-field" step="0.01" min="0" placeholder="Ej: 2500000">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Moneda</label>
-                    <select id="newCategoryIncomeCurrency" class="input-field"></select>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cuenta</label>
-                    <select id="newCategoryIncomeAccount" class="input-field"></select>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Transacción automática asociada</label>
-                    <select id="newCategoryRecurringSelect" class="input-field">
-                        <option value="">Sin asociar</option>
-                    </select>
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
-                <button type="button" onclick="closeNewCategoryModal()" class="btn-secondary">
-                    Cancelar
-                </button>
-                <button type="submit" class="btn-primary">
-                    ✨ Crear Categoría
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- New Group Modal -->
-<div id="newGroupModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
-    <div class="bg-white card p-8 max-w-md w-full mx-4 shadow-2xl border-2 border-neutral-300">
-        <!-- Header con icono y efecto blur -->
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-                
-                <h3 class="text-3xl font-extrabold text-neutral-900">Nuevo Grupo</h3>
-            </div>
-            <button onclick="closeNewGroupModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors text-3xl font-light leading-none">&times;</button>
-        </div>
-        <form id="newGroupForm">
-            <div class="mb-5">
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Nombre del Grupo</label>
-                <input type="text" id="newGroupName" required class="input-field" placeholder="Ej: Entretenimiento, Transporte, etc.">
-            </div>
-            <div class="mb-6">
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Tipo</label>
-                <select id="newGroupIsIncome" class="input-field">
-                    <option value="false">💰 Gastos (default)</option>
-                    <option value="true">💵 Ingresos</option>
-                </select>
-                <p class="text-xs text-neutral-500 mt-2">Los grupos de gastos e ingresos aparecen en el presupuesto principal</p>
-            </div>
-            <div class="flex justify-end space-x-3 pt-4 border-t border-neutral-200">
-                <button type="button" onclick="closeNewGroupModal()" class="btn-secondary">
-                    Cancelar
-                </button>
-                <button type="submit" class="btn-success">
-                    ✨ Crear Grupo
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-{% endblock %}
-
-{% block scripts %}
 <script>
-    let currentMonth = new Date();
-    let selectedCategory = null;
-    let selectedCategoryData = null;
-    let budgetBarChart = null;  // Chart.js instance for budget bar chart
-    let budgetSpendingChart = null;  // Chart.js instance for spending bar chart
-    let budgetDataByCurrency = { COP: null, USD: null };
-    let categoryBudgetMap = {};
-    let overspendingContext = null;
-    let budgetAlertStates = {};
-    let budgetAlertsPayload = null;
-    let recurringTransactions = [];
-    let budgetAccounts = [];
+(function () {
+  'use strict';
 
-    const ALERT_SEVERITY_ORDER = {
-        CRITICAL: 3,
-        RISK: 2,
-        WARNING: 1,
-        OK: 0
-    };
+  var DASH   = '—';
+  var MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-    const ALERT_BADGE_CLASSES = {
-        CRITICAL: 'badge-danger',
-        RISK: 'badge-warning',
-        WARNING: 'badge-accent'
-    };
+  function gid(id) { return document.getElementById(id); }
 
-    const ALERT_LABELS = {
-        CRITICAL: 'Crítico',
-        RISK: 'Riesgo',
-        WARNING: 'Advertencia'
-    };
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
-    // Exchange rates (will be loaded from API)
-    let EXCHANGE_RATE_USD_TO_COP = 4000;  // Default, will be updated
-    let currencies = {};
+  function fmtCOP(v) {
+    if (v == null) return DASH;
+    return (v < 0 ? '-' : '') + '$ ' + Math.round(Math.abs(v)).toLocaleString('es-CO');
+  }
 
-    // Initialize
-    document.addEventListener('DOMContentLoaded', async function() {
-        // Load exchange rate first
-        await loadExchangeRate();
-        await loadCurrencies();
-        await loadAccounts();
-        await loadRecurringTransactions();
+  function fmtUSD(v) {
+    if (v == null) return DASH;
+    return (v < 0 ? '-' : '') + 'US$ ' + Math.abs(v).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+  }
 
-        // Set current month
-        const monthInput = document.getElementById('monthSelect');
-        const year = currentMonth.getFullYear();
-        const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-        monthInput.value = `${year}-${month}`;
+  /* Toast */
+  var toastTimer;
+  function toast(msg, isErr) {
+    var el = gid('budToast');
+    el.textContent = msg;
+    el.className = 'bud-toast show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = 'bud-toast'; }, 2800);
+  }
 
-        // Event listeners
-        document.getElementById('monthSelect').addEventListener('change', function(e) {
-            const [year, month] = e.target.value.split('-');
-            currentMonth = new Date(year, month - 1, 1);
-            loadBudget();
-        });
+  /* State */
+  var S = { year: 0, month: 0, cop: null, usd: null, coverId: null, coverAmt: 0 };
+  var newCatGid = null;
 
-        document.getElementById('budgetAlertFilter').addEventListener('change', function() {
-            renderBudgetAlertsPanel(budgetAlertsPayload);
-        });
+  function initMonth() {
+    var d = new Date();
+    S.year  = d.getFullYear();
+    S.month = d.getMonth() + 1;
+  }
 
-        document.getElementById('modalAlertsEnabled').addEventListener('change', function() {
-            updateAlertsToggleNote();
-        });
+  function stepMonth(delta) {
+    S.month += delta;
+    if (S.month > 12) { S.month = 1;  S.year++; }
+    if (S.month < 1)  { S.month = 12; S.year--; }
+    load();
+  }
 
-        // Event listener for new category form
-        document.getElementById('newCategoryForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+  function api(url, opts) {
+    return fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}))
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
 
-            const groupId = parseInt(document.getElementById('newCategoryGroupId').value);
-            const name = document.getElementById('newCategoryName').value.trim();
-            const rolloverType = document.getElementById('newCategoryRollover').value;
-            const isIncomeGroup = document.getElementById('newCategoryModal').dataset.isIncome === 'true';
+  function load() {
+    gid('budLoading').style.display = 'flex';
+    gid('budGroups').style.display  = 'none';
+    gid('budMonthLbl').textContent  = MONTHS[S.month - 1] + ' ' + S.year;
 
-            if (!name) {
-                alert('El nombre de la categoría es requerido');
-                return;
-            }
+    var base = '/api/budgets/month/' + S.year + '/' + S.month;
+    Promise.all([
+      api(base + '?currency_code=COP'),
+      api(base + '?currency_code=USD')
+    ]).then(function (res) {
+      S.cop = res[0];
+      S.usd = res[1];
+      render();
+    }).catch(function () {
+      toast('Error al cargar presupuesto', true);
+      gid('budLoading').innerHTML = '<span style="color:var(--red)">Error al cargar datos</span>';
+    });
+  }
 
-            try {
-                const response = await fetch('/api/categories/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: name,
-                        category_group_id: groupId,
-                        rollover_type: isIncomeGroup ? 'reset' : rolloverType
-                    })
-                });
+  function usdGroup(id) {
+    var gs = (S.usd && S.usd.groups) || [];
+    for (var i = 0; i < gs.length; i++) { if (gs[i].id === id) return gs[i]; }
+    return null;
+  }
 
-                if (response.ok) {
-                    const categoryPayload = await response.json();
+  /* ── render ── */
+  function render() {
+    var cop = S.cop, usd = S.usd;
 
-                    if (isIncomeGroup) {
-                        await maybeCreateOrAssociateIncomeRecurring(categoryPayload.id, name);
-                    }
+    /* RTA card */
+    var rta  = cop.ready_to_assign || 0;
+    var rtaU = (usd && usd.ready_to_assign) || 0;
+    var rtaEl = gid('budRtaVal');
+    rtaEl.textContent = fmtCOP(rta);
+    rtaEl.className   = 'bud-stat-val' + (rta < 0 ? ' neg' : rta === 0 ? '' : ' pos');
+    gid('budRtaUsd').textContent  = rtaU ? fmtUSD(rtaU) : '';
+    var noteEl = gid('budRtaNote');
+    noteEl.textContent = rta < 0 ? 'Más asignado que disponible' : '';
+    noteEl.className   = 'bud-stat-note' + (rta < 0 ? ' neg' : '');
+    /* Update card border color based on state */
+    var rtaCard = rtaEl.closest('.bud-stat');
+    if (rtaCard) rtaCard.style.borderLeftColor = rta < 0 ? '#C52B2B' : rta === 0 ? '#9C9589' : '#0C6B3A';
 
-                    closeNewCategoryModal();
-                    loadBudget(); // Reload budget to show new category
-                    alert('Categoría creada exitosamente');
-                } else {
-                    const error = await response.json();
-                    alert('Error: ' + (error.detail || 'No se pudo crear la categoría'));
-                }
-            } catch (error) {
-                console.error('Error creating category:', error);
-                alert('Error al crear la categoría');
-            }
-        });
+    /* Stats */
+    var tc = cop.totals || {}, tu = (usd && usd.totals) || {};
+    gid('budAsgnVal').textContent  = fmtCOP(tc.assigned   || 0);
+    gid('budAsgnUsd').textContent  = fmtUSD(tu.assigned   || 0);
+    gid('budActVal').textContent   = fmtCOP(tc.activity   || 0);
+    gid('budActUsd').textContent   = fmtUSD(tu.activity   || 0);
+    gid('budAvailVal').textContent = fmtCOP(tc.available  || 0);
+    gid('budAvailUsd').textContent = fmtUSD(tu.available  || 0);
+    gid('budAcctVal').textContent  = fmtCOP(tc.in_accounts || 0);
+    gid('budAcctUsd').textContent  = fmtUSD(tu.in_accounts || 0);
 
-        // Event listener for new group form
-        document.getElementById('newGroupForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+    var allCats = (cop.groups || []).reduce(function (a, g) { return a.concat(g.categories || []); }, []);
+    var expGs   = (cop.groups || []).filter(function (g) { return !g.is_income; });
+    var incGs   = (cop.groups || []).filter(function (g) {  return g.is_income; });
 
-            const name = document.getElementById('newGroupName').value.trim();
-            const isIncome = document.getElementById('newGroupIsIncome').value === 'true';
+    var container = gid('budGroups');
+    container.innerHTML = '';
 
-            if (!name) {
-                alert('El nombre del grupo es requerido');
-                return;
-            }
+    expGs.forEach(function (g) { container.appendChild(buildGroup(g, false, allCats)); });
 
-            try {
-                const response = await fetch('/api/categories/groups', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: name,
-                        is_income: isIncome
-                    })
-                });
+    if (incGs.length) {
+      var sep = document.createElement('div');
+      sep.innerHTML = '<div class="bud-inc-sep"><span class="bud-inc-sep-text">Ingresos</span></div>';
+      container.appendChild(sep);
+      incGs.forEach(function (g) { container.appendChild(buildGroup(g, true, allCats)); });
+    }
 
-                if (response.ok) {
-                    closeNewGroupModal();
-                    loadBudget(); // Reload budget to show new group
-                    alert('Grupo creado exitosamente');
-                } else {
-                    const error = await response.json();
-                    alert('Error: ' + (error.detail || 'No se pudo crear el grupo'));
-                }
-            } catch (error) {
-                console.error('Error creating group:', error);
-                alert('Error al crear el grupo');
-            }
-        });
+    gid('budLoading').style.display = 'none';
+    container.style.display = 'flex';
+  }
 
-        loadBudget();
+  /* ── group section ── */
+  function buildGroup(g, isIncome, allCats) {
+    var ugr   = usdGroup(g.id);
+    var cats  = g.categories || [];
+    var ucats = (ugr && ugr.categories) || [];
+    var umap  = {};
+    ucats.forEach(function (c) { umap[c.category_id] = c; });
+
+    var tAsgn  = cats.reduce(function (s, c) { return s + (c.assigned  || 0); }, 0);
+    var tAct   = cats.reduce(function (s, c) { return s + (c.activity  || 0); }, 0);
+    var tAvail = cats.reduce(function (s, c) { return s + (c.available || 0); }, 0);
+
+    var xCls = tAct   < 0 ? ' neg' : tAct   > 0 ? ' pos' : '';
+    var vCls = tAvail < 0 ? ' neg' : tAvail > 0 ? ' pos' : '';
+
+    var wrap = document.createElement('div');
+    wrap.className = 'bud-group' + (isIncome ? ' income-group' : '');
+    wrap.id = 'bgrp-' + g.id;
+
+    wrap.innerHTML =
+      /* group header */
+      '<div class="bud-group-hd' + (isIncome ? ' income-hd' : '') + '">' +
+        '<div class="bud-group-hd-left">' +
+          '<svg class="bud-group-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '<span class="bud-group-title">' + esc(g.name) + '</span>' +
+          '<span class="bud-group-n">' + cats.length + '</span>' +
+          '<button class="bud-group-addbtn" data-gid="' + g.id + '">+ Categoría</button>' +
+        '</div>' +
+        '<div class="bud-group-totals">' +
+          '<div class="bud-gtot"><span class="bud-gtot-lbl">Asignado</span><span class="bud-gtot-val">' + fmtCOP(tAsgn) + '</span></div>' +
+          '<div class="bud-gtot"><span class="bud-gtot-lbl">Gastado</span><span class="bud-gtot-val' + xCls + '">' + (tAct !== 0 ? fmtCOP(tAct) : DASH) + '</span></div>' +
+          '<div class="bud-gtot"><span class="bud-gtot-lbl">Disponible</span><span class="bud-gtot-val' + vCls + '">' + fmtCOP(tAvail) + '</span></div>' +
+        '</div>' +
+      '</div>' +
+      /* column labels */
+      '<div class="bud-col-hd">' +
+        '<span>Categoría</span>' +
+        '<span style="text-align:left">Uso</span>' +
+        '<span>Asignado</span>' +
+        '<span>Gastado</span>' +
+        '<span>Disponible</span>' +
+      '</div>' +
+      '<div class="bud-cat-rows"></div>';
+
+    var rowsEl = wrap.querySelector('.bud-cat-rows');
+    cats.forEach(function (c) {
+      rowsEl.appendChild(buildRow(c, umap[c.category_id] || null, g.id, allCats));
     });
 
-    async function loadExchangeRate() {
-        try {
-            const res = await fetch('/api/exchange-rates/current');
-            const data = await res.json();
-            EXCHANGE_RATE_USD_TO_COP = data.rate;
-            console.log(`✓ Exchange rate loaded: 1 USD = ${EXCHANGE_RATE_USD_TO_COP} COP`);
-        } catch (error) {
-            console.error('Error loading exchange rate:', error);
-        }
-    }
-
-    async function loadCurrencies() {
-        try {
-            const res = await fetch('/api/currencies');
-            const data = await res.json();
-            currencies = data.reduce((acc, curr) => {
-                acc[curr.code] = curr;
-                return acc;
-            }, {});
-        } catch (error) {
-            console.error('Error loading currencies:', error);
-        }
-    }
-
-    async function loadAccounts() {
-        try {
-            const res = await fetch('/api/accounts');
-            budgetAccounts = await res.json();
-        } catch (error) {
-            console.error('Error loading accounts:', error);
-            budgetAccounts = [];
-        }
-    }
-
-    async function loadRecurringTransactions() {
-        try {
-            const res = await fetch('/api/recurring?is_active=true');
-            recurringTransactions = await res.json();
-        } catch (error) {
-            console.error('Error loading recurring transactions:', error);
-            recurringTransactions = [];
-        }
-    }
-
-    function convertBalance(amount, fromCurrency, toCurrency) {
-        if (fromCurrency === toCurrency) return amount;
-
-        if (fromCurrency === 'USD' && toCurrency === 'COP') {
-            return amount * EXCHANGE_RATE_USD_TO_COP;
-        } else if (fromCurrency === 'COP' && toCurrency === 'USD') {
-            return amount / EXCHANGE_RATE_USD_TO_COP;
-        }
-
-        return amount;
-    }
-
-    async function loadBudget() {
-        try {
-            const year = currentMonth.getFullYear();
-            const month = currentMonth.getMonth() + 1;
-
-            // Show/hide recalculate button for future months
-            const today = new Date();
-            const todayFirstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            const isFutureMonth = currentMonth > todayFirstOfMonth;
-            const recalcBtn = document.getElementById('recalculateMonthBtn');
-            if (isFutureMonth) {
-                recalcBtn.classList.remove('hidden');
-            } else {
-                recalcBtn.classList.add('hidden');
-            }
-
-            // Load budget in BOTH currencies
-            const [resCOP, resUSD] = await Promise.all([
-                fetch(`/api/budgets/month/${year}/${month}?currency_code=COP`),
-                fetch(`/api/budgets/month/${year}/${month}?currency_code=USD`)
-            ]);
-
-            const dataCOP = await resCOP.json();
-            const dataUSD = await resUSD.json();
-
-            const alertsPayload = await loadBudgetAlerts(year, month);
-            displayBudget(dataCOP, dataUSD, alertsPayload);
-        } catch (error) {
-            console.error('Error loading budget:', error);
-        }
-    }
-
-    async function recalculateMonth() {
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth() + 1;
-        const btn = document.getElementById('recalculateMonthBtn');
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="mr-1">↻</span> Recalculando...';
-        try {
-            const res = await fetch(`/api/budgets/recalculate/${year}/${month}`, { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                await loadBudget();
-            } else {
-                alert('Error al recalcular el presupuesto');
-            }
-        } catch (error) {
-            console.error('Error recalculating budget:', error);
-            alert('Error al recalcular el presupuesto');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    }
-
-    async function loadBudgetAlerts(year, month) {
-        const monthValue = String(month).padStart(2, '0');
-        const monthStr = `${year}-${monthValue}-01`;
-
-        try {
-            const res = await fetch(`/api/alerts/budget?month=${monthStr}&currency_code=COP`);
-            if (!res.ok) {
-                return null;
-            }
-            return await res.json();
-        } catch (error) {
-            console.error('Error loading budget alerts:', error);
-            return null;
-        }
-    }
-
-    function displayBudget(dataCOP, dataUSD, alertsPayload = null) {
-        if (!dataCOP || !dataUSD) return;
-
-        budgetDataByCurrency = { COP: dataCOP, USD: dataUSD };
-        buildCategoryBudgetMap(dataCOP, dataUSD);
-        budgetAlertsPayload = alertsPayload;
-        budgetAlertStates = (alertsPayload?.category_states || []).reduce((acc, entry) => {
-            acc[entry.category_id] = entry.state;
-            return acc;
-        }, {});
-        renderBudgetAlertsPanel(alertsPayload);
-
-        // Display Ready to Assign total in both currencies (combined)
-        const readyToAssignCOP = (dataCOP.totals.in_accounts || 0) - (dataCOP.totals.available || 0);
-        const readyToAssignUSD = (dataUSD.totals.in_accounts || 0) - (dataUSD.totals.available || 0);
-
-        document.getElementById('readyToAssignTotalCOP').textContent =
-            `$${formatAmount(readyToAssignCOP, 0)}`;
-        document.getElementById('readyToAssignTotalUSD').textContent =
-            `US$${formatAmount(readyToAssignUSD, 2)}`;
-        document.getElementById('readyToAssignBreakdownCOP').textContent =
-            `En cuentas: $${formatAmount(dataCOP.totals.in_accounts || 0, 0)} · Disponible: $${formatAmount(dataCOP.totals.available || 0, 0)}`;
-        document.getElementById('readyToAssignBreakdownUSD').textContent =
-            `En cuentas: US$${formatAmount(dataUSD.totals.in_accounts || 0, 2)} · Disponible: US$${formatAmount(dataUSD.totals.available || 0, 2)}`;
-
-        const negativeNote = document.getElementById('readyToAssignNegativeNote');
-        const rtaCard = document.getElementById('readyToAssignCard');
-        const rtaIcon = document.getElementById('readyToAssignIcon');
-        if (readyToAssignCOP < 0 || readyToAssignUSD < 0) {
-            negativeNote.classList.remove('hidden');
-            rtaCard.className = 'bg-red-50 rounded-2xl shadow-sm p-6 border border-red-200 hover:shadow-md transition-all duration-200';
-            rtaIcon.textContent = '⚠️';
-        } else {
-            negativeNote.classList.add('hidden');
-            rtaCard.className = 'bg-indigo-50 rounded-2xl shadow-sm p-6 border border-indigo-100 hover:shadow-md transition-all duration-200';
-            rtaIcon.textContent = '💰';
-        }
-
-        // Display Total Assigned (sum) in both currencies
-        document.getElementById('totalAssignedTotalCOP').textContent =
-            `$${formatAmount(dataCOP.totals.assigned, 0)}`;
-        document.getElementById('totalAssignedTotalUSD').textContent =
-            `US$${formatAmount(dataUSD.totals.assigned, 2)}`;
-
-        // Display Total Spent (sum) in both currencies
-        document.getElementById('totalSpentCOP').textContent =
-            `$${formatAmount(dataCOP.totals.activity, 0)}`;
-        document.getElementById('totalSpentUSD').textContent =
-            `US$${formatAmount(dataUSD.totals.activity, 2)}`;
-
-        // Available and in_accounts used only for overallocated alert
-
-        updateOverallocatedAlert(
-            dataCOP.totals.available,
-            dataUSD.totals.available,
-            dataCOP.totals.in_accounts || 0,
-            dataUSD.totals.in_accounts || 0
-        );
-
-        // Display budget groups (merge both currencies)
-        const container = document.getElementById('budgetGroups');
-        container.innerHTML = dataCOP.groups.map(groupCOP => {
-            return `
-                <div class="card">
-                    <!-- Group Header (Collapsible) -->
-                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 cursor-pointer hover:bg-gray-100"
-                         onclick="toggleGroup(${groupCOP.id})">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <svg id="chevron-${groupCOP.id}" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                                <h3 class="text-lg font-semibold text-gray-800">${groupCOP.name}</h3>
-                                <button onclick="event.stopPropagation(); editGroupName(${groupCOP.id}, '${groupCOP.name.replace(/'/g, "&apos;")}')"
-                                        class="ml-3 text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
-                                        title="Renombrar grupo">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1-1v2m-7 7l7-7m0 0l3 3m-3-3v8m9 4H3"></path>
-                                    </svg>
-                                </button>
-                                <button onclick="event.stopPropagation(); deleteGroup(${groupCOP.id}, '${groupCOP.name.replace(/'/g, "&apos;")}')"
-                                        class="ml-1 text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
-                                        title="Eliminar grupo">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="grid grid-cols-3 gap-8 text-right">
-                                <div>
-                                    <p class="text-sm text-gray-500">Asignado</p>
-                                    <p class="font-semibold text-gray-800">${formatGroupTotals(groupCOP, 'assigned')}</p>
-                                </div>
-                                <div>
-                                    <p class="text-sm text-gray-500">Gastado</p>
-                                    <p class="font-semibold text-gray-800">${formatGroupTotals(groupCOP, 'activity')}</p>
-                                </div>
-                                <div>
-                                    <p class="text-sm text-gray-500">Disponible</p>
-                                    <p class="font-semibold ${getGroupTotal(groupCOP, 'available') >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                        ${formatGroupTotals(groupCOP, 'available')}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Categories (collapsible content) -->
-                    <div id="group-${groupCOP.id}" class="divide-y divide-gray-200">
-                        <div class="px-6 py-3 bg-gray-100 text-xs font-semibold text-gray-600 uppercase tracking-[0.08em]">
-                            ${groupCOP.is_income ? `
-                                <div class="grid grid-cols-5 gap-4">
-                                    <span>Categoría</span>
-                                    <span class="text-right">Ingreso</span>
-                                    <span class="text-right">Moneda</span>
-                                    <span class="text-right">Cuenta</span>
-                                    <span class="text-right">Transacción automática</span>
-                                </div>
-                            ` : `
-                                <div class="grid grid-cols-4 gap-4">
-                                    <span>Categoría</span>
-                                    <span class="text-right" title="Monto fijo definido para el mes. Solo cambia por acción del usuario.">Asignado</span>
-                                    <span class="text-right" title="Total de gastos registrados en este mes.">Gastado</span>
-                                    <span class="text-right" title="Disponible para gastar (gasto) o Ahorrado (ahorro).">Disponible</span>
-                                </div>
-                            `}
-                        </div>
-                        ${groupCOP.categories.map(cat => {
-                            if (groupCOP.is_income) {
-                                return renderIncomeCategoryRow(cat);
-                            }
-
-                            const percentSpent = cat.rollover_type === 'accumulate'
-                                ? ((cat.available + Math.abs(cat.activity)) > 0 ? (Math.abs(cat.activity) / (cat.available + Math.abs(cat.activity))) * 100 : 0)
-                                : (cat.assigned > 0 ? (Math.abs(cat.activity) / cat.assigned) * 100 : 0);
-                            const isOverbudget = percentSpent > 100;
-                            const barColor = isOverbudget ? 'bg-red-500' : (percentSpent > 80 ? 'bg-amber-500' : 'bg-emerald-500');
-                            const hasNoActivity = Math.abs(cat.activity) === 0;
-                            const showResetHint = cat.rollover_type === 'reset' && hasNoActivity && cat.assigned > 0;
-                            const isOverspent = cat.available < 0;
-                            const usageBadgeClass = isOverbudget
-                                ? 'bg-red-100 text-red-700 border border-red-200'
-                                : (percentSpent > 80 ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200');
-                            const alertState = budgetAlertStates[cat.category_id] || 'OK';
-                            const alertClass = alertState !== 'OK' ? `budget-alert-highlight ${alertState.toLowerCase()}` : 'budget-alert-highlight';
-                            const alertBadge = alertState !== 'OK'
-                                ? `<span class="badge ${ALERT_BADGE_CLASSES[alertState]} text-[0.65rem]">${ALERT_LABELS[alertState]}</span>`
-                                : '';
-
-                            return `
-                                <div class="px-6 py-5 hover:bg-gray-50/80 cursor-pointer ${alertClass}"
-                                     onclick='openCategoryDetailModal(${JSON.stringify(cat).replace(/'/g, "&apos;")})'>
-                                    <div class="grid grid-cols-4 gap-4 items-center">
-                                        <div class="col-span-1">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <div class="flex items-center gap-2">
-                                                    <p class="font-semibold text-gray-800">${cat.category_name}</p>
-                                                    ${alertBadge}
-                                                    <button onclick="event.stopPropagation(); editCategoryName(${cat.category_id}, '${cat.category_name.replace(/'/g, "&apos;")}')"
-                                                            class="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
-                                                            title="Renombrar categoría">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5h2m-1-1v2m-7 7l7-7m0 0l3 3m-3-3v8m9 4H3"></path>
-                                                        </svg>
-                                                    </button>
-                                                    <button onclick="event.stopPropagation(); deleteCategory(${cat.category_id}, '${cat.category_name.replace(/'/g, "&apos;")}')"
-                                                            class="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
-                                                            title="Eliminar categoría">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                                ${cat.rollover_type === 'accumulate' ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">🎯 Ahorro</span>' : cat.is_essential ? '<span class="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">⚖️ Necesidad</span>' : '<span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">✨ Deseo</span>'}
-                                                <span class="text-xs px-2 py-1 rounded-full font-semibold ${usageBadgeClass}">${formatAmount(Math.min(percentSpent, 999), 0)}% usado</span>
-                                            </div>
-                                            ${cat.target_amount ? `<p class="text-xs text-gray-500">Meta: $${formatAmount(cat.target_amount, 0)}</p>` : ''}
-                                        </div>
-
-                                        <!-- Assigned Column -->
-                                        <div class="text-right">
-                                            ${formatDualCurrency(cat.assigned, 'COP', 0)}
-                                        </div>
-
-                                        <!-- Activity Column -->
-                                        <div class="text-right">
-                                            ${formatDualCurrency(Math.abs(cat.activity), 'COP', 0)}
-                                            <!-- Progress Bar -->
-                                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2 overflow-hidden" title="${formatAmount(percentSpent, 0)}% ${cat.rollover_type === 'accumulate' ? 'del total ahorrado gastado' : 'del presupuesto asignado gastado'}">
-                                                <div class="budget-bar ${barColor} h-2.5 rounded-full" style="width: ${Math.min(percentSpent, 100)}%"></div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Available Column -->
-                                        <div class="text-right">
-                                            <p class="font-semibold ${cat.available >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                                ${formatDualCurrency(cat.available, 'COP', 0)}
-                                            </p>
-                                            <p class="text-[0.65rem] text-gray-400 mt-0.5">${cat.rollover_type === 'accumulate' ? `Inicial: $${formatAmount(cat.initial_amount || 0, 0)} + Asig: $${formatAmount(cat.assigned, 0)} - Gasto: $${formatAmount(Math.abs(cat.activity), 0)}` : 'Disponible para gastar'}</p>
-                                            ${showResetHint ? '<p class="text-xs text-gray-400 mt-1" title="Sin gasto este mes, por eso disponible coincide con asignado">Sin gasto este mes</p>' : ''}
-                                            ${isOverspent ? `
-                                                <button onclick="event.stopPropagation(); openCoverOverspendingModal(${cat.category_id})"
-                                                        class="mt-2 text-xs text-red-600 hover:text-red-800 font-semibold underline decoration-red-300 underline-offset-2">
-                                                    Cubrir exceso
-                                                </button>
-                                            ` : ''}
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                        <!-- Add Category Button -->
-                        <div class="px-6 py-3 bg-gray-50">
-                            <button data-group-id="${groupCOP.id}" data-group-name="${groupCOP.name}"
-                                    data-group-is-income="${groupCOP.is_income}"
-                                    onclick="openNewCategoryModal(this.dataset.groupId, this.dataset.groupName, this.dataset.groupIsIncome === 'true')"
-                                    class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
-                                <span class="mr-1">+</span> Agregar Categoría
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // Render the bar charts after displaying the budget
-        renderBudgetBarChart(dataCOP);
-        renderSpendingBarChart(dataCOP);
-    }
-
-    function renderIncomeCategoryRow(cat) {
-        const linkedRecurring = recurringTransactions.find(tx => tx.category_id === cat.category_id && tx.transaction_type === 'income');
-        const recurringAmount = linkedRecurring ? Math.abs(linkedRecurring.amount || 0) : 0;
-        const recurringCurrency = linkedRecurring?.currency?.code || '-';
-        const recurringAccount = linkedRecurring?.account_name || '-';
-
-        const options = ['<option value="">Sin asociar</option>']
-            .concat(
-                recurringTransactions
-                    .filter(tx => tx.transaction_type === 'income')
-                    .map(tx => `<option value="${tx.id}" ${tx.category_id === cat.category_id ? 'selected' : ''}>${tx.description || 'Ingreso automático'} · ${Math.abs(tx.amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 2 })} ${tx.currency?.code || ''}</option>`)
-            )
-            .join('');
-
-        return `
-            <div class="px-6 py-4 hover:bg-gray-50">
-                <div class="grid grid-cols-5 gap-4 items-center">
-                    <div class="col-span-1">
-                        <p class="font-medium text-gray-800">${cat.category_name}</p>
-                    </div>
-                    <div class="text-right font-semibold text-gray-800">${recurringAmount.toLocaleString('es-CO', { minimumFractionDigits: recurringCurrency === 'USD' ? 2 : 0, maximumFractionDigits: 2 })}</div>
-                    <div class="text-right text-gray-700">${recurringCurrency}</div>
-                    <div class="text-right text-gray-700">${recurringAccount}</div>
-                    <div>
-                        <select class="input-field py-2 text-sm" onchange="associateRecurringToCategory(${cat.category_id}, this.value)">
-                            ${options}
-                        </select>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    function buildCategoryChartData(budgetData, valueSelector, maxItems = 12) {
-        if (!budgetData || !budgetData.groups) return { categories: [], colors: [] };
-
-        const categoryData = [];
-        budgetData.groups.forEach(group => {
-            if (group.is_income) return;
-
-            group.categories.forEach(cat => {
-                const amount = valueSelector(cat);
-                if (amount > 0) {
-                    categoryData.push({
-                        id: cat.category_id,
-                        name: cat.category_name,
-                        amount: amount
-                    });
-                }
-            });
-        });
-
-        categoryData.sort((a, b) => b.amount - a.amount);
-
-        const palette = [
-            '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-            '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
-            '#06B6D4', '#F43F5E', '#A78BFA', '#34D399'
-        ];
-
-        const topCategories = categoryData.slice(0, maxItems);
-        const remaining = categoryData.slice(maxItems);
-        const otherTotal = remaining.reduce((sum, item) => sum + item.amount, 0);
-
-        if (otherTotal > 0) {
-            topCategories.push({
-                id: 'others',
-                name: 'Otros',
-                amount: otherTotal,
-                isOther: true
-            });
-        }
-
-        const colors = topCategories.map((item, index) => {
-            if (item.isOther) {
-                return '#9CA3AF';
-            }
-            return palette[index % palette.length];
-        });
-
-        return { categories: topCategories, colors };
-    }
-
-    function renderCategoryLegend(containerId, categoryData, colors, showAlerts = true) {
-        const legendContainer = document.getElementById(containerId);
-        const total = categoryData.reduce((sum, item) => sum + item.amount, 0);
-
-        if (!categoryData.length) {
-            legendContainer.innerHTML = '<p class="text-sm text-neutral-500">Sin datos para mostrar.</p>';
-            return;
-        }
-
-        legendContainer.innerHTML = categoryData.map((cat, index) => {
-            const percentage = total > 0 ? ((cat.amount / total) * 100).toFixed(1) : 0;
-            const color = colors[index];
-            const alertState = showAlerts ? (budgetAlertStates[cat.id] || 'OK') : 'OK';
-            const showAlert = showAlerts && !cat.isOther && alertState !== 'OK';
-            const alertClass = showAlert ? `budget-alert-item ${alertState.toLowerCase()}` : 'budget-alert-item';
-            const alertBadge = showAlert
-                ? `<span class="badge ${ALERT_BADGE_CLASSES[alertState]} text-[0.6rem] ml-2">${ALERT_LABELS[alertState]}</span>`
-                : '';
-            return `
-                <div class="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded ${alertClass}">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-4 h-4 rounded flex-shrink-0" style="background-color: ${color}"></div>
-                        <span class="text-sm font-medium text-gray-700">${cat.name}</span>
-                        ${alertBadge}
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-semibold text-gray-800">$${formatAmount(cat.amount, 0)}</p>
-                        <p class="text-xs text-gray-500">${percentage}%</p>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function renderBudgetBarChart(budgetData) {
-        const chartTheme = getChartTheme();
-        const chartData = buildCategoryChartData(budgetData, cat => cat.assigned);
-        const labels = chartData.categories.map(c => c.name);
-        const amounts = chartData.categories.map(c => c.amount);
-
-        if (budgetBarChart) {
-            budgetBarChart.destroy();
-        }
-
-        const ctx = document.getElementById('budgetBarChart').getContext('2d');
-        budgetBarChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: amounts,
-                    backgroundColor: chartData.colors,
-                    borderWidth: 1,
-                    borderColor: chartTheme.border
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                scales: {
-                    x: {
-                        ticks: {
-                            callback: function(value) {
-                                return `$${formatAmount(value, 0)}`;
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false  // We'll create a custom legend
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed.x || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                return `${label}: $${formatAmount(value, 0)} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        renderCategoryLegend('budgetChartLegend', chartData.categories, chartData.colors, true);
-    }
-
-    function renderSpendingBarChart(budgetData) {
-        const chartTheme = getChartTheme();
-        const chartData = buildCategoryChartData(budgetData, cat => Math.abs(cat.activity));
-        const labels = chartData.categories.map(c => c.name);
-        const amounts = chartData.categories.map(c => c.amount);
-
-        if (budgetSpendingChart) {
-            budgetSpendingChart.destroy();
-        }
-
-        const ctx = document.getElementById('budgetSpendingChart').getContext('2d');
-        budgetSpendingChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: amounts,
-                    backgroundColor: chartData.colors,
-                    borderWidth: 1,
-                    borderColor: chartTheme.border
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                scales: {
-                    x: {
-                        ticks: {
-                            callback: function(value) {
-                                return `$${formatAmount(value, 0)}`;
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed.x || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                return `${label}: $${formatAmount(value, 0)} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        renderCategoryLegend('budgetSpendingLegend', chartData.categories, chartData.colors, false);
-    }
-
-    function renderBudgetAlertsPanel(payload) {
-        const listEl = document.getElementById('budgetAlertsList');
-        const emptyEl = document.getElementById('budgetAlertsEmpty');
-        const metaEl = document.getElementById('budgetAlertsMeta');
-        const filterValue = document.getElementById('budgetAlertFilter').value;
-
-        if (!payload) {
-            listEl.innerHTML = '';
-            emptyEl.classList.remove('hidden');
-            metaEl.textContent = 'Alertas no disponibles por el momento.';
-            return;
-        }
-
-        metaEl.textContent = `Periodo ${payload.month} · Progreso esperado ${payload.expected_percent?.toFixed(0) || 0}% · Cooldown ${payload.cooldown_days} días`;
-
-        let alerts = payload.alerts || [];
-        alerts = alerts.sort((a, b) => ALERT_SEVERITY_ORDER[b.state] - ALERT_SEVERITY_ORDER[a.state]);
-
-        if (filterValue !== 'ALL') {
-            alerts = alerts.filter(alert => alert.state === filterValue);
-        }
-
-        if (!alerts.length) {
-            listEl.innerHTML = '';
-            emptyEl.classList.remove('hidden');
-            return;
-        }
-
-        emptyEl.classList.add('hidden');
-        listEl.innerHTML = alerts.map(alert => {
-            const itemClass = `budget-alert-item ${alert.state.toLowerCase()}`;
-            const badgeClass = ALERT_BADGE_CLASSES[alert.state] || 'badge-warning';
-            const badgeLabel = ALERT_LABELS[alert.state] || alert.state;
-            return `
-                <div class="${itemClass}">
-                    <div class="flex items-center justify-between gap-4">
-                        <p class="text-sm text-neutral-700">${alert.message}</p>
-                        <span class="badge ${badgeClass}">${badgeLabel}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function updateOverallocatedAlert(totalAvailableCOP, totalAvailableUSD, totalInAccountsCOP, totalInAccountsUSD) {
-        const alertElement = document.getElementById('budgetOverallocatedAlert');
-        const overallocatedCOP = totalAvailableCOP - totalInAccountsCOP;
-        const overallocatedUSD = totalAvailableUSD - totalInAccountsUSD;
-        const isOverallocated = overallocatedCOP > 0 || overallocatedUSD > 0;
-
-        if (!isOverallocated) {
-            alertElement.classList.add('hidden');
-            return;
-        }
-
-        document.getElementById('overallocatedCOP').textContent = `$${formatAmount(overallocatedCOP, 0)}`;
-        document.getElementById('overallocatedUSD').textContent = `US$${formatAmount(overallocatedUSD, 2)}`;
-        alertElement.classList.remove('hidden');
-    }
-
-    function formatDualCurrency(amountCOP, currency, decimals) {
-        const amountUSD = convertBalance(amountCOP, 'COP', 'USD');
-        return `
-            <div>
-                <p class="font-medium text-gray-800">$${formatAmount(amountCOP, 0)}</p>
-                <p class="text-xs text-gray-500">US$${formatAmount(amountUSD, 2)}</p>
-            </div>
-        `;
-    }
-
-    function getGroupTotal(group, field) {
-        return group.categories.reduce((sum, cat) => {
-            const value = cat[field];
-            return sum + (field === 'activity' ? Math.abs(value) : value);
-        }, 0);
-    }
-
-    function formatGroupTotals(group, field) {
-        const totalCOP = getGroupTotal(group, field);
-        const totalUSD = convertBalance(totalCOP, 'COP', 'USD');
-
-        return `
-            <div class="flex flex-col">
-                <span>$${formatAmount(totalCOP, 0)}</span>
-                <span class="text-xs text-gray-500">US$${formatAmount(totalUSD, 2)}</span>
-            </div>
-        `;
-    }
-
-    function formatAmount(amount, decimals = 0) {
-        const sign = amount < 0 ? '-' : '';
-        return `${sign}${Math.abs(amount).toLocaleString('es-CO', {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        })}`;
-    }
-
-    function buildCategoryBudgetMap(dataCOP, dataUSD) {
-        categoryBudgetMap = {};
-
-        const applyCurrencyData = (data, currencyCode) => {
-            if (!data || !data.groups) return;
-            data.groups.forEach(group => {
-                if (group.is_income) return;
-                group.categories.forEach(cat => {
-                    if (!categoryBudgetMap[cat.category_id]) {
-                        categoryBudgetMap[cat.category_id] = {
-                            id: cat.category_id,
-                            name: cat.category_name,
-                            budgets: {}
-                        };
-                    }
-                    categoryBudgetMap[cat.category_id].budgets[currencyCode] = {
-                        assigned: cat.assigned || 0,
-                        available: cat.available || 0
-                    };
-                });
-            });
-        };
-
-        applyCurrencyData(dataCOP, 'COP');
-        applyCurrencyData(dataUSD, 'USD');
-    }
-
-    function toggleGroup(groupId) {
-        const content = document.getElementById(`group-${groupId}`);
-        const chevron = document.getElementById(`chevron-${groupId}`);
-
-        if (content.style.display === 'none') {
-            content.style.display = 'block';
-            chevron.classList.remove('rotate-[-90deg]');
-        } else {
-            content.style.display = 'none';
-            chevron.classList.add('rotate-[-90deg]');
-        }
-    }
-
-    // Stored activity for the current category being edited (used for available preview)
-    let modalCategoryActivity = 0;
-
-    function openAssignModal(categoryData) {
-        selectedCategory = categoryData.category_id;
-        selectedCategoryData = categoryData;
-        modalCategoryActivity = categoryData.activity || 0;
-
-        document.getElementById('modalCategoryName').value = categoryData.category_name;
-        document.getElementById('modalRolloverType').value = categoryData.rollover_type || 'reset';
-
-        // Set 50/30/20 classification
-        const classVal = categoryData.rollover_type === 'accumulate' ? null : (categoryData.is_essential ? 'need' : 'want');
-        document.querySelectorAll('input[name="modalClassification"]').forEach(r => {
-            r.checked = r.value === classVal;
-        });
-
-        // Load current budgets for this category in both currencies
-        loadCategoryBudgets(categoryData.category_id);
-
-        // Load category details including initial_amount
-        loadCategoryDetails(categoryData.category_id);
-
-        // Show/hide initial amount field and classification based on rollover type
-        toggleInitialAmountField();
-
-        document.getElementById('assignModal').classList.remove('hidden');
-    }
-
-    async function loadCategoryDetails(categoryId) {
-        try {
-            const year = currentMonth.getFullYear();
-            const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-            const monthStr = `${year}-${month}`;
-            const [catRes, budgetRes] = await Promise.all([
-                fetch(`/api/categories/${categoryId}?month=${monthStr}`),
-                fetch(`/api/budgets/category/${categoryId}/${monthStr}`)
-            ]);
-            const category = await catRes.json();
-            const budgets = await budgetRes.json();
-
-            let initAmount = 0;
-            let initCurrency = category.initial_currency_code || 'COP';
-
-            // Check if current budget already has a stored initial_amount
-            const currentBudget = budgets.find(b => b.initial_amount > 0);
-            if (currentBudget) {
-                initAmount = currentBudget.initial_amount;
-                initCurrency = currentBudget.currency_code;
-            } else if (category.previous_month_available) {
-                // Fall back to previous month's available for new months
-                const prevAvail = category.previous_month_available;
-                const prefCurrency = category.initial_currency_code || 'COP';
-                if (prevAvail[prefCurrency] != null) {
-                    initAmount = prevAvail[prefCurrency];
-                    initCurrency = prefCurrency;
-                } else {
-                    const entries = Object.entries(prevAvail);
-                    if (entries.length > 0) {
-                        initAmount = entries[0][1];
-                        initCurrency = entries[0][0];
-                    }
-                }
-            }
-
-            document.getElementById('modalInitialAmount').value = initAmount;
-            document.getElementById('modalInitialCurrency').value = initCurrency;
-            updateAvailablePreview();
-
-            document.getElementById('modalAlertsEnabled').checked = category.alerts_enabled !== false;
-            updateAlertsToggleNote();
-        } catch (error) {
-            console.error('Error loading category details:', error);
-            document.getElementById('modalInitialAmount').value = 0;
-            document.getElementById('modalInitialCurrency').value = 'COP';
-
-            document.getElementById('modalAlertsEnabled').checked = true;
-            updateAlertsToggleNote();
-        }
-    }
-
-    function updateAlertsToggleNote() {
-        const note = document.getElementById('modalAlertsDisabledNote');
-        const checkbox = document.getElementById('modalAlertsEnabled');
-        if (!note || !checkbox) return;
-        note.classList.toggle('hidden', checkbox.checked);
-    }
-
-    function toggleInitialAmountField() {
-        const rolloverType = document.getElementById('modalRolloverType').value;
-        const initialAmountSection = document.getElementById('initialAmountSection');
-        const availablePreviewSection = document.getElementById('availablePreviewSection');
-        const classificationSection = document.getElementById('classificationSection');
-
-        if (rolloverType === 'accumulate') {
-            initialAmountSection.classList.remove('hidden');
-            availablePreviewSection.classList.remove('hidden');
-            classificationSection.classList.add('hidden');
-        } else {
-            initialAmountSection.classList.add('hidden');
-            availablePreviewSection.classList.add('hidden');
-            classificationSection.classList.remove('hidden');
-        }
-    }
-
-    async function loadCategoryBudgets(categoryId) {
-        try {
-            const year = currentMonth.getFullYear();
-            const month = currentMonth.getMonth() + 1;
-            const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-
-            const res = await fetch(`/api/budgets/category/${categoryId}/${monthStr}`);
-            const budgets = await res.json();
-
-            // Find the budget that has a non-zero assigned, prefer COP
-            const copBudget = budgets.find(b => b.currency_code === 'COP');
-            const usdBudget = budgets.find(b => b.currency_code === 'USD');
-
-            let currency = 'COP';
-            let amount = 0;
-
-            if (usdBudget && usdBudget.assigned && (!copBudget || !copBudget.assigned)) {
-                currency = 'USD';
-                amount = usdBudget.assigned;
-            } else if (copBudget) {
-                amount = copBudget.assigned || 0;
-            }
-
-            document.getElementById('modalBudgetCurrency').value = currency;
-            document.getElementById('modalBudgetAmount').value = amount;
-            updateBudgetConversion();
-        } catch (error) {
-            console.error('Error loading category budgets:', error);
-            document.getElementById('modalBudgetAmount').value = 0;
-            document.getElementById('modalBudgetCurrency').value = 'COP';
-        }
-    }
-
-    function updateBudgetConversion() {
-        const currency = document.getElementById('modalBudgetCurrency').value;
-        const amount = parseFloat(document.getElementById('modalBudgetAmount').value) || 0;
-        const hint = document.getElementById('budgetConversionHint');
-        if (currency === 'COP') {
-            const usdEquiv = convertBalance(amount, 'COP', 'USD');
-            hint.textContent = `≈ US$${formatAmount(usdEquiv, 2)} USD`;
-        } else {
-            const copEquiv = convertBalance(amount, 'USD', 'COP');
-            hint.textContent = `≈ $${formatAmount(copEquiv, 0)} COP`;
-        }
-        updateAvailablePreview();
-    }
-
-    function updateAvailablePreview() {
-        const rolloverType = document.getElementById('modalRolloverType').value;
-        if (rolloverType !== 'accumulate') return;
-
-        const initial = parseFloat(document.getElementById('modalInitialAmount').value) || 0;
-        const assigned = parseFloat(document.getElementById('modalBudgetAmount').value) || 0;
-        const activity = modalCategoryActivity; // negative for expenses
-        const available = initial + assigned + activity;
-        const currency = document.getElementById('modalBudgetCurrency').value;
-        const symbol = currency === 'USD' ? 'US$' : '$';
-        const decimals = currency === 'USD' ? 2 : 0;
-
-        const amountEl = document.getElementById('availablePreviewAmount');
-        const formulaEl = document.getElementById('availablePreviewFormula');
-
-        if (amountEl) {
-            amountEl.textContent = `${symbol}${formatAmount(available, decimals)}`;
-            amountEl.className = `text-2xl font-extrabold ${available >= 0 ? 'text-green-400' : 'text-red-400'}`;
-        }
-        if (formulaEl) {
-            formulaEl.textContent = `${symbol}${formatAmount(initial, decimals)} (inicial) + ${symbol}${formatAmount(assigned, decimals)} (asignado) + ${symbol}${formatAmount(activity, decimals)} (actividad)`;
-        }
-    }
-
-    function closeAssignModal() {
-        selectedCategory = null;
-        selectedCategoryData = null;
-        document.getElementById('assignModal').classList.add('hidden');
-    }
-
-    function openCoverOverspendingModal(categoryId) {
-        const category = categoryBudgetMap[categoryId];
-        if (!category) {
-            alert('No se encontró la categoría seleccionada.');
-            return;
-        }
-
-        overspendingContext = {
-            categoryId: categoryId
-        };
-
-        document.getElementById('coverOverspendingCategory').value = category.name;
-        document.getElementById('coverOverspendingCurrency').value = 'COP';
-        resetCoverOverspendingSources();
-        setCoverOverspendingDefaults();
-        document.getElementById('coverOverspendingModal').classList.remove('hidden');
-    }
-
-    function closeCoverOverspendingModal() {
-        overspendingContext = null;
-        resetCoverOverspendingSources();
-        document.getElementById('coverOverspendingModal').classList.add('hidden');
-    }
-
-    function setCoverOverspendingDefaults() {
-        if (!overspendingContext) return;
-        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
-        const category = categoryBudgetMap[overspendingContext.categoryId];
-        const available = category?.budgets?.[currencyCode]?.available || 0;
-        const overspendAmount = Math.abs(available);
-        const amountInput = document.getElementById('coverOverspendingAmount');
-        amountInput.value = overspendAmount ? overspendAmount.toFixed(currencyCode === 'USD' ? 2 : 0) : '';
-        updateCoverOverspendingHint();
-        updateCoverOverspendingSources();
-    }
-
-    function updateCoverOverspendingCurrency() {
-        setCoverOverspendingDefaults();
-    }
-
-    function updateCoverOverspendingHint() {
-        const amount = parseFloat(document.getElementById('coverOverspendingAmount').value) || 0;
-        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
-        const hint = document.getElementById('coverOverspendingHint');
-
-        if (!amount) {
-            hint.textContent = '';
-            return;
-        }
-
-        if (currencyCode === 'USD') {
-            const copEquivalent = convertBalance(amount, 'USD', 'COP');
-            hint.textContent = `≈ $${formatAmount(copEquivalent, 0)} COP`;
-        } else {
-            const usdEquivalent = convertBalance(amount, 'COP', 'USD');
-            hint.textContent = `≈ US$${formatAmount(usdEquivalent, 2)} USD`;
-        }
-    }
-
-    function resetCoverOverspendingSources() {
-        const sourcesContainer = document.getElementById('coverOverspendingSources');
-        sourcesContainer.innerHTML = '';
-        addCoverOverspendingSourceRow();
-    }
-
-    function getCoverOverspendingSourceRows() {
-        return Array.from(document.querySelectorAll('[data-cover-overspending-source]'));
-    }
-
-    function addCoverOverspendingSourceRow() {
-        const sourcesContainer = document.getElementById('coverOverspendingSources');
-        const row = document.createElement('div');
-        row.className = 'flex flex-col gap-2 sm:flex-row sm:items-center';
-        row.setAttribute('data-cover-overspending-source', 'true');
-
-        row.innerHTML = `
-            <select class="input-field flex-1" data-cover-overspending-source-select>
-                <option value="">Selecciona una categoría</option>
-            </select>
-            <input type="number"
-                   class="input-field w-full sm:w-40"
-                   data-cover-overspending-source-amount
-                   placeholder="0"
-                   step="0.01">
-            <button type="button" class="btn-secondary px-3" data-cover-overspending-remove>
-                ✕
-            </button>
-        `;
-
-        row.querySelector('[data-cover-overspending-remove]').addEventListener('click', () => {
-            row.remove();
-            if (getCoverOverspendingSourceRows().length === 0) {
-                addCoverOverspendingSourceRow();
-            }
-            updateCoverOverspendingSources();
-        });
-
-        sourcesContainer.appendChild(row);
-        updateCoverOverspendingSources();
-    }
-
-    function updateCoverOverspendingSources() {
-        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
-        const otherCurrencyCode = currencyCode === 'USD' ? 'COP' : 'USD';
-        const categoryId = overspendingContext?.categoryId;
-        const sourceHint = document.getElementById('coverOverspendingSourceHint');
-        const submitButton = document.getElementById('coverOverspendingSubmit');
-        const addButton = document.getElementById('coverOverspendingAddSource');
-        const rows = getCoverOverspendingSourceRows();
-
-        const options = Object.values(categoryBudgetMap)
-            .filter(cat => cat.id !== categoryId)
-            .map(cat => {
-                const availablePrimary = cat.budgets?.[currencyCode]?.available || 0;
-                const availableOther = cat.budgets?.[otherCurrencyCode]?.available || 0;
-                const available = availablePrimary + convertBalance(availableOther, otherCurrencyCode, currencyCode);
-                return {
-                    id: cat.id,
-                    name: cat.name,
-                    available: available
-                };
-            })
-            .filter(cat => cat.available > 0)
-            .sort((a, b) => b.available - a.available);
-
-        if (options.length === 0) {
-            rows.forEach(row => {
-                const select = row.querySelector('[data-cover-overspending-source-select]');
-                const amountInput = row.querySelector('[data-cover-overspending-source-amount]');
-                select.innerHTML = '<option value="">Sin categorías con disponible</option>';
-                select.disabled = true;
-                amountInput.disabled = true;
-            });
-            submitButton.disabled = true;
-            submitButton.classList.add('opacity-50', 'cursor-not-allowed');
-            addButton.disabled = true;
-            addButton.classList.add('opacity-50', 'cursor-not-allowed');
-            sourceHint.textContent = 'No hay categorías con disponible en ninguna moneda.';
-            return;
-        }
-
-        if (rows.length === 0) {
-            addCoverOverspendingSourceRow();
-        }
-
-        submitButton.disabled = false;
-        submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
-        addButton.disabled = false;
-        addButton.classList.remove('opacity-50', 'cursor-not-allowed');
-        sourceHint.textContent = 'Puedes dividir el monto entre varias fuentes. Se ajustará si alguna no alcanza.';
-
-        rows.forEach(row => {
-            const select = row.querySelector('[data-cover-overspending-source-select]');
-            const amountInput = row.querySelector('[data-cover-overspending-source-amount]');
-            const selectedValue = select.value;
-            select.disabled = false;
-            amountInput.disabled = false;
-            select.innerHTML = `
-                <option value="">Selecciona una categoría</option>
-                ${options.map(option => `
-                    <option value="${option.id}">
-                        ${option.name} (Disponible: ${currencyCode === 'USD' ? 'US$' : '$'}${formatAmount(option.available, currencyCode === 'USD' ? 2 : 0)})
-                    </option>
-                `).join('')}
-            `;
-
-            if (selectedValue && options.some(option => String(option.id) === selectedValue)) {
-                select.value = selectedValue;
-            }
-        });
-    }
-
-    async function fetchCategoryBudgets(categoryId) {
-        const year = currentMonth.getFullYear();
-        const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-        const monthStr = `${year}-${month}`;
-        const res = await fetch(`/api/budgets/category/${categoryId}/${monthStr}`);
-        return res.json();
-    }
-
-    function getBudgetEntryForCurrency(budgets, currencyCode) {
-        return budgets.find(entry => entry.currency_code === currencyCode) || {
-            assigned: 0,
-            available: 0
-        };
-    }
-
-    async function coverOverspending() {
-        if (!overspendingContext) return;
-
-        const categoryId = overspendingContext.categoryId;
-        const currencyCode = document.getElementById('coverOverspendingCurrency').value;
-        const requestedTotal = parseFloat(document.getElementById('coverOverspendingAmount').value);
-        const rows = getCoverOverspendingSourceRows();
-
-        const selectedSources = rows.map(row => {
-            const sourceId = parseInt(row.querySelector('[data-cover-overspending-source-select]').value, 10);
-            const amount = parseFloat(row.querySelector('[data-cover-overspending-source-amount]').value);
-            return { sourceId, amount: Number.isFinite(amount) ? amount : 0 };
-        }).filter(entry => entry.sourceId && entry.amount > 0);
-
-        if (!selectedSources.length) {
-            alert('Selecciona al menos una categoría de origen con monto.');
-            return;
-        }
-
-        if (!requestedTotal || requestedTotal <= 0) {
-            alert('Ingresa un monto válido a cubrir.');
-            return;
-        }
-
-        const year = currentMonth.getFullYear();
-        const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-        const monthDate = `${year}-${month}-01`;
-
-        try {
-            const requests = selectedSources.map(source =>
-                fetch('/api/budgets/cover-overspending', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        source_category_id: source.sourceId,
-                        target_category_id: categoryId,
-                        amount: source.amount,
-                        currency_code: currencyCode,
-                        month: monthDate
-                    })
-                })
-            );
-
-            const responses = await Promise.all(requests);
-            const allOk = responses.every(res => res.ok);
-
-            closeCoverOverspendingModal();
-            loadBudget();
-
-            if (allOk) {
-                alert('Exceso cubierto correctamente.');
-            } else {
-                alert('Hubo un error al cubrir parte del exceso.');
-            }
-        } catch (error) {
-            console.error('Error covering overspending:', error);
-            alert('Error al cubrir el exceso.');
-        }
-    }
-
-    async function saveAssignment() {
-        const budgetAmount = parseFloat(document.getElementById('modalBudgetAmount').value) || 0;
-        const budgetCurrency = document.getElementById('modalBudgetCurrency').value;
-        const rolloverType = document.getElementById('modalRolloverType').value;
-        const initialAmount = parseFloat(document.getElementById('modalInitialAmount').value) || 0;
-        const initialCurrencyCode = document.getElementById('modalInitialCurrency').value;
-        const alertsEnabled = document.getElementById('modalAlertsEnabled').checked;
-        const classificationRadio = document.querySelector('input[name="modalClassification"]:checked');
-        const isEssential = rolloverType === 'accumulate' ? false : (classificationRadio ? classificationRadio.value === 'need' : false);
-
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth() + 1;
-        const monthDate = `${year}-${String(month).padStart(2, '0')}-01`;
-
-        try {
-            // Update category with rollover_type, initial_amount and alerts
-            const categoryUpdateResponse = await fetch(`/api/categories/${selectedCategory}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    rollover_type: rolloverType,
-                    initial_amount: rolloverType === 'accumulate' ? initialAmount : 0,
-                    initial_currency_code: rolloverType === 'accumulate' ? initialCurrencyCode : null,
-                    alerts_enabled: alertsEnabled,
-                    is_essential: isEssential
-                })
-            });
-
-            if (!categoryUpdateResponse.ok) {
-                alert('Error al actualizar la categoría');
-                return;
-            }
-
-            // Save budget in the selected currency
-            const assignPayload = {
-                category_id: selectedCategory,
-                amount: budgetAmount,
-                month: monthDate,
-                currency_code: budgetCurrency,
-                rollover_type: rolloverType
-            };
-
-            // For accumulate: set initial_amount on the budget matching the initial currency
-            if (rolloverType === 'accumulate') {
-                if (budgetCurrency === initialCurrencyCode) {
-                    // Same currency: set initial on this budget
-                    assignPayload.initial_amount = initialAmount;
-                } else {
-                    // Different currencies: set initial=0 on budget currency, save initial separately
-                    assignPayload.initial_amount = 0;
-                    // Save initial_amount on the initial currency's budget
-                    await fetch('/api/budgets/assign', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            category_id: selectedCategory,
-                            amount: 0,  // don't change assigned for the initial currency budget
-                            month: monthDate,
-                            currency_code: initialCurrencyCode,
-                            rollover_type: rolloverType,
-                            initial_amount: initialAmount
-                        })
-                    });
-                }
-            } else {
-                assignPayload.initial_amount = 0;
-            }
-
-            const res = await fetch('/api/budgets/assign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(assignPayload)
-            });
-
-            if (res.ok) {
-                closeAssignModal();
-                loadBudget();
-            } else {
-                const errorData = await res.json().catch(() => null);
-                alert(errorData?.detail || 'Error al asignar presupuesto');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Error al asignar presupuesto');
-        }
-    }
-
-    // New Category Modal Functions
-    function openNewCategoryModal(groupId, groupName, isIncomeGroup = false) {
-        document.getElementById('newCategoryGroupId').value = groupId;
-        document.getElementById('newCategoryGroupName').value = groupName;
-        document.getElementById('newCategoryName').value = '';
-        document.getElementById('newCategoryRollover').value = 'reset';
-        document.getElementById('newCategoryModal').dataset.isIncome = isIncomeGroup ? 'true' : 'false';
-
-        const rolloverLabel = document.getElementById('newCategoryRolloverLabel');
-        const rolloverField = document.getElementById('newCategoryRollover');
-        const incomeFields = document.getElementById('newCategoryIncomeFields');
-
-        rolloverLabel.textContent = isIncomeGroup ? 'Tipo de Ingreso' : 'Comportamiento';
-        rolloverField.classList.toggle('hidden', isIncomeGroup);
-        incomeFields.classList.toggle('hidden', !isIncomeGroup);
-
-        populateIncomeCategoryFields();
-
-        document.getElementById('newCategoryModal').classList.remove('hidden');
-    }
-
-    function closeNewCategoryModal() {
-        document.getElementById('newCategoryModal').classList.add('hidden');
-    }
-
-    function populateIncomeCategoryFields() {
-        const currencySelect = document.getElementById('newCategoryIncomeCurrency');
-        const accountSelect = document.getElementById('newCategoryIncomeAccount');
-        const recurringSelect = document.getElementById('newCategoryRecurringSelect');
-
-        currencySelect.innerHTML = Object.values(currencies)
-            .map(curr => `<option value="${curr.id}">${curr.code}</option>`)
-            .join('');
-
-        accountSelect.innerHTML = budgetAccounts
-            .filter(acc => acc.is_budget && !acc.is_closed)
-            .map(acc => `<option value="${acc.id}">${acc.name}</option>`)
-            .join('');
-
-        recurringSelect.innerHTML = '<option value="">Sin asociar</option>' + recurringTransactions
-            .filter(tx => tx.transaction_type === 'income')
-            .map(tx => `<option value="${tx.id}">${tx.description || 'Ingreso automático'} · ${Math.abs(tx.amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 2 })} ${tx.currency?.code || ''}</option>`)
-            .join('');
-    }
-
-    async function maybeCreateOrAssociateIncomeRecurring(categoryId, categoryName) {
-        const selectedRecurringId = document.getElementById('newCategoryRecurringSelect').value;
-        if (selectedRecurringId) {
-            await associateRecurringToCategory(categoryId, selectedRecurringId, false);
-            return;
-        }
-
-        const amount = parseFloat(document.getElementById('newCategoryIncomeAmount').value || '0');
-        const currencyId = parseInt(document.getElementById('newCategoryIncomeCurrency').value || '0');
-        const accountId = parseInt(document.getElementById('newCategoryIncomeAccount').value || '0');
-
-        if (!amount || !currencyId || !accountId) {
-            return;
-        }
-
-        const today = new Date().toISOString().slice(0, 10);
-        await fetch('/api/recurring/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                account_id: accountId,
-                category_id: categoryId,
-                description: `Ingreso automático: ${categoryName}`,
-                amount: Math.abs(amount),
-                transaction_type: 'income',
-                currency_id: currencyId,
-                frequency: 'monthly',
-                interval: 1,
-                start_date: today,
-                day_of_month: 1
-            })
-        });
-
-        await loadRecurringTransactions();
-    }
-
-    async function associateRecurringToCategory(categoryId, recurringId, reload = true) {
-        if (!recurringId) {
-            return;
-        }
-
-        const recurring = recurringTransactions.find(tx => tx.id === parseInt(recurringId));
-        if (!recurring) {
-            return;
-        }
-
-        const response = await fetch(`/api/recurring/${recurring.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                account_id: recurring.account_id,
-                category_id: categoryId,
-                description: recurring.description,
-                amount: recurring.amount,
-                transaction_type: recurring.transaction_type,
-                currency_id: recurring.currency?.id,
-                frequency: recurring.frequency,
-                interval: recurring.interval,
-                start_date: recurring.start_date,
-                end_date: recurring.end_date,
-                day_of_week: recurring.day_of_week,
-                day_of_month: recurring.day_of_month,
-                is_active: recurring.is_active
-            })
-        });
-
-        if (response.ok) {
-            await loadRecurringTransactions();
-            if (reload) {
-                await loadBudget();
-            }
-        }
-    }
-
-    // Group Management Functions
-    function openNewGroupModal() {
-        document.getElementById('newGroupName').value = '';
-        document.getElementById('newGroupIsIncome').value = 'false';
-        document.getElementById('newGroupModal').classList.remove('hidden');
-    }
-
-    function closeNewGroupModal() {
-        document.getElementById('newGroupModal').classList.add('hidden');
-    }
-
-    async function editGroupName(groupId, currentName) {
-        const newName = prompt('Nuevo nombre del grupo:', currentName);
-        if (newName === null) {
-            return;
-        }
-        const trimmedName = newName.trim();
-        if (!trimmedName || trimmedName === currentName) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/categories/groups/${groupId}`, {
-                method: 'PATCH',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: trimmedName})
-            });
-
-            if (response.ok) {
-                loadBudget();
-            } else {
-                const error = await response.json();
-                alert('Error: ' + (error.detail || 'No se pudo actualizar el grupo'));
-            }
-        } catch (error) {
-            console.error('Error updating group:', error);
-            alert('Error al actualizar el grupo');
-        }
-    }
-
-    async function editCategoryName(categoryId, currentName) {
-        const newName = prompt('Nuevo nombre de la categoría:', currentName);
-        if (newName === null) {
-            return;
-        }
-        const trimmedName = newName.trim();
-        if (!trimmedName || trimmedName === currentName) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/categories/${categoryId}`, {
-                method: 'PATCH',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: trimmedName})
-            });
-
-            if (response.ok) {
-                loadBudget();
-            } else {
-                const error = await response.json();
-                alert('Error: ' + (error.detail || 'No se pudo actualizar la categoría'));
-            }
-        } catch (error) {
-            console.error('Error updating category:', error);
-            alert('Error al actualizar la categoría');
-        }
-    }
-
-    async function deleteCategory(categoryId, categoryName) {
-        const confirmMessage = `¿Estás seguro de eliminar la categoría "${categoryName}"?\n\n⚠️ ADVERTENCIA: Esto eliminará sus presupuestos y dejará sus transacciones sin categoría.`;
-
-        if (!confirm(confirmMessage)) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/categories/${categoryId}?force=true`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                loadBudget();
-                alert('Categoría eliminada exitosamente');
-            } else {
-                const error = await response.json();
-                alert('Error: ' + (error.detail || 'No se pudo eliminar la categoría'));
-            }
-        } catch (error) {
-            console.error('Error deleting category:', error);
-            alert('Error al eliminar la categoría');
-        }
-    }
-
-    // Category Detail Modal
-    let detailCategoryData = null;
-    let detailTxView = 'monthly';
-    let detailDowView = 'total';
-    let detailAllTransactions = [];
-    let txTimelineChart = null;
-    let dowChart = null;
-
-    function setDowView(view) {
-        detailDowView = view;
-        ['total','avg'].forEach(v => {
-            const btn = document.getElementById(`dowView${v.charAt(0).toUpperCase() + v.slice(1)}`);
-            if (v === view) {
-                btn.classList.add('bg-primary-600','text-white');
-                btn.classList.remove('bg-white','text-neutral-600');
-            } else {
-                btn.classList.remove('bg-primary-600','text-white');
-                btn.classList.add('bg-white','text-neutral-600');
-            }
-        });
-        renderDowChart(detailAllTransactions);
-    }
-
-    function setTxView(view) {
-        detailTxView = view;
-        ['monthly', 'weekly', 'daily'].forEach(v => {
-            const btn = document.getElementById(`txView${v.charAt(0).toUpperCase() + v.slice(1)}`);
-            if (v === view) {
-                btn.classList.add('bg-primary-600', 'text-white');
-                btn.classList.remove('bg-white', 'text-neutral-600');
-            } else {
-                btn.classList.remove('bg-primary-600', 'text-white');
-                btn.classList.add('bg-white', 'text-neutral-600');
-            }
-        });
-        renderTxChart(detailAllTransactions);
-        renderTransactions(detailAllTransactions);
-    }
-
-    function openCategoryDetailModal(categoryData) {
-        detailCategoryData = categoryData;
-        detailTxView = 'monthly';
-        detailDowView = 'total';
-        detailAllTransactions = [];
-        setTxView('monthly');
-        setDowView('total');
-        document.getElementById('detailCategoryName').textContent = categoryData.category_name;
-        const typeLabel = categoryData.rollover_type === 'accumulate' ? '🎯 Ahorro' : '💰 Gasto Mensual';
-        document.getElementById('detailCategoryType').textContent = typeLabel;
-        document.getElementById('detailMonthsSelect').value = '6'; // default: últimos 6 meses
-        document.getElementById('categoryDetailModal').classList.remove('hidden');
-        loadCategoryHistory();
-    }
-
-    function closeCategoryDetailModal() {
-        detailCategoryData = null;
-        if (detailChart) { detailChart.destroy(); detailChart = null; }
-        if (txTimelineChart) { txTimelineChart.destroy(); txTimelineChart = null; }
-        if (dowChart) { dowChart.destroy(); dowChart = null; }
-        document.getElementById('categoryDetailModal').classList.add('hidden');
-    }
-
-    function openAssignModalFromDetail() {
-        const catData = detailCategoryData;
-        closeCategoryDetailModal();
-        if (catData) {
-            openAssignModal(catData);
-        }
-    }
-
-    async function loadCategoryHistory() {
-        if (!detailCategoryData) return;
-        const sel = document.getElementById('detailMonthsSelect').value;
-        const categoryId = detailCategoryData.category_id;
-
-        try {
-            let url;
-            if (sel === 'current') {
-                url = `/api/budgets/category/${categoryId}/history?months=1`;
-            } else {
-                url = `/api/budgets/category/${categoryId}/history?months=${parseInt(sel)}`;
-            }
-            const res = await fetch(url);
-            const data = await res.json();
-            // If "mes actual", filter transactions to current month only
-            if (sel === 'current') {
-                const now = currentMonth;
-                const yr = now.getFullYear();
-                const mo = String(now.getMonth() + 1).padStart(2, '0');
-                const prefix = `${yr}-${mo}`;
-                data.transactions = data.transactions.filter(tx => tx.date.startsWith(prefix));
-            }
-            renderCategoryHistory(data);
-        } catch (error) {
-            console.error('Error loading category history:', error);
-        }
-    }
-
-    let detailChart = null;
-
-    function renderCategoryHistory(data) {
-        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const isSavings = detailCategoryData && detailCategoryData.rollover_type === 'accumulate';
-
-        // Render timeline chart
-        const reversed = [...data.monthly_summary].reverse();
-        const labels = reversed.map(row => {
-            const d = new Date(row.month + 'T00:00:00');
-            return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-        });
-
-        const chartTitle = document.getElementById('detailChartTitle');
-        if (isSavings) {
-            chartTitle.textContent = 'Evolución del Ahorro';
-        } else {
-            chartTitle.textContent = 'Evolución Mensual';
-        }
-
-        if (detailChart) {
-            detailChart.destroy();
-            detailChart = null;
-        }
-
-        const ctx = document.getElementById('detailTimelineChart').getContext('2d');
-        const datasets = [];
-
-        if (isSavings) {
-            datasets.push({
-                label: 'Ahorrado (Disponible)',
-                data: reversed.map(r => r.total_available),
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                fill: true,
-                tension: 0.3,
-                borderWidth: 2.5,
-                pointRadius: 4,
-                pointBackgroundColor: '#10b981',
-            });
-        } else {
-            datasets.push({
-                label: 'Asignado',
-                data: reversed.map(r => r.total_assigned),
-                borderColor: '#6366f1',
-                backgroundColor: 'rgba(99, 102, 241, 0.08)',
-                fill: false,
-                tension: 0.3,
-                borderWidth: 2,
-                pointRadius: 3,
-                pointBackgroundColor: '#6366f1',
-            }, {
-                label: 'Gastado',
-                data: reversed.map(r => Math.abs(r.total_activity)),
-                borderColor: '#ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                fill: false,
-                tension: 0.3,
-                borderWidth: 2,
-                pointRadius: 3,
-                pointBackgroundColor: '#ef4444',
-            }, {
-                label: 'Disponible',
-                data: reversed.map(r => r.total_available),
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                fill: false,
-                tension: 0.3,
-                borderWidth: 2,
-                pointRadius: 3,
-                pointBackgroundColor: '#10b981',
-            });
-        }
-
-        detailChart = new Chart(ctx, {
-            type: 'line',
-            data: { labels, datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': $' + formatAmount(context.parsed.y, 0);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: v => '$' + formatAmount(v, 0)
-                        },
-                        grid: { color: 'rgba(0,0,0,0.05)' }
-                    },
-                    x: {
-                        grid: { display: false }
-                    }
-                }
-            }
-        });
-
-        // Render monthly summary table
-        const tbody = document.getElementById('detailHistoryBody');
-        tbody.innerHTML = data.monthly_summary.map(row => {
-            const d = new Date(row.month + 'T00:00:00');
-            const monthLabel = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-            const availableClass = row.total_available >= 0 ? 'text-green-600' : 'text-red-600';
-            const hasUsd = row.assigned_usd || row.activity_usd || row.available_usd;
-            const hasCop = row.assigned_cop || row.activity_cop || row.available_cop;
-            const hasBoth = hasUsd && hasCop;
-
-            function renderTotal(total, absVal = false) {
-                const val = absVal ? Math.abs(total) : total;
-                return `<div>$${formatAmount(val, 0)}</div>`;
-            }
-
-            function renderBreakdown(cop, usd, absVal = false) {
-                if (!hasBoth) return '';
-                const copVal = absVal ? Math.abs(cop) : cop;
-                const usdVal = absVal ? Math.abs(usd) : usd;
-                return `<div class="text-xs text-neutral-400">(COP $${formatAmount(copVal, 0)} + USD $${formatAmount(usdVal, 2)})</div>`;
-            }
-
-            return `
-                <tr class="hover:bg-neutral-50">
-                    <td class="px-4 py-3 font-medium text-neutral-800">${monthLabel}</td>
-                    <td class="px-4 py-3 text-right">${renderTotal(row.total_assigned)}${renderBreakdown(row.assigned_cop, row.assigned_usd)}</td>
-                    <td class="px-4 py-3 text-right">${renderTotal(row.total_activity, true)}${renderBreakdown(row.activity_cop, row.activity_usd, true)}</td>
-                    <td class="px-4 py-3 text-right font-semibold ${availableClass}">${renderTotal(row.total_available)}${renderBreakdown(row.available_cop, row.available_usd)}</td>
-                </tr>
-            `;
-        }).join('');
-
-        // Store transactions and render with current view
-        detailAllTransactions = data.transactions;
-        renderKpis(data.monthly_summary, detailAllTransactions);
-        renderDowChart(detailAllTransactions);
-        renderTxChart(detailAllTransactions);
-        renderTransactions(detailAllTransactions);
-    }
-
-    function renderKpis(monthlySummary, transactions) {
-        const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-
-        // Total spent (COP equiv, only expenses)
-        const total = transactions.reduce((s, tx) => {
-            if (tx.amount >= 0) return s;
-            return s + (tx.currency_code === 'USD'
-                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
-                : Math.abs(tx.amount));
-        }, 0);
-
-        // Average monthly from monthlySummary
-        const months = monthlySummary.filter(m => m.total_activity < 0);
-        const avg = months.length ? months.reduce((s, m) => s + Math.abs(m.total_activity), 0) / months.length : 0;
-
-        // Top day of week
-        const dowTotals = [0,0,0,0,0,0,0];
-        for (const tx of transactions) {
-            if (tx.amount >= 0) continue;
-            const d = new Date(tx.date + 'T00:00:00');
-            const val = tx.currency_code === 'USD'
-                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
-                : Math.abs(tx.amount);
-            dowTotals[d.getDay()] += val;
-        }
-        const topDowIdx = dowTotals.indexOf(Math.max(...dowTotals));
-        const topDow = Math.max(...dowTotals) > 0 ? dayNames[topDowIdx] : '—';
-
-        document.getElementById('kpiAvgMonthly').textContent = avg > 0 ? '$' + formatAmount(avg, 0) : '—';
-        document.getElementById('kpiTopDay').textContent = topDow;
-        document.getElementById('kpiTotal').textContent = total > 0 ? '$' + formatAmount(total, 0) : '—';
-    }
-
-    function renderDowChart(transactions) {
-        const dayLabels = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
-        // JS getDay: 0=Sun → remap Mon-first: Mon=0, Sun=6
-        const dowTotals = [0,0,0,0,0,0,0];
-        const dowCounts = [0,0,0,0,0,0,0]; // number of distinct days with transactions
-        const dowDaysSeen = Array.from({length:7}, () => new Set());
-
-        for (const tx of transactions) {
-            if (tx.amount >= 0) continue;
-            const d = new Date(tx.date + 'T00:00:00');
-            const jsDay = d.getDay();
-            const idx = jsDay === 0 ? 6 : jsDay - 1;
-            const val = tx.currency_code === 'USD'
-                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
-                : Math.abs(tx.amount);
-            dowTotals[idx] += val;
-            dowDaysSeen[idx].add(tx.date);
-        }
-        for (let i = 0; i < 7; i++) dowCounts[i] = dowDaysSeen[i].size || 1;
-
-        const dowAvgs = dowTotals.map((t, i) => t / dowCounts[i]);
-        const data = detailDowView === 'avg' ? dowAvgs : dowTotals;
-
-        const maxVal = Math.max(...data);
-        const bgColors = data.map(v =>
-            v === maxVal && v > 0 ? 'rgba(239,68,68,0.85)' : 'rgba(239,68,68,0.25)'
-        );
-        const borderColors = data.map(v =>
-            v === maxVal && v > 0 ? '#ef4444' : 'rgba(239,68,68,0.4)'
-        );
-
-        if (dowChart) { dowChart.destroy(); dowChart = null; }
-        const canvas = document.getElementById('dowChart');
-        if (!canvas) return;
-
-        dowChart = new Chart(canvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: dayLabels,
-                datasets: [{
-                    data,
-                    backgroundColor: bgColors,
-                    borderColor: borderColors,
-                    borderWidth: 1.5,
-                    borderRadius: 6,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: ctx => {
-                                const i = ctx.dataIndex;
-                                const totalStr = '$' + formatAmount(dowTotals[i], 0);
-                                const avgStr = '$' + formatAmount(dowAvgs[i], 0);
-                                const occ = dowDaysSeen[i].size;
-                                return [
-                                    ` Total: ${totalStr}`,
-                                    ` Promedio: ${avgStr} (${occ} ${occ === 1 ? 'vez' : 'veces'})`,
-                                ];
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { callback: v => '$' + formatAmount(v, 0), font: { size: 9 } },
-                        grid: { color: 'rgba(0,0,0,0.04)' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { size: 11, weight: 'bold' } }
-                    }
-                }
-            }
-        });
-    }
-
-    function renderTxChart(transactions) {
-        const shortMonthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-        const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-
-        function getMonday(d) {
-            const day = d.getDay() || 7;
-            const mon = new Date(d);
-            mon.setDate(d.getDate() - day + 1);
-            return mon;
-        }
-
-        function getGroupKey(dateStr) {
-            const d = new Date(dateStr + 'T00:00:00');
-            if (detailTxView === 'monthly') {
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            } else if (detailTxView === 'weekly') {
-                return getMonday(d).toISOString().slice(0, 10);
-            } else {
-                return dateStr;
-            }
-        }
-
-        function getGroupLabel(key) {
-            if (detailTxView === 'monthly') {
-                const [year, month] = key.split('-');
-                return `${shortMonthNames[parseInt(month) - 1]} ${year}`;
-            } else if (detailTxView === 'weekly') {
-                const mon = new Date(key + 'T00:00:00');
-                const sun = new Date(mon);
-                sun.setDate(mon.getDate() + 6);
-                return `${mon.getDate()} ${shortMonthNames[mon.getMonth()]} – ${sun.getDate()} ${shortMonthNames[sun.getMonth()]}`;
-            } else {
-                const d = new Date(key + 'T00:00:00');
-                return `${dayNames[d.getDay()]} ${d.getDate()} ${shortMonthNames[d.getMonth()]}`;
-            }
-        }
-
-        // Aggregate spending (absolute value of expenses) per group
-        const groups = {};
-        for (const tx of transactions) {
-            if (tx.amount >= 0) continue;
-            const key = getGroupKey(tx.date);
-            const val = tx.currency_code === 'USD'
-                ? Math.abs(tx.amount) * (EXCHANGE_RATE_USD_TO_COP || 1)
-                : Math.abs(tx.amount);
-            groups[key] = (groups[key] || 0) + val;
-        }
-
-        const sortedKeys = Object.keys(groups).sort();
-        const labels = sortedKeys.map(getGroupLabel);
-        const values = sortedKeys.map(k => groups[k]);
-
-        // In daily view: detect which indices are Mondays (week starts)
-        const weekStartIndices = new Set();
-        if (detailTxView === 'daily') {
-            sortedKeys.forEach((key, i) => {
-                const d = new Date(key + 'T00:00:00');
-                if (d.getDay() === 1) weekStartIndices.add(i); // Monday
-            });
-        }
-
-        if (txTimelineChart) { txTimelineChart.destroy(); txTimelineChart = null; }
-
-        const canvas = document.getElementById('txTimelineChart');
-        if (!canvas || !sortedKeys.length) return;
-
-        // Custom plugin: draw vertical dashed lines at week starts
-        const weekSeparatorPlugin = {
-            id: 'weekSeparator',
-            afterDraw(chart) {
-                if (detailTxView !== 'daily' || !weekStartIndices.size) return;
-                const { ctx: c, chartArea, scales } = chart;
-                c.save();
-                c.strokeStyle = 'rgba(99,102,241,0.35)';
-                c.lineWidth = 1.5;
-                c.setLineDash([4, 4]);
-                weekStartIndices.forEach(i => {
-                    const x = scales.x.getPixelForIndex(i);
-                    c.beginPath();
-                    c.moveTo(x, chartArea.top);
-                    c.lineTo(x, chartArea.bottom);
-                    c.stroke();
-                });
-                c.restore();
-            }
-        };
-
-        const ctx = canvas.getContext('2d');
-        txTimelineChart = new Chart(ctx, {
-            type: 'line',
-            plugins: [weekSeparatorPlugin],
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Gastos',
-                    data: values,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239,68,68,0.08)',
-                    fill: true,
-                    tension: 0.3,
-                    borderWidth: 2.5,
-                    pointRadius: values.length <= 31 ? 4 : 2,
-                    pointBackgroundColor: sortedKeys.map((k, i) =>
-                        weekStartIndices.has(i) ? '#6366f1' : '#ef4444'
-                    ),
-                    pointBorderColor: sortedKeys.map((k, i) =>
-                        weekStartIndices.has(i) ? '#6366f1' : '#ef4444'
-                    ),
-                    pointRadius: sortedKeys.map((k, i) =>
-                        weekStartIndices.has(i) ? 6 : (values.length <= 31 ? 4 : 2)
-                    ),
-                    pointHoverRadius: 7,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            title: items => labels[items[0].dataIndex],
-                            label: item => {
-                                const i = item.dataIndex;
-                                const weekMark = weekStartIndices.has(i) ? ' · inicio de semana' : '';
-                                return ' $' + formatAmount(item.parsed.y, 0) + weekMark;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { callback: v => '$' + formatAmount(v, 0) },
-                        grid: { color: 'rgba(0,0,0,0.05)' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: {
-                            maxRotation: detailTxView === 'daily' ? 45 : 0,
-                            font: { size: 10 }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    function renderTransactions(transactions) {
-        const container = document.getElementById('detailTransactionsContainer');
-        const noTx = document.getElementById('detailNoTransactions');
-
-        if (!transactions.length) {
-            container.innerHTML = '';
-            noTx.classList.remove('hidden');
-            return;
-        }
-
-        noTx.classList.add('hidden');
-
-        const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        const shortMonthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-        function getGroupKey(dateStr) {
-            const d = new Date(dateStr + 'T00:00:00');
-            if (detailTxView === 'monthly') {
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            } else if (detailTxView === 'weekly') {
-                // ISO week: find monday of the week
-                const day = d.getDay() || 7; // Mon=1 ... Sun=7
-                const monday = new Date(d);
-                monday.setDate(d.getDate() - day + 1);
-                const sunday = new Date(monday);
-                sunday.setDate(monday.getDate() + 6);
-                return monday.toISOString().slice(0, 10) + '|' + sunday.toISOString().slice(0, 10);
-            } else {
-                return dateStr;
-            }
-        }
-
-        function getGroupLabel(key) {
-            if (detailTxView === 'monthly') {
-                const [year, month] = key.split('-');
-                return `${monthNames[parseInt(month) - 1]} ${year}`;
-            } else if (detailTxView === 'weekly') {
-                const [mondayStr, sundayStr] = key.split('|');
-                const mon = new Date(mondayStr + 'T00:00:00');
-                const sun = new Date(sundayStr + 'T00:00:00');
-                return `${mon.getDate()} ${shortMonthNames[mon.getMonth()]} – ${sun.getDate()} ${shortMonthNames[sun.getMonth()]} ${sun.getFullYear()}`;
-            } else {
-                const d = new Date(key + 'T00:00:00');
-                return `${d.getDate()} ${shortMonthNames[d.getMonth()]} ${d.getFullYear()}`;
-            }
-        }
-
-        // Group transactions
-        const groups = {};
-        for (const tx of transactions) {
-            const key = getGroupKey(tx.date);
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(tx);
-        }
-
-        const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-
-        function renderTxItem(tx) {
-            const amountClass = tx.amount < 0 ? 'text-red-600' : 'text-green-600';
-            const sign = tx.amount < 0 ? '-' : '+';
-            const symbol = tx.currency_code === 'USD' ? 'US$' : '$';
-            const decimals = tx.currency_code === 'USD' ? 2 : 0;
-            const dateLabel = detailTxView !== 'daily' ? `${tx.date} · ` : '';
-            return `
-                <div class="flex items-center justify-between px-4 py-2.5 bg-white rounded-lg hover:bg-neutral-50 transition-colors border border-neutral-100">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-neutral-800 truncate">${tx.memo || 'Sin descripción'}</p>
-                        <p class="text-xs text-neutral-400">${dateLabel}${tx.account_name || ''}</p>
-                    </div>
-                    <p class="text-sm font-bold ${amountClass} ml-4 whitespace-nowrap">
-                        ${sign}${symbol}${formatAmount(Math.abs(tx.amount), decimals)}
-                    </p>
-                </div>
-            `;
-        }
-
-        container.innerHTML = sortedKeys.map(key => {
-            const txs = groups[key];
-            // Compute group total in COP equivalent
-            const total = txs.reduce((sum, tx) => {
-                const val = tx.currency_code === 'USD'
-                    ? tx.amount * (EXCHANGE_RATE_USD_TO_COP || 1)
-                    : tx.amount;
-                return sum + val;
-            }, 0);
-            const totalClass = total < 0 ? 'text-red-500' : 'text-green-600';
-            const sign = total < 0 ? '-' : '+';
-
-            return `
-                <div class="mb-3">
-                    <div class="flex items-center justify-between px-2 py-1 mb-1">
-                        <span class="text-xs font-bold text-neutral-500 uppercase tracking-wide">${getGroupLabel(key)}</span>
-                        <span class="text-xs font-bold ${totalClass}">${sign}$${formatAmount(Math.abs(total), 0)}</span>
-                    </div>
-                    <div class="space-y-1">
-                        ${txs.map(renderTxItem).join('')}
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    async function deleteGroup(groupId, groupName) {
-        const confirmMessage = `¿Estás seguro de eliminar el grupo "${groupName}"?\n\n⚠️ ADVERTENCIA: Esto eliminará también todas las categorías dentro de este grupo y sus presupuestos asignados.`;
-
-        if (!confirm(confirmMessage)) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/categories/groups/${groupId}?force=true`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                loadBudget(); // Reload budget to reflect changes
-                alert('Grupo eliminado exitosamente');
-            } else {
-                const error = await response.json();
-                alert('Error: ' + (error.detail || 'No se pudo eliminar el grupo'));
-            }
-        } catch (error) {
-            console.error('Error deleting group:', error);
-            alert('Error al eliminar el grupo');
-        }
-    }
+    /* collapse toggle */
+    var hd = wrap.querySelector('.bud-group-hd');
+    hd.addEventListener('click', function () {
+      wrap.classList.toggle('collapsed');
+      var col = wrap.classList.contains('collapsed');
+      wrap.querySelector('.bud-col-hd').style.display   = col ? 'none' : '';
+      wrap.querySelector('.bud-cat-rows').style.display = col ? 'none' : '';
+    });
+
+    /* add category */
+    wrap.querySelector('.bud-group-addbtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      openNewCat(g.id);
+    });
+
+    return wrap;
+  }
+
+  /* ── category row ── */
+  function buildRow(cop, usd, grpId, allCats) {
+    var asgn  = cop.assigned  || 0;
+    var act   = cop.activity  || 0;
+    var avail = cop.available || 0;
+    var uAsgn  = usd && usd.assigned  != null ? usd.assigned  : null;
+    var uAct   = usd && usd.activity  != null ? usd.activity  : null;
+    var uAvail = usd && usd.available != null ? usd.available : null;
+    var isSav  = cop.rollover_type === 'accumulate';
+    var isOver = avail < 0;
+
+    var pct = 0, barCls = '';
+    if (asgn > 0) {
+      pct    = Math.min(100, Math.abs(act) / asgn * 100);
+      barCls = isSav ? 'savings' : pct >= 100 ? 'over' : pct >= 80 ? 'warn' : '';
+    } else if (act < 0) { pct = 100; barCls = 'over'; }
+
+    var actCls   = act   < 0 ? 'spent'  : act   > 0 ? 'pos' : '';
+    var availCls = avail > 0 ? 'pos'    : avail < 0 ? 'neg' : '';
+    var asgnCls  = asgn !== 0 ? 'hv'    : '';
+
+    var coverOpts = allCats
+      .filter(function (x) { return x.category_id !== cop.category_id && (x.available || 0) > 0; })
+      .map(function (x) { return { id: x.category_id, name: x.category_name, avail: x.available }; });
+
+    var row = document.createElement('div');
+    row.className = 'bud-row' + (isOver ? ' overspent' : '');
+    row.dataset.cat = cop.category_id;
+    row.dataset.gid = grpId;
+
+    var editIco = '<span class="bud-pill-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>';
+    var badge   = isSav ? '<span class="bud-badge">Ahorro</span>' : '';
+    var coverBtn = isOver
+      ? '<button class="bud-cover-btn" data-cat="' + cop.category_id + '" data-amt="' + Math.abs(avail) + '" data-name="' + esc(cop.category_name) + '" data-opts="' + esc(JSON.stringify(coverOpts)) + '">Cubrir</button>'
+      : '';
+    var catEditBtn = '<button class="bud-cat-edit-btn" title="Editar categoría"' +
+      ' data-id="' + cop.category_id + '"' +
+      ' data-name="' + esc(cop.category_name) + '"' +
+      ' data-rollover="' + esc(cop.rollover_type || 'reset') + '"' +
+      ' data-gid="' + grpId + '"' +
+      ' data-notes="' + esc(cop.notes || '') + '"' +
+      ' data-asgn-cop="' + (asgn || 0) + '"' +
+      ' data-asgn-usd="' + (uAsgn !== null ? uAsgn : '') + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+      '</button>';
+
+    row.innerHTML =
+      /* name */
+      '<div class="bud-row-name"><span class="bud-row-name-text">' + esc(cop.category_name) + '</span>' + badge + catEditBtn + '</div>' +
+      /* bar */
+      '<div class="bud-bar-cell">' +
+        '<div class="bud-bar-track"><div class="bud-bar-fill ' + barCls + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="bud-bar-pct">' + Math.round(pct) + '%</div>' +
+      '</div>' +
+      /* assigned */
+      '<div class="bud-asgn">' +
+        '<div class="bud-asgn-pill" data-cop="' + asgn + '" data-usd="' + (uAsgn !== null ? uAsgn : '') + '">' + editIco +
+          '<div class="bud-num-cop ' + asgnCls + '">' + (asgn !== 0 ? fmtCOP(asgn) : DASH) + '</div>' +
+          '<div class="bud-num-usd bud-num-usd-click">' + (uAsgn !== null && uAsgn !== 0 ? fmtUSD(uAsgn) : '') + '</div>' +
+        '</div>' +
+        '<div class="bud-asgn-edit">' +
+          '<select class="bud-cur-sel"><option value="COP">COP</option><option value="USD">USD</option></select>' +
+          '<input class="bud-asgn-inp" type="number" value="' + (asgn !== 0 ? Math.round(asgn) : '') + '" placeholder="0" min="0" step="1000">' +
+        '</div>' +
+      '</div>' +
+      /* activity */
+      '<div class="bud-num" style="align-items:flex-end">' +
+        '<div class="bud-num-cop ' + actCls + '">' + (act !== 0 ? fmtCOP(act) : DASH) + '</div>' +
+        '<div class="bud-num-usd">' + (uAct !== null && uAct !== 0 ? fmtUSD(uAct) : '') + '</div>' +
+      '</div>' +
+      /* available */
+      '<div class="bud-avail-cell">' + coverBtn +
+        '<div class="bud-num" style="align-items:flex-end">' +
+          '<div class="bud-num-cop ' + availCls + '">' + fmtCOP(avail) + '</div>' +
+          '<div class="bud-num-usd">' + (uAvail !== null ? fmtUSD(uAvail) : '') + '</div>' +
+        '</div>' +
+      '</div>';
+
+    /* inline edit */
+    var pill    = row.querySelector('.bud-asgn-pill');
+    var editDiv = row.querySelector('.bud-asgn-edit');
+    var inp     = row.querySelector('.bud-asgn-inp');
+    var curSel  = row.querySelector('.bud-cur-sel');
+
+    function openEdit(currency) {
+      document.querySelectorAll('.bud-asgn-inp.on').forEach(function (other) {
+        if (other !== inp) cancelEdit(other);
+      });
+      pill.style.display = 'none';
+      editDiv.classList.add('on');
+      inp.classList.add('on');
+      if (currency === 'USD') {
+        curSel.value = 'USD';
+        var uVal = parseFloat(pill.dataset.usd);
+        inp.value = (!isNaN(uVal) && uVal !== 0) ? uVal : '';
+        inp.step  = '1';
+      } else {
+        curSel.value = 'COP';
+        var cVal = parseFloat(pill.dataset.cop);
+        inp.value = (!isNaN(cVal) && cVal !== 0) ? Math.round(cVal) : '';
+        inp.step  = '1000';
+      }
+      inp.focus(); inp.select();
+    }
+
+    pill.addEventListener('click', function (e) {
+      e.stopPropagation();
+      openEdit('COP');
+    });
+    var usdSpan = pill.querySelector('.bud-num-usd-click');
+    if (usdSpan) {
+      usdSpan.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openEdit('USD');
+      });
+    }
+    curSel.addEventListener('change', function () {
+      inp.step = curSel.value === 'USD' ? '1' : '1000';
+    });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter')  { e.preventDefault(); inp.blur(); }
+      if (e.key === 'Escape') cancelEdit(inp);
+    });
+    inp.addEventListener('blur', function () { saveAsgn(inp); });
+
+    var cb = row.querySelector('.bud-cover-btn');
+    if (cb) cb.addEventListener('click', function (e) { e.stopPropagation(); openCover(cb); });
+
+    var eb = row.querySelector('.bud-cat-edit-btn');
+    if (eb) eb.addEventListener('click', function (e) { e.stopPropagation(); openEditCat(eb); });
+
+    return row;
+  }
+
+  function cancelEdit(inp) {
+    if (!inp.classList.contains('on')) return;
+    inp.classList.remove('on');
+    var editDiv = inp.closest('.bud-asgn-edit');
+    if (editDiv) editDiv.classList.remove('on');
+    var pill = inp.closest('.bud-asgn') && inp.closest('.bud-asgn').querySelector('.bud-asgn-pill');
+    if (pill) pill.style.display = 'flex';
+  }
+
+  function saveAsgn(inp) {
+    var row = inp.closest('.bud-row');
+    if (!row) return;
+    var curSel = row.querySelector('.bud-cur-sel');
+    var currency = curSel ? curSel.value : 'COP';
+    cancelEdit(inp);
+    var catId  = parseInt(row.dataset.cat, 10);
+    var amount = parseFloat(inp.value) || 0;
+    var month  = S.year + '-' + String(S.month).padStart(2, '0') + '-01';
+    api('/api/budgets/assign', {
+      method: 'POST',
+      body: JSON.stringify({ category_id: catId, amount: amount, month: month, currency_code: currency })
+    }).then(function () { toast('Asignación guardada'); load(); })
+      .catch(function () { toast('Error al guardar', true); });
+  }
+
+  /* ── Cover modal ── */
+  function openCover(btn) {
+    S.coverId  = parseInt(btn.dataset.cat, 10);
+    S.coverAmt = parseFloat(btn.dataset.amt) || 0;
+    var name = btn.dataset.name;
+    var opts = [];
+    try { opts = JSON.parse(btn.dataset.opts || '[]'); } catch (e) {}
+    gid('mCoverName').textContent = name;
+    gid('mCoverSrc').innerHTML = opts.length
+      ? opts.map(function (o) { return '<option value="' + o.id + '">' + esc(o.name) + ' (' + fmtCOP(o.avail) + ')</option>'; }).join('')
+      : '<option disabled>Sin categorías con fondos</option>';
+    gid('mCover').classList.add('open');
+  }
+  function closeCover() { gid('mCover').classList.remove('open'); }
+  gid('mCoverCancel').addEventListener('click', closeCover);
+  gid('mCover').addEventListener('click', function (e) { if (e.target === gid('mCover')) closeCover(); });
+  gid('mCoverOk').addEventListener('click', function () {
+    var srcId = parseInt(gid('mCoverSrc').value, 10);
+    if (!srcId) return;
+    var month = S.year + '-' + String(S.month).padStart(2, '0') + '-01';
+    closeCover();
+    api('/api/budgets/cover-overspending', {
+      method: 'POST',
+      body: JSON.stringify({ source_category_id: srcId, target_category_id: S.coverId, amount: S.coverAmt, currency_code: 'COP', month: month })
+    }).then(function () { toast('Exceso cubierto'); load(); })
+      .catch(function () { toast('Error al cubrir exceso', true); });
+  });
+
+  /* ── Edit category modal ── */
+  var editCatId = null;
+  var allGroups = [];
+
+  function loadGroupsIntoSelect(sel, selectedId) {
+    sel.innerHTML = allGroups.map(function (g) {
+      return '<option value="' + g.id + '"' + (g.id === selectedId ? ' selected' : '') + '>' + esc(g.name) + '</option>';
+    }).join('');
+  }
+
+  function openEditCat(btn) {
+    editCatId = parseInt(btn.dataset.id, 10);
+    gid('mEditCatId').value = editCatId;
+    gid('mEditCatName').value = btn.dataset.name || '';
+    gid('mEditCatRollover').value = btn.dataset.rollover || 'reset';
+    gid('mEditCatNotes').value = btn.dataset.notes || '';
+
+    var usdVal = btn.dataset.asgnUsd !== '' ? parseFloat(btn.dataset.asgnUsd) : NaN;
+    var copVal = parseFloat(btn.dataset.asgnCop) || 0;
+    if (!isNaN(usdVal) && usdVal !== 0) {
+      gid('mEditCatAsgnCur').value = 'USD';
+      gid('mEditCatAsgnAmt').value = usdVal;
+      gid('mEditCatAsgnAmt').step = '1';
+    } else {
+      gid('mEditCatAsgnCur').value = 'COP';
+      gid('mEditCatAsgnAmt').value = copVal !== 0 ? Math.round(copVal) : '';
+      gid('mEditCatAsgnAmt').step = '1000';
+    }
+
+    var gidVal = parseInt(btn.dataset.gid, 10);
+    if (allGroups.length) {
+      loadGroupsIntoSelect(gid('mEditCatGroup'), gidVal);
+      gid('mEditCat').classList.add('open');
+      setTimeout(function () { gid('mEditCatName').focus(); gid('mEditCatName').select(); }, 50);
+    } else {
+      api('/api/categories/groups').then(function (groups) {
+        allGroups = groups;
+        loadGroupsIntoSelect(gid('mEditCatGroup'), gidVal);
+        gid('mEditCat').classList.add('open');
+        setTimeout(function () { gid('mEditCatName').focus(); gid('mEditCatName').select(); }, 50);
+      });
+    }
+  }
+  function closeEditCat() { gid('mEditCat').classList.remove('open'); editCatId = null; }
+  gid('mEditCatCancel').addEventListener('click', closeEditCat);
+  gid('mEditCat').addEventListener('click', function (e) { if (e.target === gid('mEditCat')) closeEditCat(); });
+  gid('mEditCatName').addEventListener('keydown', function (e) { if (e.key === 'Enter') doUpdateCat(); if (e.key === 'Escape') closeEditCat(); });
+  gid('mEditCatAsgnCur').addEventListener('change', function () {
+    gid('mEditCatAsgnAmt').step = this.value === 'USD' ? '1' : '1000';
+  });
+  gid('mEditCatOk').addEventListener('click', doUpdateCat);
+  function doUpdateCat() {
+    if (!editCatId) return;
+    var name = gid('mEditCatName').value.trim();
+    if (!name) return;
+    var btn = gid('mEditCatOk'); btn.disabled = true;
+    var month = S.year + '-' + String(S.month).padStart(2, '0') + '-01';
+    var asgnCur = gid('mEditCatAsgnCur').value;
+    var asgnAmt = parseFloat(gid('mEditCatAsgnAmt').value) || 0;
+
+    var catPatch = api('/api/categories/' + editCatId, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name: name,
+        rollover_type: gid('mEditCatRollover').value,
+        category_group_id: parseInt(gid('mEditCatGroup').value, 10),
+        notes: gid('mEditCatNotes').value.trim() || null
+      })
+    });
+    var asgnCall = api('/api/budgets/assign', {
+      method: 'POST',
+      body: JSON.stringify({ category_id: editCatId, amount: asgnAmt, month: month, currency_code: asgnCur })
+    });
+
+    Promise.all([catPatch, asgnCall])
+      .then(function () { closeEditCat(); toast('Categoría actualizada'); allGroups = []; load(); })
+      .catch(function () { toast('Error al guardar', true); })
+      .finally(function () { btn.disabled = false; });
+  }
+  gid('mEditCatDelete').addEventListener('click', function () {
+    if (!editCatId) return;
+    var name = gid('mEditCatName').value.trim();
+    if (!confirm('¿Eliminar la categoría "' + name + '"?\n\nSi tiene transacciones, se ocultará en lugar de borrarse.')) return;
+    var btn = gid('mEditCatDelete'); btn.disabled = true;
+    api('/api/categories/' + editCatId, { method: 'DELETE' })
+      .then(function () { closeEditCat(); toast('Categoría eliminada'); load(); })
+      .catch(function () { toast('Error al eliminar categoría', true); })
+      .finally(function () { btn.disabled = false; });
+  });
+
+  /* ── New category modal ── */
+  function openNewCat(grpId) {
+    newCatGid = grpId;
+    gid('mCatName').value = '';
+    gid('mCatRollover').value = 'reset';
+    gid('mNewCat').classList.add('open');
+    setTimeout(function () { gid('mCatName').focus(); }, 50);
+  }
+  function closeNewCat() { gid('mNewCat').classList.remove('open'); }
+  gid('mCatCancel').addEventListener('click', closeNewCat);
+  gid('mNewCat').addEventListener('click', function (e) { if (e.target === gid('mNewCat')) closeNewCat(); });
+  gid('mCatName').addEventListener('keydown', function (e) { if (e.key === 'Enter') doCreateCat(); if (e.key === 'Escape') closeNewCat(); });
+  gid('mCatOk').addEventListener('click', doCreateCat);
+  function doCreateCat() {
+    var name = gid('mCatName').value.trim();
+    if (!name || !newCatGid) return;
+    var btn = gid('mCatOk'); btn.disabled = true;
+    api('/api/categories/', {
+      method: 'POST',
+      body: JSON.stringify({ name: name, category_group_id: newCatGid, rollover_type: gid('mCatRollover').value })
+    }).then(function () { closeNewCat(); toast('Categoría creada'); load(); })
+      .catch(function () { toast('Error al crear categoría', true); })
+      .finally(function () { btn.disabled = false; });
+  }
+
+  /* ── New group modal ── */
+  function openNewGroup() {
+    gid('mGroupName').value = '';
+    gid('mGroupIsIncome').checked = false;
+    gid('mNewGroup').classList.add('open');
+    setTimeout(function () { gid('mGroupName').focus(); }, 50);
+  }
+  function closeNewGroup() { gid('mNewGroup').classList.remove('open'); }
+  gid('budAddGroup').addEventListener('click', openNewGroup);
+  gid('mGroupCancel').addEventListener('click', closeNewGroup);
+  gid('mNewGroup').addEventListener('click', function (e) { if (e.target === gid('mNewGroup')) closeNewGroup(); });
+  gid('mGroupName').addEventListener('keydown', function (e) { if (e.key === 'Enter') doCreateGroup(); if (e.key === 'Escape') closeNewGroup(); });
+  gid('mGroupOk').addEventListener('click', doCreateGroup);
+  function doCreateGroup() {
+    var name = gid('mGroupName').value.trim();
+    if (!name) return;
+    var btn = gid('mGroupOk'); btn.disabled = true;
+    api('/api/categories/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name: name, is_income: gid('mGroupIsIncome').checked })
+    }).then(function () { closeNewGroup(); toast('Grupo creado'); load(); })
+      .catch(function () { toast('Error al crear grupo', true); })
+      .finally(function () { btn.disabled = false; });
+  }
+
+  /* ── Recalculate ── */
+  gid('budRecalc').addEventListener('click', function () {
+    var btn = gid('budRecalc');
+    btn.disabled = true; btn.style.opacity = '.45';
+    api('/api/budgets/recalculate/' + S.year + '/' + S.month, { method: 'POST' })
+      .then(function () { toast('Mes recalculado'); load(); })
+      .catch(function () { toast('Error al recalcular', true); })
+      .finally(function () { btn.disabled = false; btn.style.opacity = ''; });
+  });
+
+  /* ── Initialize month from previous ── */
+  gid('budInitMonth').addEventListener('click', function () {
+    var btn = gid('budInitMonth');
+    btn.disabled = true; btn.style.opacity = '.45';
+    api('/api/budgets/initialize/' + S.year + '/' + S.month, { method: 'POST' })
+      .then(function (r) {
+        toast('Mes inicializado (' + (r.created || 0) + ' categorías creadas)');
+        load();
+      })
+      .catch(function () { toast('Error al inicializar el mes', true); })
+      .finally(function () { btn.disabled = false; btn.style.opacity = ''; });
+  });
+
+  gid('budPrev').addEventListener('click', function () { stepMonth(-1); });
+  gid('budNext').addEventListener('click', function () { stepMonth(+1); });
+
+  initMonth();
+  load();
+}());
 </script>
 {% endblock %}

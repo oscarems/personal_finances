@@ -3,409 +3,1245 @@
 {% block title %}Salud Financiera - Personal Finances{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-    <div class="page-header flex flex-wrap items-end justify-between gap-4">
+
+<!-- ── Page Header ──────────────────────────────────────────── -->
+<div class="mb-6">
+    <div class="fh-page-header">
         <div>
-            <h2 class="page-title">❤️ Salud Financiera</h2>
-            <p class="page-subtitle mt-2">
-                Evalúa tu presupuesto contra la regla 50/30/20 y qué tan bien cumples lo que asignaste.
-            </p>
+            <h2 class="page-title" style="font-family: var(--font-display);">Salud Financiera</h2>
+            <p class="page-subtitle mt-1">Qué tan bien distribuyes y respetas tu presupuesto cada mes</p>
         </div>
-        <div class="flex items-center gap-3">
-            <label class="text-sm text-neutral-600">Mes
-                <input id="fhMonth" type="month" class="ml-2 border border-neutral-300 rounded px-2 py-1 text-sm">
-            </label>
-            <label class="text-sm text-neutral-600">Moneda
-                <select id="fhCurrency" class="ml-2 border border-neutral-300 rounded px-2 py-1 text-sm">
+        <div class="fh-filters">
+            <div class="fh-filter-group">
+                <label class="fh-filter-label">Mes</label>
+                <input id="fhMonth" type="month" class="fh-filter-input">
+            </div>
+            <div class="fh-filter-group">
+                <label class="fh-filter-label">Moneda</label>
+                <select id="fhCurrency" class="fh-filter-input">
                     <option value="COP" selected>COP</option>
                     <option value="USD">USD</option>
                 </select>
-            </label>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Editable 50/30/20 targets -->
-<div class="card p-6 mb-6">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+<!-- ── Insights / Notifications ────────────────────────────── -->
+<div id="insightsPanel" class="mb-5" style="display:none"></div>
+
+<!-- ── Rule Targets (50/30/20) ─────────────────────────────── -->
+<div class="card fh-rule-card mb-5">
+    <div class="fh-rule-header">
         <div>
-            <h3 class="text-lg font-semibold text-neutral-800">🎯 Regla 50/30/20 (personalizable)</h3>
-            <p class="text-sm text-neutral-500 mt-1">
-                Ajusta los porcentajes objetivo para necesidades, deseos y ahorro. Se guardan en tu navegador.
-            </p>
+            <div class="fh-rule-title">Regla 50 / 30 / 20</div>
+            <div class="fh-rule-desc">Distribución objetivo de tus ingresos. Puedes personalizar los porcentajes — suman 100%.</div>
         </div>
-        <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-emerald-700">Necesidades</span>
-                <input id="targetNeeds" type="number" min="0" max="100" step="1"
-                       class="w-16 border border-neutral-300 rounded px-2 py-1 text-sm text-right">
-                <span class="text-xs text-neutral-500">%</span>
+        <button id="resetTargets" class="fh-reset-btn">Restablecer 50/30/20</button>
+    </div>
+    <div class="fh-rule-body">
+        <!-- Visual stacked bar preview -->
+        <div class="fh-rule-bar-wrap">
+            <div class="fh-rule-stacked">
+                <div class="fh-rule-seg fh-seg-needs"  id="segNeeds"  title="Necesidades"></div>
+                <div class="fh-rule-seg fh-seg-wants"  id="segWants"  title="Deseos"></div>
+                <div class="fh-rule-seg fh-seg-savings" id="segSavings" title="Ahorro"></div>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-amber-700">Deseos</span>
-                <input id="targetWants" type="number" min="0" max="100" step="1"
-                       class="w-16 border border-neutral-300 rounded px-2 py-1 text-sm text-right">
-                <span class="text-xs text-neutral-500">%</span>
+            <div class="fh-rule-seg-labels">
+                <div class="fh-seg-label needs">
+                    <span class="fh-seg-dot needs-dot"></span>
+                    <div>
+                        <div class="fh-seg-name">Necesidades</div>
+                        <div class="fh-seg-hint">Vivienda, alimentación, transporte, salud</div>
+                    </div>
+                    <div class="fh-seg-input-wrap">
+                        <input id="targetNeeds" type="number" min="0" max="100" step="1" class="fh-seg-input">
+                        <span class="fh-seg-pct">%</span>
+                    </div>
+                </div>
+                <div class="fh-seg-label wants">
+                    <span class="fh-seg-dot wants-dot"></span>
+                    <div>
+                        <div class="fh-seg-name">Deseos</div>
+                        <div class="fh-seg-hint">Entretenimiento, ropa, salidas, suscripciones</div>
+                    </div>
+                    <div class="fh-seg-input-wrap">
+                        <input id="targetWants" type="number" min="0" max="100" step="1" class="fh-seg-input">
+                        <span class="fh-seg-pct">%</span>
+                    </div>
+                </div>
+                <div class="fh-seg-label savings">
+                    <span class="fh-seg-dot savings-dot"></span>
+                    <div>
+                        <div class="fh-seg-name">Ahorro e inversión</div>
+                        <div class="fh-seg-hint">Fondo de emergencia, metas, inversiones</div>
+                    </div>
+                    <div class="fh-seg-input-wrap">
+                        <input id="targetSavings" type="number" min="0" max="100" step="1" class="fh-seg-input">
+                        <span class="fh-seg-pct">%</span>
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-blue-700">Ahorro</span>
-                <input id="targetSavings" type="number" min="0" max="100" step="1"
-                       class="w-16 border border-neutral-300 rounded px-2 py-1 text-sm text-right">
-                <span class="text-xs text-neutral-500">%</span>
+        </div>
+        <p id="targetSumHint" class="fh-sum-hint"></p>
+    </div>
+</div>
+
+<!-- ── Score Cards Row ─────────────────────────────────────── -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+
+    <!-- Overall -->
+    <div class="card fh-score-card fh-score-overall">
+        <div class="fh-score-top">
+            <div>
+                <div class="fh-score-eyebrow">Puntaje General</div>
+                <div class="fh-score-desc-short">Combinación de cumplimiento y distribución</div>
             </div>
-            <button id="resetTargets" class="text-xs text-neutral-500 hover:text-neutral-800 underline">
-                Restablecer 50/30/20
-            </button>
+            <div id="overallGrade" class="fh-grade">–</div>
+        </div>
+        <div id="overallScore" class="fh-score-value">–</div>
+        <div class="fh-score-track">
+            <div id="overallBar" class="fh-score-fill" style="width:0%"></div>
+        </div>
+        <div class="fh-score-formula">
+            <span class="fh-formula-pill blue">60% cumplimiento</span>
+            <span class="fh-formula-sep">+</span>
+            <span class="fh-formula-pill gold">40% distribución</span>
         </div>
     </div>
-    <p id="targetSumHint" class="text-xs text-neutral-500 mt-2"></p>
-</div>
 
-<!-- Scores -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="card p-6">
-        <div class="flex items-center justify-between">
-            <h4 class="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Puntaje general</h4>
-            <span id="overallGrade" class="text-2xl font-bold text-neutral-800">–</span>
+    <!-- Adherence -->
+    <div class="card fh-score-card">
+        <div class="fh-score-top">
+            <div>
+                <div class="fh-score-eyebrow">Cumplimiento</div>
+                <div class="fh-score-desc-short">¿Tu gasto real respeta lo que asignaste?</div>
+            </div>
         </div>
-        <p id="overallScore" class="mt-3 text-4xl font-bold text-neutral-900">–</p>
-        <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
-            <div id="overallBar" class="h-full bg-emerald-500 transition-all" style="width:0%"></div>
+        <div id="adherenceScore" class="fh-score-value">–</div>
+        <div class="fh-score-track">
+            <div id="adherenceBar" class="fh-score-fill" style="width:0%"></div>
         </div>
-        <p class="text-xs text-neutral-500 mt-3">60% cumplimiento del presupuesto + 40% regla 50/30/20.</p>
+        <p class="fh-score-explain">
+            100 = gastaste exactamente lo asignado en cada categoría.
+            Se penaliza el sobregasto por categoría.
+        </p>
     </div>
 
-    <div class="card p-6">
-        <h4 class="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Cumplimiento del presupuesto</h4>
-        <p id="adherenceScore" class="mt-3 text-4xl font-bold text-neutral-900">–</p>
-        <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
-            <div id="adherenceBar" class="h-full bg-blue-500 transition-all" style="width:0%"></div>
+    <!-- Rule -->
+    <div class="card fh-score-card">
+        <div class="fh-score-top">
+            <div>
+                <div class="fh-score-eyebrow">Distribución 50/30/20</div>
+                <div class="fh-score-desc-short">¿Tu presupuesto sigue la regla que configuraste?</div>
+            </div>
         </div>
-        <p class="text-xs text-neutral-500 mt-3">Qué tanto tu gasto real respeta lo que asignaste por categoría.</p>
+        <div id="ruleScore" class="fh-score-value">–</div>
+        <div class="fh-score-track">
+            <div id="ruleBar" class="fh-score-fill" style="width:0%"></div>
+        </div>
+        <p class="fh-score-explain">
+            100 = lo asignado encaja perfectamente con tu distribución objetivo.
+            Se mide contra el presupuesto, no el gasto real.
+        </p>
     </div>
 
-    <div class="card p-6">
-        <h4 class="text-sm font-semibold text-neutral-500 uppercase tracking-wide">Regla 50/30/20</h4>
-        <p id="ruleScore" class="mt-3 text-4xl font-bold text-neutral-900">–</p>
-        <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
-            <div id="ruleBar" class="h-full bg-purple-500 transition-all" style="width:0%"></div>
+</div>
+
+<!-- ── Bucket Cards ────────────────────────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+    <div id="bucketNeeds"   class="card fh-bucket needs-bucket"></div>
+    <div id="bucketWants"   class="card fh-bucket wants-bucket"></div>
+    <div id="bucketSavings" class="card fh-bucket savings-bucket"></div>
+</div>
+
+<!-- ── Income Analysis ────────────────────────────────────── -->
+<div class="card mb-5">
+    <div class="fh-section-header">
+        <div class="fh-section-icon income-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         </div>
-        <p class="text-xs text-neutral-500 mt-3">Qué tan bien distribuye tu presupuesto la regla personalizada.</p>
+        <div>
+            <div class="fh-section-title">Distribución vs Ingresos reales</div>
+            <div class="fh-section-sub">¿Cuánto de lo que ganaste este mes se fue a cada cubo? Compara tu gasto real contra tus ingresos (no contra lo presupuestado).</div>
+        </div>
+    </div>
+    <div id="incomeAnalysis" class="p-5 pt-0">
+        <div class="fh-loading">Cargando análisis de ingresos…</div>
     </div>
 </div>
 
-<!-- Buckets breakdown -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    <div id="bucketNeeds" class="card p-6"></div>
-    <div id="bucketWants" class="card p-6"></div>
-    <div id="bucketSavings" class="card p-6"></div>
+<!-- ── Over-budget Categories ─────────────────────────────── -->
+<div class="card mb-2">
+    <div class="fh-section-header">
+        <div class="fh-section-icon over-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+            <div class="fh-section-title">Categorías con sobregasto</div>
+            <div class="fh-section-sub">Categorías donde el gasto real superó lo que asignaste. Revísalas para ajustar tu presupuesto o tus hábitos.</div>
+        </div>
+    </div>
+    <div id="overBudgetTable" class="px-5 pb-5">
+        <div class="fh-loading">Cargando…</div>
+    </div>
 </div>
 
-<!-- Income-based 50/30/20 analysis -->
-<div class="card p-6 mb-8">
-    <h3 class="text-lg font-semibold text-neutral-800 mb-2">📊 Regla 50/30/20 vs Ingresos</h3>
-    <p class="text-sm text-neutral-500 mb-4">
-        Evalúa tu gasto real contra tus ingresos del mes (no contra lo presupuestado).
-    </p>
-    <div id="incomeAnalysis" class="text-sm text-neutral-600">Cargando…</div>
-</div>
+<!-- ─────────────────────────────────────────────────────────── STYLES -->
+<style>
+/* ── Layout ───────────────────────────────────────────────── */
+.fh-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.fh-filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.fh-filter-group { display: flex; flex-direction: column; gap: 4px; }
+.fh-filter-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+}
+.fh-filter-input {
+    padding: 6px 10px;
+    border: 1px solid var(--border-muted);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.15s;
+}
+.fh-filter-input:focus { border-color: var(--color-primary); box-shadow: var(--focus-ring); }
 
-<!-- Over-budget categories -->
-<div class="card p-6 mb-8">
-    <h3 class="text-lg font-semibold text-neutral-800 mb-4">⚠️ Categorías con sobregasto</h3>
-    <div id="overBudgetTable" class="text-sm text-neutral-600">Cargando…</div>
-</div>
+/* ── Rule Card ────────────────────────────────────────────── */
+.fh-rule-card { padding: 0; overflow: hidden; }
+.fh-rule-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border-muted);
+    flex-wrap: wrap;
+}
+.fh-rule-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+}
+.fh-rule-desc { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.fh-reset-btn {
+    font-size: 11px;
+    color: var(--text-soft);
+    text-decoration: underline;
+    background: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 2px 0;
+    transition: color 0.15s;
+}
+.fh-reset-btn:hover { color: var(--text-primary); }
 
+.fh-rule-body { padding: 18px 22px; }
+.fh-rule-bar-wrap { display: flex; flex-direction: column; gap: 14px; }
+
+.fh-rule-stacked {
+    display: flex;
+    height: 14px;
+    border-radius: 99px;
+    overflow: hidden;
+    gap: 2px;
+}
+.fh-rule-seg {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    min-width: 0;
+}
+.fh-seg-needs   { background: var(--color-danger); }
+.fh-seg-wants   { background: var(--color-warning); }
+.fh-seg-savings { background: var(--color-success); }
+
+.fh-rule-seg-labels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .fh-rule-seg-labels { grid-template-columns: 1fr; } }
+
+.fh-seg-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-muted);
+    background: var(--bg-surface-muted);
+}
+.fh-seg-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+.needs-dot   { background: var(--color-danger); }
+.wants-dot   { background: var(--color-warning); }
+.savings-dot { background: var(--color-success); }
+
+.fh-seg-name { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.fh-seg-hint { font-size: 11px; color: var(--text-soft); margin-top: 2px; line-height: 1.35; }
+
+.fh-seg-input-wrap {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+}
+.fh-seg-input {
+    width: 44px;
+    padding: 4px 6px;
+    border: 1px solid var(--border-muted);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: var(--font-mono);
+    text-align: right;
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    outline: none;
+    transition: border-color 0.15s;
+}
+.fh-seg-input:focus { border-color: var(--color-primary); }
+.fh-seg-pct { font-size: 12px; color: var(--text-soft); }
+
+.fh-sum-hint {
+    font-size: 11px;
+    margin-top: 6px;
+    min-height: 14px;
+    transition: color 0.2s;
+}
+.fh-sum-ok  { color: var(--color-success); }
+.fh-sum-err { color: var(--color-warning-600); }
+
+/* ── Score Cards ──────────────────────────────────────────── */
+.fh-score-card { padding: 20px; }
+.fh-score-overall { border-top: 3px solid var(--color-primary); }
+
+.fh-score-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.fh-score-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+}
+.fh-score-desc-short {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    line-height: 1.4;
+}
+.fh-grade {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+    flex-shrink: 0;
+}
+.fh-score-value {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+}
+.fh-score-track {
+    width: 100%;
+    height: 6px;
+    background: var(--progress-track);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+.fh-score-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fh-score-explain {
+    font-size: 11px;
+    color: var(--text-soft);
+    line-height: 1.5;
+}
+.fh-score-formula {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.fh-formula-pill {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+}
+.fh-formula-pill.blue { background: rgba(61,90,128,0.08); color: #2e4a7e; border: 1px solid rgba(61,90,128,0.15); }
+.fh-formula-pill.gold { background: var(--badge-accent-bg); color: var(--color-accent-600); border: 1px solid var(--badge-accent-border); }
+.fh-formula-sep { font-size: 11px; color: var(--text-soft); }
+
+/* Score colour variants */
+.fh-score-ex  { color: var(--color-success); }
+.fh-score-gd  { color: #3d5a80; }
+.fh-score-ok  { color: var(--color-warning-600); }
+.fh-score-bad { color: var(--color-danger); }
+.fh-fill-ex  { background: var(--color-success); }
+.fh-fill-gd  { background: #3d5a80; }
+.fh-fill-ok  { background: var(--color-warning); }
+.fh-fill-bad { background: var(--color-danger); }
+
+/* ── Bucket Cards ─────────────────────────────────────────── */
+.fh-bucket { padding: 0; overflow: hidden; }
+.fh-bucket-header {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border-muted);
+}
+.needs-bucket   .fh-bucket-header { background: rgba(156,55,68,0.03); }
+.wants-bucket   .fh-bucket-header { background: rgba(185,131,32,0.03); }
+.savings-bucket .fh-bucket-header { background: rgba(45,106,79,0.03); }
+
+.fh-bucket-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+    margin-bottom: 8px;
+    border: 1px solid transparent;
+}
+.needs-badge   { background: rgba(156,55,68,0.08); color: var(--color-danger-600); border-color: rgba(156,55,68,0.15); }
+.wants-badge   { background: rgba(185,131,32,0.08); color: var(--color-warning-600); border-color: rgba(185,131,32,0.15); }
+.savings-badge { background: rgba(45,106,79,0.08); color: var(--color-success-600); border-color: rgba(45,106,79,0.15); }
+
+.fh-bucket-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-display);
+}
+.fh-bucket-hint {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 2px;
+}
+
+.fh-bucket-body { padding: 14px 18px; }
+.fh-bucket-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.fh-stat { flex: 1; min-width: 80px; }
+.fh-stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    margin-bottom: 3px;
+}
+.fh-stat-value {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.fh-stat-value.highlight-ok  { color: var(--color-success); }
+.fh-stat-value.highlight-warn { color: var(--color-warning-600); }
+.fh-stat-value.highlight-bad  { color: var(--color-danger); }
+
+.fh-bucket-bar-wrap { margin-bottom: 12px; }
+.fh-bucket-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-soft);
+    font-family: var(--font-mono);
+    margin-bottom: 4px;
+}
+.fh-bucket-bar-track {
+    width: 100%;
+    height: 8px;
+    background: var(--progress-track);
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+}
+.fh-bucket-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.6s cubic-bezier(0.22,1,0.36,1);
+}
+.needs-fill   { background: var(--color-danger); }
+.wants-fill   { background: var(--color-warning); }
+.savings-fill { background: var(--color-success); }
+
+.fh-bucket-score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: var(--bg-surface-muted);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+.fh-bucket-score-label { font-size: 11px; color: var(--text-secondary); }
+.fh-bucket-score-val {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.fh-bucket-cats { max-height: 200px; overflow-y: auto; }
+.fh-cat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border-muted);
+    gap: 8px;
+}
+.fh-cat-row:last-child { border-bottom: none; }
+.fh-cat-name {
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.fh-cat-nums {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-soft);
+    white-space: nowrap;
+}
+.fh-cat-nums .over { color: var(--color-danger); font-weight: 600; }
+
+/* ── Section Headers ──────────────────────────────────────── */
+.fh-section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border-muted);
+}
+.fh-section-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.income-icon { background: rgba(45,106,79,0.08); color: var(--color-success); }
+.over-icon   { background: rgba(156,55,68,0.08); color: var(--color-danger); }
+.fh-section-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.fh-section-sub { font-size: 12px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
+
+/* ── Income Analysis ──────────────────────────────────────── */
+.fh-income-top {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+.fh-income-stat {
+    padding: 12px 14px;
+    background: var(--bg-surface-muted);
+    border-radius: 10px;
+    border: 1px solid var(--border-muted);
+}
+.fh-income-stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    margin-bottom: 5px;
+}
+.fh-income-stat-value {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.fh-income-row {
+    margin-bottom: 12px;
+}
+.fh-income-row-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.fh-income-row-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.fh-income-row-meta { font-size: 11px; color: var(--text-soft); font-family: var(--font-mono); }
+.fh-income-bar-outer {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    background: var(--progress-track);
+    border-radius: 99px;
+    overflow: visible;
+}
+.fh-income-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.6s cubic-bezier(0.22,1,0.36,1);
+}
+.fh-income-bar-target {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    opacity: 0.25;
+}
+.fh-income-bar-target::after {
+    content: attr(data-label);
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-soft);
+    white-space: nowrap;
+}
+
+/* ── Over-budget Table ────────────────────────────────────── */
+.fh-over-empty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: rgba(45,106,79,0.05);
+    border: 1px solid rgba(45,106,79,0.15);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--color-success-600);
+}
+.fh-over-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fh-over-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-muted);
+}
+.fh-over-table th.r, .fh-over-table td.r { text-align: right; }
+.fh-over-table td {
+    padding: 8px 8px;
+    border-bottom: 1px solid var(--border-muted);
+    color: var(--text-secondary);
+    vertical-align: middle;
+}
+.fh-over-table tr:last-child td { border-bottom: none; }
+.fh-over-excess { color: var(--color-danger); font-weight: 600; font-family: var(--font-mono); }
+.fh-over-bar-wrap { width: 80px; }
+.fh-over-bar-track { height: 4px; background: var(--progress-track); border-radius: 99px; overflow: hidden; }
+.fh-over-bar-fill { height: 100%; background: var(--color-danger); border-radius: 99px; }
+
+/* ── Insights Panel ──────────────────────────────────────── */
+.fh-insights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 700px) { .fh-insights-grid { grid-template-columns: 1fr; } }
+
+.fh-insight-group {
+    border-radius: var(--radius-card);
+    border: 1px solid transparent;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.fh-ig-good {
+    background: rgba(45,106,79,0.05);
+    border-color: rgba(45,106,79,0.16);
+}
+.fh-ig-bad {
+    background: rgba(156,55,68,0.04);
+    border-color: rgba(156,55,68,0.14);
+}
+
+.fh-ig-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-bottom: 8px;
+    border-bottom: 1px solid;
+}
+.fh-ig-good .fh-ig-header { color: var(--color-success-600); border-color: rgba(45,106,79,0.15); }
+.fh-ig-bad  .fh-ig-header { color: var(--color-danger-600);  border-color: rgba(156,55,68,0.12); }
+
+.fh-insight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.fh-insight-icon-wrap {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.fh-insight-icon-wrap.icon-bad  { color: var(--color-danger); }
+.fh-insight-icon-wrap.icon-warn { color: var(--color-warning-600); }
+.fh-ig-good .fh-insight-item::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-success);
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+.fh-insight-msg {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+.fh-insight-det {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+}
+
+/* ── Savings note in bucket ───────────────────────────────── */
+.fh-savings-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 11px;
+    color: var(--color-success-600);
+    background: rgba(45,106,79,0.05);
+    border: 1px solid rgba(45,106,79,0.14);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    line-height: 1.45;
+}
+.fh-savings-note svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ── Over-budget extras ───────────────────────────────────── */
+.fh-over-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-surface-muted);
+    border: 1px solid var(--border-muted);
+    color: var(--text-soft);
+    white-space: nowrap;
+}
+.fh-over-footnote {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-muted);
+}
+
+/* ── Loading ──────────────────────────────────────────────── */
+.fh-loading {
+    padding: 20px 0;
+    font-size: 13px;
+    color: var(--text-soft);
+    text-align: center;
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
 <script>
-(function() {
+(function () {
     const LS_KEY = "fh_targets_v1";
 
     const els = {
-        month:     document.getElementById("fhMonth"),
-        currency:  document.getElementById("fhCurrency"),
-        tNeeds:    document.getElementById("targetNeeds"),
-        tWants:    document.getElementById("targetWants"),
-        tSavings:  document.getElementById("targetSavings"),
-        resetBtn:  document.getElementById("resetTargets"),
-        sumHint:   document.getElementById("targetSumHint"),
-        overall:   document.getElementById("overallScore"),
-        overallG:  document.getElementById("overallGrade"),
-        overallB:  document.getElementById("overallBar"),
-        adherence: document.getElementById("adherenceScore"),
-        adherenceB:document.getElementById("adherenceBar"),
-        rule:      document.getElementById("ruleScore"),
-        ruleB:     document.getElementById("ruleBar"),
-        bNeeds:    document.getElementById("bucketNeeds"),
-        bWants:    document.getElementById("bucketWants"),
-        bSavings:  document.getElementById("bucketSavings"),
-        overTable: document.getElementById("overBudgetTable"),
-        incomeAn:  document.getElementById("incomeAnalysis"),
+        month:      document.getElementById("fhMonth"),
+        currency:   document.getElementById("fhCurrency"),
+        tNeeds:     document.getElementById("targetNeeds"),
+        tWants:     document.getElementById("targetWants"),
+        tSavings:   document.getElementById("targetSavings"),
+        resetBtn:   document.getElementById("resetTargets"),
+        sumHint:    document.getElementById("targetSumHint"),
+        segNeeds:   document.getElementById("segNeeds"),
+        segWants:   document.getElementById("segWants"),
+        segSavings: document.getElementById("segSavings"),
+        // score cards
+        overall:    document.getElementById("overallScore"),
+        overallG:   document.getElementById("overallGrade"),
+        overallB:   document.getElementById("overallBar"),
+        adherence:  document.getElementById("adherenceScore"),
+        adherenceB: document.getElementById("adherenceBar"),
+        rule:       document.getElementById("ruleScore"),
+        ruleB:      document.getElementById("ruleBar"),
+        // sections
+        bNeeds:     document.getElementById("bucketNeeds"),
+        bWants:     document.getElementById("bucketWants"),
+        bSavings:   document.getElementById("bucketSavings"),
+        overTable:  document.getElementById("overBudgetTable"),
+        incomeAn:   document.getElementById("incomeAnalysis"),
     };
 
-    // --- defaults & persistence ---
+    /* ── Persistence ─────────────────────────────────────── */
     function loadTargets() {
-        try {
-            const raw = localStorage.getItem(LS_KEY);
-            if (raw) return JSON.parse(raw);
-        } catch (e) {}
+        try { const r = localStorage.getItem(LS_KEY); if (r) return JSON.parse(r); } catch (e) {}
         return { needs: 50, wants: 30, savings: 20 };
     }
-    function saveTargets(t) {
-        localStorage.setItem(LS_KEY, JSON.stringify(t));
-    }
+    function saveTargets(t) { localStorage.setItem(LS_KEY, JSON.stringify(t)); }
 
-    const initial = loadTargets();
-    els.tNeeds.value   = initial.needs;
-    els.tWants.value   = initial.wants;
-    els.tSavings.value = initial.savings;
+    const init = loadTargets();
+    els.tNeeds.value   = init.needs;
+    els.tWants.value   = init.wants;
+    els.tSavings.value = init.savings;
 
-    // default month = current
     const today = new Date();
     els.month.value = today.toISOString().slice(0, 7);
 
-    // --- formatters ---
-    function fmtMoney(value, code) {
-        const n = Number(value || 0);
-        try {
-            return n.toLocaleString("es-CO", {
-                style: "currency",
-                currency: code || "COP",
-                maximumFractionDigits: 0,
-            });
-        } catch (e) {
-            return n.toFixed(0);
-        }
+    /* ── Formatters ──────────────────────────────────────── */
+    const fmtMoney = (v, code) => {
+        const n = Number(v || 0);
+        try { return n.toLocaleString("es-CO", { style: "currency", currency: code || "COP", maximumFractionDigits: 0 }); }
+        catch (e) { return n.toFixed(0); }
+    };
+    const fmtPct = v => (Number(v || 0)).toFixed(1) + "%";
+
+    function scoreClass(s) {
+        if (s >= 90) return "fh-score-ex";
+        if (s >= 75) return "fh-score-gd";
+        if (s >= 60) return "fh-score-ok";
+        return "fh-score-bad";
     }
-    function fmtPct(v) { return (Number(v || 0)).toFixed(1) + "%"; }
-    function scoreColor(s) {
-        if (s >= 90) return "text-emerald-600";
-        if (s >= 75) return "text-blue-600";
-        if (s >= 60) return "text-amber-600";
-        return "text-red-600";
+    function fillClass(s) {
+        if (s >= 90) return "fh-fill-ex";
+        if (s >= 75) return "fh-fill-gd";
+        if (s >= 60) return "fh-fill-ok";
+        return "fh-fill-bad";
     }
-    function barColor(s) {
-        if (s >= 90) return "bg-emerald-500";
-        if (s >= 75) return "bg-blue-500";
-        if (s >= 60) return "bg-amber-500";
-        return "bg-red-500";
+    function statClass(v, goodDir = "low") {
+        // goodDir "low" = smaller is better (expenses), "high" = larger is better (savings)
+        if (goodDir === "high") { return v >= 90 ? "highlight-ok" : v >= 60 ? "highlight-warn" : "highlight-bad"; }
+        return v <= 100 ? "highlight-ok" : v <= 120 ? "highlight-warn" : "highlight-bad";
     }
 
-    function renderBucket(el, title, emoji, data, currencyCode, accent) {
-        const cats = data.categories || [];
-        const remaining = data.assigned - data.spent;
-        const spentPct = data.assigned > 0 ? Math.min(100, (data.spent / data.assigned) * 100) : 0;
-        const ruleScore = data.rule_score;
-        el.innerHTML = `
-            <div class="flex items-center justify-between mb-3">
-                <h4 class="text-base font-semibold ${accent}">${emoji} ${title}</h4>
-                <span class="text-xs font-semibold ${scoreColor(ruleScore)}">Score ${ruleScore.toFixed(0)}/100</span>
-            </div>
-            <div class="flex items-baseline justify-between">
-                <span class="text-2xl font-bold text-neutral-900">${fmtPct(data.pct_of_assigned)}</span>
-                <span class="text-xs text-neutral-500">objetivo ${fmtPct(data.target_pct)}</span>
-            </div>
-            <div class="mt-1 text-xs text-neutral-500">
-                Asignado <strong>${fmtMoney(data.assigned, currencyCode)}</strong>
-                · Gastado <strong>${fmtMoney(data.spent, currencyCode)}</strong>
-            </div>
-            <div class="mt-3 h-2 bg-neutral-100 rounded-full overflow-hidden">
-                <div class="h-full ${barColor(ruleScore)}" style="width:${spentPct.toFixed(1)}%"></div>
-            </div>
-            <div class="mt-4 max-h-56 overflow-y-auto pr-1">
-                ${cats.length === 0
-                    ? '<p class="text-xs text-neutral-400 italic">Sin categorías en este mes.</p>'
-                    : cats.map(c => `
-                        <div class="flex items-center justify-between py-1 text-xs border-b border-neutral-100 last:border-0">
-                            <span class="truncate text-neutral-700" title="${c.group_name} · ${c.category_name}">${c.category_name}</span>
-                            <span class="text-neutral-500 tabular-nums">
-                                ${fmtMoney(c.spent, currencyCode)} / ${fmtMoney(c.assigned, currencyCode)}
-                            </span>
+    /* ── Rule stacked bar update ─────────────────────────── */
+    function updateRuleBar() {
+        const n = Math.max(0, Number(els.tNeeds.value) || 0);
+        const w = Math.max(0, Number(els.tWants.value) || 0);
+        const s = Math.max(0, Number(els.tSavings.value) || 0);
+        const total = n + w + s || 1;
+        els.segNeeds.style.width   = (n / total * 100).toFixed(1) + "%";
+        els.segWants.style.width   = (w / total * 100).toFixed(1) + "%";
+        els.segSavings.style.width = (s / total * 100).toFixed(1) + "%";
+
+        const sum = n + w + s;
+        if (sum === 100) {
+            els.sumHint.textContent = "Los porcentajes suman 100 ✓";
+            els.sumHint.className = "fh-sum-hint fh-sum-ok";
+        } else {
+            els.sumHint.textContent = `Suman ${sum}% — se normalizarán automáticamente al calcular`;
+            els.sumHint.className = "fh-sum-hint fh-sum-err";
+        }
+    }
+
+    /* ── Render score cards ──────────────────────────────── */
+    function renderScores(scores) {
+        const { overall: o, adherence: a, rule: r, grade } = scores;
+        els.overall.textContent  = o.toFixed(0);
+        els.overall.className    = "fh-score-value " + scoreClass(o);
+        els.overallG.textContent = grade;
+        els.overallG.className   = "fh-grade " + scoreClass(o);
+        els.overallB.style.width = Math.min(100, o) + "%";
+        els.overallB.className   = "fh-score-fill " + fillClass(o);
+
+        els.adherence.textContent  = a.toFixed(0);
+        els.adherence.className    = "fh-score-value " + scoreClass(a);
+        els.adherenceB.style.width = Math.min(100, a) + "%";
+        els.adherenceB.className   = "fh-score-fill " + fillClass(a);
+
+        els.rule.textContent  = r.toFixed(0);
+        els.rule.className    = "fh-score-value " + scoreClass(r);
+        els.ruleB.style.width = Math.min(100, r) + "%";
+        els.ruleB.className   = "fh-score-fill " + fillClass(r);
+    }
+
+    /* ── Render insights panel ───────────────────────────── */
+    function renderInsights(insights) {
+        const panel = document.getElementById("insightsPanel");
+        if (!insights || insights.length === 0) { panel.style.display = "none"; return; }
+
+        const iconMap = {
+            good: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+            warn: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+            bad:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+        };
+
+        const goods = insights.filter(i => i.kind === "good");
+        const warns = insights.filter(i => i.kind === "warn");
+        const bads  = insights.filter(i => i.kind === "bad");
+
+        let html = `<div class="fh-insights-grid">`;
+
+        if (goods.length) html += `
+            <div class="fh-insight-group fh-ig-good">
+                <div class="fh-ig-header">
+                    ${iconMap.good}
+                    <span>Lo que estás haciendo bien</span>
+                </div>
+                ${goods.map(i => `
+                    <div class="fh-insight-item">
+                        <div class="fh-insight-msg">${i.message}</div>
+                        ${i.detail ? `<div class="fh-insight-det">${i.detail}</div>` : ''}
+                    </div>`).join("")}
+            </div>`;
+
+        if (warns.length || bads.length) html += `
+            <div class="fh-insight-group fh-ig-bad">
+                <div class="fh-ig-header">
+                    ${iconMap.warn}
+                    <span>Oportunidades de mejora</span>
+                </div>
+                ${[...bads, ...warns].map(i => `
+                    <div class="fh-insight-item">
+                        <div class="fh-insight-icon-wrap ${i.kind === 'bad' ? 'icon-bad' : 'icon-warn'}">${i.kind === 'bad' ? iconMap.bad : iconMap.warn}</div>
+                        <div>
+                            <div class="fh-insight-msg">${i.message}</div>
+                            ${i.detail ? `<div class="fh-insight-det">${i.detail}</div>` : ''}
                         </div>
-                    `).join("")}
-            </div>
-        `;
+                    </div>`).join("")}
+            </div>`;
+
+        html += `</div>`;
+        panel.innerHTML = html;
+        panel.style.display = "block";
     }
 
-    function renderOverBudget(list, currencyCode) {
-        if (!list || list.length === 0) {
-            els.overTable.innerHTML = '<p class="text-sm text-emerald-600">Ninguna categoría se excedió este mes. 🎉</p>';
-            return;
+    /* ── Render bucket cards ─────────────────────────────── */
+    const BUCKET_META = {
+        needs:   { title: "Necesidades",       badge: "needs-badge",   hint: "Gastos que no puedes eliminar",      fillCls: "needs-fill" },
+        wants:   { title: "Deseos",             badge: "wants-badge",   hint: "Gastos que eliges tener",            fillCls: "wants-fill" },
+        savings: { title: "Ahorro e inversión", badge: "savings-badge", hint: "Dinero que acumulas para el futuro", fillCls: "savings-fill" },
+    };
+
+    function renderBucket(el, key, data, code) {
+        const m = BUCKET_META[key];
+        const cats = data.categories || [];
+        const isSavings = key === "savings";
+        const rs = data.rule_score;
+
+        // Savings: progress = spent / (spent + available) when available >= 0
+        // Expenses: progress = spent / assigned
+        let barPct, barLabel, refLabel, stat3Label, stat3Value, stat3Class;
+        if (isSavings) {
+            const availBefore = data.spent + Math.max(0, data.available);
+            barPct     = availBefore > 0 ? Math.min(100, data.spent / availBefore * 100) : 0;
+            barLabel   = `Usado ${barPct.toFixed(0)}% del saldo acumulado`;
+            refLabel   = `Obj. ${fmtPct(data.target_pct)} del ingreso`;
+            stat3Label = data.available >= 0 ? "Saldo disponible" : "Déficit acumulado";
+            stat3Value = fmtMoney(Math.abs(data.available), code);
+            stat3Class = data.available >= 0 ? "highlight-ok" : "highlight-bad";
+        } else {
+            barPct     = data.assigned > 0 ? Math.min(100, data.spent / data.assigned * 100) : 0;
+            barLabel   = `Ejecución ${barPct.toFixed(0)}%`;
+            refLabel   = `Obj. ${fmtPct(data.target_pct)} del ingreso`;
+            const rem  = data.assigned - data.spent;
+            stat3Label = rem >= 0 ? "Disponible" : "Exceso";
+            stat3Value = fmtMoney(Math.abs(rem), code);
+            stat3Class = rem >= 0 ? "highlight-ok" : "highlight-bad";
         }
-        els.overTable.innerHTML = `
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="text-left text-xs uppercase text-neutral-500 border-b">
-                            <th class="py-2">Categoría</th>
-                            <th class="py-2">Grupo</th>
-                            <th class="py-2 text-right">Asignado</th>
-                            <th class="py-2 text-right">Gastado</th>
-                            <th class="py-2 text-right">Exceso</th>
-                            <th class="py-2 text-right">%</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${list.map(c => `
-                            <tr class="border-b border-neutral-100">
-                                <td class="py-2 text-neutral-800">${c.category_name}</td>
-                                <td class="py-2 text-neutral-500">${c.group_name || ""}</td>
-                                <td class="py-2 text-right tabular-nums">${fmtMoney(c.assigned, currencyCode)}</td>
-                                <td class="py-2 text-right tabular-nums">${fmtMoney(c.spent, currencyCode)}</td>
-                                <td class="py-2 text-right tabular-nums text-red-600">+${fmtMoney(c.overspend, currencyCode)}</td>
-                                <td class="py-2 text-right tabular-nums text-red-600">+${c.overspend_pct.toFixed(0)}%</td>
-                            </tr>
-                        `).join("")}
-                    </tbody>
-                </table>
+
+        el.innerHTML = `
+            <div class="fh-bucket-header">
+                <div class="fh-bucket-badge ${m.badge}">${m.title}</div>
+                <div class="fh-bucket-title">${m.title}</div>
+                <div class="fh-bucket-hint">${m.hint}</div>
+            </div>
+            <div class="fh-bucket-body">
+                <div class="fh-bucket-stats">
+                    <div class="fh-stat">
+                        <div class="fh-stat-label">Asignado este mes</div>
+                        <div class="fh-stat-value">${fmtMoney(data.assigned, code)}</div>
+                    </div>
+                    <div class="fh-stat">
+                        <div class="fh-stat-label">Gastado</div>
+                        <div class="fh-stat-value">${fmtMoney(data.spent, code)}</div>
+                    </div>
+                    <div class="fh-stat">
+                        <div class="fh-stat-label">${stat3Label}</div>
+                        <div class="fh-stat-value ${stat3Class}">${stat3Value}</div>
+                    </div>
+                </div>
+
+                ${isSavings ? `
+                <div class="fh-savings-note">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Puedes gastar más de lo asignado este mes — el límite es el saldo acumulado total.
+                </div>` : ''}
+
+                <div class="fh-bucket-bar-wrap">
+                    <div class="fh-bucket-bar-labels">
+                        <span>${barLabel}</span>
+                        <span>${refLabel}</span>
+                    </div>
+                    <div class="fh-bucket-bar-track">
+                        <div class="fh-bucket-bar-fill ${m.fillCls}" style="width: ${barPct.toFixed(1)}%"></div>
+                    </div>
+                </div>
+
+                <div class="fh-bucket-score-row">
+                    <span class="fh-bucket-score-label">Score de distribución</span>
+                    <span class="fh-bucket-score-val ${scoreClass(rs)}">${rs.toFixed(0)}<span style="font-size:12px;font-weight:400;color:var(--text-soft)">/100</span></span>
+                </div>
+
+                <div class="fh-bucket-cats">
+                    ${cats.length === 0
+                        ? '<p style="font-size:12px;color:var(--text-soft);font-style:italic;padding:6px 0;">Sin categorías este mes.</p>'
+                        : cats.map(c => {
+                            let over, numStr;
+                            if (isSavings) {
+                                over = c.available < 0;
+                                numStr = `${fmtMoney(c.spent, code)} <span style="opacity:0.5">· disp. ${fmtMoney(c.available, code)}</span>`;
+                            } else {
+                                over = c.spent > c.assigned && c.assigned > 0;
+                                numStr = `${fmtMoney(c.spent, code)} <span style="opacity:0.5">/ ${fmtMoney(c.assigned, code)}</span>`;
+                            }
+                            return `<div class="fh-cat-row">
+                                <span class="fh-cat-name" title="${c.group_name}: ${c.category_name}">${c.category_name}</span>
+                                <span class="fh-cat-nums ${over ? 'over' : ''}">${numStr}</span>
+                            </div>`;
+                          }).join("")}
+                </div>
             </div>
         `;
     }
 
-    function renderIncomeAnalysis(ia, currencyCode) {
+    /* ── Income Analysis ─────────────────────────────────── */
+    function renderIncomeAnalysis(ia, code) {
+        const el = els.incomeAn;
         if (!ia || ia.total_income <= 0) {
-            els.incomeAn.innerHTML = '<p class="text-neutral-400 italic">No hay ingresos registrados este mes.</p>';
+            el.innerHTML = '<p class="fh-loading">No hay ingresos registrados este mes.</p>';
             return;
         }
         const b = ia.buckets;
-        const bucketRows = [
-            { label: "🏠 Necesidades", key: "needs",   accent: "emerald", measureLabel: "gastado" },
-            { label: "🎉 Deseos",      key: "wants",   accent: "amber",   measureLabel: "gastado" },
-            { label: "💰 Ahorro",      key: "savings", accent: "blue",    measureLabel: "asignado" },
+        const rows = [
+            { key: "needs",   label: "Necesidades",       fillCls: "needs-fill" },
+            { key: "wants",   label: "Deseos",             fillCls: "wants-fill" },
+            { key: "savings", label: "Ahorro e inversión", fillCls: "savings-fill" },
         ];
-        const usedPct = (b.needs.pct_of_income + b.wants.pct_of_income + b.savings.pct_of_income);
-        els.incomeAn.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div class="bg-neutral-50 rounded-lg p-4 text-center">
-                    <p class="text-xs text-neutral-500 uppercase">Ingresos del mes</p>
-                    <p class="text-xl font-bold text-neutral-800 mt-1">${fmtMoney(ia.total_income, currencyCode)}</p>
+        const usedPct = b.needs.pct_of_income + b.wants.pct_of_income + b.savings.pct_of_income;
+
+        el.innerHTML = `
+            <div class="fh-income-top">
+                <div class="fh-income-stat">
+                    <div class="fh-income-stat-label">Ingresos del mes</div>
+                    <div class="fh-income-stat-value">${fmtMoney(ia.total_income, code)}</div>
                 </div>
-                <div class="bg-neutral-50 rounded-lg p-4 text-center">
-                    <p class="text-xs text-neutral-500 uppercase">Total gastado</p>
-                    <p class="text-xl font-bold text-neutral-800 mt-1">${fmtMoney(ia.total_spent, currencyCode)}</p>
+                <div class="fh-income-stat">
+                    <div class="fh-income-stat-label">Total gastado</div>
+                    <div class="fh-income-stat-value">${fmtMoney(ia.total_spent, code)}</div>
                 </div>
-                <div class="bg-neutral-50 rounded-lg p-4 text-center">
-                    <p class="text-xs text-neutral-500 uppercase">Ingreso sin usar</p>
-                    <p class="text-xl font-bold ${ia.unspent_pct >= 0 ? 'text-emerald-600' : 'text-red-600'} mt-1">${fmtPct(ia.unspent_pct)}</p>
+                <div class="fh-income-stat">
+                    <div class="fh-income-stat-label">Ingreso libre</div>
+                    <div class="fh-income-stat-value" style="color: ${ia.unspent_pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+                        ${fmtPct(ia.unspent_pct)}
+                    </div>
                 </div>
-                <div class="bg-neutral-50 rounded-lg p-4 text-center">
-                    <p class="text-xs text-neutral-500 uppercase">Score vs Ingresos</p>
-                    <p class="text-xl font-bold ${scoreColor(ia.score)} mt-1">${ia.score.toFixed(0)}/100 <span class="text-base">${ia.grade}</span></p>
+                <div class="fh-income-stat">
+                    <div class="fh-income-stat-label">Score vs ingresos</div>
+                    <div class="fh-income-stat-value ${scoreClass(ia.score)}">${ia.score.toFixed(0)} <span style="font-size:14px;font-weight:400">${ia.grade}</span></div>
                 </div>
             </div>
-            <div class="space-y-3">
-                ${bucketRows.map(r => {
-                    const d = b[r.key];
-                    const barW = Math.min(100, d.pct_of_income);
-                    const targetW = Math.min(100, d.target_pct);
-                    return `
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="font-medium text-${r.accent}-700">${r.label}</span>
-                            <span class="tabular-nums">
-                                ${fmtPct(d.pct_of_income)} de ingresos
-                                <span class="text-neutral-400 ml-1">(objetivo ${fmtPct(d.target_pct)})</span>
-                                · ${fmtMoney(d.value, currencyCode)} <span class="text-neutral-400">(${r.measureLabel})</span>
-                                · Score <span class="${scoreColor(d.rule_score)}">${d.rule_score.toFixed(0)}</span>
-                            </span>
-                        </div>
-                        <div class="relative h-3 bg-neutral-100 rounded-full overflow-hidden">
-                            <div class="h-full bg-${r.accent}-500 rounded-full" style="width:${barW.toFixed(1)}%"></div>
-                            <div class="absolute top-0 bottom-0 w-0.5 bg-neutral-800 opacity-40" style="left:${targetW.toFixed(1)}%" title="Objetivo ${fmtPct(d.target_pct)}"></div>
-                        </div>
-                    </div>`;
-                }).join("")}
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="font-medium text-neutral-500">Total usado</span>
-                        <span class="tabular-nums">${fmtPct(usedPct)} de ingresos</span>
+            ${rows.map(r => {
+                const d = b[r.key];
+                const barW = Math.min(100, d.pct_of_income).toFixed(1);
+                const targetW = Math.min(100, d.target_pct).toFixed(1);
+                return `
+                <div class="fh-income-row">
+                    <div class="fh-income-row-header">
+                        <span class="fh-income-row-name">${r.label}</span>
+                        <span class="fh-income-row-meta">
+                            ${fmtPct(d.pct_of_income)} de ingresos
+                            &nbsp;·&nbsp; objetivo ${fmtPct(d.target_pct)}
+                            &nbsp;·&nbsp; ${fmtMoney(d.value, code)}
+                            &nbsp;·&nbsp; score <span class="${scoreClass(d.rule_score)}">${d.rule_score.toFixed(0)}</span>
+                        </span>
                     </div>
-                    <div class="h-3 bg-neutral-100 rounded-full overflow-hidden">
-                        <div class="h-full bg-neutral-400 rounded-full" style="width:${Math.min(100, usedPct).toFixed(1)}%"></div>
+                    <div class="fh-income-bar-outer">
+                        <div class="fh-income-bar-fill ${r.fillCls}" style="width:${barW}%"></div>
+                        <div class="fh-income-bar-target" style="left:${targetW}%" data-label="${fmtPct(d.target_pct)}"></div>
                     </div>
+                </div>`;
+            }).join("")}
+            <div class="fh-income-row" style="margin-bottom:0">
+                <div class="fh-income-row-header">
+                    <span class="fh-income-row-name" style="color:var(--text-soft)">Total distribuido</span>
+                    <span class="fh-income-row-meta">${fmtPct(usedPct)} del ingreso</span>
+                </div>
+                <div class="fh-income-bar-outer">
+                    <div class="fh-income-bar-fill" style="width:${Math.min(100, usedPct).toFixed(1)}%; background: var(--border-strong)"></div>
                 </div>
             </div>
         `;
     }
 
+    /* ── Over-budget ─────────────────────────────────────── */
+    function renderOverBudget(list, code) {
+        const el = els.overTable;
+        if (!list || list.length === 0) {
+            el.innerHTML = `
+                <div class="fh-over-empty">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    Ninguna categoría se excedió este mes — buen trabajo.
+                </div>`;
+            return;
+        }
+        el.innerHTML = `
+            <div style="overflow-x:auto">
+                <table class="fh-over-table">
+                    <thead>
+                        <tr>
+                            <th>Categoría</th>
+                            <th>Tipo</th>
+                            <th class="r">Referencia</th>
+                            <th class="r">Gastado</th>
+                            <th class="r">Exceso</th>
+                            <th class="r">%</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${list.map(c => {
+                            const ovPct = Math.min(100, c.overspend_pct);
+                            // For savings: reference is cumulative available before spending
+                            // available = avail_before - spent  =>  avail_before = spent + available
+                            // But since available < 0 here, avail_before = spent + available (could be low)
+                            const refVal  = c.is_savings ? (c.spent + c.available) : c.assigned;
+                            const refNote = c.is_savings
+                                ? `<span class="fh-over-tag">saldo acumulado</span>`
+                                : `<span class="fh-over-tag">presupuesto</span>`;
+                            return `<tr>
+                                <td>${c.category_name}</td>
+                                <td>${refNote}</td>
+                                <td class="r" style="font-family:var(--font-mono)">${fmtMoney(refVal, code)}</td>
+                                <td class="r" style="font-family:var(--font-mono)">${fmtMoney(c.spent, code)}</td>
+                                <td class="r fh-over-excess">+${fmtMoney(c.overspend, code)}</td>
+                                <td class="r fh-over-excess">+${c.overspend_pct.toFixed(0)}%</td>
+                                <td>
+                                    <div class="fh-over-bar-wrap">
+                                        <div class="fh-over-bar-track">
+                                            <div class="fh-over-bar-fill" style="width:${ovPct.toFixed(1)}%"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>`;
+                        }).join("")}
+                    </tbody>
+                </table>
+                <p class="fh-over-footnote">* Ahorros: se evalúan contra el saldo acumulado disponible (incluye meses anteriores), no solo lo asignado este mes.</p>
+            </div>`;
+    }
+
+    /* ── Main Load ───────────────────────────────────────── */
     async function load() {
-        const needs   = Number(els.tNeeds.value) || 0;
-        const wants   = Number(els.tWants.value) || 0;
+        const needs   = Number(els.tNeeds.value)   || 0;
+        const wants   = Number(els.tWants.value)   || 0;
         const savings = Number(els.tSavings.value) || 0;
         saveTargets({ needs, wants, savings });
-
-        const sum = needs + wants + savings;
-        if (sum === 100) {
-            els.sumHint.textContent = "Los porcentajes suman 100%. ✓";
-            els.sumHint.className = "text-xs text-emerald-600 mt-2";
-        } else {
-            els.sumHint.textContent = `Los porcentajes suman ${sum}%. Se normalizarán automáticamente para el cálculo.`;
-            els.sumHint.className = "text-xs text-amber-600 mt-2";
-        }
+        updateRuleBar();
 
         const url = `/api/reports/financial-health?month=${els.month.value}` +
                     `&currency_code=${els.currency.value}` +
                     `&needs_target=${needs}&wants_target=${wants}&savings_target=${savings}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!res.ok || data.error) {
-            els.overTable.textContent = (data && data.error) || "Error cargando datos.";
-            return;
+        try {
+            const res  = await fetch(url);
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                els.overTable.textContent = (data && data.error) || "Error cargando datos.";
+                return;
+            }
+            const code = (data.currency && data.currency.code) || "COP";
+            renderInsights(data.insights);
+            renderScores(data.scores);
+            renderBucket(els.bNeeds,   "needs",   data.buckets.needs,   code);
+            renderBucket(els.bWants,   "wants",   data.buckets.wants,   code);
+            renderBucket(els.bSavings, "savings", data.buckets.savings, code);
+            renderIncomeAnalysis(data.income_analysis, code);
+            renderOverBudget(data.over_budget_categories, code);
+        } catch (e) {
+            console.error(e);
         }
-
-        const code = (data.currency && data.currency.code) || "COP";
-
-        // Scores
-        const o = data.scores.overall, a = data.scores.adherence, r = data.scores.rule;
-        els.overall.textContent   = o.toFixed(0);
-        els.overall.className     = "mt-3 text-4xl font-bold " + scoreColor(o);
-        els.overallG.textContent  = data.scores.grade;
-        els.overallG.className    = "text-2xl font-bold " + scoreColor(o);
-        els.overallB.style.width  = Math.max(0, Math.min(100, o)) + "%";
-        els.overallB.className    = "h-full transition-all " + barColor(o);
-
-        els.adherence.textContent = a.toFixed(0);
-        els.adherence.className   = "mt-3 text-4xl font-bold " + scoreColor(a);
-        els.adherenceB.style.width= Math.max(0, Math.min(100, a)) + "%";
-        els.adherenceB.className  = "h-full transition-all " + barColor(a);
-
-        els.rule.textContent      = r.toFixed(0);
-        els.rule.className        = "mt-3 text-4xl font-bold " + scoreColor(r);
-        els.ruleB.style.width     = Math.max(0, Math.min(100, r)) + "%";
-        els.ruleB.className       = "h-full transition-all " + barColor(r);
-
-        renderBucket(els.bNeeds,   "Necesidades", "🏠", data.buckets.needs,   code, "text-emerald-700");
-        renderBucket(els.bWants,   "Deseos",      "🎉", data.buckets.wants,   code, "text-amber-700");
-        renderBucket(els.bSavings, "Ahorro",      "💰", data.buckets.savings, code, "text-blue-700");
-        renderIncomeAnalysis(data.income_analysis, code);
-        renderOverBudget(data.over_budget_categories, code);
     }
 
-    // Clamp targets so their sum never exceeds 100
-    function clampTargets(changedEl) {
+    /* ── Clamp & wire events ─────────────────────────────── */
+    function clampTargets(changed) {
         const fields = [els.tNeeds, els.tWants, els.tSavings];
-        // Ensure no negative values
         fields.forEach(f => { if (Number(f.value) < 0) f.value = 0; });
-        const others = fields.filter(f => f !== changedEl);
-        const current = Number(changedEl.value) || 0;
+        const others = fields.filter(f => f !== changed);
+        const cur = Number(changed.value) || 0;
         const otherSum = others.reduce((s, f) => s + (Number(f.value) || 0), 0);
-        if (current + otherSum > 100) {
-            changedEl.value = Math.max(0, 100 - otherSum);
-        }
+        if (cur + otherSum > 100) changed.value = Math.max(0, 100 - otherSum);
     }
 
-    // Wire up events
     [els.tNeeds, els.tWants, els.tSavings].forEach(el => {
-        el.addEventListener("input", () => clampTargets(el));
+        el.addEventListener("input", () => { clampTargets(el); updateRuleBar(); });
         el.addEventListener("change", load);
     });
-    [els.month, els.currency].forEach(el => {
-        el.addEventListener("change", load);
-    });
+    [els.month, els.currency].forEach(el => el.addEventListener("change", load));
     els.resetBtn.addEventListener("click", () => {
         els.tNeeds.value = 50; els.tWants.value = 30; els.tSavings.value = 20;
         load();
     });
 
+    updateRuleBar();
     load();
 })();
 </script>

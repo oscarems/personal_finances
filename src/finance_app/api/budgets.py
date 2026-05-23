@@ -17,6 +17,7 @@ from finance_app.services.budget_service import (
     get_spent_transactions_to_date,
     get_category_budget_history,
     recalculate_month,
+    initialize_month,
 )
 from finance_app.models import BudgetMonth, Currency, Category
 
@@ -353,4 +354,18 @@ def recalculate_budget_month(year: int, month: int, db: Session = Depends(get_db
     """
     month_date = date(year, month, 1)
     result = recalculate_month(db, month_date)
+    return {"success": True, **result}
+
+
+@router.post("/initialize/{year}/{month}")
+def initialize_budget_month(year: int, month: int, db: Session = Depends(get_db)):
+    """
+    Initialize budget for a target month from the previous month.
+
+    - 'accumulate' (savings) categories: new assigned = max(0, prev_assigned + prev_activity)
+    - 'reset' (spending) categories: new assigned = prev_assigned
+
+    Only creates rows that don't already exist. Existing rows are not modified.
+    """
+    result = initialize_month(db, year, month)
     return {"success": True, **result}

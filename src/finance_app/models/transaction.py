@@ -77,7 +77,7 @@ class Transaction(Base):
             'id': self.id,
             'account_id': self.account_id,
             'account_name': self.account.name if self.account else None,
-            'date': self.date.isoformat() if self.date else None,
+            'date': self.date.isoformat()[:10] if self.date else None,
             'payee_id': self.payee_id,
             'payee_name': self.payee.name if self.payee else None,
             'category_id': self.category_id,

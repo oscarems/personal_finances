@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 
 from finance_app.database import get_db
-from finance_app.models import Transaction, Category, TransactionTag
+from finance_app.models import Transaction, Category, Currency, TransactionTag
 from finance_app.services.budget_service import build_spent_transactions_query
 
 from .common import get_exchange_rate, parse_date_range, convert_to_currency, expense_allocations
@@ -47,12 +47,14 @@ def get_spending_by_category(
     ]
     results.sort(key=lambda x: x['amount'], reverse=True)
     total_expenses = sum(r['amount'] for r in results)
+    currency = db.query(Currency).get(currency_id)
 
     return {
         'start_date': start_date_obj.isoformat(),
         'end_date': end_date_obj.isoformat(),
         'total_expenses': total_expenses,
-        'categories': results
+        'categories': results,
+        'currency': currency.to_dict() if currency else None,
     }
 
 

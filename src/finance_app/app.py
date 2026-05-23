@@ -42,6 +42,8 @@ from finance_app.api import (
     tags,
     goals,
     patrimonio,
+    cash_flow,
+    setup,
 )
 from finance_app.api import email_sender_rules
 from finance_app.api import chat as chat_module
@@ -70,6 +72,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     db = session_factory()
     try:
         generate_due_transactions(db)
+        from finance_app.services.exchange_rate_service import sync_all_currency_rates
+        try:
+            sync_all_currency_rates(db)
+        except Exception as exc:
+            logger.warning("Exchange rate sync skipped: %s", exc)
     finally:
         db.close()
     try:
@@ -128,6 +135,8 @@ app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(patrimonio.router, prefix="/api/patrimonio", tags=["patrimonio"])
 app.include_router(email_sender_rules.router, prefix="/api/email-sender-rules", tags=["email-sender-rules"])
 app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
+app.include_router(cash_flow.router, prefix="/api/cash-flow", tags=["cash-flow"])
+app.include_router(setup.router, prefix="/api/setup", tags=["setup"])
 app.include_router(auth_router)
 register_auth_exception_handler(app)
 
@@ -138,17 +147,27 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/setup")
+async def setup_page(request: Request, _=Depends(require_auth)):
+    """First-run onboarding wizard."""
+    return templates.TemplateResponse("setup.html", context={"request": request})
+
+
 @app.get("/")
-async def home(request: Request, _=Depends(require_auth)) -> HTMLResponse:
-    """Home page — Dashboard."""
-    return templates.TemplateResponse("index.html", {"request": request})
+async def home(request: Request, db: Session = Depends(get_db), _=Depends(require_auth)) -> HTMLResponse:
+    """Home page — redirects to /setup when no accounts exist yet."""
+    has_accounts = db.query(Account).filter_by(is_closed=False).count() > 0
+    if not has_accounts:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/setup", status_code=302)
+    return templates.TemplateResponse("index.html", context={"request": request})
 
 
 @app.get("/budget")
 async def budget_page(request: Request, _=Depends(require_auth)):
     """Budget page"""
     from datetime import date
-    return templates.TemplateResponse("budget.html", {
+    return templates.TemplateResponse("budget.html", context={
         "request": request,
         "current_month": date.today().strftime("%Y-%m"),
     })
@@ -157,84 +176,84 @@ async def budget_page(request: Request, _=Depends(require_auth)):
 @app.get("/transactions")
 async def transactions_page(request: Request, _=Depends(require_auth)):
     """Transactions page"""
-    return templates.TemplateResponse("transactions.html", {"request": request})
+    return templates.TemplateResponse("transactions.html", context={"request": request})
 
 
 @app.get("/accounts")
 async def accounts_page(request: Request, _=Depends(require_auth)):
     """Accounts page"""
-    return templates.TemplateResponse("accounts.html", {"request": request})
+    return templates.TemplateResponse("accounts.html", context={"request": request})
 
 
 @app.get("/advanced/gmail")
 async def advanced_gmail_page(request: Request, _=Depends(require_auth)):
     """Gmail import preview page"""
-    return templates.TemplateResponse("gmail_import.html", {"request": request})
+    return templates.TemplateResponse("gmail_import.html", context={"request": request})
 
 @app.get("/mortgage")
 async def mortgage_page(request: Request, _=Depends(require_auth)):
     """Mortgage simulator page"""
-    return templates.TemplateResponse("mortgage.html", {"request": request})
+    return templates.TemplateResponse("mortgage.html", context={"request": request})
 
 
 @app.get("/investment-simulator")
 async def investment_simulator_page(request: Request, _=Depends(require_auth)):
     """Investment simulator page"""
-    return templates.TemplateResponse("investment_simulator.html", {"request": request})
+    return templates.TemplateResponse("investment_simulator.html", context={"request": request})
 
 
 @app.get("/reports")
 async def reports_page(request: Request, _=Depends(require_auth)):
     """Reports and analytics page"""
-    return templates.TemplateResponse("reports/index.html", {"request": request})
+    return templates.TemplateResponse("reports/index.html", context={"request": request})
 
 @app.get("/patrimonio")
 async def patrimonio_page(request: Request, _=Depends(require_auth)):
     """Patrimonio dashboard page"""
-    return templates.TemplateResponse("patrimonio/patrimonio.html", {"request": request})
+    return templates.TemplateResponse("patrimonio/patrimonio.html", context={"request": request})
 
 
 
 @app.get("/recurring")
 async def recurring_page(request: Request, _=Depends(require_auth)):
     """Recurring/automatic transactions page"""
-    return templates.TemplateResponse("recurring.html", {"request": request})
+    return templates.TemplateResponse("recurring.html", context={"request": request})
 
 
 @app.get("/debts")
 async def debts_page(request: Request, _=Depends(require_auth)):
     """Debts management page"""
-    return templates.TemplateResponse("debts.html", {"request": request})
+    return templates.TemplateResponse("debts.html", context={"request": request})
 
 
 @app.get("/emergency-fund")
 async def emergency_fund_page(request: Request, _=Depends(require_auth)):
     """Emergency fund page"""
-    return templates.TemplateResponse("emergency_fund.html", {"request": request})
+    return templates.TemplateResponse("emergency_fund.html", context={"request": request})
 
 
 @app.get("/goals")
 async def goals_page(request: Request, _=Depends(require_auth)):
     """Goals page"""
-    return templates.TemplateResponse("goals.html", {"request": request})
+    return templates.TemplateResponse("goals.html", context={"request": request})
 
 
 @app.get("/financial-health")
 async def financial_health_page(request: Request, _=Depends(require_auth)):
     """Financial health (50/30/20 + adherence score) page"""
-    return templates.TemplateResponse("financial_health.html", {"request": request})
+    return templates.TemplateResponse("financial_health.html", context={"request": request})
 
 
 @app.get("/chat")
 async def chat_page(request: Request, _=Depends(require_auth)):
     """Chat SQL page"""
-    return templates.TemplateResponse("chat_ui.html", {"request": request})
+    return templates.TemplateResponse("chat_ui.html", context={"request": request})
 
 
 @app.get("/email-sender-rules")
 def email_sender_rules_page(request: Request, db: Session = Depends(get_db), _=Depends(require_auth)):
     accounts = db.query(Account).filter_by(is_closed=False).order_by(Account.name).all()
-    return templates.TemplateResponse("email_sender_rules.html", {
+    return templates.TemplateResponse("email_sender_rules.html", context={
         "request": request,
         "accounts": [a.to_dict() for a in accounts],
     })

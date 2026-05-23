@@ -241,6 +241,11 @@
 
     let currentCurrency = { symbol: '$', decimals: 0 };
 
+    const CURRENCY_DEFAULTS = {
+        1: { symbol: '$', decimals: 0, code: 'COP' },
+        2: { symbol: 'US$', decimals: 2, code: 'USD' },
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
         updatePeriodDates();
         loadAllReports();
@@ -314,6 +319,9 @@
     }
 
     async function loadAllReports() {
+        const currencyId = parseInt(document.getElementById('currencyFilter').value);
+        currentCurrency = CURRENCY_DEFAULTS[currencyId] || CURRENCY_DEFAULTS[1];
+
         await Promise.all([
             loadOverallSummary(),
             loadPeriodSummary(),
@@ -331,7 +339,7 @@
             const res = await fetch(`/api/reports/summary?currency_id=${currencyId}`);
             const data = await res.json();
 
-            if (data.currency) currentCurrency = data.currency;
+            if (data.currency) currentCurrency = { symbol: data.currency.symbol, decimals: data.currency.decimals, code: data.currency.code };
 
             const income = data.current_month?.income || 0;
             const expenses = data.current_month?.expenses || 0;
@@ -379,7 +387,7 @@
             );
             const data = await res.json();
 
-            if (data.currency) currentCurrency = data.currency;
+            if (data.currency) currentCurrency = { symbol: data.currency.symbol, decimals: data.currency.decimals, code: data.currency.code };
 
             document.getElementById('summaryIncome').innerHTML =
                 formatCurrency(data.total_income) + trendBadge(data.income_trend);
@@ -400,6 +408,8 @@
                 `/api/reports/spending-by-category?currency_id=${currencyId}&start_date=${dateRange.start}&end_date=${dateRange.end}`
             );
             const data = await res.json();
+
+            if (data.currency) currentCurrency = { symbol: data.currency.symbol, decimals: data.currency.decimals, code: data.currency.code };
 
             const ctx = document.getElementById('categoryPieChart').getContext('2d');
             if (charts.categoryPie) charts.categoryPie.destroy();
@@ -508,6 +518,8 @@
             const months = getMonthsFromPeriod();
             const res = await fetch(`/api/reports/budget-income-expenses?months=${months}&currency_id=${currencyId}`);
             const data = await res.json();
+
+            if (data.currency) currentCurrency = { symbol: data.currency.symbol, decimals: data.currency.decimals, code: data.currency.code };
 
             const notice = document.getElementById('incomeExpensesNotice');
             if (notice) notice.textContent = data.note || '';
@@ -789,6 +801,8 @@
             const res = await fetch(`/api/reports/savings-rate?currency_id=${currencyId}&months=${months}`);
             const data = await res.json();
 
+            if (data.currency) currentCurrency = { symbol: data.currency.symbol, decimals: data.currency.decimals, code: data.currency.code };
+
             document.getElementById('savingsRateAvgDetail').textContent = `${data.average_savings_rate || 0}%`;
             document.getElementById('savingsRateTotal').textContent = formatCurrency(data.total_savings || 0);
             document.getElementById('savingsRatePeriod').textContent = data.period || '-';
@@ -872,23 +886,11 @@
     }
 
     function generateColors(count) {
-        const baseColors = [
-            'rgba(63, 103, 154, 0.8)',
-            'rgba(182, 72, 84, 0.8)',
-            'rgba(63, 124, 100, 0.8)',
-            'rgba(207, 139, 43, 0.8)',
-            'rgba(139, 92, 246, 0.8)',
-            'rgba(236, 72, 153, 0.8)',
-            'rgba(14, 165, 233, 0.8)',
-            'rgba(245, 158, 11, 0.8)',
-            'rgba(168, 85, 247, 0.8)',
-            'rgba(99, 102, 241, 0.8)',
-        ];
-
+        const keys = ['--chart-color-1','--chart-color-2','--chart-color-3','--chart-color-4',
+                      '--chart-color-5','--chart-color-6','--chart-color-7','--chart-color-8'];
+        const baseColors = keys.map(k => window.getThemeColor(k));
         const colors = [];
-        for (let i = 0; i < count; i++) {
-            colors.push(baseColors[i % baseColors.length]);
-        }
+        for (let i = 0; i < count; i++) colors.push(baseColors[i % baseColors.length]);
         return colors;
     }
 

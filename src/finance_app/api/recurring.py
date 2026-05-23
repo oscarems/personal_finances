@@ -101,6 +101,10 @@ def create_recurring_transaction(
             db.flush()
         payee_id = payee.id
 
+    # Active recurring transactions must have a category
+    if data.category_id is None:
+        raise HTTPException(status_code=422, detail="Las transacciones recurrentes activas deben tener una categoría de presupuesto")
+
     # Create recurring transaction
     recurring = RecurringTransaction(
         account_id=data.account_id,
@@ -154,10 +158,10 @@ def update_recurring_transaction(
         'day_of_week', 'day_of_month', 'is_active'
     }
 
+    explicitly_set = data.model_fields_set
     for field in update_fields:
-        value = getattr(data, field)
-        if value is not None:
-            setattr(recurring, field, value)
+        if field in explicitly_set:
+            setattr(recurring, field, getattr(data, field))
 
     db.commit()
     db.refresh(recurring)

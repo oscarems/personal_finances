@@ -273,16 +273,22 @@ def assign_money_to_category(db: Session, category_id, month_date, currency_id, 
     if initial_amount is not None:
         budget.initial_amount = initial_amount
         budget.initial_overridden = True
-    existing_budgets = db.query(BudgetMonth).filter_by(
-        category_id=category_id,
-        month=month_date
-    ).all()
-    has_multiple_budget_currencies = len({b.currency_id for b in existing_budgets}) > 1
-    recalculate_budget_available(
-        db,
-        budget,
-        include_all_currencies=not has_multiple_budget_currencies
-    )
+
+    # Zero out other-currency assigned to avoid dual-currency pollution.
+    # Categories use one currency at a time; a non-zero amount in the other
+    # currency would corrupt activity splits and the modal pre-selection.
+    if amount != 0:
+        other_budgets = db.query(BudgetMonth).filter(
+            BudgetMonth.category_id == category_id,
+            BudgetMonth.month == month_date,
+            BudgetMonth.currency_id != currency_id,
+            BudgetMonth.assigned != 0,
+        ).all()
+        for other in other_budgets:
+            other.assigned = 0
+            other.assigned_overridden = True
+
+    recalculate_budget_available(db, budget, include_all_currencies=True)
     db.flush()
     _cascade_future_months(db, category_id, currency_id, month_date)
     db.commit()
@@ -616,6 +622,7 @@ def _build_category_budget(
         'target_amount': category.target_amount,
         'rollover_type': category.rollover_type,
         'is_essential': bool(category.is_essential),
+        'notes': category.notes or '',
     }
 
 
@@ -1036,13 +1043,100 @@ def recalculate_month(db: Session, month_date: date) -> dict:
     for budget in budgets:
         prev = prev_budgets.get((budget.category_id, budget.currency_id))
         if prev is not None:
-            # Forzar herencia de assigned (operación explícita del usuario)
             budget.assigned = prev.assigned
-            budget.assigned_overridden = False  # Permitir cascades futuros
+            budget.assigned_overridden = False
+        # If no prev record for this currency, leave assigned as-is.
 
-        has_multi_curr = len(by_category.get(budget.category_id, [])) > 1
-        recalculate_budget_available(db, budget, include_all_currencies=not has_multi_curr)
+        recalculate_budget_available(db, budget, include_all_currencies=True)
         updated += 1
 
     db.commit()
     return {"updated": updated, "month": month_date.isoformat()}
+
+
+def initialize_month(db: Session, year: int, month: int) -> dict:
+    """
+    Initialize budget rows for a target month based on the previous month.
+
+    - 'accumulate' (savings): new assigned = max(0, prev_assigned + prev_activity)
+    - 'reset' (spending): new assigned = prev_assigned
+
+    Only creates rows that do NOT already exist. Existing rows are left untouched.
+    """
+    target_month = date(year, month, 1)
+    prev_month = target_month - relativedelta(months=1)
+
+    prev_budgets = db.query(BudgetMonth).options(
+        joinedload(BudgetMonth.category).joinedload(Category.category_group)
+    ).filter_by(month=prev_month).all()
+
+    if not prev_budgets:
+        return {"created": 0, "skipped": 0, "month": target_month.isoformat(),
+                "message": "No hay presupuesto en el mes anterior"}
+
+    # Recalculate previous month so activity is fresh
+    prev_by_cat: dict[int, list] = {}
+    for b in prev_budgets:
+        prev_by_cat.setdefault(b.category_id, []).append(b)
+    for b in prev_budgets:
+        has_multi = len(prev_by_cat.get(b.category_id, [])) > 1
+        recalculate_budget_available(db, b, include_all_currencies=not has_multi)
+    db.flush()
+
+    existing_keys: set[tuple[int, int]] = {
+        (b.category_id, b.currency_id)
+        for b in db.query(BudgetMonth).filter_by(month=target_month).all()
+    }
+
+    created = 0
+    skipped = 0
+
+    for prev in prev_budgets:
+        category = prev.category
+        if not category or not category.category_group:
+            skipped += 1
+            continue
+        if category.category_group.is_income:
+            skipped += 1
+            continue
+
+        key = (prev.category_id, prev.currency_id)
+        if key in existing_keys:
+            skipped += 1
+            continue
+
+        prev_assigned = prev.assigned or 0.0
+        prev_activity = prev.activity or 0.0
+
+        if category.rollover_type == 'accumulate':
+            new_assigned = max(0.0, prev_assigned + prev_activity)
+        else:
+            new_assigned = prev_assigned
+
+        new_budget = BudgetMonth(
+            category_id=prev.category_id,
+            month=target_month,
+            currency_id=prev.currency_id,
+            assigned=new_assigned,
+            assigned_overridden=False,
+            activity=0.0,
+            available=0.0,
+            initial_amount=0.0,
+            initial_overridden=False,
+        )
+        db.add(new_budget)
+        existing_keys.add(key)
+        created += 1
+
+    db.commit()
+
+    new_budgets = db.query(BudgetMonth).filter_by(month=target_month).all()
+    new_by_cat: dict[int, list] = {}
+    for b in new_budgets:
+        new_by_cat.setdefault(b.category_id, []).append(b)
+    for b in new_budgets:
+        has_multi = len(new_by_cat.get(b.category_id, [])) > 1
+        recalculate_budget_available(db, b, include_all_currencies=not has_multi)
+    db.commit()
+
+    return {"created": created, "skipped": skipped, "month": target_month.isoformat()}

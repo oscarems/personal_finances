@@ -48,8 +48,50 @@ DEBUG = True
 # ---------------------------------------------------------------------------
 DEFAULT_CURRENCY = 'COP'
 SUPPORTED_CURRENCIES = {
-    'COP': {'symbol': '$', 'name': 'Peso Colombiano', 'decimals': 0},
-    'USD': {'symbol': 'US$', 'name': 'Dólar Estadounidense', 'decimals': 2}
+    'COP': {'symbol': '$',    'name': 'Peso Colombiano',         'decimals': 0},
+    'USD': {'symbol': 'US$',  'name': 'Dólar Estadounidense',    'decimals': 2},
+    'EUR': {'symbol': '€',    'name': 'Euro',                    'decimals': 2},
+    'GBP': {'symbol': '£',    'name': 'Libra Esterlina',         'decimals': 2},
+    'MXN': {'symbol': 'MX$',  'name': 'Peso Mexicano',           'decimals': 2},
+    'BRL': {'symbol': 'R$',   'name': 'Real Brasileño',          'decimals': 2},
+    'ARS': {'symbol': 'AR$',  'name': 'Peso Argentino',          'decimals': 2},
+    'PEN': {'symbol': 'S/.',  'name': 'Sol Peruano',             'decimals': 2},
+    'CLP': {'symbol': 'CL$',  'name': 'Peso Chileno',            'decimals': 0},
+    'PYG': {'symbol': '₲',   'name': 'Guaraní Paraguayo',       'decimals': 0},
+    'UYU': {'symbol': '$U',   'name': 'Peso Uruguayo',           'decimals': 2},
+    'BOB': {'symbol': 'Bs.',  'name': 'Boliviano',               'decimals': 2},
+    'VES': {'symbol': 'Bs.S', 'name': 'Bolívar Venezolano',      'decimals': 2},
+    'GTQ': {'symbol': 'Q',    'name': 'Quetzal Guatemalteco',    'decimals': 2},
+    'CRC': {'symbol': '₡',   'name': 'Colón Costarricense',     'decimals': 2},
+    'PAB': {'symbol': 'B/.',  'name': 'Balboa Panameño',         'decimals': 2},
+    'CAD': {'symbol': 'CA$',  'name': 'Dólar Canadiense',        'decimals': 2},
+    'JPY': {'symbol': '¥',    'name': 'Yen Japonés',             'decimals': 0},
+    'CNY': {'symbol': '¥',    'name': 'Yuan Chino',              'decimals': 2},
+    'CHF': {'symbol': 'Fr.',  'name': 'Franco Suizo',            'decimals': 2},
+}
+
+# Tasas de cambio a USD (se actualizan desde API al iniciar)
+DEFAULT_EXCHANGE_RATES_TO_USD = {
+    'COP': 4200.0,
+    'USD': 1.0,
+    'EUR': 0.92,
+    'GBP': 0.79,
+    'MXN': 17.0,
+    'BRL': 5.0,
+    'ARS': 870.0,
+    'PEN': 3.7,
+    'CLP': 900.0,
+    'PYG': 7500.0,
+    'UYU': 38.0,
+    'BOB': 6.9,
+    'VES': 36.0,
+    'GTQ': 7.8,
+    'CRC': 530.0,
+    'PAB': 1.0,
+    'CAD': 1.36,
+    'JPY': 150.0,
+    'CNY': 7.2,
+    'CHF': 0.89,
 }
 
 DEFAULT_EXCHANGE_RATES = {

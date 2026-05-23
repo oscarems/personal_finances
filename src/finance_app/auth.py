@@ -60,7 +60,7 @@ def register_auth_exception_handler(app):
 async def login_page(request: Request):
     if _valid_session(request):
         return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse("login.html", context={"request": request, "error": None})
 
 
 @router.post("/auth/login")
@@ -77,7 +77,7 @@ async def login(request: Request, password: str = Form(...)):
             samesite="lax",
         )
         return response
-    return templates.TemplateResponse("login.html", {
+    return templates.TemplateResponse("login.html", context={
         "request": request,
         "error": "Contraseña incorrecta",
     })

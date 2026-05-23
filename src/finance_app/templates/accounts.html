@@ -157,10 +157,7 @@
 <div id="adjustmentModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 backdrop-blur-md">
     <div class="bg-white card p-8 max-w-xl w-full mx-4 shadow-2xl border-2 border-neutral-300">
         <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center space-x-3">
-                
-                <h3 class="text-2xl font-extrabold text-neutral-900">Ajustar saldo</h3>
-            </div>
+            <h3 class="text-2xl font-extrabold text-neutral-900">Ajustar saldo</h3>
             <button onclick="closeAdjustmentModal()" class="text-neutral-400 hover:text-neutral-600 transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -169,17 +166,41 @@
         </div>
 
         <div class="mb-4 p-4 bg-neutral-50 rounded-xl border border-neutral-200">
-            <p class="text-sm text-neutral-500">Saldo actual en la app</p>
-            <p id="adjustmentCurrentBalance" class="text-xl font-bold text-neutral-900"></p>
-            <p id="adjustmentAccountName" class="text-sm text-neutral-500 mt-1"></p>
+            <p class="text-sm text-neutral-500">Cuenta</p>
+            <p id="adjustmentAccountName" class="text-base font-bold text-neutral-900"></p>
+            <p id="adjustmentCurrentBalance" class="text-sm text-neutral-500 mt-1"></p>
         </div>
 
+        <!-- CC-specific fields -->
+        <div id="ccAdjustFields" class="hidden space-y-4 mb-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Cupo total</label>
+                    <input type="number" id="adjCupoTotal" step="1" min="0" class="input-field"
+                           placeholder="Ej: 10000000">
+                    <p class="text-xs text-neutral-400 mt-1">Límite de crédito de la tarjeta</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Deuda actual</label>
+                    <input type="number" id="adjDeudaActual" step="1" min="0" class="input-field"
+                           placeholder="Ej: 3500000">
+                    <p class="text-xs text-neutral-400 mt-1">Lo que debes hoy según extracto</p>
+                </div>
+            </div>
+            <div id="ccDisponiblePreview" class="p-3 bg-green-50 border border-green-200 rounded-lg hidden">
+                <p class="text-sm text-neutral-600">Cupo disponible calculado: <span id="ccDisponibleVal" class="font-bold text-green-700"></span></p>
+            </div>
+        </div>
+
+        <!-- Standard fields (non-CC) -->
         <form id="adjustmentForm" class="space-y-4">
-            <div>
-                <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Saldo real (banco)</label>
-                <input type="number" id="adjustmentActualBalance" step="0.01" required
-                       class="input-field text-xl"
-                       placeholder="Ingresa el saldo real">
+            <div id="standardAdjustFields">
+                <div>
+                    <label class="block text-sm font-bold text-neutral-700 mb-2 uppercase tracking-wide">Saldo real (banco)</label>
+                    <input type="number" id="adjustmentActualBalance" step="0.01"
+                           class="input-field text-xl"
+                           placeholder="Ingresa el saldo real">
+                </div>
             </div>
 
             <div>
@@ -193,7 +214,7 @@
                        placeholder="Ej: Ajuste por conciliación bancaria">
             </div>
 
-            <div class="p-4 rounded-xl border border-neutral-200 bg-white">
+            <div id="adjustmentPreviewBox" class="p-4 rounded-xl border border-neutral-200 bg-white">
                 <p class="text-sm text-neutral-500">Diferencia a registrar</p>
                 <p id="adjustmentDifference" class="text-lg font-semibold text-neutral-900"></p>
                 <p id="adjustmentImpact" class="text-sm text-neutral-500 mt-1"></p>
@@ -204,7 +225,7 @@
                     Cancelar
                 </button>
                 <button type="submit" class="btn-primary">
-                    ✅ Registrar ajuste
+                    ✅ Guardar
                 </button>
             </div>
         </form>
@@ -390,6 +411,36 @@
                     </div>
 
                     <div class="border-t pt-4">
+                        ${acc.type === 'credit_card' ? (() => {
+                            const sym = acc.currency.symbol || '$';
+                            const dec = acc.currency.decimals ?? 0;
+                            const deuda = Math.abs(acc.balance || 0);
+                            const cupoTotal = acc.credit_limit || 0;
+                            const disponible = cupoTotal - deuda;
+                            const utilizacion = cupoTotal > 0 ? (deuda / cupoTotal * 100) : 0;
+                            const barColor = utilizacion > 70 ? 'bg-red-500' : utilizacion > 30 ? 'bg-yellow-500' : 'bg-green-500';
+                            const fmt = v => `${sym}${Math.abs(v).toLocaleString('es-CO', {minimumFractionDigits: dec, maximumFractionDigits: dec})}`;
+                            return `
+                                <div class="grid grid-cols-3 gap-2 mb-3 text-center">
+                                    <div class="bg-neutral-50 rounded-lg p-2">
+                                        <p class="text-xs text-neutral-500">Cupo total</p>
+                                        <p class="text-sm font-bold text-neutral-800">${fmt(cupoTotal)}</p>
+                                    </div>
+                                    <div class="bg-red-50 rounded-lg p-2">
+                                        <p class="text-xs text-neutral-500">Utilizado</p>
+                                        <p class="text-sm font-bold text-red-700">${fmt(deuda)}</p>
+                                    </div>
+                                    <div class="bg-green-50 rounded-lg p-2">
+                                        <p class="text-xs text-neutral-500">Disponible</p>
+                                        <p class="text-sm font-bold ${disponible >= 0 ? 'text-green-700' : 'text-red-700'}">${fmt(disponible)}</p>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-neutral-200 rounded-full h-2 mb-1">
+                                    <div class="${barColor} h-2 rounded-full" style="width:${Math.min(utilizacion,100)}%"></div>
+                                </div>
+                                <p class="text-xs text-neutral-500 text-right">${utilizacion.toFixed(1)}% utilizado</p>
+                            `;
+                        })() : `
                         <p class="text-sm text-gray-600 mb-1">${balanceLabel}</p>
                         <p class="text-2xl font-bold ${balanceClass}">
                             ${acc.currency.symbol}${displayBalance.toLocaleString('es-CO', {
@@ -397,8 +448,8 @@
                             })}
                         </p>
                         <p class="text-xs text-gray-500 mt-1">${acc.currency.code}</p>
-
                         ${getConvertedBalance(acc)}
+                        `}
                     </div>
 
                     ${acc.linked_debt ? `
@@ -497,21 +548,63 @@
         if (!account) return;
 
         adjustingAccountId = accountId;
+        const isCC = account.type === 'credit_card';
         const symbol = account.currency.symbol || '$';
         const decimals = account.currency.decimals ?? 0;
-        const formattedBalance = `${symbol}${Math.abs(account.balance).toLocaleString('es-CO', {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        })}`;
+        const fmt = v => `${symbol}${Math.abs(v).toLocaleString('es-CO', {minimumFractionDigits: decimals, maximumFractionDigits: decimals})}`;
 
-        document.getElementById('adjustmentCurrentBalance').textContent = formattedBalance;
         document.getElementById('adjustmentAccountName').textContent = `${account.name} · ${account.currency.code}`;
-        document.getElementById('adjustmentActualBalance').value = '';
-        document.getElementById('adjustmentMemo').value = '';
         document.getElementById('adjustmentDate').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('adjustmentMemo').value = '';
 
-        updateAdjustmentPreview();
+        const ccFields = document.getElementById('ccAdjustFields');
+        const stdFields = document.getElementById('standardAdjustFields');
+        const previewBox = document.getElementById('adjustmentPreviewBox');
+
+        if (isCC) {
+            const deuda = Math.abs(account.balance || 0);
+            const cupoTotal = account.credit_limit || 0;
+            const disponible = cupoTotal - deuda;
+            document.getElementById('adjustmentCurrentBalance').textContent =
+                `Cupo total: ${fmt(cupoTotal)} · Utilizado: ${fmt(deuda)} · Disponible: ${fmt(disponible)}`;
+            document.getElementById('adjCupoTotal').value = cupoTotal || '';
+            document.getElementById('adjDeudaActual').value = deuda || '';
+            ccFields.classList.remove('hidden');
+            stdFields.classList.add('hidden');
+            previewBox.classList.add('hidden');
+            updateCCDisponiblePreview();
+            document.getElementById('adjCupoTotal').addEventListener('input', updateCCDisponiblePreview);
+            document.getElementById('adjDeudaActual').addEventListener('input', updateCCDisponiblePreview);
+        } else {
+            document.getElementById('adjustmentCurrentBalance').textContent =
+                `Saldo actual: ${fmt(account.balance)}`;
+            document.getElementById('adjustmentActualBalance').value = '';
+            ccFields.classList.add('hidden');
+            stdFields.classList.remove('hidden');
+            previewBox.classList.remove('hidden');
+            updateAdjustmentPreview();
+        }
+
         document.getElementById('adjustmentModal').classList.remove('hidden');
+    }
+
+    function updateCCDisponiblePreview() {
+        const cupoTotal = parseFloat(document.getElementById('adjCupoTotal').value);
+        const deuda = parseFloat(document.getElementById('adjDeudaActual').value);
+        const preview = document.getElementById('ccDisponiblePreview');
+        const account = accounts.find(a => a.id === adjustingAccountId);
+        const symbol = account ? (account.currency.symbol || '$') : '$';
+        const decimals = account ? (account.currency.decimals ?? 0) : 0;
+        if (!isNaN(cupoTotal) && !isNaN(deuda)) {
+            const disponible = cupoTotal - deuda;
+            preview.classList.remove('hidden');
+            document.getElementById('ccDisponibleVal').textContent =
+                `${symbol}${disponible.toLocaleString('es-CO', {minimumFractionDigits: decimals})}`;
+            preview.className = `p-3 border rounded-lg ${disponible >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`;
+            document.getElementById('ccDisponibleVal').className = `font-bold ${disponible >= 0 ? 'text-green-700' : 'text-red-700'}`;
+        } else {
+            preview.classList.add('hidden');
+        }
     }
 
     function closeAdjustmentModal() {
@@ -679,6 +772,66 @@
         const account = accounts.find(a => a.id === adjustingAccountId);
         if (!account) return;
 
+        const date = document.getElementById('adjustmentDate').value;
+        const memo = document.getElementById('adjustmentMemo').value || null;
+
+        if (account.type === 'credit_card') {
+            // CC: update credit_limit directly + adjust balance via transaction if debt changed
+            const newCupoTotal = parseFloat(document.getElementById('adjCupoTotal').value);
+            const newDeuda = parseFloat(document.getElementById('adjDeudaActual').value);
+            if (isNaN(newCupoTotal) || isNaN(newDeuda)) {
+                alert('Ingresa el cupo total y la deuda actual.');
+                return;
+            }
+
+            // 1. Update credit_limit if changed
+            const cupoChanged = Math.abs(newCupoTotal - (account.credit_limit || 0)) >= 1;
+            if (cupoChanged) {
+                const accountRes = await fetch(`/api/accounts/${adjustingAccountId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ credit_limit: newCupoTotal })
+                });
+                // Also update the linked debt's credit_limit if exists
+                const debtRes = await fetch('/api/debts/?debt_type=credit_card');
+                const debts = await debtRes.json();
+                const linked = debts.find(d => d.account_id === adjustingAccountId);
+                if (linked) {
+                    await fetch(`/api/debts/${linked.id}`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ credit_limit: newCupoTotal })
+                    });
+                }
+            }
+
+            // 2. Adjust balance to reflect new deuda (balance = -deuda for CC)
+            const targetBalance = -Math.abs(newDeuda);
+            const currentBalance = account.balance || 0;
+            if (Math.abs(targetBalance - currentBalance) >= 1) {
+                const adjRes = await fetch('/api/transactions/adjustment', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        account_id: adjustingAccountId,
+                        date,
+                        actual_balance: targetBalance,
+                        memo: memo || `Ajuste cupo: deuda real $${newDeuda.toLocaleString('es-CO')}`
+                    })
+                });
+                if (!adjRes.ok) {
+                    const err = await adjRes.json();
+                    alert('Error ajustando saldo: ' + (err.detail || 'Error desconocido'));
+                    return;
+                }
+            }
+
+            closeAdjustmentModal();
+            await loadAccounts();
+            return;
+        }
+
+        // Standard accounts
         const actualBalance = parseFloat(document.getElementById('adjustmentActualBalance').value);
         if (!Number.isFinite(actualBalance)) {
             alert('Ingresa un saldo real válido.');
@@ -691,18 +844,16 @@
             return;
         }
 
-        const data = {
-            account_id: adjustingAccountId,
-            date: document.getElementById('adjustmentDate').value,
-            actual_balance: actualBalance,
-            memo: document.getElementById('adjustmentMemo').value || null
-        };
-
         try {
             const res = await fetch('/api/transactions/adjustment', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
+                body: JSON.stringify({
+                    account_id: adjustingAccountId,
+                    date,
+                    actual_balance: actualBalance,
+                    memo
+                })
             });
 
             if (res.ok) {

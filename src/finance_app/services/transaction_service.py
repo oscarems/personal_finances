@@ -122,12 +122,20 @@ def build_transaction_audit_fields(
 
 
 def _resolve_target_debt(db: Session, transaction: Transaction, account: Account) -> Debt | None:
-    """Find the Debt record linked to a transaction by explicit debt_id or account type."""
+    """Find the Debt record linked to a transaction by explicit debt_id, account type, or payment category."""
     if transaction.debt_id:
         return db.query(Debt).filter_by(id=transaction.debt_id).first()
-    if not account or account.type not in {'credit_card', 'credit_loan', 'mortgage'}:
-        return None
-    return db.query(Debt).filter_by(account_id=account.id).first()
+    if account and account.type in {'credit_card', 'credit_loan', 'mortgage'}:
+        return db.query(Debt).filter_by(account_id=account.id).first()
+    # Match by payment category: if the transaction's category is linked to a debt's payment category
+    # This covers paying a mortgage/loan from a checking account with the debt's category.
+    if transaction.category_id:
+        return db.query(Debt).filter(
+            Debt.category_id == transaction.category_id,
+            Debt.is_active == True,
+            Debt.debt_type.in_(['mortgage', 'credit_loan'])
+        ).first()
+    return None
 
 
 def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) -> None:
@@ -146,6 +154,22 @@ def _apply_debt_impact(db: Session, transaction: Transaction, account: Account) 
     if debt.debt_type == "credit_card":
         debt.current_balance = _cc_balance_in_debt_currency(db, account, debt)
         debt.is_active = debt.current_balance > 0
+        # Track transfers into the CC account as explicit payment records for history
+        if amount > 0 and transaction.transfer_account_id:
+            existing = db.query(DebtPayment).filter_by(transaction_id=transaction.id).first()
+            if not existing:
+                payment = DebtPayment(
+                    debt_id=debt.id,
+                    transaction_id=transaction.id,
+                    payment_date=transaction.date,
+                    amount=amount,
+                    principal=amount,
+                    interest=0.0,
+                    fees=0.0,
+                    balance_after=debt.current_balance,
+                    notes="Pago registrado desde transferencia"
+                )
+                db.add(payment)
         return
 
     payment_amount = abs(amount)
@@ -225,6 +249,10 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
     if debt.debt_type == "credit_card":
         debt.current_balance = _cc_balance_in_debt_currency(db, account, debt)
         debt.is_active = debt.current_balance > 0
+        # Delete any transfer payment record linked to this transaction
+        payment = db.query(DebtPayment).filter_by(transaction_id=transaction.id, debt_id=debt.id).first()
+        if payment:
+            db.delete(payment)
         return
 
     payment = db.query(DebtPayment).filter_by(transaction_id=transaction.id).first()
@@ -922,7 +950,8 @@ def get_monthly_activity(
             t.amount,
             t.currency.code if t.currency else target_currency.code,
             target_currency.code,
-            db
+            db,
+            rate_date=t.date,
         )
         for t in transactions
     )
@@ -970,7 +999,8 @@ def get_monthly_spent(
             t.amount,
             t.currency.code if t.currency else target_currency.code,
             target_currency.code,
-            db
+            db,
+            rate_date=t.date,
         )
         for t in transactions
     )

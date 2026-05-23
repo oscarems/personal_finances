@@ -67,12 +67,17 @@ class AmortizationEngine:
             current = current + relativedelta(months=1)
 
     def _annual_rate_decimal(self, debt: Debt) -> float:
-        if debt.annual_interest_rate is not None:
-            value = float(debt.annual_interest_rate)
-            return value / 100 if value > 1 else value
-        if debt.interest_rate is not None:
-            value = float(debt.interest_rate)
-            return value / 100 if value > 1 else value
+        """Return the annual interest rate as a decimal (e.g. 0.12 for 12 %).
+
+        Priority: ``annual_interest_rate`` wins when set (more precise Numeric field).
+        Falls back to ``interest_rate`` (Float field, kept for backwards compatibility).
+        Both fields accept either percentage form (> 1, e.g. 12.0) or decimal form
+        (<= 1, e.g. 0.12) — the > 1 heuristic normalises them automatically.
+        """
+        for raw in (debt.annual_interest_rate, debt.interest_rate):
+            if raw is not None:
+                value = float(raw)
+                return value / 100 if value > 1 else value
         return 0.0
 
     def _monthly_rate(self, debt: Debt) -> float:

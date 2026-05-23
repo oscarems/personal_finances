@@ -10,6 +10,7 @@ from finance_app.models import Account, Currency, EmailScrapeTransaction, Transa
 from finance_app.services.transaction_service import create_transaction
 from finance_app.services.email_sender_rule_service import (
     resolve_account_by_rule,
+    resolve_category_by_rule,
     record_sender_seen,
 )
 import web_scrapping_email
@@ -38,16 +39,12 @@ def _find_account_by_name(db: Session, name: str | None) -> Account | None:
 def _fallback_account_by_currency(db: Session, currency_id: int | None) -> Account | None:
     if currency_id is None:
         return db.query(Account).order_by(Account.id.asc()).first()
+    currency = db.get(Currency, currency_id)
+    if currency and currency.code == "USD":
+        panama = db.query(Account).filter(Account.name == "Panama").first()
+        if panama:
+            return panama
     return db.query(Account).filter_by(currency_id=currency_id).order_by(Account.id.asc()).first()
-
-
-_LABEL_TO_COUNTRY: dict[str, str] = {
-    "panama": "Panama",
-    "pnama": "Panama",
-    "ahorros usd": "Panama",
-    "colombia": "Colombia",
-    "cuenta corriente cop": "Colombia",
-}
 
 
 def _ensure_email_sender_rules_table(db: Session) -> None:
@@ -76,38 +73,17 @@ def _ensure_email_sender_rules_table(db: Session) -> None:
 
 def _resolve_account(
     db: Session,
-    account_label: str,
     currency_id: int | None,
-    settings,
     sender: str = "",
+    email_context: dict | None = None,
 ) -> Account | None:
-    # Prioridad 1: regla confirmada por usuario
-    if sender:
-        account = resolve_account_by_rule(db, sender)
-        if account:
-            LOGGER.info("Cuenta resuelta por regla confirmada: sender=%r → %s", sender[:50], account.name)
-            return account
-
-    # Prioridad 2: lógica existente
-    normalized_label = _normalize_name(account_label)
-    account_name = None
-    country = _LABEL_TO_COUNTRY.get(normalized_label)
-
-    if normalized_label in {"panama", "pnama", "ahorros usd"}:
-        account_name = settings.email_panama_account
-    elif normalized_label in {"colombia", "cuenta corriente cop"}:
-        account_name = settings.email_colombia_account
-    elif normalized_label == "mastercard_black":
-        account_name = settings.email_mastercard_black_account
-
-    account = _find_account_by_name(db, account_name)
-    if not account:
-        account = _fallback_account_by_currency(db, currency_id)
-
-    if account and country and not account.country:
-        account.country = country
-        db.flush()
-
+    account = resolve_account_by_rule(db, sender, context=email_context)
+    if account:
+        LOGGER.info("Cuenta resuelta por regla: sender=%r → %s", sender[:50], account.name)
+        return account
+    account = _fallback_account_by_currency(db, currency_id)
+    if account:
+        LOGGER.info("Cuenta resuelta por fallback de moneda → %s", account.name)
     return account
 
 
@@ -208,11 +184,20 @@ def sync_email_transactions() -> int:
 
             account_label = row.get("cuenta") or "SIN_CUENTA"
             sender = row.get("remitente") or ""
-            account = _resolve_account(db, account_label, currency.id, settings, sender=sender)
+            email_context = {
+                "asunto": row.get("asunto") or "",
+                "remitente": sender,
+                "lugar_transaccion": row.get("lugar_transaccion") or "",
+                "clase_movimiento": row.get("clase_movimiento") or "",
+                "cuenta": account_label,
+            }
+            account = _resolve_account(db, currency.id, sender=sender, email_context=email_context)
             if not account:
                 LOGGER.warning("No se encontró cuenta para '%s'.", account_label)
                 ignored += 1
                 continue
+
+            category = resolve_category_by_rule(db, sender, context=email_context)
 
             if sender and account:
                 try:
@@ -252,8 +237,6 @@ def sync_email_transactions() -> int:
                 continue
 
             memo = row.get("clase_movimiento") or None
-            if account_label.upper() == "MASTERCARD_BLACK" and not memo:
-                memo = "Mastercard Black"
 
             data = {
                 "account_id": account.id,
@@ -265,6 +248,7 @@ def sync_email_transactions() -> int:
                 "cleared": False,
                 "source": EMAIL_SOURCE,
                 "source_id": message_id,
+                "category_id": category.id if category else None,
             }
             try:
                 create_transaction(db, data)

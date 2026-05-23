@@ -3,79 +3,348 @@
 {% block title %}Fondo de Emergencia - Personal Finances{% endblock %}
 
 {% block content %}
+
+<!-- Page Header -->
 <div class="mb-8">
     <div class="page-header">
         <div>
-            <h2 class="page-title">🆘 Fondo de Emergencia</h2>
-            <p class="page-subtitle mt-2">Calcula cuántos meses puedes sobrevivir con tus gastos esenciales</p>
+            <h2 class="page-title">Fondo de Emergencia</h2>
+            <p class="page-subtitle mt-1">Cuántos meses puedes sostenerte con tus gastos esenciales</p>
         </div>
     </div>
 </div>
 
-<!-- Summary Cards -->
-<div id="summaryCards" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <!-- Cards will be loaded here -->
+<!-- Hero Coverage Banner -->
+<div id="coverageBanner" class="ef-hero-card mb-6">
+    <div class="ef-hero-skeleton">
+        <div class="ef-skeleton-line" style="width: 40%; height: 14px;"></div>
+        <div class="ef-skeleton-line" style="width: 60%; height: 36px; margin-top: 10px;"></div>
+        <div class="ef-skeleton-line" style="width: 100%; height: 10px; margin-top: 16px; border-radius: 99px;"></div>
+    </div>
 </div>
 
-<!-- Coverage Status -->
-<div id="coverageStatus" class="card p-6 mb-8">
-    <!-- Status will be loaded here -->
+<!-- Summary Metrics Row -->
+<div id="summaryCards" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <!-- skeleton placeholders -->
+    <div class="card p-5 ef-skeleton-card"><div class="ef-skeleton-line" style="height:12px;width:50%"></div><div class="ef-skeleton-line" style="height:28px;width:70%;margin-top:10px"></div></div>
+    <div class="card p-5 ef-skeleton-card"><div class="ef-skeleton-line" style="height:12px;width:50%"></div><div class="ef-skeleton-line" style="height:28px;width:70%;margin-top:10px"></div></div>
+    <div class="card p-5 ef-skeleton-card"><div class="ef-skeleton-line" style="height:12px;width:50%"></div><div class="ef-skeleton-line" style="height:28px;width:70%;margin-top:10px"></div></div>
 </div>
 
-<!-- Configuration Sections -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- Essential Expenses Section -->
-    <div class="card">
-        <div class="p-6 border-b border-neutral-200">
-            <h3 class="text-lg font-semibold text-neutral-800">💰 Gastos Esenciales</h3>
-            <p class="text-sm text-neutral-600 mt-1">Marca las categorías de gastos fundamentales que necesitas cubrir en una emergencia</p>
+<!-- Category Configuration -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+    <!-- Essential Expenses -->
+    <div class="card overflow-hidden">
+        <div class="ef-section-header ef-header-expenses">
+            <div class="ef-section-header-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div>
+                <h3 class="ef-section-title">Gastos Esenciales</h3>
+                <p class="ef-section-subtitle">Categorías de gasto que necesitas cubrir en una emergencia</p>
+            </div>
         </div>
-        <div id="essentialCategories" class="p-6 space-y-3 max-h-96 overflow-y-auto">
-            <!-- Categories will be loaded here -->
+        <div id="essentialCategories" class="ef-cat-list">
+            <div class="p-6 text-center text-sm" style="color: var(--text-soft);">Cargando categorías…</div>
         </div>
     </div>
 
-    <!-- Emergency Funds Section -->
-    <div class="card">
-        <div class="p-6 border-b border-neutral-200">
-            <h3 class="text-lg font-semibold text-neutral-800">🏦 Fondos de Emergencia</h3>
-            <p class="text-sm text-neutral-600 mt-1">Marca las categorías de ahorros destinadas a emergencias</p>
+    <!-- Emergency Funds -->
+    <div class="card overflow-hidden">
+        <div class="ef-section-header ef-header-funds">
+            <div class="ef-section-header-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+            </div>
+            <div>
+                <h3 class="ef-section-title">Fondos Disponibles</h3>
+                <p class="ef-section-subtitle">Ahorros destinados para cubrir emergencias</p>
+            </div>
         </div>
-        <div id="emergencyFundCategories" class="p-6 space-y-3 max-h-96 overflow-y-auto">
-            <!-- Categories will be loaded here -->
+        <div id="emergencyFundCategories" class="ef-cat-list">
+            <div class="p-6 text-center text-sm" style="color: var(--text-soft);">Cargando categorías…</div>
         </div>
     </div>
+
 </div>
 
 <style>
-    .status-excellent { background-color: #3F7C64; }
-    .status-good { background-color: #527EB6; }
-    .status-fair { background-color: #CF8B2B; }
-    .status-poor { background-color: #B64854; }
-    .status-critical { background-color: #7F313B; }
+/* ── Hero Coverage Card ───────────────────────────────────── */
+.ef-hero-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-medium);
+    padding: 28px 32px;
+    transition: background 0.4s ease, border-color 0.4s ease;
+}
 
-    .category-checkbox {
-        cursor: pointer;
-        padding: 12px;
-        border: 2px solid #E3E1DA;
-        border-radius: 12px;
-        transition: all 0.2s;
-    }
+/* Status-driven hero colours */
+.ef-hero-card.s-excellent { background: var(--alert-success-bg);  border-color: var(--badge-success-border); }
+.ef-hero-card.s-good      { background: var(--info-bg-soft);       border-color: var(--badge-primary-border); }
+.ef-hero-card.s-fair      { background: var(--alert-warning-bg);   border-color: var(--badge-warning-border); }
+.ef-hero-card.s-poor      { background: var(--alert-danger-bg);    border-color: var(--badge-danger-border); }
+.ef-hero-card.s-critical  { background: var(--alert-critical-bg);  border-color: var(--alert-critical-border); }
 
-    .category-checkbox:hover {
-        border-color: #527EB6;
-        background-color: #F4F7FB;
-    }
+.ef-hero-inner { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
 
-    .category-checkbox.selected {
-        border-color: #527EB6;
-        background-color: #E6EDF6;
-    }
+.ef-hero-left  { flex: 1; min-width: 200px; }
+.ef-hero-right { flex: 0 0 auto; min-width: 220px; }
 
-    .category-checkbox input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-    }
+.ef-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    margin-bottom: 10px;
+    border: 1px solid transparent;
+}
+.ef-status-badge.s-excellent { background: var(--badge-success-bg);  border-color: var(--badge-success-border); color: var(--color-success-600); }
+.ef-status-badge.s-good      { background: var(--badge-primary-bg); border-color: var(--badge-primary-border); color: var(--color-primary-600); }
+.ef-status-badge.s-fair      { background: var(--badge-warning-bg); border-color: var(--badge-warning-border); color: var(--color-warning-600); }
+.ef-status-badge.s-poor      { background: var(--badge-danger-bg);  border-color: var(--badge-danger-border);  color: var(--color-danger-600); }
+.ef-status-badge.s-critical  { background: var(--badge-danger-bg);  border-color: var(--badge-danger-border);  color: var(--color-danger); }
+
+.ef-hero-months {
+    font-family: var(--font-display);
+    font-size: 52px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+.ef-hero-months-label {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+.ef-hero-rec {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 12px;
+    line-height: 1.55;
+    max-width: 380px;
+}
+
+/* Progress track */
+.ef-progress-wrap { width: 100%; }
+.ef-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+}
+.ef-progress-track {
+    width: 100%;
+    height: 10px;
+    background: var(--progress-track);
+    border-radius: 99px;
+    overflow: hidden;
+}
+.ef-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ef-progress-fill.s-excellent { background: var(--color-success); }
+.ef-progress-fill.s-good      { background: #3d5a80; }
+.ef-progress-fill.s-fair      { background: var(--color-warning); }
+.ef-progress-fill.s-poor      { background: var(--color-danger); }
+.ef-progress-fill.s-critical  { background: var(--color-danger); }
+
+.ef-progress-milestones {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+.ef-milestone {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 3px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-surface-muted);
+    color: var(--text-soft);
+    border: 1px solid var(--border-muted);
+    transition: all 0.3s;
+}
+.ef-milestone.reached {
+    background: rgba(45,106,79,0.08);
+    border-color: rgba(45,106,79,0.2);
+    color: var(--color-success-600);
+    font-weight: 600;
+}
+
+/* ── Summary Metric Cards ─────────────────────────────────── */
+.ef-metric-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+.ef-metric-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.ef-metric-icon.expenses { background: rgba(156,55,68,0.08); color: var(--color-danger); }
+.ef-metric-icon.funds    { background: rgba(45,106,79,0.08);  color: var(--color-success); }
+.ef-metric-icon.coverage { background: rgba(176,138,62,0.09); color: var(--color-accent); }
+
+.ef-metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    margin-bottom: 4px;
+}
+.ef-metric-value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.ef-metric-sub {
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-top: 3px;
+    font-family: var(--font-mono);
+}
+
+/* ── Section Headers ──────────────────────────────────────── */
+.ef-section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-muted);
+}
+.ef-header-expenses { background: rgba(156,55,68,0.03); }
+.ef-header-funds    { background: rgba(45,106,79,0.03); }
+
+.ef-section-header-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.ef-header-expenses .ef-section-header-icon { background: rgba(156,55,68,0.09); color: var(--color-danger); }
+.ef-header-funds    .ef-section-header-icon { background: rgba(45,106,79,0.09);  color: var(--color-success); }
+
+.ef-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+.ef-section-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+/* ── Category List ────────────────────────────────────────── */
+.ef-cat-list {
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.ef-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 4px 6px;
+    margin-top: 6px;
+}
+.ef-group-header:first-child { margin-top: 0; }
+.ef-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    flex: 1;
+}
+.ef-group-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-muted);
+}
+
+.ef-cat-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+.ef-cat-item:hover {
+    background: var(--bg-surface-muted);
+    border-color: var(--border-muted);
+}
+.ef-cat-item.selected {
+    background: rgba(45,106,79,0.06);
+    border-color: rgba(45,106,79,0.18);
+}
+.ef-cat-item.selected.is-expense {
+    background: rgba(156,55,68,0.05);
+    border-color: rgba(156,55,68,0.16);
+}
+
+.ef-cat-checkbox {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+.ef-cat-name {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+/* ── Skeleton ─────────────────────────────────────────────── */
+.ef-skeleton-card { pointer-events: none; }
+.ef-skeleton-line {
+    background: linear-gradient(90deg, var(--bg-surface-muted) 0%, var(--border-muted) 50%, var(--bg-surface-muted) 100%);
+    background-size: 200% 100%;
+    animation: ef-shimmer 1.4s infinite;
+    border-radius: 6px;
+}
+.ef-hero-skeleton { padding: 4px 0; display: flex; flex-direction: column; gap: 0; }
+@keyframes ef-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
 </style>
 
 {% endblock %}
@@ -87,20 +356,13 @@
 
     async function loadEmergencyFundData() {
         try {
-            // Load categories with flags
             const categoriesRes = await fetch('/api/emergency-fund/categories');
             allCategories = await categoriesRes.json();
-
-            // Load coverage data
             await loadCoverageData();
-
-            // Display categories
             displayEssentialCategories();
             displayEmergencyFundCategories();
-
         } catch (error) {
             console.error('Error loading emergency fund data:', error);
-            alert('Error al cargar los datos del fondo de emergencia');
         }
     }
 
@@ -108,176 +370,183 @@
         try {
             const today = new Date();
             const monthStr = today.toISOString().split('T')[0];
-
             const coverageRes = await fetch(`/api/emergency-fund/coverage?month=${monthStr}&currency_id=1`);
             currentCoverageData = await coverageRes.json();
-
+            displayCoverageBanner();
             displaySummaryCards();
-            displayCoverageStatus();
-
         } catch (error) {
             console.error('Error loading coverage data:', error);
         }
     }
 
-    function displaySummaryCards() {
-        if (!currentCoverageData) return;
+    /* ── Helpers ──────────────────────────────────────────── */
+    const formatCOP = (n) => `$${Math.round(n).toLocaleString('es-CO')}`;
 
-        const container = document.getElementById('summaryCards');
-        const data = currentCoverageData;
+    const STATUS_META = {
+        excellent: { label: 'Excelente',  dot: '●' },
+        good:      { label: 'Bueno',      dot: '●' },
+        fair:      { label: 'Aceptable',  dot: '●' },
+        poor:      { label: 'Bajo',       dot: '●' },
+        critical:  { label: 'Crítico',    dot: '●' },
+    };
 
-        const formatCurrency = (amount) => {
-            return `$${amount.toLocaleString('es-CO', {minimumFractionDigits: 0})}`;
-        };
+    /* ── Hero Banner ──────────────────────────────────────── */
+    function displayCoverageBanner() {
+        const d = currentCoverageData;
+        if (!d) return;
 
-        let html = `
-            <!-- Essential Expenses Card -->
-            <div class="card p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Gastos Esenciales Mensuales</p>
-                        <p class="text-2xl font-bold text-gray-800 mt-1">${formatCurrency(data.essential_expenses_total)}</p>
-                        <p class="text-xs text-gray-500 mt-1">${data.currency_code}</p>
-                    </div>
-                    <div class="text-4xl">💰</div>
+        const s = d.status;
+        const meta = STATUS_META[s] || { label: s, dot: '●' };
+        const months = d.months_coverage;
+        const inf = months >= 999;
+        const pct = inf ? 100 : Math.min(100, (months / 6) * 100);
+
+        const milestones = [1, 3, 6];
+
+        const banner = document.getElementById('coverageBanner');
+        banner.className = `ef-hero-card mb-6 s-${s}`;
+
+        banner.innerHTML = `
+            <div class="ef-hero-inner">
+                <div class="ef-hero-left">
+                    <div class="ef-status-badge s-${s}">${meta.dot} ${meta.label}</div>
+                    <div class="ef-hero-months">${inf ? '∞' : months.toFixed(1)}<span style="font-size:22px;font-weight:400;color:var(--text-secondary);margin-left:6px;">${months === 1 ? 'mes' : 'meses'}</span></div>
+                    <div class="ef-hero-months-label">de cobertura con gastos esenciales</div>
+                    <p class="ef-hero-rec">${d.recommendation}</p>
                 </div>
-            </div>
-
-            <!-- Emergency Funds Card -->
-            <div class="card p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Fondos de Emergencia</p>
-                        <p class="text-2xl font-bold text-green-600 mt-1">${formatCurrency(data.emergency_funds_total)}</p>
-                        <p class="text-xs text-gray-500 mt-1">${data.currency_code}</p>
+                <div class="ef-hero-right">
+                    <div class="ef-progress-wrap">
+                        <div class="ef-progress-labels">
+                            <span>0</span>
+                            <span>Meta: 6 meses</span>
+                        </div>
+                        <div class="ef-progress-track">
+                            <div class="ef-progress-fill s-${s}" style="width: 0%;" data-pct="${pct}"></div>
+                        </div>
+                        <div class="ef-progress-milestones">
+                            ${milestones.map(m => `
+                                <span class="ef-milestone ${(!inf && months >= m) || inf ? 'reached' : ''}">
+                                    ${m}m
+                                </span>
+                            `).join('')}
+                        </div>
                     </div>
-                    <div class="text-4xl">🏦</div>
-                </div>
-            </div>
-
-            <!-- Coverage Card -->
-            <div class="card p-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-gray-500 text-sm">Cobertura</p>
-                        <p class="text-2xl font-bold text-blue-600 mt-1">
-                            ${data.months_coverage >= 999 ? '∞' : data.months_coverage.toFixed(1)}
-                            ${data.months_coverage === 1 ? 'mes' : 'meses'}
-                        </p>
-                        <p class="text-xs text-gray-500 mt-1">${getStatusLabel(data.status)}</p>
-                    </div>
-                    <div class="text-4xl">📊</div>
                 </div>
             </div>
         `;
 
-        container.innerHTML = html;
+        // Animate progress bar
+        requestAnimationFrame(() => {
+            const fill = banner.querySelector('.ef-progress-fill');
+            if (fill) fill.style.width = pct + '%';
+        });
+    }
+
+    /* ── Summary Cards ────────────────────────────────────── */
+    function displaySummaryCards() {
+        const d = currentCoverageData;
+        if (!d) return;
+
+        const container = document.getElementById('summaryCards');
+        container.innerHTML = `
+            <div class="card p-5">
+                <div class="ef-metric-card">
+                    <div class="ef-metric-icon expenses">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+                    </div>
+                    <div>
+                        <div class="ef-metric-label">Gastos Esenciales</div>
+                        <div class="ef-metric-value">${formatCOP(d.essential_expenses_total)}</div>
+                        <div class="ef-metric-sub">${d.currency_code} · mensual</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card p-5">
+                <div class="ef-metric-card">
+                    <div class="ef-metric-icon funds">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                    </div>
+                    <div>
+                        <div class="ef-metric-label">Fondos Disponibles</div>
+                        <div class="ef-metric-value">${formatCOP(d.emergency_funds_total)}</div>
+                        <div class="ef-metric-sub">${d.currency_code} · total acumulado</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card p-5">
+                <div class="ef-metric-card">
+                    <div class="ef-metric-icon coverage">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <div>
+                        <div class="ef-metric-label">Cobertura</div>
+                        <div class="ef-metric-value">${d.months_coverage >= 999 ? '∞' : d.months_coverage.toFixed(1)} ${d.months_coverage === 1 ? 'mes' : 'meses'}</div>
+                        <div class="ef-metric-sub">${getStatusLabel(d.status)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     function getStatusLabel(status) {
         const labels = {
-            'excellent': '🟢 Excelente',
-            'good': '🔵 Bueno',
-            'fair': '🟡 Aceptable',
-            'poor': '🟠 Crítico',
-            'critical': '🔴 Sin fondos'
+            excellent: 'Excelente — más de 6 meses',
+            good:      'Bueno — entre 4 y 6 meses',
+            fair:      'Aceptable — entre 2 y 4 meses',
+            poor:      'Bajo — entre 1 y 2 meses',
+            critical:  'Crítico — menos de 1 mes'
         };
         return labels[status] || status;
     }
 
-    function displayCoverageStatus() {
-        if (!currentCoverageData) return;
-
-        const container = document.getElementById('coverageStatus');
-        const data = currentCoverageData;
-
-        const statusColors = {
-            'excellent': 'bg-green-100 border-green-500 text-green-800',
-            'good': 'bg-blue-100 border-blue-500 text-blue-800',
-            'fair': 'bg-yellow-100 border-yellow-500 text-yellow-800',
-            'poor': 'bg-orange-100 border-orange-500 text-orange-800',
-            'critical': 'bg-red-100 border-red-500 text-red-800'
-        };
-
-        const colorClass = statusColors[data.status] || 'bg-gray-100 border-gray-500 text-gray-800';
-
-        let html = `
-            <div class="border-l-4 ${colorClass} p-4 rounded">
-                <div class="flex items-start">
-                    <div class="flex-1">
-                        <h4 class="font-semibold text-lg mb-2">Estado de tu Fondo de Emergencia</h4>
-                        <p class="text-sm">${data.recommendation}</p>
-
-                        ${data.months_coverage > 0 && data.months_coverage < 999 ? `
-                            <div class="mt-4">
-                                <div class="flex justify-between text-sm mb-1">
-                                    <span>Progreso hacia 6 meses</span>
-                                    <span>${Math.min(100, (data.months_coverage / 6 * 100).toFixed(0))}%</span>
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-3">
-                                    <div class="status-${data.status} h-3 rounded-full transition-all"
-                                         style="width: ${Math.min(100, data.months_coverage / 6 * 100)}%"></div>
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        container.innerHTML = html;
-    }
-
+    /* ── Category Rendering ───────────────────────────────── */
     function buildGroupedCategoryHTML(categories, type) {
-        // Group by category_group_name
         const grouped = {};
         categories.forEach(cat => {
-            const group = cat.category_group_name || 'Sin grupo';
-            if (!grouped[group]) grouped[group] = [];
-            grouped[group].push(cat);
+            const g = cat.category_group_name || 'Sin grupo';
+            if (!grouped[g]) grouped[g] = [];
+            grouped[g].push(cat);
         });
 
         const flagField = type === 'essential' ? 'is_essential' : 'is_emergency_fund';
-        const toggleFn = type === 'essential' ? 'toggleEssential' : 'toggleEmergencyFund';
+        const toggleFn  = type === 'essential' ? 'toggleEssential' : 'toggleEmergencyFund';
+        const isExpense = type === 'essential';
 
         let html = '';
         Object.keys(grouped).sort().forEach(group => {
             const cats = grouped[group];
-            const allSelected = cats.every(c => c[flagField]);
-            const someSelected = cats.some(c => c[flagField]);
+            const allSel  = cats.every(c => c[flagField]);
+            const someSel = cats.some(c => c[flagField]);
 
-            html += `<div class="mb-4">
-                <div class="flex items-center gap-2 mb-2 pb-1 border-b border-neutral-200 dark:border-neutral-700">
-                    <input type="checkbox" ${allSelected ? 'checked' : ''}
-                           onchange="toggleGroup('${group.replace(/'/g, "\\'")}', '${type}', this.checked)"
-                           class="group-cb-${type} w-4 h-4 rounded border-neutral-300 text-primary-600 cursor-pointer"
-                           data-group="${group}" ${!allSelected && someSelected ? 'data-indeterminate="true"' : ''}>
-                    <span class="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">${group}</span>
+            html += `
+                <div class="ef-group-header">
+                    <input type="checkbox"
+                           class="ef-cat-checkbox group-cb-${type}"
+                           data-group="${group.replace(/"/g, '&quot;')}"
+                           ${allSel ? 'checked' : ''}
+                           ${!allSel && someSel ? 'data-indeterminate="true"' : ''}
+                           onchange="toggleGroup('${group.replace(/'/g, "\\'")}', '${type}', this.checked)">
+                    <span class="ef-group-label">${group}</span>
+                    <div class="ef-group-line"></div>
                 </div>`;
 
             cats.forEach(cat => {
-                html += `<div class="category-checkbox ${cat[flagField] ? 'selected' : ''} ml-2"
-                     onclick="${toggleFn}(${cat.id})">
-                    <label class="flex items-center cursor-pointer">
+                const sel = cat[flagField];
+                html += `
+                    <div class="ef-cat-item ${sel ? 'selected' : ''} ${isExpense && sel ? 'is-expense' : ''}"
+                         onclick="${toggleFn}(${cat.id})">
                         <input type="checkbox"
-                               ${cat[flagField] ? 'checked' : ''}
-                               onclick="event.stopPropagation(); ${toggleFn}(${cat.id})"
-                               class="mr-3">
-                        <div class="flex-1">
-                            <div class="font-medium text-gray-800 dark:text-neutral-200">${cat.name}</div>
-                        </div>
-                    </label>
-                </div>`;
+                               class="ef-cat-checkbox"
+                               ${sel ? 'checked' : ''}
+                               onclick="event.stopPropagation(); ${toggleFn}(${cat.id})">
+                        <span class="ef-cat-name">${cat.name}</span>
+                    </div>`;
             });
-
-            html += `</div>`;
         });
 
-        // Set indeterminate via JS after render
         setTimeout(() => {
-            document.querySelectorAll(`[data-indeterminate="true"].group-cb-${type}`).forEach(cb => {
-                cb.indeterminate = true;
-            });
+            document.querySelectorAll(`[data-indeterminate="true"].group-cb-${type}`)
+                    .forEach(cb => { cb.indeterminate = true; });
         }, 0);
 
         return html;
@@ -286,25 +555,20 @@
     function toggleGroup(group, type, checked) {
         const flagField = type === 'essential' ? 'is_essential' : 'is_emergency_fund';
         const cats = allCategories.filter(cat => {
-            const catGroup = cat.category_group_name || 'Sin grupo';
-            if (catGroup !== group) return false;
-            if (type === 'essential') return !cat.is_income && cat.rollover_type === 'reset';
-            return !cat.is_income && cat.rollover_type === 'accumulate';
+            const g = cat.category_group_name || 'Sin grupo';
+            if (g !== group) return false;
+            return type === 'essential'
+                ? (!cat.is_income && cat.rollover_type === 'reset')
+                : (!cat.is_income && cat.rollover_type === 'accumulate');
         });
 
-        // Toggle all categories in the group
-        const promises = cats.filter(cat => cat[flagField] !== checked).map(cat => {
-            const endpoint = `/api/emergency-fund/categories/${cat.id}`;
-            const body = type === 'essential'
-                ? { is_essential: checked }
-                : { is_emergency_fund: checked };
-            return fetch(endpoint, {
+        const promises = cats.filter(c => c[flagField] !== checked).map(cat => {
+            const body = type === 'essential' ? { is_essential: checked } : { is_emergency_fund: checked };
+            return fetch(`/api/emergency-fund/categories/${cat.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
-            }).then(res => {
-                if (res.ok) cat[flagField] = checked;
-            });
+            }).then(res => { if (res.ok) cat[flagField] = checked; });
         });
 
         Promise.all(promises).then(() => {
@@ -316,89 +580,56 @@
 
     function displayEssentialCategories() {
         const container = document.getElementById('essentialCategories');
-
-        // Filter expense categories (not income, not savings)
-        const expenseCategories = allCategories.filter(cat =>
-            !cat.is_income && cat.rollover_type === 'reset'
-        );
-
-        if (expenseCategories.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 text-center py-4">No hay categorías de gastos</p>';
+        const cats = allCategories.filter(c => !c.is_income && c.rollover_type === 'reset');
+        if (cats.length === 0) {
+            container.innerHTML = '<p class="py-6 text-center text-sm" style="color:var(--text-soft)">No hay categorías de gastos</p>';
             return;
         }
-
-        container.innerHTML = buildGroupedCategoryHTML(expenseCategories, 'essential');
+        container.innerHTML = buildGroupedCategoryHTML(cats, 'essential');
     }
 
     function displayEmergencyFundCategories() {
         const container = document.getElementById('emergencyFundCategories');
-
-        // Filter savings categories (accumulate type)
-        const savingsCategories = allCategories.filter(cat =>
-            !cat.is_income && cat.rollover_type === 'accumulate'
-        );
-
-        if (savingsCategories.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 text-center py-4">No hay categorías de ahorros</p>';
+        const cats = allCategories.filter(c => !c.is_income && c.rollover_type === 'accumulate');
+        if (cats.length === 0) {
+            container.innerHTML = '<p class="py-6 text-center text-sm" style="color:var(--text-soft)">No hay categorías de ahorros</p>';
             return;
         }
-
-        container.innerHTML = buildGroupedCategoryHTML(savingsCategories, 'emergency_fund');
+        container.innerHTML = buildGroupedCategoryHTML(cats, 'emergency_fund');
     }
 
     async function toggleEssential(categoryId) {
-        const category = allCategories.find(c => c.id === categoryId);
-        if (!category) return;
-
-        const newValue = !category.is_essential;
-
-        try {
-            const response = await fetch(`/api/emergency-fund/categories/${categoryId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_essential: newValue })
-            });
-
-            if (response.ok) {
-                category.is_essential = newValue;
-                displayEssentialCategories();
-                await loadCoverageData();
-            } else {
-                alert('Error al actualizar categoría');
-            }
-        } catch (error) {
-            console.error('Error toggling essential:', error);
-            alert('Error: ' + error.message);
+        const cat = allCategories.find(c => c.id === categoryId);
+        if (!cat) return;
+        const newVal = !cat.is_essential;
+        const res = await fetch(`/api/emergency-fund/categories/${categoryId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_essential: newVal })
+        });
+        if (res.ok) {
+            cat.is_essential = newVal;
+            displayEssentialCategories();
+            await loadCoverageData();
         }
     }
 
     async function toggleEmergencyFund(categoryId) {
-        const category = allCategories.find(c => c.id === categoryId);
-        if (!category) return;
-
-        const newValue = !category.is_emergency_fund;
-
-        try {
-            const response = await fetch(`/api/emergency-fund/categories/${categoryId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_emergency_fund: newValue })
-            });
-
-            if (response.ok) {
-                category.is_emergency_fund = newValue;
-                displayEmergencyFundCategories();
-                await loadCoverageData();
-            } else {
-                alert('Error al actualizar categoría');
-            }
-        } catch (error) {
-            console.error('Error toggling emergency fund:', error);
-            alert('Error: ' + error.message);
+        const cat = allCategories.find(c => c.id === categoryId);
+        if (!cat) return;
+        const newVal = !cat.is_emergency_fund;
+        const res = await fetch(`/api/emergency-fund/categories/${categoryId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_emergency_fund: newVal })
+        });
+        if (res.ok) {
+            cat.is_emergency_fund = newVal;
+            displayEmergencyFundCategories();
+            await loadCoverageData();
         }
     }
 
-    // Load data on page load
     document.addEventListener('DOMContentLoaded', loadEmergencyFundData);
 </script>
 {% endblock %}

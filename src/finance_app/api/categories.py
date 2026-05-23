@@ -287,6 +287,8 @@ class CategoryUpdate(BaseModel):
     """Schema for updating a category"""
     name: Optional[str] = None
     rollover_type: Optional[str] = None
+    category_group_id: Optional[int] = None
+    notes: Optional[str] = None
     target_type: Optional[str] = None
     target_amount: Optional[float] = None
     initial_amount: Optional[float] = None
@@ -398,6 +400,15 @@ def update_category(category_id: int, category_update: CategoryUpdate, db: Sessi
 
     if category_update.rollover_type is not None:
         category.rollover_type = category_update.rollover_type
+
+    if category_update.category_group_id is not None:
+        group = db.query(CategoryGroup).filter_by(id=category_update.category_group_id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Category group not found")
+        category.category_group_id = category_update.category_group_id
+
+    if "notes" in category_update.__fields_set__:
+        category.notes = category_update.notes or None
 
     if category_update.target_type is not None:
         category.target_type = category_update.target_type

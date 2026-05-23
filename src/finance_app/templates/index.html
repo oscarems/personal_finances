@@ -73,6 +73,65 @@
     </div>
 </div>
 
+<!-- Upcoming Events -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    <!-- Próximos Vencimientos -->
+    <div class="card overflow-hidden">
+        <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-bold text-neutral-800">Próximos Vencimientos</h3>
+                <p class="text-xs text-neutral-500 mt-0.5">Próximos 14 días</p>
+            </div>
+            <a href="/recurring" class="text-xs text-primary-600 hover:text-primary-700 font-medium">Ver recurrentes &rarr;</a>
+        </div>
+        <div id="upcomingEventsList" class="divide-y divide-neutral-100 max-h-72 overflow-y-auto">
+            <p class="p-5 text-sm text-neutral-400">Cargando...</p>
+        </div>
+    </div>
+
+    <!-- Resumen de Metas -->
+    <div class="card overflow-hidden">
+        <div class="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-bold text-neutral-800">Progreso de Metas</h3>
+                <p class="text-xs text-neutral-500 mt-0.5">Metas activas</p>
+            </div>
+            <a href="/goals" class="text-xs text-primary-600 hover:text-primary-700 font-medium">Ver todas &rarr;</a>
+        </div>
+        <div id="goalsProgressList" class="divide-y divide-neutral-100 max-h-72 overflow-y-auto">
+            <p class="p-5 text-sm text-neutral-400">Cargando...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Flujo de Caja Proyectado -->
+<div class="card p-6 mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-5 gap-3">
+        <div>
+            <h3 class="text-base font-bold text-neutral-800">Flujo de Caja Proyectado</h3>
+            <p class="text-xs text-neutral-500 mt-0.5" id="cashFlowSubtitle">Basado en transacciones recurrentes y pagos de deudas</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-neutral-500">Horizonte:</span>
+            <div class="flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
+                <button onclick="setCashFlowDays(30)" id="cfBtn30"
+                        class="px-3 py-1.5 bg-primary-500 text-white transition-colors">30d</button>
+                <button onclick="setCashFlowDays(60)" id="cfBtn60"
+                        class="px-3 py-1.5 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">60d</button>
+                <button onclick="setCashFlowDays(90)" id="cfBtn90"
+                        class="px-3 py-1.5 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors">90d</button>
+            </div>
+        </div>
+    </div>
+    <!-- Summary strip -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="cashFlowSummary">
+    </div>
+    <!-- Chart -->
+    <div class="relative h-64">
+        <canvas id="cashFlowChart"></canvas>
+    </div>
+</div>
+
 <!-- Monthly Spending Section -->
 <div class="card p-6 mb-6" id="monthlySpendingSection">
     <div class="mb-4">
@@ -1056,7 +1115,256 @@
         }
     }
 
+    // ── Upcoming Events ──────────────────────────────────────────────────────
+
+    async function loadUpcomingEvents() {
+        try {
+            const res = await fetch('/api/cash-flow/upcoming?days=14');
+            if (!res.ok) return;
+            const data = await res.json();
+            const container = document.getElementById('upcomingEventsList');
+            const events = data.events || [];
+            if (!events.length) {
+                container.innerHTML = '<p class="p-5 text-sm text-neutral-400">Sin eventos en los próximos 14 días.</p>';
+                return;
+            }
+            const typeIcon = { income: '↑', expense: '↓', debt_payment: '⚡' };
+            const typeColor = { income: 'text-success-600', expense: 'text-danger-600', debt_payment: 'text-warning-600' };
+            const typeBg = { income: 'bg-success-50', expense: 'bg-danger-50', debt_payment: 'bg-warning-50' };
+
+            container.innerHTML = events.map(ev => {
+                const d = new Date(`${ev.date}T00:00:00`);
+                const dayLabel = d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' });
+                const today = new Date(); today.setHours(0,0,0,0);
+                const diff = Math.round((d - today) / 86400000);
+                const diffLabel = diff === 0 ? 'Hoy' : diff === 1 ? 'Mañana' : `en ${diff}d`;
+                const icon = typeIcon[ev.type] || '·';
+                const color = typeColor[ev.type] || 'text-neutral-600';
+                const bg = typeBg[ev.type] || 'bg-neutral-50';
+                const amtAbs = Math.abs(ev.amount_signed);
+                const symbol = ev.currency === 'USD' ? 'US$' : '$';
+                const decimals = ev.currency === 'USD' ? 2 : 0;
+                const formatted = `${symbol}${amtAbs.toLocaleString('es-CO', {minimumFractionDigits: decimals})}`;
+                return `
+                    <div class="flex items-center justify-between px-4 py-2.5 hover:bg-neutral-50 transition-colors">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${bg} ${color}">${icon}</span>
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-neutral-800 truncate">${ev.label}</p>
+                                <p class="text-xs text-neutral-400">${dayLabel} &middot; <span class="font-medium">${diffLabel}</span></p>
+                            </div>
+                        </div>
+                        <span class="text-sm font-bold ${color} ml-3 shrink-0">${ev.amount_signed >= 0 ? '+' : '-'}${formatted}</span>
+                    </div>`;
+            }).join('');
+        } catch (err) {
+            console.warn('Error loading upcoming events:', err);
+        }
+    }
+
+    // ── Goals Progress ────────────────────────────────────────────────────────
+
+    async function loadGoalsProgress() {
+        try {
+            const res = await fetch('/api/goals/?projection_months=12');
+            if (!res.ok) return;
+            const goals = await res.json();
+            const container = document.getElementById('goalsProgressList');
+            const active = (goals || []).filter(g => g.status === 'active');
+            if (!active.length) {
+                container.innerHTML = '<p class="p-5 text-sm text-neutral-400">No hay metas activas.</p>';
+                return;
+            }
+            container.innerHTML = active.slice(0, 6).map(g => {
+                const pct = Math.min(100, Math.round((g.current_amount / g.target_amount) * 100) || 0);
+                const symbol = g.currency?.symbol || '$';
+                const decimals = g.currency?.code === 'USD' ? 2 : 0;
+                const current = `${symbol}${(g.current_amount || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals})}`;
+                const target = `${symbol}${(g.target_amount || 0).toLocaleString('es-CO', {minimumFractionDigits: decimals})}`;
+                const barColor = pct >= 100 ? 'bg-success-500' : pct >= 50 ? 'bg-primary-500' : 'bg-warning-500';
+                const targetDate = g.target_date ? new Date(`${g.target_date}T00:00:00`).toLocaleDateString('es-CO', {month: 'short', year: 'numeric'}) : '';
+                return `
+                    <div class="px-4 py-3 hover:bg-neutral-50 transition-colors">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-sm font-semibold text-neutral-800 truncate mr-2">${g.name}</span>
+                            <span class="text-xs font-bold text-neutral-600 shrink-0">${pct}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-neutral-200 rounded-full mb-1.5">
+                            <div class="h-1.5 rounded-full ${barColor} transition-all" style="width:${pct}%"></div>
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-neutral-400">
+                            <span>${current} / ${target}</span>
+                            ${targetDate ? `<span>${targetDate}</span>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+        } catch (err) {
+            console.warn('Error loading goals:', err);
+        }
+    }
+
+    // ── Cash Flow Chart ───────────────────────────────────────────────────────
+
+    let cashFlowDays = 30;
+    let cashFlowChartInstance = null;
+
+    function setCashFlowDays(days) {
+        cashFlowDays = days;
+        ['30','60','90'].forEach(d => {
+            const btn = document.getElementById(`cfBtn${d}`);
+            if (btn) {
+                if (parseInt(d) === days) {
+                    btn.className = 'px-3 py-1.5 bg-primary-500 text-white transition-colors';
+                } else {
+                    btn.className = 'px-3 py-1.5 bg-white text-neutral-600 hover:bg-neutral-50 transition-colors';
+                }
+            }
+        });
+        loadCashFlowChart();
+    }
+
+    async function loadCashFlowChart() {
+        try {
+            const res = await fetch(`/api/cash-flow/forecast?days=${cashFlowDays}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            renderCashFlowChart(data);
+            renderCashFlowSummary(data);
+        } catch (err) {
+            console.warn('Error loading cash flow:', err);
+        }
+    }
+
+    function renderCashFlowSummary(data) {
+        const s = data.summary;
+        const rate = data.exchange_rate || 1;
+        const fmt = v => {
+            const abs = Math.abs(v);
+            if (abs >= 1_000_000_000) return `$${(v/1_000_000_000).toFixed(1)}B`;
+            if (abs >= 1_000_000) return `$${(v/1_000_000).toFixed(1)}M`;
+            return `$${Math.round(v).toLocaleString('es-CO')}`;
+        };
+        const netColor = s.net >= 0 ? 'text-success-700' : 'text-danger-700';
+        const netBg = s.net >= 0 ? 'bg-success-50 border-success-200' : 'bg-danger-50 border-danger-200';
+        const endColor = s.ending_balance >= 0 ? 'text-success-700' : 'text-danger-700';
+        document.getElementById('cashFlowSummary').innerHTML = `
+            <div class="rounded-xl p-3.5 border border-neutral-200 bg-neutral-50">
+                <p class="text-[10px] font-bold text-neutral-500 uppercase tracking-wide mb-1">Saldo inicial</p>
+                <p class="text-lg font-bold text-neutral-800">${fmt(data.starting_balance_cop)}</p>
+            </div>
+            <div class="rounded-xl p-3.5 border border-success-200 bg-success-50">
+                <p class="text-[10px] font-bold text-success-600 uppercase tracking-wide mb-1">Ingresos esperados</p>
+                <p class="text-lg font-bold text-success-700">+${fmt(s.total_income)}</p>
+            </div>
+            <div class="rounded-xl p-3.5 border border-danger-200 bg-danger-50">
+                <p class="text-[10px] font-bold text-danger-600 uppercase tracking-wide mb-1">Egresos esperados</p>
+                <p class="text-lg font-bold text-danger-700">${fmt(s.total_expense)}</p>
+            </div>
+            <div class="rounded-xl p-3.5 border ${netBg}">
+                <p class="text-[10px] font-bold uppercase tracking-wide mb-1 ${netColor}">Saldo proyectado</p>
+                <p class="text-lg font-bold ${endColor}">${fmt(s.ending_balance)}</p>
+            </div>
+        `;
+    }
+
+    function renderCashFlowChart(data) {
+        const daily = data.daily_balance || [];
+        // Sample to max 60 points to keep the chart readable
+        const step = Math.max(1, Math.floor(daily.length / 60));
+        const sampled = daily.filter((_, i) => i % step === 0 || i === daily.length - 1);
+
+        const labels = sampled.map(d => {
+            const dt = new Date(`${d.date}T00:00:00`);
+            return dt.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+        });
+        const balances = sampled.map(d => d.balance);
+        const minBalance = Math.min(...balances);
+
+        // Color: green when above starting, red when below
+        const starting = data.starting_balance_cop;
+        const borderColor = balances.map(b => b >= starting ? '#16a34a' : '#dc2626');
+
+        if (cashFlowChartInstance) cashFlowChartInstance.destroy();
+
+        const ctx = document.getElementById('cashFlowChart').getContext('2d');
+        cashFlowChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Saldo proyectado (COP)',
+                    data: balances,
+                    borderColor: window.getThemeColor('--chart-color-1'),
+                    backgroundColor: window.getThemeColor('--info-bg-soft'),
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: true,
+                    tension: 0.3,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const v = ctx.parsed.y;
+                                const abs = Math.abs(v);
+                                const formatted = abs >= 1_000_000
+                                    ? `$${(v/1_000_000).toFixed(1)}M`
+                                    : `$${Math.round(v).toLocaleString('es-CO')}`;
+                                return ` ${formatted}`;
+                            },
+                            afterBody: (items) => {
+                                const idx = items[0]?.dataIndex;
+                                if (idx === undefined) return [];
+                                const day = sampled[idx];
+                                const events = day?.events || [];
+                                if (!events.length) return [];
+                                return ['', ...events.map(e =>
+                                    `  ${e.amount_signed >= 0 ? '↑' : '↓'} ${e.label}`
+                                )];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 8,
+                            font: { size: 11 },
+                            color: '#9ca3af',
+                        },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            font: { size: 11 },
+                            color: '#9ca3af',
+                            callback: v => {
+                                const abs = Math.abs(v);
+                                if (abs >= 1_000_000_000) return `${(v/1_000_000_000).toFixed(1)}B`;
+                                if (abs >= 1_000_000) return `${(v/1_000_000).toFixed(1)}M`;
+                                if (abs >= 1_000) return `${(v/1_000).toFixed(0)}K`;
+                                return v;
+                            }
+                        },
+                        grid: { color: '#f3f4f6' }
+                    }
+                }
+            }
+        });
+    }
+
     // Load on page ready
-    document.addEventListener('DOMContentLoaded', loadDashboard);
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboard();
+        loadUpcomingEvents();
+        loadGoalsProgress();
+        loadCashFlowChart();
+    });
 </script>
 {% endblock %}

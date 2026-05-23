@@ -5,1237 +5,1152 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Personal Finances{% endblock %}</title>
 
-    <!-- Google Fonts - Fraunces (display serif) + Inter Tight (body) -->
+    <!-- Google Fonts: Syne (display) · Outfit (body) · JetBrains Mono (numbers) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Tailwind Configuration -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        gray: {
-                            50: '#fafaf9',
-                            100: '#f5f5f3',
-                            200: '#e8e8e6',
-                            300: '#d4d4d0',
-                            400: '#a8a8a4',
-                            500: '#737370',
-                            600: '#5a5a58',
-                            700: '#434342',
-                            800: '#2e2e2d',
-                            900: '#1a1a1a',
-                        },
-                        blue: {
-                            50: '#f0f4ff',
-                            100: '#e0e8ff',
-                            200: '#c7d2fe',
-                            300: '#a4b4fb',
-                            400: '#7d92f5',
-                            500: '#5b6eec',
-                            600: '#4a5ad0',
-                            700: '#3c48b0',
-                            800: '#2e3688',
-                            900: '#202564',
-                        },
-                        green: {
-                            50: '#f0f9f4',
-                            100: '#dcf0e4',
-                            200: '#b6dec7',
-                            300: '#88c7a6',
-                            400: '#5aac82',
-                            500: '#3d7c5f',
-                            600: '#327053',
-                            700: '#2a5e46',
-                            800: '#224a38',
-                            900: '#1a382b',
-                        },
-                        red: {
-                            50: '#fef3f4',
-                            100: '#fce1e3',
-                            200: '#f8c4ca',
-                            300: '#f19da6',
-                            400: '#e06d78',
-                            500: '#c2434d',
-                            600: '#ab3a44',
-                            700: '#93323b',
-                            800: '#6e252d',
-                            900: '#4a1a1f',
-                        },
-                        yellow: {
-                            50: '#fffbf0',
-                            100: '#fef3d5',
-                            200: '#fce4aa',
-                            300: '#f8d074',
-                            400: '#f0b840',
-                            500: '#d49a1c',
-                            600: '#b28016',
-                            700: '#8f6512',
-                            800: '#6c4c0e',
-                            900: '#4a340a',
-                        },
-                        orange: {
-                            50: '#fff8ee',
-                            100: '#fdecd0',
-                            200: '#f6d69a',
-                            300: '#edb86a',
-                            400: '#e09a3e',
-                            500: '#cc7a20',
-                            600: '#b06818',
-                            700: '#905412',
-                            800: '#6e3f0d',
-                            900: '#4c2c08',
-                        },
-                        emerald: {
-                            50: '#f0f9f4',
-                            100: '#dcf0e4',
-                            200: '#b6dec7',
-                            300: '#88c7a6',
-                            400: '#5aac82',
-                            500: '#3d7c5f',
-                            600: '#327053',
-                            700: '#2a5e46',
-                            800: '#224a38',
-                            900: '#1a382b',
-                        },
-                        rose: {
-                            50: '#fef3f4',
-                            100: '#fce1e3',
-                            200: '#f8c4ca',
-                            300: '#f19da6',
-                            400: '#e06d78',
-                            500: '#c2434d',
-                            600: '#ab3a44',
-                            700: '#93323b',
-                            800: '#6e252d',
-                            900: '#4a1a1f',
-                        },
-                        // Refined indigo - slightly muted, executive
                         primary: {
-                            50: '#eef0ff',
-                            100: '#e0e2ff',
-                            200: '#c7c9fe',
-                            300: '#a5a8fc',
-                            400: '#8183f4',
-                            500: '#5b5bd6',
-                            600: '#4c4cc4',
-                            700: '#3e3eb2',
-                            800: '#33339a',
-                            900: '#2b2b7e',
-                        },
-                        secondary: {
-                            50: '#fafaf9',
-                            100: '#f5f5f3',
-                            200: '#e8e8e6',
-                            300: '#d4d4d0',
-                            400: '#a0a0a0',
-                            500: '#6b6b6b',
-                            600: '#525252',
-                            700: '#3a3a3a',
-                            800: '#262626',
-                            900: '#171717',
+                            50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a',
+                            300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b',
+                            600: '#d97706', 700: '#b45309', 800: '#92400e', 900: '#78350f'
                         },
                         success: {
-                            50: '#f0f9f4',
-                            100: '#dcf0e4',
-                            200: '#b6dec7',
-                            300: '#88c7a6',
-                            400: '#5aac82',
-                            500: '#3d7c5f',
-                            600: '#327053',
-                            700: '#2a5e46',
-                            800: '#224a38',
-                            900: '#1a382b',
+                            50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0',
+                            300: '#6ee7b7', 400: '#34d399', 500: '#10b981',
+                            600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b'
                         },
                         danger: {
-                            50: '#fef3f4',
-                            100: '#fce1e3',
-                            200: '#f8c4ca',
-                            300: '#f19da6',
-                            400: '#e06d78',
-                            500: '#c2434d',
-                            600: '#ab3a44',
-                            700: '#93323b',
-                            800: '#6e252d',
-                            900: '#4a1a1f',
+                            50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca',
+                            300: '#fca5a5', 400: '#f87171', 500: '#ef4444',
+                            600: '#dc2626', 700: '#b91c1c', 800: '#991b1b', 900: '#7f1d1d'
                         },
                         warning: {
-                            50: '#fef8ee',
-                            100: '#fdefd6',
-                            200: '#faddab',
-                            300: '#f4c375',
-                            400: '#eda640',
-                            500: '#e5850a',
-                            600: '#cc7609',
-                            700: '#b36808',
-                            800: '#8f5207',
-                            900: '#704006',
+                            50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a',
+                            300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b',
+                            600: '#d97706', 700: '#b45309', 800: '#92400e', 900: '#78350f'
                         },
                         accent: {
-                            50: '#edfcfe',
-                            100: '#d2f6fb',
-                            200: '#a8ecf6',
-                            300: '#70dcee',
-                            400: '#30c6df',
-                            500: '#0ea5c0',
-                            600: '#0c90a8',
-                            700: '#0a7b90',
-                            800: '#086474',
-                            900: '#065060',
+                            50: '#ecfeff', 100: '#cffafe', 200: '#a5f3fc',
+                            300: '#67e8f9', 400: '#22d3ee', 500: '#06b6d4',
+                            600: '#0891b2', 700: '#0e7490', 800: '#155e75', 900: '#164e63'
                         },
                         neutral: {
-                            50: '#fafaf9',
-                            100: '#f5f5f3',
-                            200: '#e8e8e6',
-                            300: '#d4d4d0',
-                            400: '#a8a8a4',
-                            500: '#737370',
-                            600: '#5a5a58',
-                            700: '#434342',
-                            800: '#2e2e2d',
-                            900: '#1a1a1a',
-                        }
+                            50: '#fafaf9', 100: '#f5f5f2', 200: '#e7e5e0',
+                            300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c',
+                            600: '#57534e', 700: '#44403c', 800: '#292524', 900: '#1c1917'
+                        },
+                        gray: {
+                            50: '#f9fafb', 100: '#f3f4f6', 200: '#e5e7eb',
+                            300: '#d1d5db', 400: '#9ca3af', 500: '#6b7280',
+                            600: '#4b5563', 700: '#374151', 800: '#1f2937', 900: '#111827'
+                        },
                     },
                     fontFamily: {
-                        sans: ['"Inter Tight"', 'system-ui', '-apple-system', 'sans-serif'],
-                        serif: ['"Fraunces"', 'Georgia', 'serif'],
-                        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
-                    },
-                    boxShadow: {
-                        DEFAULT: '0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03)',
-                        md: '0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
-                        lg: '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
-                        'soft': '0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03)',
-                        'medium': '0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
-                        'strong': '0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
-                        'inner-soft': 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
+                        display: ['"Syne"', 'system-ui', 'sans-serif'],
+                        sans:    ['"Outfit"', 'system-ui', 'sans-serif'],
+                        mono:    ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
                     },
                     borderRadius: {
-                        'card': '16px',
-                        'button': '10px',
-                        'xl': '20px',
-                        '2xl': '24px',
-                        'lg': '16px',
+                        card: '10px', button: '7px', xl: '14px', '2xl': '18px',
                     },
-                    backdropBlur: {
-                        'xs': '2px',
+                    boxShadow: {
+                        soft:   '0 1px 2px rgba(28,25,23,0.05), 0 1px 3px rgba(28,25,23,0.04)',
+                        medium: '0 4px 12px rgba(28,25,23,0.08), 0 1px 4px rgba(28,25,23,0.04)',
+                        strong: '0 12px 32px rgba(28,25,23,0.12), 0 4px 8px rgba(28,25,23,0.06)',
                     }
                 }
             }
         }
     </script>
 
+    <!-- Early theme init (before paint) -->
     <script>
         (function() {
-            const storedTheme = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = storedTheme || (prefersDark ? 'dark' : 'light');
+            const stored = localStorage.getItem('theme');
+            const theme = stored || 'dark';
             document.documentElement.setAttribute('data-theme', theme);
             document.documentElement.style.colorScheme = theme;
         })();
     </script>
 
-    <link rel="stylesheet" href="/static/styles/design-system.css">
+    <link rel="stylesheet" href="/static/styles/design-system.css?v=600">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Flatpickr -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
     <style>
-        /* ── Sidebar fijo en móvil ──────────────────────────── */
-        @media (max-width: 767px) {
-            /* El aside sale del flujo flex y se fija a la izquierda, fuera de pantalla */
-            aside {
-                position: fixed !important;
-                top: 0;
-                left: 0;
-                height: 100vh !important;
-                z-index: 50;
-                transform: translateX(-100%);
-                transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
-                width: 256px !important;
-            }
-            /* Cuando está abierto, desliza hacia adentro */
-            aside.sidebar-open {
-                transform: translateX(0);
-            }
-            /* El main ocupa todo el ancho en móvil */
-            #mainContent {
-                padding-top: 56px; /* espacio para la topbar */
-            }
+        /* ── Layout shell ──────────────────────────────── */
+        html, body { height: 100%; margin: 0; }
+
+        .app-shell {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
         }
 
-        /* ── Topbar móvil ───────────────────────────────────── */
+        /* ── Sidebar ───────────────────────────────────── */
+        .app-sidebar {
+            width: 220px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            overflow: hidden;
+            position: relative;
+            z-index: 30;
+        }
+
+        .sidebar-logo {
+            padding: 1.25rem 1rem 1rem;
+            border-bottom: 1px solid var(--sidebar-border);
+            flex-shrink: 0;
+        }
+
+        .sidebar-logo-wordmark {
+            font-family: "Syne", sans-serif;
+            font-size: 1.0625rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #F0E8D8;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sidebar-logo-dot {
+            width: 7px; height: 7px;
+            border-radius: 2px;
+            background: #F59E0B;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.55);
+            flex-shrink: 0;
+        }
+
+        .sidebar-logo-sub {
+            font-family: "Outfit", sans-serif;
+            font-size: 0.5875rem;
+            font-weight: 500;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: rgba(210, 200, 185, 0.30);
+            margin-top: 0.2rem;
+            padding-left: 1.1875rem;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0.5rem 0 1rem;
+            scrollbar-width: none;
+        }
+        .sidebar-nav::-webkit-scrollbar { display: none; }
+
+        .sidebar-footer {
+            padding: 0.75rem;
+            border-top: 1px solid var(--sidebar-border);
+            flex-shrink: 0;
+        }
+
+        /* ── Main content ──────────────────────────────── */
+        .app-main {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-content {
+            flex: 1;
+            padding: 1.5rem 2rem;
+            max-width: 1600px;
+            width: 100%;
+        }
+
+        @media (min-width: 1400px) {
+            .app-content { padding: 2rem 2.5rem; }
+        }
+
+        /* ── Mobile topbar ─────────────────────────────── */
         .mobile-topbar {
             display: none;
         }
+
         @media (max-width: 767px) {
+            .app-sidebar {
+                position: fixed;
+                top: 0; left: 0; height: 100vh;
+                z-index: 50;
+                transform: translateX(-100%);
+                transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .app-sidebar.sidebar-open {
+                transform: translateX(0);
+                box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5);
+            }
+
+            .app-main {
+                padding-top: 52px;
+            }
+
+            .app-content {
+                padding: 1rem;
+            }
+
             .mobile-topbar {
                 display: flex;
                 align-items: center;
                 gap: 0.75rem;
                 position: fixed;
                 top: 0; left: 0; right: 0;
-                height: 56px;
-                background: linear-gradient(180deg,#1c1814,#14110d);
-                border-bottom: 1px solid rgba(212,172,92,0.12);
-                padding: 0 1rem;
-                z-index: 49;
+                height: 52px;
+                background: var(--sidebar-bg);
+                border-bottom: 1px solid var(--sidebar-border);
+                padding: 0 0.875rem;
+                z-index: 40;
             }
+
             .mobile-topbar-title {
-                font-family: 'Fraunces', Georgia, serif;
-                font-size: 1.15rem;
-                font-weight: 400;
-                color: #faf6ea;
-                letter-spacing: -0.02em;
+                font-family: "Syne", sans-serif;
+                font-size: 0.9375rem;
+                font-weight: 600;
+                color: #F0E8D8;
+                letter-spacing: -0.015em;
             }
         }
 
-        /* ── Botón hamburger ────────────────────────────────── */
+        /* ── Hamburger ─────────────────────────────────── */
         .hamburger-btn {
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: 5px;
-            width: 38px;
-            height: 38px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 9px;
+            gap: 4.5px;
+            width: 34px; height: 34px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 7px;
             cursor: pointer;
             padding: 8px 7px;
             flex-shrink: 0;
         }
         .hamburger-btn span {
-            display: block;
-            height: 2px;
-            background: #fff;
-            border-radius: 2px;
-            transition: transform 0.25s, opacity 0.25s;
+            display: block; height: 1.5px;
+            background: rgba(220,224,235,0.8);
+            border-radius: 1px;
+            transition: transform 0.22s, opacity 0.22s;
         }
-        .hamburger-btn.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .hamburger-btn.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
         .hamburger-btn.open span:nth-child(2) { opacity: 0; }
-        .hamburger-btn.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+        .hamburger-btn.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
-        /* ── Overlay oscuro ─────────────────────────────────── */
+        /* ── Sidebar overlay ───────────────────────────── */
         .sidebar-overlay {
             display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.65);
             z-index: 49;
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(3px);
         }
-        .sidebar-overlay.visible {
-            display: block;
+        .sidebar-overlay.visible { display: block; }
+
+        /* ── Quick-add numpad ──────────────────────────── */
+        .numpad-btn {
+            background: var(--bg-surface-muted);
+            border: 1px solid var(--border-muted);
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--color-text);
+            padding: 0.75rem 0;
+            cursor: pointer;
+            transition: background 0.1s, transform 0.08s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .numpad-btn:active { background: var(--border-muted); transform: scale(0.93); }
+        .numpad-del { background: none; border-color: transparent; color: var(--text-soft); }
+
+        @media (min-width: 768px) {
+            .quick-add-sheet, .quick-add-sheet-backdrop { display: none !important; }
         }
     </style>
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Flatpickr date picker -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-    <style>
-        /* Flatpickr overrides to match design system */
-        .flatpickr-calendar {
-            border-radius: 12px !important;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
-            border: 1px solid var(--input-border, #E3E1DA) !important;
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-        }
-        .flatpickr-day.selected,
-        .flatpickr-day.selected:hover {
-            background: var(--color-primary-600, #3F679A) !important;
-            border-color: var(--color-primary-600, #3F679A) !important;
-        }
-        .flatpickr-day.today {
-            border-color: var(--color-primary-400, #7D9FCA) !important;
-        }
-        .flatpickr-months .flatpickr-month,
-        .flatpickr-current-month .flatpickr-monthDropdown-months,
-        .flatpickr-weekdays,
-        span.flatpickr-weekday {
-            background: var(--color-primary-50, #F4F7FB) !important;
-        }
-        [data-theme="dark"] .flatpickr-calendar {
-            background: var(--bg-surface, #191a1c) !important;
-            border-color: var(--input-border, #2a2a2d) !important;
-        }
-        [data-theme="dark"] .flatpickr-day {
-            color: var(--text-primary, #ededec) !important;
-        }
-        [data-theme="dark"] .flatpickr-months .flatpickr-month,
-        [data-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months,
-        [data-theme="dark"] .flatpickr-weekdays,
-        [data-theme="dark"] span.flatpickr-weekday {
-            background: var(--bg-surface-muted, #1e1f22) !important;
-            color: var(--text-secondary, #a0a0a0) !important;
-        }
-        [data-theme="dark"] .flatpickr-current-month input.cur-year {
-            color: var(--text-primary, #ededec) !important;
-        }
-    </style>
-
-
 </head>
-<body class="bg-neutral-50 antialiased">
-    <div class="flex h-screen">
-        <!-- Sidebar -->
-        <aside class="w-64 flex flex-col border-r" style="background:linear-gradient(180deg,#1c1814 0%,#14110d 100%);border-color:rgba(212,172,92,0.08);color:#f3ece0">
-            <!-- Logo -->
-            <div class="px-5 py-5 border-b" style="border-color:rgba(212,172,92,0.1)">
-                <h1 class="text-[1.35rem] tracking-tight" style="font-family:'Fraunces',Georgia,serif;font-weight:400;font-variation-settings:'opsz' 96,'SOFT' 30;color:#faf6ea;letter-spacing:-0.025em">Finanzas</h1>
-                <p class="text-[10.5px] mt-1 tracking-[0.14em] uppercase" style="color:#a89d8c;font-weight:500">Gestión patrimonial</p>
-                <div class="mt-3 h-px w-10" style="background:linear-gradient(90deg,#d4ac5c,transparent)"></div>
+<body style="background:var(--bg-primary);font-family:'Outfit',sans-serif">
+
+<div class="app-shell">
+
+    <!-- ═══ SIDEBAR ══════════════════════════════════════════ -->
+    <aside class="app-sidebar" id="appSidebar">
+
+        <!-- Logo -->
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-wordmark">
+                <span class="sidebar-logo-dot"></span>
+                Finanzas
             </div>
+            <div class="sidebar-logo-sub">Gestión personal</div>
+        </div>
 
-            <!-- Navegación principal -->
-            <nav class="flex-1 py-3 overflow-y-auto">
-                <div class="sidebar-section sidebar-section--overview">
-                    <p class="sidebar-section-title px-1">📋 Principal</p>
-                </div>
+        <!-- Nav -->
+        <nav class="sidebar-nav" id="sidebarNav">
 
-                <div class="px-2">
-                    <a href="/" class="nav-item" data-group="overview">🏠 Inicio</a>
-                    <a href="/budget" class="nav-item" data-group="overview">📊 Presupuesto</a>
-                    <a href="/transactions" class="nav-item" data-group="overview">💳 Transacciones</a>
-                    <a href="/recurring" class="nav-item" data-group="overview">🔄 Recurrentes</a>
-                    <a href="/reports" class="nav-item" data-group="reportes">📈 Análisis</a>
-                </div>
-
-                <div class="sidebar-section sidebar-section--gestion">
-                    <p class="sidebar-section-title px-1">⚙️ Gestión</p>
-                </div>
-
-                <div class="px-2">
-                    <a href="/accounts" class="nav-item" data-group="gestion">🏦 Cuentas</a>
-                    <a href="/debts" class="nav-item" data-group="gestion">📉 Deudas y pagos</a>
-                    <a href="/goals" class="nav-item" data-group="gestion">🎯 Metas</a>
-                    <a href="/financial-health" class="nav-item" data-group="gestion">❤️ Salud financiera</a>
-                </div>
-
-                <div class="sidebar-section sidebar-section--patrimonio">
-                    <p class="sidebar-section-title px-1">🏛️ Patrimonio</p>
-                </div>
-
-                <div class="px-2">
-                    <a href="/patrimonio" class="nav-item" data-group="patrimonio">🏘️ Patrimonio</a>
-                </div>
-
-                <div class="sidebar-section sidebar-section--simuladores">
-                    <p class="sidebar-section-title px-1">🧪 Simuladores</p>
-                </div>
-
-                <div class="px-2">
-                    <a href="/emergency-fund" class="nav-item" data-group="simuladores">🛟 Fondo de emergencia</a>
-                    <a href="/mortgage" class="nav-item" data-group="simuladores">🏡 Hipoteca</a>
-                    <a href="/investment-simulator" class="nav-item" data-group="simuladores">📈 Inversiones</a>
-                </div>
-
-                <div class="sidebar-section sidebar-section--importacion">
-                    <p class="sidebar-section-title px-1">🔧 Avanzado</p>
-                </div>
-
-                <div class="px-2">
-                    <a href="/advanced/gmail" class="nav-item" data-group="avanzado">📧 Importación Gmail</a>
-                    <a href="/email-sender-rules" class="nav-item" data-group="avanzado">📬 Reglas de correo</a>
-                    <a href="/chat" class="nav-item" data-group="avanzado">💬 Chat SQL</a>
-                </div>
-
-                <div class="sidebar-section sidebar-section--administracion">
-                    <p class="sidebar-section-title px-1">🗂️ Administración</p>
-                </div>
-
-                <div class="px-2">
-                    <button id="openDbModalButton" class="w-full nav-item justify-between" data-group="administracion">
-                        <span>🗄️ Base de datos</span>
-                    </button>
-                </div>
-            </nav>
-
-            <!-- Footer -->
-            <div class="px-4 py-3 border-t border-white/8">
-                <div class="theme-toggle">
-                    <button id="themeToggle" class="theme-toggle__button" type="button" aria-live="polite">
-                        <span class="theme-toggle__icon" id="themeToggleIcon" aria-hidden="true"></span>
-                        <span class="theme-toggle__label" id="themeToggleLabel">Modo oscuro</span>
-                    </button>
-                </div>
-                <a href="/auth/logout" class="flex items-center gap-2 text-xs text-neutral-500 hover:text-red-400 transition mt-2 px-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/></svg>
-                    Cerrar sesión
+            <div class="sidebar-section sidebar-section--overview">
+                <p class="sidebar-section-title">Principal</p>
+            </div>
+            <div style="padding:0 0.375rem">
+                <a href="/" class="nav-item" data-group="overview">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                    Inicio
                 </a>
-                <div class="flex items-center justify-end text-[10px] text-slate-500 mt-1">
-                    <span>v2.0</span>
-                </div>
+                <a href="/budget" class="nav-item" data-group="overview">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg></span>
+                    Presupuesto
+                </a>
+                <a href="/transactions" class="nav-item" data-group="overview">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+                    Transacciones
+                </a>
+                <a href="/recurring" class="nav-item" data-group="overview">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></span>
+                    Recurrentes
+                </a>
+                <a href="/reports" class="nav-item" data-group="reportes">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+                    Análisis
+                </a>
             </div>
-        </aside>
 
-        <div id="dbModal" class="fixed inset-0 z-50 hidden">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-db-modal-close></div>
-            <div class="relative h-full w-full flex items-center justify-center p-6">
-                <div class="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-900/95 text-white shadow-2xl">
-                    <div class="flex items-start justify-between px-6 py-5 border-b border-white/10">
-                        <div>
-                            <p class="text-xs font-semibold text-primary-300 uppercase tracking-[0.3em]">Administración</p>
-                            <h2 class="text-lg font-semibold mt-2">Base de datos</h2>
-                        </div>
-                        <button class="text-neutral-400 hover:text-white transition" data-db-modal-close>
-                            ✕
-                        </button>
+            <div class="sidebar-section sidebar-section--gestion">
+                <p class="sidebar-section-title">Gestión</p>
+            </div>
+            <div style="padding:0 0.375rem">
+                <a href="/accounts" class="nav-item" data-group="gestion">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg></span>
+                    Cuentas
+                </a>
+                <a href="/debts" class="nav-item" data-group="gestion">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg></span>
+                    Deudas y pagos
+                </a>
+                <a href="/goals" class="nav-item" data-group="gestion">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+                    Metas
+                </a>
+                <a href="/financial-health" class="nav-item" data-group="gestion">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                    Salud financiera
+                </a>
+            </div>
+
+            <div class="sidebar-section sidebar-section--patrimonio">
+                <p class="sidebar-section-title">Patrimonio</p>
+            </div>
+            <div style="padding:0 0.375rem">
+                <a href="/patrimonio" class="nav-item" data-group="patrimonio">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>
+                    Patrimonio
+                </a>
+            </div>
+
+            <div class="sidebar-section sidebar-section--simuladores">
+                <p class="sidebar-section-title">Simuladores</p>
+            </div>
+            <div style="padding:0 0.375rem">
+                <a href="/emergency-fund" class="nav-item" data-group="simuladores">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+                    Fondo emergencia
+                </a>
+                <a href="/mortgage" class="nav-item" data-group="simuladores">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg></span>
+                    Hipoteca
+                </a>
+                <a href="/investment-simulator" class="nav-item" data-group="simuladores">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
+                    Inversiones
+                </a>
+            </div>
+
+            <div class="sidebar-section sidebar-section--importacion">
+                <p class="sidebar-section-title">Avanzado</p>
+            </div>
+            <div style="padding:0 0.375rem">
+                <a href="/advanced/gmail" class="nav-item" data-group="avanzado">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+                    Gmail
+                </a>
+                <a href="/email-sender-rules" class="nav-item" data-group="avanzado">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></span>
+                    Reglas de correo
+                </a>
+                <a href="/chat" class="nav-item" data-group="avanzado">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
+                    Chat SQL
+                </a>
+                <button id="openDbModalButton" class="nav-item w-full" data-group="administracion">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
+                    Base de datos
+                </button>
+            </div>
+
+        </nav>
+
+        <!-- Footer -->
+        <div class="sidebar-footer">
+            <div class="theme-toggle">
+                <button id="themeToggle" class="theme-toggle__button" type="button" aria-live="polite">
+                    <span class="theme-toggle__icon" id="themeToggleIcon"></span>
+                    <span class="theme-toggle__label" id="themeToggleLabel">Oscuro</span>
+                </button>
+            </div>
+            <a href="/auth/logout" style="display:flex;align-items:center;gap:0.5rem;font-family:'Outfit',sans-serif;font-size:0.6875rem;color:rgba(210,200,185,0.35);margin-top:0.25rem;padding:0 0.25rem;transition:color 0.15s" onmouseover="this.style.color='#FB7185'" onmouseout="this.style.color='rgba(210,200,185,0.35)'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/></svg>
+                Cerrar sesión
+            </a>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5625rem;color:rgba(210,200,185,0.18);text-align:right;margin-top:0.5rem">v6.0</div>
+        </div>
+    </aside>
+
+    <!-- ═══ DB MODAL ═════════════════════════════════════════ -->
+    <div id="dbModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-db-modal-close></div>
+        <div class="relative h-full w-full flex items-center justify-center p-6">
+            <div style="width:100%;max-width:400px;border-radius:var(--radius-card);border:1px solid var(--border-muted);background:var(--sidebar-bg);color:var(--nav-text-strong);box-shadow:var(--shadow-lg,0 24px 64px rgba(0,0,0,0.6));">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:1.25rem 1.5rem 1rem;border-bottom:1px solid var(--sidebar-border)">
+                    <div>
+                        <p style="font-family:var(--font-sans);font-size:0.625rem;font-weight:700;color:var(--nav-accent-strong);text-transform:uppercase;letter-spacing:0.2em">Administración</p>
+                        <h2 style="font-family:var(--font-display);font-size:1.125rem;font-weight:700;color:var(--nav-text-strong);margin-top:0.25rem">Base de datos</h2>
                     </div>
-                    <div class="px-6 py-5 space-y-5">
-                        <div class="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
-                            <label for="dbModeSelect" class="block text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
-                                Base de datos
-                            </label>
-                            <select id="dbModeSelect" class="w-full bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"></select>
-                            <p id="dbSelectedLabel" class="text-xs text-neutral-400">Seleccionada: --</p>
-                        </div>
-
-                        <div class="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
-                            <p class="text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
-                                Crear nueva
-                            </p>
-                            <div class="flex flex-col gap-2">
-                                <input id="dbNameInput" type="text" placeholder="Nueva base (personal, pareja)" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                <button id="dbCreateButton" class="bg-primary-500 hover:bg-primary-600 text-white text-xs font-semibold px-3 py-2 rounded-xl">Crear</button>
-                            </div>
-                        </div>
-
-                        <div class="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm">
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-semibold text-neutral-300 uppercase tracking-[0.18em]">
-                                    Acciones
-                                </p>
-                                <span id="dbActionHint" class="text-[10px] text-neutral-500">Disponible para bases personalizadas</span>
-                            </div>
-                            <div class="space-y-2">
-                                <div class="flex flex-col gap-2">
-                                    <input id="dbRenameInput" type="text" placeholder="Nuevo nombre" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                    <button id="dbRenameButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Renombrar</button>
-                                </div>
-                                <div class="flex flex-col gap-2">
-                                    <input id="dbDuplicateInput" type="text" placeholder="Duplicar como" class="flex-1 bg-neutral-900/70 text-white text-sm rounded-xl px-3 py-2 border border-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                    <button id="dbDuplicateButton" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-2 rounded-xl">Duplicar</button>
-                                </div>
-                                <button id="dbDeleteButton" class="w-full border border-red-400/40 text-red-200 hover:bg-red-500/20 text-xs font-semibold px-3 py-2 rounded-xl">Eliminar</button>
-                            </div>
-                        </div>
-
-                        <p id="dbModeStatus" class="text-xs text-neutral-400 mt-2 hidden"></p>
+                    <button data-db-modal-close style="background:var(--nav-hover-bg);border:1px solid var(--sidebar-border);border-radius:6px;width:30px;height:30px;cursor:pointer;color:var(--nav-text);font-size:0.875rem;display:flex;align-items:center;justify-content:center;transition:background var(--transition-fast)">✕</button>
+                </div>
+                <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1rem">
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--sidebar-border);border-radius:10px;padding:0.875rem">
+                        <label for="dbModeSelect" style="display:block;font-family:var(--font-sans);font-size:0.6rem;font-weight:700;color:var(--nav-text);text-transform:uppercase;letter-spacing:0.14em;margin-bottom:0.5rem">Base activa</label>
+                        <select id="dbModeSelect" style="width:100%;background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.875rem;border-radius:7px;padding:0.5rem 0.625rem;border:1px solid var(--sidebar-border);outline:none;color-scheme:dark"></select>
+                        <p id="dbSelectedLabel" style="font-family:var(--font-sans);font-size:0.6875rem;color:var(--nav-text);margin-top:0.375rem;opacity:0.6">Seleccionada: --</p>
                     </div>
+
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--sidebar-border);border-radius:10px;padding:0.875rem">
+                        <p style="font-family:var(--font-sans);font-size:0.6rem;font-weight:700;color:var(--nav-text);text-transform:uppercase;letter-spacing:0.14em;margin-bottom:0.5rem">Crear nueva</p>
+                        <div style="display:flex;flex-direction:column;gap:0.5rem">
+                            <input id="dbNameInput" type="text" placeholder="Nombre de la base" style="background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.875rem;border-radius:7px;padding:0.5rem 0.625rem;border:1px solid var(--sidebar-border);outline:none;width:100%"/>
+                            <button id="dbCreateButton" style="background:var(--nav-accent-strong);color:#0D0C0A;font-family:var(--font-sans);font-weight:700;font-size:0.8125rem;border:none;border-radius:7px;padding:0.5rem;cursor:pointer">Crear</button>
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--sidebar-border);border-radius:10px;padding:0.875rem">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+                            <p style="font-family:var(--font-sans);font-size:0.6rem;font-weight:700;color:var(--nav-text);text-transform:uppercase;letter-spacing:0.14em">Acciones</p>
+                            <span id="dbActionHint" style="font-family:var(--font-sans);font-size:0.625rem;color:var(--nav-text);opacity:0.5">Solo bases personalizadas</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:0.5rem">
+                            <div style="display:flex;gap:0.5rem">
+                                <input id="dbRenameInput" type="text" placeholder="Renombrar como" style="flex:1;background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.8125rem;border-radius:7px;padding:0.45rem 0.625rem;border:1px solid var(--sidebar-border);outline:none"/>
+                                <button id="dbRenameButton" style="background:var(--nav-hover-bg);border:1px solid var(--sidebar-border);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.75rem;font-weight:500;border-radius:7px;padding:0.45rem 0.75rem;cursor:pointer;white-space:nowrap">Renombrar</button>
+                            </div>
+                            <div style="display:flex;gap:0.5rem">
+                                <input id="dbDuplicateInput" type="text" placeholder="Duplicar como" style="flex:1;background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.8125rem;border-radius:7px;padding:0.45rem 0.625rem;border:1px solid var(--sidebar-border);outline:none"/>
+                                <button id="dbDuplicateButton" style="background:var(--nav-hover-bg);border:1px solid var(--sidebar-border);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.75rem;font-weight:500;border-radius:7px;padding:0.45rem 0.75rem;cursor:pointer;white-space:nowrap">Duplicar</button>
+                            </div>
+                            <button id="dbDeleteButton" style="width:100%;border:1px solid rgba(251,113,133,0.30);color:#FB7185;background:rgba(251,113,133,0.06);font-family:var(--font-sans);font-size:0.8125rem;font-weight:500;border-radius:7px;padding:0.5rem;cursor:pointer">Eliminar base</button>
+                        </div>
+                    </div>
+
+                    <p id="dbModeStatus" style="font-family:var(--font-sans);font-size:0.75rem;color:var(--nav-text);display:none"></p>
                 </div>
             </div>
         </div>
-
-        <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto bg-neutral-50" id="mainContent">
-            <!-- Barra móvil (solo visible en pantallas pequeñas) -->
-            <div class="mobile-topbar" id="mobileTopbar">
-                <button class="hamburger-btn" id="hamburgerBtn" aria-label="Abrir menú">
-                    <span></span><span></span><span></span>
-                </button>
-                <span class="mobile-topbar-title">Finanzas</span>
-            </div>
-            <div class="container mx-auto px-4 py-4 md:px-8 md:py-8">
-                {% block content %}{% endblock %}
-            </div>
-        </main>
     </div>
-    <!-- Overlay oscuro para cerrar sidebar en móvil -->
-    <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
-    <!-- Mobile Bottom Navigation -->
-    <nav class="mobile-bottom-nav" id="mobileBottomNav">
-        <a href="/" data-nav="home">
-            <span class="nav-emoji">🏠</span>
-            <span>Inicio</span>
-        </a>
-        <a href="/budget" data-nav="budget">
-            <span class="nav-emoji">📊</span>
-            <span>Presupuesto</span>
-        </a>
-        <a href="/transactions" data-nav="transactions">
-            <span class="nav-emoji">💳</span>
-            <span>Movimientos</span>
-        </a>
-        <a href="/reports" data-nav="reports">
-            <span class="nav-emoji">📈</span>
-            <span>Análisis</span>
-        </a>
-        <a href="/debts" data-nav="debts">
-            <span class="nav-emoji">📉</span>
-            <span>Deudas</span>
-        </a>
-    </nav>
+    <!-- ═══ MAIN CONTENT ═════════════════════════════════════ -->
+    <main class="app-main" id="mainContent">
 
-    <script>
-        window.getThemeColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        <!-- Mobile topbar -->
+        <div class="mobile-topbar" id="mobileTopbar">
+            <button class="hamburger-btn" id="hamburgerBtn" aria-label="Menú">
+                <span></span><span></span><span></span>
+            </button>
+            <span class="mobile-topbar-title" id="mobileTopbarTitle">Finanzas</span>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
+<button id="mobileThemeBtn" onclick="window.toggleTheme()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);border-radius:7px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:rgba(220,224,235,0.7)">☀</button>
+            </div>
+        </div>
 
-        window.getChartTheme = () => ({
-            text: window.getThemeColor('--chart-text'),
-            grid: window.getThemeColor('--chart-grid'),
-            border: window.getThemeColor('--chart-border'),
-            tooltipBg: window.getThemeColor('--chart-tooltip-bg'),
-            tooltipText: window.getThemeColor('--chart-tooltip-text')
+        <div class="app-content">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+
+<!-- Sidebar overlay -->
+<div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-bottom-nav" id="mobileBottomNav">
+    <a href="/" data-nav="home">
+        <span class="nav-emoji">🏠</span>
+        <span>Inicio</span>
+    </a>
+    <a href="/budget" data-nav="budget">
+        <span class="nav-emoji">📊</span>
+        <span>Presupuesto</span>
+    </a>
+    <div class="nav-fab">
+        <button id="quickAddFab" aria-label="Agregar transacción">
+            <span style="font-size:1.4rem;line-height:1;display:block">+</span>
+        </button>
+    </div>
+    <a href="/transactions" data-nav="transactions">
+        <span class="nav-emoji">💳</span>
+        <span>Movimientos</span>
+    </a>
+    <a href="/reports" data-nav="reports">
+        <span class="nav-emoji">📈</span>
+        <span>Análisis</span>
+    </a>
+</nav>
+
+<!-- Quick-add backdrop -->
+<div class="quick-add-sheet-backdrop" id="quickAddBackdrop"></div>
+
+<!-- Quick-add sheet -->
+<div class="quick-add-sheet" id="quickAddSheet" style="display:none">
+    <div class="sheet-drag-handle"></div>
+    <div style="padding:0.875rem 1.125rem 0.5rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.875rem">
+            <h3 style="font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--color-text)">Nueva transacción</h3>
+            <button id="quickAddClose" style="background:var(--bg-surface-muted);border:1px solid var(--border-muted);border-radius:6px;width:28px;height:28px;cursor:pointer;color:var(--text-soft);font-size:0.875rem;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>
+
+        <div class="sheet-type-toggle" style="margin-bottom:1rem">
+            <button id="btnExpense" class="active-expense" onclick="setSheetType('expense')">Gasto</button>
+            <button id="btnIncome" onclick="setSheetType('income')">Ingreso</button>
+        </div>
+
+        <div style="text-align:center;margin-bottom:1rem">
+            <div class="sheet-amount-display expense" id="sheetAmountDisplay">$0</div>
+            <input type="number" id="sheetAmountInput" inputmode="decimal" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
+        </div>
+
+        <div id="sheetNumpad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:1rem">
+            <button class="numpad-btn" data-key="7">7</button>
+            <button class="numpad-btn" data-key="8">8</button>
+            <button class="numpad-btn" data-key="9">9</button>
+            <button class="numpad-btn" data-key="4">4</button>
+            <button class="numpad-btn" data-key="5">5</button>
+            <button class="numpad-btn" data-key="6">6</button>
+            <button class="numpad-btn" data-key="1">1</button>
+            <button class="numpad-btn" data-key="2">2</button>
+            <button class="numpad-btn" data-key="3">3</button>
+            <button class="numpad-btn" data-key=".">.</button>
+            <button class="numpad-btn" data-key="0">0</button>
+            <button class="numpad-btn numpad-del" data-key="del">⌫</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:0.625rem;margin-bottom:0.875rem">
+            <div class="sheet-field">
+                <label>Beneficiario</label>
+                <input type="text" id="sheetPayee" placeholder="Éxito, Netflix...">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.625rem">
+                <div class="sheet-field">
+                    <label>Fecha</label>
+                    <input type="date" id="sheetDate">
+                </div>
+                <div class="sheet-field">
+                    <label>Cuenta</label>
+                    <select id="sheetAccount"><option value="">Cargando...</option></select>
+                </div>
+            </div>
+            <div class="sheet-field">
+                <label>Categoría</label>
+                <select id="sheetCategory"><option value="">Sin categoría</option></select>
+            </div>
+        </div>
+
+        <button class="sheet-submit-btn" id="sheetSubmitBtn" onclick="submitQuickAdd()">
+            Guardar gasto
+        </button>
+        <div id="sheetError" style="color:var(--color-danger);font-family:'Outfit',sans-serif;font-size:0.75rem;text-align:center;margin-top:0.4rem;display:none"></div>
+    </div>
+</div>
+
+<!-- ═══ SCRIPTS ══════════════════════════════════════════════ -->
+
+<script>
+/* ── Chart theme ───────────────────────────────────── */
+window.getThemeColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+window.getChartTheme = () => ({
+    text: window.getThemeColor('--chart-text'),
+    grid: window.getThemeColor('--chart-grid'),
+    border: window.getThemeColor('--chart-border'),
+    tooltipBg: window.getThemeColor('--chart-tooltip-bg'),
+    tooltipText: window.getThemeColor('--chart-tooltip-text')
+});
+
+window.updateThemeToggle = (theme) => {
+    const icon = document.getElementById('themeToggleIcon');
+    const label = document.getElementById('themeToggleLabel');
+    if (!icon || !label) return;
+    const isDark = theme === 'dark';
+    icon.textContent = isDark ? '☀' : '☾';
+    label.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
+};
+
+window.setTheme = (theme, persist = true) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.style.colorScheme = theme;
+    if (persist) localStorage.setItem('theme', theme);
+    window.updateThemeToggle(theme);
+    window.applyChartTheme();
+    window.refreshChartsForTheme();
+};
+
+window.toggleTheme = () => {
+    const cur = document.documentElement.getAttribute('data-theme') || 'light';
+    window.setTheme(cur === 'dark' ? 'light' : 'dark');
+};
+
+window.applyChartTheme = () => {
+    if (!window.Chart) return;
+    const t = window.getChartTheme();
+    Chart.defaults.color = t.text;
+    Chart.defaults.borderColor = t.grid;
+    if (Chart.defaults.scale) {
+        Chart.defaults.scale.grid.color = t.grid;
+        Chart.defaults.scale.ticks.color = t.text;
+    }
+    if (Chart.defaults.plugins?.legend?.labels) Chart.defaults.plugins.legend.labels.color = t.text;
+    if (Chart.defaults.plugins?.tooltip) {
+        Chart.defaults.plugins.tooltip.backgroundColor = t.tooltipBg;
+        Chart.defaults.plugins.tooltip.titleColor = t.tooltipText;
+        Chart.defaults.plugins.tooltip.bodyColor = t.tooltipText;
+    }
+};
+
+window.refreshChartsForTheme = () => {
+    if (!window.Chart || !Chart.instances) return;
+    const charts = Chart.instances instanceof Map
+        ? Array.from(Chart.instances.values())
+        : Object.values(Chart.instances);
+    const t = window.getChartTheme();
+    charts.forEach(chart => {
+        if (!chart) return;
+        Object.values(chart.options.scales || {}).forEach(s => {
+            if (s.ticks) s.ticks.color = t.text;
+            if (s.grid) s.grid.color = t.grid;
         });
+        if (chart.options.plugins?.legend?.labels) chart.options.plugins.legend.labels.color = t.text;
+        if (chart.options.plugins?.tooltip) {
+            chart.options.plugins.tooltip.backgroundColor = t.tooltipBg;
+            chart.options.plugins.tooltip.titleColor = t.tooltipText;
+            chart.options.plugins.tooltip.bodyColor = t.tooltipText;
+        }
+        chart.update();
+    });
+};
 
-        window.updateThemeToggle = (theme) => {
-            const themeToggleIcon = document.getElementById('themeToggleIcon');
-            const themeToggleLabel = document.getElementById('themeToggleLabel');
-            if (!themeToggleIcon || !themeToggleLabel) return;
-            const isDark = theme === 'dark';
-            themeToggleIcon.textContent = isDark ? 'Claro' : 'Oscuro';
-            themeToggleLabel.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
-        };
+window.applyChartTheme();
 
-        window.setTheme = (theme, persist = true) => {
-            document.documentElement.setAttribute('data-theme', theme);
-            document.documentElement.style.colorScheme = theme;
-            if (persist) {
-                localStorage.setItem('theme', theme);
-            }
-            window.updateThemeToggle(theme);
-            window.applyChartTheme();
-            window.refreshChartsForTheme();
-        };
+document.addEventListener('click', (e) => {
+    if (e.target.closest('#themeToggle')) { e.preventDefault(); window.toggleTheme(); }
+});
+</script>
 
-        window.toggleTheme = () => {
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            window.setTheme(nextTheme);
-        };
+<script>
+/* ── Currency formatting ────────────────────────── */
+window.formatMoney = function(amount, currency) {
+    const sym = (currency && currency.symbol) || '$';
+    const dec = (currency && typeof currency.decimals === 'number') ? currency.decimals : 0;
+    const formatted = Math.abs(amount).toLocaleString('es-CO', {
+        minimumFractionDigits: dec, maximumFractionDigits: dec
+    });
+    return `${amount < 0 ? '-' : ''}${sym}${formatted}`;
+};
+</script>
 
-        window.applyChartTheme = () => {
-            if (!window.Chart) return;
-            const theme = window.getChartTheme();
-            Chart.defaults.color = theme.text;
-            Chart.defaults.borderColor = theme.grid;
-            if (Chart.defaults.scale) {
-                Chart.defaults.scale.grid.color = theme.grid;
-                Chart.defaults.scale.border.color = theme.grid;
-                Chart.defaults.scale.ticks.color = theme.text;
-            }
-            if (Chart.defaults.plugins && Chart.defaults.plugins.legend && Chart.defaults.plugins.legend.labels) {
-                Chart.defaults.plugins.legend.labels.color = theme.text;
-            }
-            if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
-                Chart.defaults.plugins.tooltip.backgroundColor = theme.tooltipBg;
-                Chart.defaults.plugins.tooltip.titleColor = theme.tooltipText;
-                Chart.defaults.plugins.tooltip.bodyColor = theme.tooltipText;
-            }
-        };
+<script>
+/* ── Searchable select ──────────────────────────── */
+window.enhanceSelectWithSearch = function(selectEl, options = {}) {
+    if (!selectEl || selectEl.dataset.enhanced) return;
+    selectEl.dataset.enhanced = 'true';
+    const placeholder = options.placeholder || 'Buscar...';
 
-        window.refreshChartsForTheme = () => {
-            if (!window.Chart || !Chart.instances) return;
-            const charts = Chart.instances instanceof Map
-                ? Array.from(Chart.instances.values())
-                : Object.values(Chart.instances);
-            const theme = window.getChartTheme();
-            charts.forEach(chart => {
-                if (!chart) return;
-                if (chart.options.scales) {
-                    Object.values(chart.options.scales).forEach(scale => {
-                        if (scale.ticks) scale.ticks.color = theme.text;
-                        if (scale.grid) scale.grid.color = theme.grid;
-                        if (scale.border) scale.border.color = theme.grid;
-                    });
-                }
-                if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
-                    chart.options.plugins.legend.labels.color = theme.text;
-                }
-                if (chart.options.plugins && chart.options.plugins.tooltip) {
-                    chart.options.plugins.tooltip.backgroundColor = theme.tooltipBg;
-                    chart.options.plugins.tooltip.titleColor = theme.tooltipText;
-                    chart.options.plugins.tooltip.bodyColor = theme.tooltipText;
-                }
-                chart.update();
+    const wrapper = document.createElement('div');
+    wrapper.className = 'search-select-wrapper';
+    wrapper.style.cssText = 'position:relative;';
+    selectEl.parentNode.insertBefore(wrapper, selectEl);
+
+    const display = document.createElement('button');
+    display.type = 'button';
+    display.className = selectEl.className;
+    display.style.cssText = 'text-align:left;width:100%;cursor:pointer;position:relative;padding-right:2rem;';
+    const selectedOpt = selectEl.options[selectEl.selectedIndex];
+    display.textContent = selectedOpt ? selectedOpt.textContent : '';
+
+    const arrow = document.createElement('span');
+    arrow.innerHTML = '&#9662;';
+    arrow.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;';
+    display.appendChild(arrow);
+
+    const panel = document.createElement('div');
+    panel.style.cssText = 'display:none;position:absolute;z-index:60;top:100%;left:0;right:0;background:var(--bg-surface,#fff);border:1px solid var(--border-muted);border-radius:10px;box-shadow:var(--shadow-strong);margin-top:4px;max-height:320px;overflow:hidden;';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = placeholder;
+    searchInput.className = 'input-field';
+    searchInput.style.cssText = 'border:none;border-bottom:1px solid var(--border-muted);border-radius:10px 10px 0 0;margin:0;font-size:0.85rem;';
+
+    const optList = document.createElement('div');
+    optList.style.cssText = 'max-height:260px;overflow-y:auto;';
+
+    panel.appendChild(searchInput);
+    panel.appendChild(optList);
+    wrapper.appendChild(display);
+    wrapper.appendChild(panel);
+    selectEl.style.cssText = 'position:absolute;opacity:0;pointer-events:none;height:0;width:0;';
+    wrapper.appendChild(selectEl);
+
+    function buildOptions(filter) {
+        optList.innerHTML = '';
+        const lf = (filter || '').toLowerCase();
+        const groups = selectEl.querySelectorAll('optgroup');
+        const direct = selectEl.querySelectorAll(':scope > option');
+
+        function addOpt(opt, container) {
+            if (lf && !opt.textContent.toLowerCase().includes(lf)) return false;
+            const item = document.createElement('div');
+            item.textContent = opt.textContent;
+            item.dataset.value = opt.value;
+            item.style.cssText = 'padding:7px 12px;cursor:pointer;font-size:0.8125rem;color:var(--color-text);font-family:var(--font-sans);';
+            if (opt.value === selectEl.value) { item.style.background = 'var(--table-row-hover)'; item.style.fontWeight = '600'; }
+            item.addEventListener('mouseenter', () => item.style.background = 'var(--table-row-hover)');
+            item.addEventListener('mouseleave', () => { if (opt.value !== selectEl.value) item.style.background = ''; });
+            item.addEventListener('click', () => {
+                selectEl.value = opt.value;
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                display.childNodes[0].textContent = opt.textContent;
+                closePanel();
             });
-        };
+            container.appendChild(item);
+            return true;
+        }
 
-        window.applyChartTheme();
-        document.addEventListener('click', (event) => {
-            const toggleButton = event.target.closest('#themeToggle');
-            if (!toggleButton) return;
-            event.preventDefault();
-            window.toggleTheme();
+        direct.forEach(opt => addOpt(opt, optList));
+        groups.forEach(group => {
+            const items = [];
+            const temp = document.createElement('div');
+            group.querySelectorAll('option').forEach(opt => { if (addOpt(opt, temp)) items.push(true); });
+            if (items.length) {
+                const hdr = document.createElement('div');
+                hdr.textContent = group.label;
+                hdr.style.cssText = 'padding:7px 12px 3px;font-size:0.65rem;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-sans);';
+                optList.appendChild(hdr);
+                optList.appendChild(temp);
+            }
         });
-    </script>
+    }
 
-    <script>
-        /**
-         * Global currency formatting function.
-         * All templates should use this instead of inline toLocaleString calls.
-         *
-         * @param {number} amount - The amount to format
-         * @param {object} [currency] - Currency object with {symbol, decimals, code}
-         *   Defaults to COP ({symbol:'$', decimals:0})
-         * @returns {string} Formatted currency string, e.g. "$1.234.567" or "US$1.234,56"
-         */
-        window.formatMoney = function(amount, currency) {
-            const sym = (currency && currency.symbol) || '$';
-            const dec = (currency && typeof currency.decimals === 'number') ? currency.decimals : 0;
-            const formatted = Math.abs(amount).toLocaleString('es-CO', {
-                minimumFractionDigits: dec,
-                maximumFractionDigits: dec
+    function openPanel() { panel.style.display = 'block'; buildOptions(''); searchInput.value = ''; searchInput.focus(); }
+    function closePanel() { panel.style.display = 'none'; }
+
+    display.addEventListener('click', e => { e.stopPropagation(); panel.style.display === 'none' ? openPanel() : closePanel(); });
+    searchInput.addEventListener('input', () => buildOptions(searchInput.value));
+    searchInput.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', e => { if (!wrapper.contains(e.target)) closePanel(); });
+
+    const observer = new MutationObserver(() => {
+        const opt = selectEl.options[selectEl.selectedIndex];
+        if (opt) display.childNodes[0].textContent = opt.textContent;
+    });
+    observer.observe(selectEl, { childList: true, subtree: true });
+    selectEl.addEventListener('change', () => {
+        const opt = selectEl.options[selectEl.selectedIndex];
+        if (opt) display.childNodes[0].textContent = opt.textContent;
+    });
+};
+
+window.populateCategorySelect = async function(selectEl, options = {}) {
+    if (!selectEl) return;
+    const includeEmpty = options.includeEmpty !== false;
+    const emptyLabel = options.emptyLabel || 'Sin categoría';
+    try {
+        const res = await fetch('/api/categories/groups');
+        const groups = await res.json();
+        selectEl.innerHTML = '';
+        if (includeEmpty) selectEl.innerHTML = `<option value="">${emptyLabel}</option>`;
+        const filtered = options.includeIncome ? groups : groups.filter(g => !g.is_income);
+        filtered.forEach(group => {
+            const og = document.createElement('optgroup');
+            og.label = group.name;
+            (group.categories || []).forEach(cat => {
+                const o = document.createElement('option');
+                o.value = cat.id; o.textContent = cat.name;
+                og.appendChild(o);
             });
-            const sign = amount < 0 ? '-' : '';
-            return `${sign}${sym}${formatted}`;
-        };
-    </script>
+            selectEl.appendChild(og);
+        });
+        enhanceSelectWithSearch(selectEl, { placeholder: 'Buscar categoría...' });
+    } catch(e) { console.error('Error loading categories:', e); }
+};
+</script>
 
-    <!-- Searchable Category Select Component -->
-    <script>
-        /**
-         * Enhances a <select> element with search/filter functionality.
-         * Wraps the native select in a custom dropdown with a search input.
-         * Usage: enhanceSelectWithSearch(selectElement, { placeholder: 'Buscar...' })
-         */
-        window.enhanceSelectWithSearch = function(selectEl, options = {}) {
-            if (!selectEl || selectEl.dataset.enhanced) return;
-            selectEl.dataset.enhanced = 'true';
-            const placeholder = options.placeholder || 'Buscar...';
+<script>
+/* ── Quick-add sheet ────────────────────────────── */
+(function() {
+    let sheetType = 'expense';
+    let amountStr = '';
+    const fab = document.getElementById('quickAddFab');
+    const sheet = document.getElementById('quickAddSheet');
+    const backdrop = document.getElementById('quickAddBackdrop');
+    const closeBtn = document.getElementById('quickAddClose');
+    const display = document.getElementById('sheetAmountDisplay');
+    const submitBtn = document.getElementById('sheetSubmitBtn');
 
-            // Create wrapper
-            const wrapper = document.createElement('div');
-            wrapper.className = 'search-select-wrapper';
-            wrapper.style.cssText = 'position:relative;';
-            selectEl.parentNode.insertBefore(wrapper, selectEl);
+    function openSheet() {
+        sheet.style.display = 'block';
+        requestAnimationFrame(() => { sheet.classList.add('sheet-open'); backdrop.classList.add('visible'); });
+        fab && fab.classList.add('fab-open');
+        document.body.style.overflow = 'hidden';
+        loadSheetData();
+    }
+    function closeSheet() {
+        sheet.classList.remove('sheet-open');
+        backdrop.classList.remove('visible');
+        fab && fab.classList.remove('fab-open');
+        document.body.style.overflow = '';
+        setTimeout(() => { sheet.style.display = 'none'; }, 300);
+    }
 
-            // Create display button
-            const display = document.createElement('button');
-            display.type = 'button';
-            display.className = selectEl.className;
-            display.style.cssText = 'text-align:left;width:100%;cursor:pointer;position:relative;padding-right:2rem;';
-            const selectedOpt = selectEl.options[selectEl.selectedIndex];
-            display.textContent = selectedOpt ? selectedOpt.textContent : '';
+    fab && fab.addEventListener('click', () => {
+        (sheet.style.display === 'none' || !sheet.classList.contains('sheet-open')) ? openSheet() : closeSheet();
+    });
+    closeBtn && closeBtn.addEventListener('click', closeSheet);
+    backdrop && backdrop.addEventListener('click', closeSheet);
 
-            // Arrow indicator
-            const arrow = document.createElement('span');
-            arrow.innerHTML = '&#9662;';
-            arrow.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none;';
-            display.appendChild(arrow);
+    document.querySelectorAll('.numpad-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const key = this.dataset.key;
+            if (key === 'del') amountStr = amountStr.slice(0, -1);
+            else if (key === '.' && amountStr.includes('.')) return;
+            else if (amountStr.length >= 12) return;
+            else amountStr += key;
+            updateDisplay();
+        });
+    });
 
-            // Dropdown panel
-            const panel = document.createElement('div');
-            panel.style.cssText = 'display:none;position:absolute;z-index:60;top:100%;left:0;right:0;background:var(--bg-surface,#fff);border:1px solid var(--color-border,#e2e8f0);border-radius:12px;box-shadow:0 10px 24px rgba(15,23,42,0.12);margin-top:4px;max-height:320px;overflow:hidden;';
+    function updateDisplay() {
+        const num = parseFloat(amountStr) || 0;
+        display.textContent = '$' + num.toLocaleString('es-CO', {
+            minimumFractionDigits: amountStr.includes('.') ? (amountStr.split('.')[1] || '').length : 0,
+            maximumFractionDigits: 2
+        });
+        display.className = 'sheet-amount-display ' + sheetType;
+    }
 
-            // Search input
-            const searchInput = document.createElement('input');
-            searchInput.type = 'text';
-            searchInput.placeholder = placeholder;
-            searchInput.className = 'input-field';
-            searchInput.style.cssText = 'border:none;border-bottom:1px solid var(--color-border,#e2e8f0);border-radius:12px 12px 0 0;margin:0;font-size:0.85rem;';
+    window.setSheetType = function(type) {
+        sheetType = type;
+        document.getElementById('btnExpense').className = type === 'expense' ? 'active-expense' : '';
+        document.getElementById('btnIncome').className = type === 'income' ? 'active-income' : '';
+        submitBtn.textContent = type === 'expense' ? 'Guardar gasto' : 'Guardar ingreso';
+        submitBtn.className = 'sheet-submit-btn' + (type === 'income' ? ' income-mode' : '');
+        updateDisplay();
+    };
 
-            // Options list
-            const optList = document.createElement('div');
-            optList.style.cssText = 'max-height:260px;overflow-y:auto;';
+    async function loadSheetData() {
+        const today = new Date().toISOString().split('T')[0];
+        const dateInput = document.getElementById('sheetDate');
+        if (dateInput && !dateInput._fpInitialized) dateInput.value = today;
 
-            panel.appendChild(searchInput);
-            panel.appendChild(optList);
-            wrapper.appendChild(display);
-            wrapper.appendChild(panel);
+        const accountSel = document.getElementById('sheetAccount');
+        if (accountSel && accountSel.dataset.loaded !== 'true') {
+            try {
+                const res = await fetch('/api/accounts');
+                const data = await res.json();
+                const accounts = data.accounts || data;
+                accountSel.innerHTML = accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+                accountSel.dataset.loaded = 'true';
+            } catch(e) {}
+        }
 
-            // Hide original select
-            selectEl.style.cssText = 'position:absolute;opacity:0;pointer-events:none;height:0;width:0;';
-            wrapper.appendChild(selectEl);
-
-            function buildOptions(filter) {
-                optList.innerHTML = '';
-                const lowerFilter = (filter || '').toLowerCase();
-                const groups = selectEl.querySelectorAll('optgroup');
-                const directOptions = selectEl.querySelectorAll(':scope > option');
-
-                function addOption(opt, container) {
-                    if (lowerFilter && !opt.textContent.toLowerCase().includes(lowerFilter)) return false;
-                    const item = document.createElement('div');
-                    item.textContent = opt.textContent;
-                    item.dataset.value = opt.value;
-                    item.style.cssText = 'padding:8px 14px;cursor:pointer;font-size:0.85rem;color:var(--color-text,#0f172a);';
-                    if (opt.value === selectEl.value) {
-                        item.style.background = 'var(--table-row-hover,rgba(99,102,241,0.06))';
-                        item.style.fontWeight = '600';
-                    }
-                    item.addEventListener('mouseenter', () => item.style.background = 'var(--table-row-hover,rgba(99,102,241,0.06))');
-                    item.addEventListener('mouseleave', () => {
-                        if (opt.value !== selectEl.value) item.style.background = '';
-                    });
-                    item.addEventListener('click', () => {
-                        selectEl.value = opt.value;
-                        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-                        display.childNodes[0].textContent = opt.textContent;
-                        closePanel();
-                    });
-                    container.appendChild(item);
-                    return true;
-                }
-
-                // Direct options (not in optgroups)
-                directOptions.forEach(opt => addOption(opt, optList));
-
-                // Grouped options
-                groups.forEach(group => {
-                    const groupItems = [];
-                    const tempDiv = document.createElement('div');
-                    group.querySelectorAll('option').forEach(opt => {
-                        if (addOption(opt, tempDiv)) groupItems.push(true);
-                    });
-                    if (groupItems.length > 0) {
-                        const header = document.createElement('div');
-                        header.textContent = group.label;
-                        header.style.cssText = 'padding:8px 14px 4px;font-size:0.7rem;font-weight:700;color:var(--color-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.06em;';
-                        optList.appendChild(header);
-                        optList.appendChild(tempDiv);
-                    }
-                });
-            }
-
-            function openPanel() {
-                panel.style.display = 'block';
-                buildOptions('');
-                searchInput.value = '';
-                searchInput.focus();
-            }
-
-            function closePanel() {
-                panel.style.display = 'none';
-            }
-
-            display.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (panel.style.display === 'none') openPanel();
-                else closePanel();
-            });
-
-            searchInput.addEventListener('input', () => buildOptions(searchInput.value));
-            searchInput.addEventListener('click', (e) => e.stopPropagation());
-
-            document.addEventListener('click', (e) => {
-                if (!wrapper.contains(e.target)) closePanel();
-            });
-
-            // Sync when select value changes programmatically
-            const observer = new MutationObserver(() => {
-                const opt = selectEl.options[selectEl.selectedIndex];
-                if (opt) display.childNodes[0].textContent = opt.textContent;
-            });
-            observer.observe(selectEl, { childList: true, subtree: true });
-
-            // Also update display on change events
-            selectEl.addEventListener('change', () => {
-                const opt = selectEl.options[selectEl.selectedIndex];
-                if (opt) display.childNodes[0].textContent = opt.textContent;
-            });
-        };
-
-        /**
-         * Populates a select with grouped categories from /api/categories/groups
-         * and enhances it with search.
-         */
-        window.populateCategorySelect = async function(selectEl, options = {}) {
-            if (!selectEl) return;
-            const includeEmpty = options.includeEmpty !== false;
-            const emptyLabel = options.emptyLabel || 'Sin categoría';
-            const includeIncome = options.includeIncome || false;
-
+        const catSel = document.getElementById('sheetCategory');
+        if (catSel && catSel.dataset.loaded !== 'true') {
             try {
                 const res = await fetch('/api/categories/groups');
                 const groups = await res.json();
-
-                selectEl.innerHTML = '';
-                if (includeEmpty) {
-                    selectEl.innerHTML = `<option value="">${emptyLabel}</option>`;
-                }
-
-                const filteredGroups = includeIncome ? groups : groups.filter(g => !g.is_income);
-                filteredGroups.forEach(group => {
-                    const optgroup = document.createElement('optgroup');
-                    optgroup.label = group.name;
-                    (group.categories || []).forEach(cat => {
-                        const opt = document.createElement('option');
-                        opt.value = cat.id;
-                        opt.textContent = cat.name;
-                        optgroup.appendChild(opt);
-                    });
-                    selectEl.appendChild(optgroup);
+                let html = '<option value="">Sin categoría</option>';
+                groups.filter(g => !g.is_income).forEach(g => {
+                    html += `<optgroup label="${g.name}">`;
+                    (g.categories || []).forEach(c => { html += `<option value="${c.id}">${c.name}</option>`; });
+                    html += '</optgroup>';
                 });
+                catSel.innerHTML = html;
+                catSel.dataset.loaded = 'true';
+            } catch(e) {}
+        }
+    }
 
-                enhanceSelectWithSearch(selectEl, { placeholder: 'Buscar categoría...' });
-            } catch (error) {
-                console.error('Error loading categories:', error);
-            }
+    window.submitQuickAdd = async function() {
+        const amount = parseFloat(amountStr);
+        if (!amount || amount <= 0) { showErr('Ingresa un monto válido'); return; }
+        const accountId = parseInt(document.getElementById('sheetAccount').value);
+        if (!accountId) { showErr('Selecciona una cuenta'); return; }
+        const date = document.getElementById('sheetDate').value || new Date().toISOString().split('T')[0];
+        const payee = document.getElementById('sheetPayee').value.trim();
+        const catId = document.getElementById('sheetCategory').value;
+        const finalAmount = sheetType === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando...';
+        try {
+            const res = await fetch('/api/transactions/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ account_id: accountId, date, payee_name: payee || null, category_id: catId ? parseInt(catId) : null, amount: finalAmount, currency_id: 1, cleared: false })
+            });
+            if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Error al guardar'); }
+            amountStr = '';
+            updateDisplay();
+            document.getElementById('sheetPayee').value = '';
+            document.getElementById('sheetCategory').value = '';
+            hideErr();
+            closeSheet();
+        } catch(e) { showErr(e.message); }
+        finally { submitBtn.disabled = false; window.setSheetType(sheetType); }
+    };
+
+    function showErr(msg) { const el = document.getElementById('sheetError'); el.textContent = msg; el.style.display = 'block'; }
+    function hideErr() { document.getElementById('sheetError').style.display = 'none'; }
+})();
+</script>
+
+<script>
+/* ── Mobile sidebar toggle ──────────────────────── */
+(function() {
+    const sidebar  = document.getElementById('appSidebar');
+    const overlay  = document.getElementById('sidebarOverlay');
+    const btn      = document.getElementById('hamburgerBtn');
+
+    function open()  { sidebar.classList.add('sidebar-open'); overlay.classList.add('visible'); btn && btn.classList.add('open'); document.body.style.overflow = 'hidden'; }
+    function close() { sidebar.classList.remove('sidebar-open'); overlay.classList.remove('visible'); btn && btn.classList.remove('open'); document.body.style.overflow = ''; }
+
+    btn     && btn.addEventListener('click', () => sidebar.classList.contains('sidebar-open') ? close() : open());
+    overlay && overlay.addEventListener('click', close);
+    document.querySelectorAll('.nav-item').forEach(l => l.addEventListener('click', () => { if (window.innerWidth < 768) close(); }));
+})();
+</script>
+
+<script>
+/* ── Active nav + init ──────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+    flatpickr.localize(flatpickr.l10ns.es);
+
+    const path = window.location.pathname;
+
+    // Sidebar active
+    document.querySelectorAll('.nav-item').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && (href === path || (path === '/' && href === '/'))) link.classList.add('active');
+    });
+
+    // Mobile bottom nav active
+    document.querySelectorAll('.mobile-bottom-nav a').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && (href === path || (path === '/' && href === '/'))) link.classList.add('active');
+    });
+
+    // Mobile title
+    const mobileTitle = document.getElementById('mobileTopbarTitle');
+    if (mobileTitle) {
+        const pageTitle = document.querySelector('.page-title');
+        if (pageTitle) mobileTitle.textContent = pageTitle.textContent.trim();
+        else {
+            const dt = document.title.split(' - ')[0];
+            if (dt && dt !== 'Personal Finances') mobileTitle.textContent = dt;
+        }
+    }
+
+    // Mobile theme button sync
+    const mobileThemeBtn = document.getElementById('mobileThemeBtn');
+    if (mobileThemeBtn) {
+        const sync = () => { mobileThemeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾'; };
+        sync();
+        const orig = window.setTheme;
+        window.setTheme = function(t, p) { orig(t, p); sync(); };
+    }
+
+    window.updateThemeToggle(document.documentElement.getAttribute('data-theme') || 'light');
+
+    // System theme
+    const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    if (mq) mq.addEventListener('change', e => { if (!localStorage.getItem('theme')) window.setTheme(e.matches ? 'dark' : 'light', false); });
+
+    // ── DB Modal ────────────────────────────────────
+    const openBtn  = document.getElementById('openDbModalButton');
+    const dbModal  = document.getElementById('dbModal');
+    const closeBtns = document.querySelectorAll('[data-db-modal-close]');
+    const openModal  = () => { dbModal && dbModal.classList.remove('hidden'); document.body.classList.add('overflow-hidden'); };
+    const closeModal = () => { dbModal && dbModal.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); };
+
+    openBtn && openBtn.addEventListener('click', openModal);
+    closeBtns.forEach(b => b.addEventListener('click', closeModal));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    const dbModeSelect   = document.getElementById('dbModeSelect');
+    const dbModeStatus   = document.getElementById('dbModeStatus');
+    const dbNameInput    = document.getElementById('dbNameInput');
+    const dbCreateButton = document.getElementById('dbCreateButton');
+    const dbSelectedLabel= document.getElementById('dbSelectedLabel');
+    const dbRenameInput  = document.getElementById('dbRenameInput');
+    const dbRenameButton = document.getElementById('dbRenameButton');
+    const dbDuplicateInput  = document.getElementById('dbDuplicateInput');
+    const dbDuplicateButton = document.getElementById('dbDuplicateButton');
+    const dbDeleteButton = document.getElementById('dbDeleteButton');
+    const dbActionHint   = document.getElementById('dbActionHint');
+
+    if (dbModeSelect) {
+        let currentDbName = '';
+        const protected_ = ['primary', 'demo'];
+
+        const setStatus = (msg, err=false) => {
+            dbModeStatus.textContent = msg;
+            dbModeStatus.style.display = 'block';
+            dbModeStatus.style.color = err ? '#FB7185' : 'rgba(220,224,235,0.45)';
         };
-    </script>
 
-    {% block scripts %}{% endblock %}
+        const updateLabel = () => {
+            const o = dbModeSelect.options[dbModeSelect.selectedIndex];
+            if (dbSelectedLabel) dbSelectedLabel.textContent = o ? `Seleccionada: ${o.textContent}` : 'Seleccionada: --';
+        };
 
-    <script>
-        // ── Sidebar responsivo en móvil ──────────────────────────────
-        (function () {
-            const sidebar  = document.querySelector('aside');
-            const overlay  = document.getElementById('sidebarOverlay');
-            const btn      = document.getElementById('hamburgerBtn');
-
-            function openSidebar() {
-                sidebar.classList.add('sidebar-open');
-                overlay.classList.add('visible');
-                btn && btn.classList.add('open');
-                document.body.style.overflow = 'hidden';
-            }
-            function closeSidebar() {
-                sidebar.classList.remove('sidebar-open');
-                overlay.classList.remove('visible');
-                btn && btn.classList.remove('open');
-                document.body.style.overflow = '';
-            }
-
-            btn     && btn.addEventListener('click', function () {
-                sidebar.classList.contains('sidebar-open') ? closeSidebar() : openSidebar();
+        const setActionsDisabled = (dis) => {
+            [dbRenameInput, dbRenameButton, dbDeleteButton].forEach(el => {
+                if (!el) return;
+                el.disabled = dis;
+                el.style.opacity = dis ? '0.4' : '1';
             });
-            overlay && overlay.addEventListener('click', closeSidebar);
+            if (dbActionHint) dbActionHint.textContent = dis ? 'Primary/Demo no se pueden modificar' : 'Solo bases personalizadas';
+        };
 
-            // Cerrar al navegar (en móvil)
-            document.querySelectorAll('.nav-item').forEach(function (link) {
-                link.addEventListener('click', function () {
-                    if (window.innerWidth < 768) closeSidebar();
-                });
+        fetch('/api/admin/databases').then(r => r.json()).then(data => {
+            dbModeSelect.innerHTML = '';
+            (data.databases || []).forEach(db => {
+                const o = document.createElement('option');
+                o.value = db.name; o.textContent = db.label || db.name;
+                dbModeSelect.appendChild(o);
             });
-        })();
-    </script>
-
-    <script>
-        // Marcar el item activo en la navegación
-        document.addEventListener('DOMContentLoaded', function() {
-            const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('.nav-item');
-
-            navLinks.forEach(link => {
-                const href = link.getAttribute('href');
-                if (href === currentPath || (currentPath === '/' && href === '/')) {
-                    link.classList.add('active');
-                }
-            });
-
-            // Mobile bottom nav active state
-            document.querySelectorAll('.mobile-bottom-nav a').forEach(link => {
-                const href = link.getAttribute('href');
-                if (href === currentPath || (currentPath === '/' && href === '/')) {
-                    link.classList.add('active');
-                }
-            });
-
-            const dbModeSelect = document.getElementById('dbModeSelect');
-            const dbModeStatus = document.getElementById('dbModeStatus');
-            const dbNameInput = document.getElementById('dbNameInput');
-            const dbCreateButton = document.getElementById('dbCreateButton');
-            const dbSelectedLabel = document.getElementById('dbSelectedLabel');
-            const dbRenameInput = document.getElementById('dbRenameInput');
-            const dbRenameButton = document.getElementById('dbRenameButton');
-            const dbDuplicateInput = document.getElementById('dbDuplicateInput');
-            const dbDuplicateButton = document.getElementById('dbDuplicateButton');
-            const dbDeleteButton = document.getElementById('dbDeleteButton');
-            const dbActionHint = document.getElementById('dbActionHint');
-            const openDbModalButton = document.getElementById('openDbModalButton');
-            const dbModal = document.getElementById('dbModal');
-            const dbModalCloseButtons = document.querySelectorAll('[data-db-modal-close]');
-            const themeMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-            window.updateThemeToggle(document.documentElement.getAttribute('data-theme') || 'light');
-
-            if (themeMediaQuery) {
-                themeMediaQuery.addEventListener('change', (event) => {
-                    if (localStorage.getItem('theme')) return;
-                    window.setTheme(event.matches ? 'dark' : 'light', false);
-                });
-            }
-
-            const openDbModal = () => {
-                if (!dbModal) return;
-                dbModal.classList.remove('hidden');
-                document.body.classList.add('overflow-hidden');
-            };
-
-            const closeDbModal = () => {
-                if (!dbModal) return;
-                dbModal.classList.add('hidden');
-                document.body.classList.remove('overflow-hidden');
-            };
-
-            if (openDbModalButton) {
-                openDbModalButton.addEventListener('click', openDbModal);
-            }
-
-            dbModalCloseButtons.forEach(button => {
-                button.addEventListener('click', closeDbModal);
-            });
-
-            document.addEventListener('keydown', event => {
-                if (event.key === 'Escape') {
-                    closeDbModal();
-                }
-            });
-
-            if (dbModeSelect) {
-                const updateStatus = (message, isError = false) => {
-                    dbModeStatus.textContent = message;
-                    dbModeStatus.classList.remove('hidden');
-                    dbModeStatus.classList.toggle('text-red-300', isError);
-                    dbModeStatus.classList.toggle('text-neutral-400', !isError);
-                };
-
-                let currentDbName = '';
-                const protectedDatabases = ['primary', 'demo'];
-
-                const updateSelectedLabel = () => {
-                    if (!dbSelectedLabel) {
-                        return;
-                    }
-                    const selectedOption = dbModeSelect.options[dbModeSelect.selectedIndex];
-                    dbSelectedLabel.textContent = selectedOption
-                        ? `Seleccionada: ${selectedOption.textContent}`
-                        : 'Seleccionada: --';
-                };
-
-                const setActionDisabled = (isDisabled) => {
-                    if (dbRenameInput) dbRenameInput.disabled = isDisabled;
-                    if (dbRenameButton) dbRenameButton.disabled = isDisabled;
-                    if (dbDeleteButton) dbDeleteButton.disabled = isDisabled;
-                    [dbRenameInput, dbRenameButton, dbDeleteButton].forEach(element => {
-                        if (!element) return;
-                        element.classList.toggle('opacity-50', isDisabled);
-                        element.classList.toggle('cursor-not-allowed', isDisabled);
-                    });
-                };
-
-                const updateActionAvailability = (name) => {
-                    const isProtected = protectedDatabases.includes(name);
-                    setActionDisabled(isProtected);
-                    if (dbActionHint) {
-                        dbActionHint.textContent = isProtected
-                            ? 'Principal/Demo no se pueden renombrar ni eliminar'
-                            : 'Disponible para bases personalizadas';
-                    }
-                };
-
-                fetch('/api/admin/databases')
-                    .then(response => response.json())
-                    .then(data => {
-                        dbModeSelect.innerHTML = '';
-                        if (data.databases) {
-                            data.databases.forEach(db => {
-                                const option = document.createElement('option');
-                                option.value = db.name;
-                                option.textContent = db.label || db.name;
-                                dbModeSelect.appendChild(option);
-                            });
-                        }
-                        if (data.current) {
-                            dbModeSelect.value = data.current;
-                            currentDbName = data.current;
-                        }
-                        updateSelectedLabel();
-                        updateActionAvailability(currentDbName);
-                    });
-
-                dbModeSelect.addEventListener('change', async () => {
-                    const selectedMode = dbModeSelect.value;
-                    currentDbName = selectedMode;
-                    updateSelectedLabel();
-                    updateActionAvailability(selectedMode);
-                    updateStatus('Aplicando cambio...');
-
-                    try {
-                        const response = await fetch('/api/admin/databases/select', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: selectedMode })
-                        });
-
-                        if (!response.ok) {
-                            throw new Error('No se pudo actualizar el modo');
-                        }
-
-                        updateStatus('Base actualizada. Recargando...');
-                        window.location.reload();
-                    } catch (error) {
-                        updateStatus('Error al actualizar la base', true);
-                    }
-                });
-
-                if (dbCreateButton) {
-                    dbCreateButton.addEventListener('click', async () => {
-                        const rawName = dbNameInput.value.trim();
-                        if (!rawName) {
-                            updateStatus('Ingresa un nombre para crear la base', true);
-                            return;
-                        }
-                        updateStatus('Creando base...');
-                        try {
-                            const response = await fetch('/api/admin/databases/create', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name: rawName })
-                            });
-                            if (!response.ok) {
-                                const errorBody = await response.json();
-                                throw new Error(errorBody.detail || 'No se pudo crear la base');
-                            }
-                            updateStatus('Base creada. Recargando...');
-                            window.location.reload();
-                        } catch (error) {
-                            updateStatus(error.message || 'Error al crear la base', true);
-                        }
-                    });
-                }
-
-                if (dbRenameButton) {
-                    dbRenameButton.addEventListener('click', async () => {
-                        const newName = dbRenameInput.value.trim();
-                        if (!newName) {
-                            updateStatus('Ingresa el nuevo nombre', true);
-                            return;
-                        }
-                        updateStatus('Renombrando base...');
-                        try {
-                            const response = await fetch('/api/admin/databases/rename', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name: currentDbName, new_name: newName })
-                            });
-                            if (!response.ok) {
-                                const errorBody = await response.json();
-                                throw new Error(errorBody.detail || 'No se pudo renombrar la base');
-                            }
-                            updateStatus('Base renombrada. Recargando...');
-                            window.location.reload();
-                        } catch (error) {
-                            updateStatus(error.message || 'Error al renombrar la base', true);
-                        }
-                    });
-                }
-
-                if (dbDuplicateButton) {
-                    dbDuplicateButton.addEventListener('click', async () => {
-                        const targetName = dbDuplicateInput.value.trim();
-                        if (!targetName) {
-                            updateStatus('Ingresa el nombre para duplicar', true);
-                            return;
-                        }
-                        updateStatus('Duplicando base...');
-                        try {
-                            const response = await fetch('/api/admin/databases/duplicate', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ source: currentDbName, target: targetName })
-                            });
-                            if (!response.ok) {
-                                const errorBody = await response.json();
-                                throw new Error(errorBody.detail || 'No se pudo duplicar la base');
-                            }
-                            updateStatus('Base duplicada. Recargando...');
-                            window.location.reload();
-                        } catch (error) {
-                            updateStatus(error.message || 'Error al duplicar la base', true);
-                        }
-                    });
-                }
-
-                if (dbDeleteButton) {
-                    dbDeleteButton.addEventListener('click', async () => {
-                        if (!currentDbName) {
-                            updateStatus('No hay base seleccionada', true);
-                            return;
-                        }
-                        if (!confirm(`¿Eliminar la base "${currentDbName}"?`)) {
-                            return;
-                        }
-                        updateStatus('Eliminando base...');
-                        try {
-                            const response = await fetch('/api/admin/databases/delete', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ name: currentDbName })
-                            });
-                            if (!response.ok) {
-                                const errorBody = await response.json();
-                                throw new Error(errorBody.detail || 'No se pudo eliminar la base');
-                            }
-                            updateStatus('Base eliminada. Recargando...');
-                            window.location.reload();
-                        } catch (error) {
-                            updateStatus(error.message || 'Error al eliminar la base', true);
-                        }
-                    });
-                }
-            }
-        });
-    </script>
-
-    <!-- Flatpickr auto-init for all date/month inputs -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            flatpickr.localize(flatpickr.l10ns.es);
-
-            // Initialize all type="date" inputs
-            document.querySelectorAll('input[type="date"]').forEach(function(input) {
-                input.type = 'text';
-                input.setAttribute('autocomplete', 'off');
-                flatpickr(input, {
-                    dateFormat: 'Y-m-d',
-                    altInput: true,
-                    altFormat: 'j M Y',
-                    allowInput: true,
-                    defaultDate: input.value || null,
-                    onChange: function(selectedDates, dateStr) {
-                        // Trigger change event for existing handlers
-                        input.value = dateStr;
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
-            });
-
-            // Initialize all type="month" inputs
-            document.querySelectorAll('input[type="month"]').forEach(function(input) {
-                input.type = 'text';
-                input.setAttribute('autocomplete', 'off');
-                flatpickr(input, {
-                    dateFormat: 'Y-m',
-                    altInput: true,
-                    altFormat: 'M Y',
-                    allowInput: true,
-                    defaultDate: input.value || null,
-                    plugins: [],
-                    onChange: function(selectedDates, dateStr) {
-                        input.value = dateStr;
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
-            });
+            if (data.current) { dbModeSelect.value = data.current; currentDbName = data.current; }
+            updateLabel(); setActionsDisabled(protected_.includes(currentDbName));
         });
 
-        // Re-initialize flatpickr on dynamically added inputs
-        window.initFlatpickr = function(container) {
-            container = container || document;
-            container.querySelectorAll('input[type="date"]:not(.flatpickr-input)').forEach(function(input) {
-                input.type = 'text';
-                input.setAttribute('autocomplete', 'off');
-                flatpickr(input, {
-                    dateFormat: 'Y-m-d',
-                    altInput: true,
-                    altFormat: 'j M Y',
-                    allowInput: true,
-                    defaultDate: input.value || null,
-                    onChange: function(selectedDates, dateStr) {
-                        input.value = dateStr;
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
-            });
-        };
-    </script>
+        dbModeSelect.addEventListener('change', async () => {
+            currentDbName = dbModeSelect.value;
+            updateLabel(); setActionsDisabled(protected_.includes(currentDbName));
+            setStatus('Aplicando...');
+            try {
+                const r = await fetch('/api/admin/databases/select', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: currentDbName}) });
+                if (!r.ok) throw new Error('Error');
+                setStatus('Recargando...');
+                window.location.reload();
+            } catch { setStatus('Error al actualizar', true); }
+        });
+
+        dbCreateButton && dbCreateButton.addEventListener('click', async () => {
+            const name = dbNameInput.value.trim();
+            if (!name) { setStatus('Ingresa un nombre', true); return; }
+            setStatus('Creando...');
+            try {
+                const r = await fetch('/api/admin/databases/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name}) });
+                if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Error'); }
+                setStatus('Creada. Recargando...'); window.location.reload();
+            } catch(e) { setStatus(e.message, true); }
+        });
+
+        dbRenameButton && dbRenameButton.addEventListener('click', async () => {
+            const newName = dbRenameInput.value.trim();
+            if (!newName) { setStatus('Ingresa el nuevo nombre', true); return; }
+            setStatus('Renombrando...');
+            try {
+                const r = await fetch('/api/admin/databases/rename', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: currentDbName, new_name: newName}) });
+                if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Error'); }
+                setStatus('Renombrada. Recargando...'); window.location.reload();
+            } catch(e) { setStatus(e.message, true); }
+        });
+
+        dbDuplicateButton && dbDuplicateButton.addEventListener('click', async () => {
+            const target = dbDuplicateInput.value.trim();
+            if (!target) { setStatus('Ingresa el nombre de destino', true); return; }
+            setStatus('Duplicando...');
+            try {
+                const r = await fetch('/api/admin/databases/duplicate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({source: currentDbName, target}) });
+                if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Error'); }
+                setStatus('Duplicada. Recargando...'); window.location.reload();
+            } catch(e) { setStatus(e.message, true); }
+        });
+
+        dbDeleteButton && dbDeleteButton.addEventListener('click', async () => {
+            if (!currentDbName || !confirm(`¿Eliminar "${currentDbName}"?`)) return;
+            setStatus('Eliminando...');
+            try {
+                const r = await fetch('/api/admin/databases/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name: currentDbName}) });
+                if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Error'); }
+                setStatus('Eliminada. Recargando...'); window.location.reload();
+            } catch(e) { setStatus(e.message, true); }
+        });
+    }
+
+    // ── Flatpickr auto-init ─────────────────────────
+    document.querySelectorAll('input[type="date"]').forEach(function(input) {
+        input.type = 'text';
+        input.setAttribute('autocomplete', 'off');
+        flatpickr(input, {
+            dateFormat: 'Y-m-d', altInput: true, altFormat: 'j M Y', allowInput: true,
+            defaultDate: input.value || null,
+            onChange: function(_, dateStr) { input.value = dateStr; input.dispatchEvent(new Event('change', {bubbles:true})); }
+        });
+    });
+
+    document.querySelectorAll('input[type="month"]').forEach(function(input) {
+        input.type = 'text';
+        input.setAttribute('autocomplete', 'off');
+        flatpickr(input, {
+            dateFormat: 'Y-m', altInput: true, altFormat: 'M Y', allowInput: true,
+            defaultDate: input.value || null,
+            onChange: function(_, dateStr) { input.value = dateStr; input.dispatchEvent(new Event('change', {bubbles:true})); }
+        });
+    });
+});
+
+window.initFlatpickr = function(container) {
+    container = container || document;
+    container.querySelectorAll('input[type="date"]:not(.flatpickr-input)').forEach(function(input) {
+        input.type = 'text';
+        input.setAttribute('autocomplete', 'off');
+        flatpickr(input, {
+            dateFormat: 'Y-m-d', altInput: true, altFormat: 'j M Y', allowInput: true,
+            defaultDate: input.value || null,
+            onChange: function(_, dateStr) { input.value = dateStr; input.dispatchEvent(new Event('change', {bubbles:true})); }
+        });
+    });
+};
+</script>
+
+{% block scripts %}{% endblock %}
 </body>
 </html>

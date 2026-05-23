@@ -1,267 +1,294 @@
 """
-Exchange Rate Service
-Fetches USD-COP exchange rates from public APIs with intelligent fallback.
+Exchange Rate Service — multi-currency support.
+
+Rates are stored as USD→X (1 USD = X foreign), with USD used as the universal
+pivot for cross-currency conversion.
+
+Backward-compatible API:
+  get_current_exchange_rate(db)  → float (USD→base_currency rate, or USD→COP fallback)
+  get_rate_for_date(db, date)    → float (same, for a historical date)
+  convert_currency(amount, from_code, to_code, db, rate_date) → float
 """
 from datetime import date, timedelta
+from typing import Optional
+import logging
+
+import requests
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-import requests
-from typing import Optional
 
-from finance_app.models import ExchangeRate
+from finance_app.models import ExchangeRate, Currency
 from finance_app.config import EXCHANGE_RATE_API
 
-MIN_USD_COP_RATE = 100.0
-MAX_USD_COP_RATE = 100000.0
+logger = logging.getLogger(__name__)
+
+_PLAUSIBLE_MIN = 1e-6
+_PLAUSIBLE_MAX = 1e9
 
 
-def is_rate_plausible(rate: Optional[float]) -> bool:
-    if rate is None:
-        return False
-    return MIN_USD_COP_RATE <= rate <= MAX_USD_COP_RATE
+# ---------------------------------------------------------------------------
+# Low-level API fetch
+# ---------------------------------------------------------------------------
 
-
-def fetch_rate_from_api(api_url: str, timeout: int = 5) -> Optional[float]:
+def _fetch_usd_rates_from_api(api_url: str, timeout: int = 5) -> Optional[dict[str, float]]:
     """
-    Attempt to fetch the USD->COP exchange rate from a public API.
-
-    Low-level helper that makes the actual HTTP request.
-    Supports multiple response formats from different APIs.
-
-    Args:
-        api_url (str): Full API URL (e.g. 'https://api.exchangerate-api.com/v4/latest/USD').
-        timeout (int): Seconds before timeout (default: 5).
-
-    Returns:
-        Optional[float]: USD->COP rate if successful, None on failure.
-
-    Supported APIs:
-        - exchangerate-api.com: format {"rates": {"COP": 3850.5}}
-        - exchangerate.host: format {"rates": {"COP": 3850.5}}
-
-    Error handling:
-        - Connection timeout → None
-        - Status code != 200 → None
-        - Invalid JSON → None
-        - Unexpected format → None
-
-    Example:
-        >>> rate = fetch_rate_from_api('https://api.exchangerate-api.com/v4/latest/USD')
-        >>> print(rate)
-        3850.5
+    Fetch all rates relative to USD from a public API.
+    Returns {currency_code: rate} where 1 USD = rate X, or None on failure.
     """
     try:
         response = requests.get(api_url, timeout=timeout)
-        if response.status_code == 200:
-            data = response.json()
-
-            # Ambas APIs usan formato {"rates": {"COP": ...}}
-            if 'rates' in data and 'COP' in data['rates']:
-                return float(data['rates']['COP'])
-
-            # Formato alternativo: {"conversion_rates": {"COP": ...}}
-            if 'conversion_rates' in data and 'COP' in data['conversion_rates']:
-                return float(data['conversion_rates']['COP'])
-
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        for key in ('rates', 'conversion_rates'):
+            if key in data and isinstance(data[key], dict):
+                return {k: float(v) for k, v in data[key].items() if isinstance(v, (int, float))}
     except Exception as e:
-        print(f"⚠️  Error fetching from {api_url}: {str(e)}")
-
+        logger.warning("Error fetching rates from %s: %s", api_url, e)
     return None
 
 
-def get_average_recent_rates(db: Session, days: int = 5) -> Optional[float]:
+# ---------------------------------------------------------------------------
+# DB helpers
+# ---------------------------------------------------------------------------
+
+def _active_currency_codes(db: Session) -> list[str]:
+    """Return codes of all non-base currencies currently in the DB."""
+    currencies = db.query(Currency).all()
+    return [c.code for c in currencies if not c.is_base]
+
+
+def _base_currency_code(db: Session) -> str:
+    base = db.query(Currency).filter_by(is_base=True).first()
+    return base.code if base else 'COP'
+
+
+def _store_rate(db: Session, from_code: str, to_code: str, rate: float, today: date, source: str):
+    """Upsert a rate record for today."""
+    from sqlalchemy.exc import IntegrityError
+
+    db.expire_all()
+    existing = db.query(ExchangeRate).filter_by(
+        from_currency=from_code, to_currency=to_code, date=today
+    ).first()
+    if existing:
+        existing.rate = rate
+        existing.source = source
+        db.commit()
+        return
+
+    try:
+        db.add(ExchangeRate(
+            from_currency=from_code,
+            to_currency=to_code,
+            rate=rate,
+            date=today,
+            source=source,
+        ))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.query(ExchangeRate).filter_by(
+            from_currency=from_code, to_currency=to_code, date=today
+        ).first()
+        if existing:
+            existing.rate = rate
+            existing.source = source
+            db.commit()
+
+
+def _get_stored_rate(db: Session, from_code: str, to_code: str, target_date: date) -> Optional[float]:
+    """Look up an exact stored rate for a date."""
+    r = db.query(ExchangeRate).filter_by(
+        from_currency=from_code, to_currency=to_code, date=target_date
+    ).first()
+    return r.rate if r and _PLAUSIBLE_MIN <= r.rate <= _PLAUSIBLE_MAX else None
+
+
+def _get_nearest_stored_rate(db: Session, from_code: str, to_code: str, before: date) -> Optional[float]:
+    """Find the most recent stored rate on or before `before`."""
+    r = (
+        db.query(ExchangeRate)
+        .filter(
+            ExchangeRate.from_currency == from_code,
+            ExchangeRate.to_currency == to_code,
+            ExchangeRate.date <= before,
+        )
+        .order_by(desc(ExchangeRate.date))
+        .first()
+    )
+    return r.rate if r and _PLAUSIBLE_MIN <= r.rate <= _PLAUSIBLE_MAX else None
+
+
+def _average_recent_rate(db: Session, from_code: str, to_code: str, days: int = 5) -> Optional[float]:
+    recent = (
+        db.query(ExchangeRate)
+        .filter_by(from_currency=from_code, to_currency=to_code)
+        .order_by(desc(ExchangeRate.date))
+        .limit(days)
+        .all()
+    )
+    vals = [r.rate for r in recent if _PLAUSIBLE_MIN <= r.rate <= _PLAUSIBLE_MAX]
+    return sum(vals) / len(vals) if vals else None
+
+
+# ---------------------------------------------------------------------------
+# Sync all rates on startup
+# ---------------------------------------------------------------------------
+
+def sync_all_currency_rates(db: Session, force: bool = False) -> None:
     """
-    Calculate the average of the last N stored rates.
+    Fetch today's rates for all non-base currencies in the DB.
+    Uses a single API call (USD base) and stores each pair.
+    Called on app startup.
     """
-    recent_rates = db.query(ExchangeRate).filter(
-        ExchangeRate.from_currency == 'USD',
-        ExchangeRate.to_currency == 'COP'
-    ).order_by(desc(ExchangeRate.date)).limit(days).all()
+    today = date.today()
+    non_base_codes = _active_currency_codes(db)
+    if not non_base_codes:
+        return
 
-    valid_rates = [r.rate for r in recent_rates if is_rate_plausible(r.rate)]
+    # Check if we already have today's rates for all currencies
+    if not force:
+        missing = [
+            code for code in non_base_codes
+            if _get_stored_rate(db, 'USD', code, today) is None
+        ]
+        if not missing:
+            logger.info("Exchange rates already up to date for today.")
+            return
+    else:
+        missing = non_base_codes
 
-    if valid_rates:
-        avg = sum(valid_rates) / len(valid_rates)
-        print(f"📊 Using average of last {len(recent_rates)} rates: {avg:.2f}")
-        return avg
+    config = EXCHANGE_RATE_API
+    all_rates: Optional[dict[str, float]] = None
 
-    return None
+    # Try primary API
+    for attempt in range(config['retries']):
+        all_rates = _fetch_usd_rates_from_api(config['primary'], config['timeout'])
+        if all_rates:
+            break
+        logger.warning("Primary exchange rate API attempt %d failed", attempt + 1)
+
+    # Try fallback API
+    if not all_rates:
+        for attempt in range(config['retries']):
+            all_rates = _fetch_usd_rates_from_api(config['fallback'], config['timeout'])
+            if all_rates:
+                break
+            logger.warning("Fallback exchange rate API attempt %d failed", attempt + 1)
+
+    source = 'api_primary' if all_rates else 'average'
+
+    for code in missing:
+        if all_rates and code in all_rates:
+            rate = all_rates[code]
+            if _PLAUSIBLE_MIN <= rate <= _PLAUSIBLE_MAX:
+                _store_rate(db, 'USD', code, rate, today, source)
+                logger.info("Stored rate USD→%s = %.4f", code, rate)
+                continue
+
+        # Fallback: use historical average or default
+        avg = _average_recent_rate(db, 'USD', code)
+        if avg:
+            _store_rate(db, 'USD', code, avg, today, 'average')
+            logger.info("Stored average rate USD→%s = %.4f", code, avg)
+        else:
+            from finance_app.config import DEFAULT_EXCHANGE_RATES_TO_USD
+            default = DEFAULT_EXCHANGE_RATES_TO_USD.get(code, 1.0)
+            _store_rate(db, 'USD', code, default, today, 'default')
+            logger.info("Stored default rate USD→%s = %.4f", code, default)
+
+
+# ---------------------------------------------------------------------------
+# Generic rate lookup (USD pivot)
+# ---------------------------------------------------------------------------
+
+def get_rate(
+    db: Session,
+    from_code: str,
+    to_code: str,
+    target_date: Optional[date] = None,
+) -> float:
+    """
+    Get the exchange rate to convert 1 unit of from_code into to_code.
+    Uses USD as a universal pivot:
+        rate(A→B) = rate(USD→B) / rate(USD→A)
+
+    Falls back through: DB cache → API → historical average → config default.
+    """
+    if from_code == to_code:
+        return 1.0
+
+    lookup_date = target_date or date.today()
+
+    def _usd_to(code: str) -> float:
+        if code == 'USD':
+            return 1.0
+        # Exact date
+        r = _get_stored_rate(db, 'USD', code, lookup_date)
+        if r:
+            return r
+        # Nearest historical
+        r = _get_nearest_stored_rate(db, 'USD', code, lookup_date)
+        if r:
+            return r
+        # Live fetch (only for today)
+        if not target_date or target_date == date.today():
+            config = EXCHANGE_RATE_API
+            for url in (config['primary'], config['fallback']):
+                all_rates = _fetch_usd_rates_from_api(url, config['timeout'])
+                if all_rates and code in all_rates:
+                    rate = all_rates[code]
+                    if _PLAUSIBLE_MIN <= rate <= _PLAUSIBLE_MAX:
+                        _store_rate(db, 'USD', code, rate, date.today(), 'api_primary')
+                        return rate
+        # Average
+        avg = _average_recent_rate(db, 'USD', code)
+        if avg:
+            return avg
+        # Hard default
+        from finance_app.config import DEFAULT_EXCHANGE_RATES_TO_USD
+        return DEFAULT_EXCHANGE_RATES_TO_USD.get(code, 1.0)
+
+    usd_to_from = _usd_to(from_code)
+    usd_to_to   = _usd_to(to_code)
+
+    if usd_to_from <= 0:
+        return 1.0
+
+    return usd_to_to / usd_to_from
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible public API
+# ---------------------------------------------------------------------------
+
+def _usd_cop_target(db: Session) -> str:
+    """Return the non-USD currency code to use as the COP-equivalent target.
+
+    When COP is the base currency (is_base=True) it won't appear in the non-base
+    list, so we fall back to _base_currency_code() before scanning non-base currencies.
+    """
+    base = _base_currency_code(db)
+    if base != 'USD':
+        return base  # e.g. 'COP'
+    non_base = _active_currency_codes(db)
+    return 'COP' if 'COP' in non_base else (non_base[0] if non_base else 'COP')
 
 
 def get_current_exchange_rate(db: Session, force_fetch: bool = False) -> float:
     """
-    Get the current USD->COP exchange rate using a 5-level fallback strategy.
-
-    Main function for obtaining exchange rates. Implements a robust fallback chain
-    that ALWAYS returns a valid rate, even when public APIs are unavailable.
-
-    5-LEVEL STRATEGY (in order):
-
-        Level 1 - TODAY'S CACHE:
-            Already fetched today? Use it (fast, no API calls).
-            Skipped if force_fetch=True.
-
-        Level 2 - PRIMARY API:
-            Try exchangerate-api.com (2 attempts).
-            On success → save to DB and return.
-
-        Level 3 - FALLBACK API:
-            Try exchangerate.host (2 attempts).
-            On success → save to DB and return.
-
-        Level 4 - HISTORICAL AVERAGE:
-            Compute average of the last 5 rates in DB.
-            If found → save as today's rate.
-
-        Level 5 - DEFAULT RATE:
-            Use configured default rate (4000 COP per USD).
-            Last resort if everything else fails.
-
-    Args:
-        db (Session): Database session.
-        force_fetch (bool): If True, ignore cache and force an API call.
-
-    Returns:
-        float: USD->COP exchange rate (always returns a valid value).
-
-    Configuration:
-        API URLs, timeouts and retries are set in config.py:
-        EXCHANGE_RATE_API = {
-            'primary': 'https://api.exchangerate-api.com/v4/latest/USD',
-            'fallback': 'https://api.exchangerate.host/latest?base=USD',
-            'timeout': 5,
-            'retries': 2,
-            'fallback_average_days': 5,
-            'default_rate': 4000
-        }
-
-    Side effects:
-        - Saves the successful rate to the exchange_rates table with a source tag.
-        - Prints informational logs to stdout.
-
-    Notes:
-        - This function ALWAYS returns a value and never raises.
-        - Cache the result if called multiple times within a single request.
+    Returns the USD→COP rate (or USD→base_currency if COP is not present).
+    Backward-compatible shim used throughout budget_service, etc.
     """
-    config = EXCHANGE_RATE_API
-    today = date.today()
-
-    # 1. Verificar si ya tenemos tasa para hoy
-    if not force_fetch:
-        existing_rate = db.query(ExchangeRate).filter(
-            ExchangeRate.date == today,
-            ExchangeRate.from_currency == 'USD',
-            ExchangeRate.to_currency == 'COP'
-        ).first()
-
-        if existing_rate and is_rate_plausible(existing_rate.rate):
-            print(f"✓ Using today's rate from database: {existing_rate.rate}")
-            return existing_rate.rate
-        elif existing_rate:
-            print(f"⚠️  Ignoring implausible rate stored for today: {existing_rate.rate}")
-
-    # 2. Intentar API primaria
-    print(f"🔄 Fetching rate from primary API...")
-    for attempt in range(config['retries']):
-        rate = fetch_rate_from_api(config['primary'], config['timeout'])
-        if rate and is_rate_plausible(rate):
-            # Guardar en base de datos
-            exchange_rate = ExchangeRate(
-                from_currency='USD',
-                to_currency='COP',
-                rate=rate,
-                date=today,
-                source='api_primary'
-            )
-            db.add(exchange_rate)
-            db.commit()
-            print(f"✓ Got rate from primary API: {rate}")
-            return rate
-        if rate:
-            print(f"⚠️  Ignoring implausible rate from primary API: {rate}")
-        print(f"  Attempt {attempt + 1} failed")
-
-    # 3. Intentar API de respaldo
-    print(f"🔄 Fetching rate from fallback API...")
-    for attempt in range(config['retries']):
-        rate = fetch_rate_from_api(config['fallback'], config['timeout'])
-        if rate and is_rate_plausible(rate):
-            exchange_rate = ExchangeRate(
-                from_currency='USD',
-                to_currency='COP',
-                rate=rate,
-                date=today,
-                source='api_fallback'
-            )
-            db.add(exchange_rate)
-            db.commit()
-            print(f"✓ Got rate from fallback API: {rate}")
-            return rate
-        if rate:
-            print(f"⚠️  Ignoring implausible rate from fallback API: {rate}")
-        print(f"  Attempt {attempt + 1} failed")
-
-    # 4. Usar promedio de últimos días
-    print(f"⚠️  All APIs failed. Trying average of recent rates...")
-    avg_rate = get_average_recent_rates(db, config['fallback_average_days'])
-    if avg_rate and is_rate_plausible(avg_rate):
-        # Guardar el promedio como tasa del día
-        exchange_rate = ExchangeRate(
-            from_currency='USD',
-            to_currency='COP',
-            rate=avg_rate,
-            date=today,
-            source='average'
-        )
-        db.add(exchange_rate)
-        db.commit()
-        return avg_rate
-
-    # 5. Usar tasa por defecto
-    print(f"⚠️  Using default rate: {config['default_rate']}")
-    exchange_rate = ExchangeRate(
-        from_currency='USD',
-        to_currency='COP',
-        rate=config['default_rate'],
-        date=today,
-        source='default'
-    )
-    db.add(exchange_rate)
-    db.commit()
-    return config['default_rate']
+    if force_fetch:
+        sync_all_currency_rates(db, force=True)
+    return get_rate(db, 'USD', _usd_cop_target(db))
 
 
 def get_rate_for_date(db: Session, target_date: date) -> float:
-    """
-    Get the exchange rate for a specific date.
-    If not found, falls back to the nearest earlier rate.
-    """
-    # Buscar tasa exacta para esa fecha
-    rate = db.query(ExchangeRate).filter(
-        ExchangeRate.date == target_date,
-        ExchangeRate.from_currency == 'USD',
-        ExchangeRate.to_currency == 'COP'
-    ).first()
-
-    if rate and is_rate_plausible(rate.rate):
-        return rate.rate
-    elif rate:
-        print(f"⚠️  Ignoring implausible historical rate for {target_date}: {rate.rate}")
-
-    # Buscar la tasa más cercana anterior
-    rate = db.query(ExchangeRate).filter(
-        ExchangeRate.date < target_date,
-        ExchangeRate.from_currency == 'USD',
-        ExchangeRate.to_currency == 'COP'
-    ).order_by(desc(ExchangeRate.date)).first()
-
-    if rate and is_rate_plausible(rate.rate):
-        return rate.rate
-    elif rate:
-        print(f"⚠️  Ignoring implausible historical rate before {target_date}: {rate.rate}")
-
-    # Si no hay ninguna tasa histórica, obtener la actual
-    return get_current_exchange_rate(db)
+    """USD→COP (or USD→base_currency) rate for a historical date. Backward-compatible."""
+    return get_rate(db, 'USD', _usd_cop_target(db), target_date)
 
 
 def convert_currency(
@@ -269,65 +296,166 @@ def convert_currency(
     from_currency: str,
     to_currency: str,
     db: Session,
-    rate_date: Optional[date] = None
+    rate_date: Optional[date] = None,
 ) -> float:
-    """
-    Convert a monetary amount from one currency to another using the exchange rate.
-
-    Main conversion function used throughout the system. Supports current or
-    historical rate conversion, and short-circuits when source and target are the same.
-
-    Args:
-        amount (float): Amount to convert.
-        from_currency (str): Source currency code ('USD' or 'COP').
-        to_currency (str): Target currency code ('USD' or 'COP').
-        db (Session): Database session (used to fetch the rate).
-        rate_date (Optional[date]): Date for a historical rate; None = current rate.
-
-    Returns:
-        float: Converted amount in the target currency.
-
-    Examples:
-        # USD to COP (current rate)
-        >>> convert_currency(100, 'USD', 'COP', db)
-        400000.0
-
-        # COP to USD (current rate)
-        >>> convert_currency(400000, 'COP', 'USD', db)
-        100.0
-
-        # Same currency (returns amount unchanged)
-        >>> convert_currency(100, 'USD', 'USD', db)
-        100.0
-
-        # Historical rate for January 1st
-        >>> convert_currency(100, 'USD', 'COP', db, rate_date=date(2025, 1, 1))
-        385000.0
-
-    Formulas:
-        USD → COP: amount * rate
-        COP → USD: amount / rate
-
-    Notes:
-        - Currently only supports USD and COP.
-        - Other currency pairs return the amount unchanged.
-        - Internally calls get_current_exchange_rate() or get_rate_for_date().
-    """
+    """Convert amount from from_currency to to_currency. Supports any pair."""
     if from_currency == to_currency:
         return amount
+    rate = get_rate(db, from_currency, to_currency, rate_date)
+    return amount * rate
 
-    # Obtener tasa (actual o histórica)
-    if rate_date:
-        rate = get_rate_for_date(db, rate_date)
-    else:
-        rate = get_current_exchange_rate(db)
 
-    # Convertir
-    if from_currency == 'USD' and to_currency == 'COP':
-        return amount * rate
-    elif from_currency == 'COP' and to_currency == 'USD':
-        if rate <= 0:
-            return amount
-        return amount / rate
+# ---------------------------------------------------------------------------
+# Legacy single-pair helpers (kept for any direct callers)
+# ---------------------------------------------------------------------------
 
-    return amount
+# ---------------------------------------------------------------------------
+# Historical rate import
+# ---------------------------------------------------------------------------
+
+_HISTORICAL_API_PRIMARY = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@{date}/v1/currencies/usd.json"
+_HISTORICAL_API_FALLBACK = "https://{date}.currency-api.pages.dev/v1/currencies/usd.json"
+
+
+def _fetch_historical_rates_for_date(target_date: date, timeout: int = 8) -> Optional[dict[str, float]]:
+    """Fetch USD→all rates for a specific historical date from fawazahmed0 CDN API.
+
+    Returns a dict of lowercase currency codes → rates, or None on failure.
+    API is free, no key required, data available from 2023-01-01 onward.
+    """
+    date_str = target_date.isoformat()
+    for url_template in (_HISTORICAL_API_PRIMARY, _HISTORICAL_API_FALLBACK):
+        url = url_template.format(date=date_str)
+        try:
+            resp = requests.get(url, timeout=timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                rates = data.get("usd", {})
+                if rates:
+                    return {k.upper(): float(v) for k, v in rates.items() if isinstance(v, (int, float))}
+        except Exception as e:
+            logger.warning("Historical rate fetch failed for %s from %s: %s", date_str, url, e)
+    return None
+
+
+def import_historical_rates(
+    db: Session,
+    from_date: date,
+    to_date: date,
+    currencies: Optional[list[str]] = None,
+    only_missing: bool = True,
+) -> dict:
+    """Import historical USD→X rates for every date in [from_date, to_date].
+
+    Args:
+        db: Database session.
+        from_date: Start of range (inclusive).
+        to_date: End of range (inclusive).
+        currencies: List of currency codes to import (e.g. ['COP', 'EUR']).
+                    Defaults to all non-base currencies in the DB.
+        only_missing: If True, skip dates that already have a stored rate.
+
+    Returns:
+        dict with 'imported', 'skipped', 'failed' counts and 'errors' list.
+    """
+    if currencies is None:
+        all_codes = _active_currency_codes(db)
+        base = _base_currency_code(db)
+        currencies = [c for c in all_codes if c != 'USD'] or [base]
+
+    results = {"imported": 0, "skipped": 0, "failed": 0, "errors": []}
+
+    current = from_date
+    while current <= to_date:
+        # Skip weekends — markets closed, API uses Friday's rate anyway
+        if current.weekday() < 5:  # Monday=0 ... Friday=4
+            missing = []
+            if only_missing:
+                for code in currencies:
+                    if _get_stored_rate(db, 'USD', code, current) is None:
+                        missing.append(code)
+            else:
+                missing = list(currencies)
+
+            if missing:
+                rates = _fetch_historical_rates_for_date(current)
+                if rates:
+                    for code in missing:
+                        rate = rates.get(code)
+                        if rate and _PLAUSIBLE_MIN <= rate <= _PLAUSIBLE_MAX:
+                            _store_rate(db, 'USD', code, rate, current, 'historical_api')
+                            results["imported"] += 1
+                        else:
+                            results["failed"] += 1
+                            results["errors"].append(f"{current}: no rate for {code}")
+                else:
+                    results["failed"] += len(missing)
+                    results["errors"].append(f"{current}: API returned no data")
+            else:
+                results["skipped"] += len(currencies)
+        else:
+            results["skipped"] += len(currencies)
+
+        current += timedelta(days=1)
+
+    return results
+
+
+def import_historical_rates_for_transactions(db: Session) -> dict:
+    """Import historical rates only for dates that have transactions but no stored rate.
+
+    More efficient than a full date-range import — only fetches what's needed.
+    """
+    from finance_app.models import Transaction
+    from sqlalchemy import distinct
+
+    all_codes = _active_currency_codes(db)
+    base = _base_currency_code(db)
+    currencies = [c for c in all_codes if c != 'USD'] or [base]
+
+    tx_dates = [
+        d for (d,) in db.query(distinct(Transaction.date)).order_by(Transaction.date).all()
+    ]
+
+    results = {"imported": 0, "skipped": 0, "failed": 0, "errors": [], "dates_checked": len(tx_dates)}
+
+    for tx_date in tx_dates:
+        missing = [c for c in currencies if _get_stored_rate(db, 'USD', c, tx_date) is None]
+        if not missing:
+            results["skipped"] += len(currencies)
+            continue
+
+        rates = _fetch_historical_rates_for_date(tx_date)
+        if rates:
+            for code in missing:
+                rate = rates.get(code)
+                if rate and _PLAUSIBLE_MIN <= rate <= _PLAUSIBLE_MAX:
+                    _store_rate(db, 'USD', code, rate, tx_date, 'historical_api')
+                    results["imported"] += 1
+                else:
+                    results["failed"] += 1
+                    results["errors"].append(f"{tx_date}: no rate for {code}")
+        else:
+            results["failed"] += len(missing)
+            results["errors"].append(f"{tx_date}: API returned no data")
+
+    return results
+
+
+def fetch_rate_from_api(api_url: str, timeout: int = 5) -> Optional[float]:
+    """Legacy: fetch USD→COP rate from a specific URL."""
+    rates = _fetch_usd_rates_from_api(api_url, timeout)
+    if rates and 'COP' in rates:
+        return rates['COP']
+    return None
+
+
+def get_average_recent_rates(db: Session, days: int = 5) -> Optional[float]:
+    """Legacy: average of recent USD→COP rates."""
+    return _average_recent_rate(db, 'USD', 'COP', days)
+
+
+def is_rate_plausible(rate: Optional[float]) -> bool:
+    if rate is None:
+        return False
+    return _PLAUSIBLE_MIN <= rate <= _PLAUSIBLE_MAX

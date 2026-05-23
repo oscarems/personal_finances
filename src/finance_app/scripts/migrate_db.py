@@ -79,6 +79,14 @@ def migrate_database(db_path: Path | None = None):
             conn.commit()
             print("✅ Columna agregada exitosamente")
 
+        if 'notes' in columns:
+            print("✓ La columna 'notes' ya existe en categories")
+        else:
+            print("🔧 Agregando columna 'notes' a la tabla categories...")
+            cursor.execute("ALTER TABLE categories ADD COLUMN notes VARCHAR(500)")
+            conn.commit()
+            print("✅ Columna agregada exitosamente")
+
         cursor.execute("PRAGMA table_info(accounts)")
         account_columns = [row[1] for row in cursor.fetchall()]
 
@@ -106,6 +114,22 @@ def migrate_database(db_path: Path | None = None):
         else:
             print("🔧 Agregando columna 'loan_years' a la tabla debts...")
             cursor.execute("ALTER TABLE debts ADD COLUMN loan_years INTEGER")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en debts")
+
+        if 'confirmed_balance' in debt_columns:
+            print("✓ La columna 'confirmed_balance' ya existe en debts")
+        else:
+            print("🔧 Agregando columna 'confirmed_balance' a la tabla debts...")
+            cursor.execute("ALTER TABLE debts ADD COLUMN confirmed_balance NUMERIC(18,2)")
+            conn.commit()
+            print("✅ Columna agregada exitosamente en debts")
+
+        if 'confirmed_balance_date' in debt_columns:
+            print("✓ La columna 'confirmed_balance_date' ya existe en debts")
+        else:
+            print("🔧 Agregando columna 'confirmed_balance_date' a la tabla debts...")
+            cursor.execute("ALTER TABLE debts ADD COLUMN confirmed_balance_date DATE")
             conn.commit()
             print("✅ Columna agregada exitosamente en debts")
 
@@ -422,6 +446,72 @@ def migrate_database(db_path: Path | None = None):
             """)
             conn.commit()
             print("✅ Backfill completado")
+
+        # --- email_sender_rules: nuevas columnas ---
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='email_sender_rules'")
+        if cursor.fetchone():
+            cursor.execute("PRAGMA table_info(email_sender_rules)")
+            esr_columns = [row[1] for row in cursor.fetchall()]
+            if 'match_type' in esr_columns:
+                print("✓ La columna 'match_type' ya existe en email_sender_rules")
+            else:
+                print("🔧 Agregando columna 'match_type' a email_sender_rules...")
+                cursor.execute("ALTER TABLE email_sender_rules ADD COLUMN match_type VARCHAR(20) NOT NULL DEFAULT 'sender'")
+                conn.commit()
+                print("✅ Columna 'match_type' agregada")
+
+            if 'rule_purpose' in esr_columns:
+                print("✓ La columna 'rule_purpose' ya existe en email_sender_rules")
+            else:
+                print("🔧 Agregando columna 'rule_purpose' a email_sender_rules...")
+                cursor.execute("ALTER TABLE email_sender_rules ADD COLUMN rule_purpose VARCHAR(20) NOT NULL DEFAULT 'account'")
+                conn.commit()
+                print("✅ Columna 'rule_purpose' agregada")
+
+            if 'category_id' in esr_columns:
+                print("✓ La columna 'category_id' ya existe en email_sender_rules")
+            else:
+                print("🔧 Agregando columna 'category_id' a email_sender_rules...")
+                cursor.execute("ALTER TABLE email_sender_rules ADD COLUMN category_id INTEGER REFERENCES categories(id)")
+                conn.commit()
+                print("✅ Columna 'category_id' agregada")
+
+            # La restricción UNIQUE original era solo sobre sender_pattern.
+            # Ahora el par (sender_pattern, rule_purpose) debe ser único.
+            # SQLite no permite DROP CONSTRAINT, así que solo lo documentamos —
+            # la lógica de unicidad se maneja en la API.
+            print("✓ Unicidad (sender_pattern, rule_purpose) aplicada por la API")
+
+        # --- exchange_rates: fix unique constraint to allow multi-currency pairs ---
+        cursor.execute("PRAGMA index_list(exchange_rates)")
+        indexes = {row[1]: row for row in cursor.fetchall()}
+
+        # Drop the old single-column unique index on date (name varies by SQLAlchemy version)
+        old_unique_indexes = [
+            name for name in indexes
+            if 'date' in name.lower() and 'pair' not in name.lower()
+        ]
+        for idx_name in old_unique_indexes:
+            # Only drop if it's actually unique
+            if indexes[idx_name][2] == 1:  # unique flag
+                print(f"🔧 Eliminando índice único antiguo '{idx_name}' de exchange_rates...")
+                cursor.execute(f'DROP INDEX IF EXISTS "{idx_name}"')
+                conn.commit()
+                print(f"✅ Índice eliminado")
+
+        # Add composite unique index (from_currency, to_currency, date)
+        cursor.execute("PRAGMA index_list(exchange_rates)")
+        current_indexes = {row[1] for row in cursor.fetchall()}
+        if 'uq_exchange_rate_pair_date' not in current_indexes:
+            print("🔧 Creando índice compuesto (from_currency, to_currency, date) en exchange_rates...")
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_exchange_rate_pair_date
+                ON exchange_rates(from_currency, to_currency, date)
+            """)
+            conn.commit()
+            print("✅ Índice compuesto creado")
+        else:
+            print("✓ Índice compuesto 'uq_exchange_rate_pair_date' ya existe")
 
         conn.close()
         print("\n✓ Migración completada. Ahora puedes ejecutar 'python init_db.py'")

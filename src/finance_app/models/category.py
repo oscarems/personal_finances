@@ -44,6 +44,7 @@ class Category(Base):
 
     # Rollover behavior: 'accumulate' (dinero pasa al siguiente mes) o 'reset' (dinero vuelve a Ready to Assign)
     rollover_type = Column(String(20), default='reset')  # 'accumulate' or 'reset'
+    notes = Column(String(500))
 
     # Emergency fund tracking
     is_essential = Column(Boolean, default=False)  # Si es un gasto esencial/fundamental para emergencias

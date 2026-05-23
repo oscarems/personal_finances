@@ -59,6 +59,10 @@ class Debt(Base):
     term_months = Column(Integer)
     next_due_date = Column(Date)
 
+    # Reconciliation: confirmed balance from bank statement
+    confirmed_balance = Column(Numeric(18, 2))  # Balance confirmed by user from bank statement
+    confirmed_balance_date = Column(Date)        # Date the balance was confirmed
+
     # Relationships
     account = relationship('Account', back_populates='debts')
     category = relationship('Category')
@@ -95,6 +99,8 @@ class Debt(Base):
             'is_active': self.is_active,
             'is_consolidated': self.is_consolidated,
             'has_insurance': self.has_insurance,
+            'confirmed_balance': float(self.confirmed_balance) if self.confirmed_balance is not None else None,
+            'confirmed_balance_date': self.confirmed_balance_date.isoformat() if self.confirmed_balance_date else None,
         }
 
         # Additional calculations

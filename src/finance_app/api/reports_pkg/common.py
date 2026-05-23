@@ -8,16 +8,16 @@ from dateutil.relativedelta import relativedelta
 
 from sqlalchemy.orm import Session, joinedload
 
-from finance_app.models import Transaction, ExchangeRate
+from finance_app.models import Transaction
 from finance_app.services.budget_service import build_spent_transactions_query
+from finance_app.services.exchange_rate_service import get_current_exchange_rate
 
 logger = logging.getLogger(__name__)
 
 
 def get_exchange_rate(db: Session) -> float:
     """Get current USD to COP exchange rate."""
-    rate = db.query(ExchangeRate).order_by(ExchangeRate.date.desc()).first()
-    return rate.rate if rate else 4000.0
+    return get_current_exchange_rate(db)
 
 
 def parse_date_range(start_date: str | None, end_date: str | None) -> tuple[date, date]:
