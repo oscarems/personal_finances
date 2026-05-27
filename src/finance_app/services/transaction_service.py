@@ -402,7 +402,7 @@ def create_transaction(db: Session, data):
 
 
 def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None, start_date=None,
-                     end_date=None, limit=None):
+                     end_date=None, search=None, transaction_type=None, limit=None):
     """
     Get transactions with optional filters
     """
@@ -423,6 +423,22 @@ def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None
 
     if end_date:
         query = query.filter(Transaction.date <= end_date)
+
+    if search:
+        like = f"%{search}%"
+        query = query.outerjoin(Payee, Transaction.payee_id == Payee.id).filter(
+            or_(
+                Payee.name.ilike(like),
+                Transaction.memo.ilike(like),
+            )
+        )
+
+    if transaction_type == 'expense':
+        query = query.filter(Transaction.amount < 0, Transaction.transfer_account_id.is_(None))
+    elif transaction_type == 'income':
+        query = query.filter(Transaction.amount > 0, Transaction.transfer_account_id.is_(None))
+    elif transaction_type == 'transfer':
+        query = query.filter(Transaction.transfer_account_id.isnot(None))
 
     query = query.order_by(
         Transaction.date.desc(),
@@ -926,7 +942,8 @@ def get_monthly_activity(
     filters = [
         Transaction.category_id == category_id,
         Transaction.date >= start_date,
-        Transaction.date < end_date
+        Transaction.date < end_date,
+        Transaction.is_adjustment.is_(False),
     ]
     if category and category.category_group:
         if category.category_group.is_income:
@@ -980,7 +997,8 @@ def get_monthly_spent(
         Transaction.category_id == category_id,
         Transaction.date >= start_date,
         Transaction.date < end_date,
-        Transaction.amount < 0
+        Transaction.amount < 0,
+        Transaction.is_adjustment.is_(False),
     ]
     if not include_all_currencies:
         filters.append(Transaction.currency_id == currency_id)

@@ -17,6 +17,41 @@ from .common import get_exchange_rate, parse_date_range, convert_to_currency, ex
 router = APIRouter()
 
 
+@router.get("/spending")
+def get_spending(
+    month: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """Get spending grouped by category for a month (YYYY-MM)."""
+    today = date.today()
+    if month:
+        year, mon = int(month.split('-')[0]), int(month.split('-')[1])
+        start = date(year, mon, 1)
+    else:
+        start = today.replace(day=1)
+    end_exclusive = start + relativedelta(months=1)
+    exchange_rate = get_exchange_rate(db)
+
+    allocations = expense_allocations(db, start, end_exclusive)
+
+    category_totals: dict[str, float] = {}
+    for tx, category, allocation_amount in allocations:
+        cat_name = category.name if category else "Sin categoría"
+        converted = convert_to_currency(allocation_amount, tx.currency_id, currency_id, exchange_rate)
+        category_totals[cat_name] = category_totals.get(cat_name, 0.0) + converted
+
+    categories = [
+        {"category_name": name, "spent": round(total, 2)}
+        for name, total in sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
+    ]
+    return {
+        "month": start.strftime("%Y-%m"),
+        "categories": categories,
+        "total": round(sum(c["spent"] for c in categories), 2),
+    }
+
+
 @router.get("/spending-by-category")
 def get_spending_by_category(
     start_date: Optional[str] = None,

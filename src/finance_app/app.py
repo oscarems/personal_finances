@@ -1,19 +1,19 @@
 """
-FastAPI Main Application.
+FastAPI Main Application — SPA mode.
 
-Entry point for the Personal Finances app. Registers all API routers,
-page routes, static files, and the application lifespan handler.
+Serves all API routes and falls back to index.html for any non-API path,
+enabling client-side routing via History API.
 """
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI, Request, Depends
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from pathlib import Path
+
+from fastapi import FastAPI, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy.orm import Session
 
 from finance_app.database import (
@@ -23,7 +23,6 @@ from finance_app.database import (
     ensure_database_initialized,
     get_session_factory,
 )
-from finance_app.models import Account
 from finance_app.api import (
     transactions,
     accounts,
@@ -46,20 +45,20 @@ from finance_app.api import (
     setup,
 )
 from finance_app.api import email_sender_rules
+from finance_app.api import merchant_rules as merchant_rules_module
 from finance_app.api import chat as chat_module
 from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
-from finance_app.auth import router as auth_router, require_auth, register_auth_exception_handler, APP_PASSWORD
+from finance_app.auth import router as auth_router, register_auth_exception_handler, APP_PASSWORD
 
 logger = logging.getLogger(__name__)
 
+STATIC_DIR = Path(__file__).parent / "static"
+INDEX_HTML = STATIC_DIR / "index.html"
 
-# ---------------------------------------------------------------------------
-# Lifespan (replaces deprecated @app.on_event)
-# ---------------------------------------------------------------------------
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Initialise the database, generate recurring transactions and sync email on startup."""
     if not APP_PASSWORD:
         raise RuntimeError(
             "APP_PASSWORD environment variable is not set. "
@@ -79,24 +78,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             logger.warning("Exchange rate sync skipped: %s", exc)
     finally:
         db.close()
-    try:
-        from finance_app.sync.email_scrape_sync import sync_email_transactions
-        sync_email_transactions()
-    except Exception as exc:
-        logger.warning("Email sync skipped during startup: %s", exc)
     logger.info("Database initialized")
     yield
 
 
-# Create FastAPI app
 app = FastAPI(
     title="Personal Finances",
     description="Personal finance manager",
-    version="1.0.1",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
-# CORS middleware — allow_credentials cannot be True when allow_origins is ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -105,16 +97,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-static_path = Path(__file__).parent / "static"
-static_path.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-# Jinja2 templates
-templates_path = Path(__file__).parent / "templates"
-templates = Jinja2Templates(directory=str(templates_path))
-
-# Include API routers
+# API routers
 app.include_router(transactions.router, prefix="/api/transactions", tags=["transactions"])
 app.include_router(accounts.router, prefix="/api/accounts", tags=["accounts"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["budgets"])
@@ -134,6 +120,7 @@ app.include_router(tags.router, prefix="/api/tags", tags=["tags"])
 app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(patrimonio.router, prefix="/api/patrimonio", tags=["patrimonio"])
 app.include_router(email_sender_rules.router, prefix="/api/email-sender-rules", tags=["email-sender-rules"])
+app.include_router(merchant_rules_module.router, prefix="/api/merchant-rules", tags=["merchant-rules"])
 app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
 app.include_router(cash_flow.router, prefix="/api/cash-flow", tags=["cash-flow"])
 app.include_router(setup.router, prefix="/api/setup", tags=["setup"])
@@ -143,134 +130,22 @@ register_auth_exception_handler(app)
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Fly.io — no auth required."""
     return {"status": "ok"}
-
-
-@app.get("/setup")
-async def setup_page(request: Request, _=Depends(require_auth)):
-    """First-run onboarding wizard."""
-    return templates.TemplateResponse("setup.html", context={"request": request})
-
-
-@app.get("/")
-async def home(request: Request, db: Session = Depends(get_db), _=Depends(require_auth)) -> HTMLResponse:
-    """Home page — redirects to /setup when no accounts exist yet."""
-    has_accounts = db.query(Account).filter_by(is_closed=False).count() > 0
-    if not has_accounts:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/setup", status_code=302)
-    return templates.TemplateResponse("index.html", context={"request": request})
-
-
-@app.get("/budget")
-async def budget_page(request: Request, _=Depends(require_auth)):
-    """Budget page"""
-    from datetime import date
-    return templates.TemplateResponse("budget.html", context={
-        "request": request,
-        "current_month": date.today().strftime("%Y-%m"),
-    })
-
-
-@app.get("/transactions")
-async def transactions_page(request: Request, _=Depends(require_auth)):
-    """Transactions page"""
-    return templates.TemplateResponse("transactions.html", context={"request": request})
-
-
-@app.get("/accounts")
-async def accounts_page(request: Request, _=Depends(require_auth)):
-    """Accounts page"""
-    return templates.TemplateResponse("accounts.html", context={"request": request})
-
-
-@app.get("/advanced/gmail")
-async def advanced_gmail_page(request: Request, _=Depends(require_auth)):
-    """Gmail import preview page"""
-    return templates.TemplateResponse("gmail_import.html", context={"request": request})
-
-@app.get("/mortgage")
-async def mortgage_page(request: Request, _=Depends(require_auth)):
-    """Mortgage simulator page"""
-    return templates.TemplateResponse("mortgage.html", context={"request": request})
-
-
-@app.get("/investment-simulator")
-async def investment_simulator_page(request: Request, _=Depends(require_auth)):
-    """Investment simulator page"""
-    return templates.TemplateResponse("investment_simulator.html", context={"request": request})
-
-
-@app.get("/reports")
-async def reports_page(request: Request, _=Depends(require_auth)):
-    """Reports and analytics page"""
-    return templates.TemplateResponse("reports/index.html", context={"request": request})
-
-@app.get("/patrimonio")
-async def patrimonio_page(request: Request, _=Depends(require_auth)):
-    """Patrimonio dashboard page"""
-    return templates.TemplateResponse("patrimonio/patrimonio.html", context={"request": request})
-
-
-
-@app.get("/recurring")
-async def recurring_page(request: Request, _=Depends(require_auth)):
-    """Recurring/automatic transactions page"""
-    return templates.TemplateResponse("recurring.html", context={"request": request})
-
-
-@app.get("/debts")
-async def debts_page(request: Request, _=Depends(require_auth)):
-    """Debts management page"""
-    return templates.TemplateResponse("debts.html", context={"request": request})
-
-
-@app.get("/emergency-fund")
-async def emergency_fund_page(request: Request, _=Depends(require_auth)):
-    """Emergency fund page"""
-    return templates.TemplateResponse("emergency_fund.html", context={"request": request})
-
-
-@app.get("/goals")
-async def goals_page(request: Request, _=Depends(require_auth)):
-    """Goals page"""
-    return templates.TemplateResponse("goals.html", context={"request": request})
-
-
-@app.get("/financial-health")
-async def financial_health_page(request: Request, _=Depends(require_auth)):
-    """Financial health (50/30/20 + adherence score) page"""
-    return templates.TemplateResponse("financial_health.html", context={"request": request})
-
-
-@app.get("/chat")
-async def chat_page(request: Request, _=Depends(require_auth)):
-    """Chat SQL page"""
-    return templates.TemplateResponse("chat_ui.html", context={"request": request})
-
-
-@app.get("/email-sender-rules")
-def email_sender_rules_page(request: Request, db: Session = Depends(get_db), _=Depends(require_auth)):
-    accounts = db.query(Account).filter_by(is_closed=False).order_by(Account.name).all()
-    return templates.TemplateResponse("email_sender_rules.html", context={
-        "request": request,
-        "accounts": [a.to_dict() for a in accounts],
-    })
 
 
 @app.get("/api/currencies")
 async def get_currencies(db: Session = Depends(get_db)):
-    """Get all available currencies"""
     from finance_app.models import Currency
     currencies = db.query(Currency).all()
     return [c.to_dict() for c in currencies]
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+@app.exception_handler(StarletteHTTPException)
+async def spa_fallback(request: Request, exc: StarletteHTTPException):
+    """Serve index.html for 404s on non-API paths (client-side routing)."""
+    if exc.status_code == 404 and not request.url.path.startswith("/api/"):
+        return FileResponse(str(INDEX_HTML))
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
 
 if __name__ == "__main__":

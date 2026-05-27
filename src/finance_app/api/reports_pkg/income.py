@@ -23,6 +23,45 @@ from .common import get_exchange_rate, parse_date_range, convert_to_currency
 router = APIRouter()
 
 
+@router.get("/income")
+def get_income(
+    month: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db)
+):
+    """Get income totals for a month (YYYY-MM)."""
+    today = date.today()
+    if month:
+        year, mon = int(month.split('-')[0]), int(month.split('-')[1])
+        start = date(year, mon, 1)
+    else:
+        start = today.replace(day=1)
+    end_exclusive = start + relativedelta(months=1)
+    exchange_rate = get_exchange_rate(db)
+
+    income_txs = build_income_transactions_query(db, start, end_exclusive).with_entities(
+        Transaction.amount, Transaction.currency_id, Category.name.label('category_name')
+    ).all()
+
+    by_source: dict[str, float] = {}
+    for row in income_txs:
+        cat = row.category_name or "Sin categoría"
+        converted = convert_to_currency(row.amount, row.currency_id, currency_id, exchange_rate)
+        by_source[cat] = by_source.get(cat, 0.0) + converted
+
+    by_source_list = [
+        {"category_name": name, "amount": round(total, 2)}
+        for name, total in sorted(by_source.items(), key=lambda x: x[1], reverse=True)
+    ]
+    total_income = round(sum(r["amount"] for r in by_source_list), 2)
+
+    return {
+        "month": start.strftime("%Y-%m"),
+        "total_income": total_income,
+        "by_source": by_source_list,
+    }
+
+
 def get_income_total(
     db: Session,
     start_date: date,

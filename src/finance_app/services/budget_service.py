@@ -612,6 +612,14 @@ def _build_category_budget(
             if bcur:
                 total_initial += convert(budget.initial_amount or 0.0, bcur.code, currency.code)
 
+    # Determine the category's primary currency (only one active at a time)
+    primary_budget = next((b for b in all_budgets if (b.assigned or 0.0) != 0.0), None)
+    if primary_budget is None and all_budgets:
+        primary_budget = all_budgets[0]
+    pbcur = all_currencies.get(primary_budget.currency_id) if primary_budget else None
+    primary_currency_code = pbcur.code if pbcur else currency.code
+    assigned_native = float(primary_budget.assigned or 0.0) if primary_budget else 0.0
+
     return {
         'category_id': category.id,
         'category_name': category.name,
@@ -623,6 +631,8 @@ def _build_category_budget(
         'rollover_type': category.rollover_type,
         'is_essential': bool(category.is_essential),
         'notes': category.notes or '',
+        'currency_code': primary_currency_code,
+        'assigned_native': assigned_native,
     }
 
 

@@ -150,6 +150,8 @@ def update_recurring_transaction(
             db.flush()
         recurring.payee_id = payee.id
 
+    old_start_date = recurring.start_date
+
     # Update fields
     update_fields = {
         'account_id', 'category_id', 'description', 'amount', 'transaction_type',
@@ -163,10 +165,23 @@ def update_recurring_transaction(
         if field in explicitly_set:
             setattr(recurring, field, getattr(data, field))
 
+    # When start_date changes, sync day_of_month/day_of_week so next_occurrence_date
+    # reflects the user's chosen date, and reset last_generated_date so generation
+    # restarts cleanly from the new date.
+    if 'start_date' in explicitly_set and data.start_date and data.start_date != old_start_date:
+        if recurring.frequency == 'monthly':
+            recurring.day_of_month = recurring.start_date.day
+        elif recurring.frequency in ('weekly', 'biweekly'):
+            recurring.day_of_week = recurring.start_date.weekday()
+        recurring.last_generated_date = None
+
     db.commit()
     db.refresh(recurring)
 
-    return recurring.to_dict()
+    next_date = get_next_scheduled_date(recurring)
+    result = recurring.to_dict()
+    result['next_occurrence_date'] = next_date.isoformat() if next_date else None
+    return result
 
 
 @router.delete("/{recurring_id}")

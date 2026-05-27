@@ -104,7 +104,26 @@
       "Bash(sed 's/\\\\..*$//')",
       "Bash(sed 's/.*from finance_app.services.debt\\\\.//')",
       "Bash(grep \"\\\\.py$\")",
-      "Bash(sed 's/\\\\.py$//')"
+      "Bash(sed 's/\\\\.py$//')",
+      "Bash(pip show *)",
+      "Bash(sqlite3 *)",
+      "Bash(kill -9 571316)",
+      "Bash(grep -E '\\\\.\\(html|css|js\\)$')",
+      "Bash(pkill -f \"uvicorn\")",
+      "Bash(pkill -f \"run.py\")",
+      "Bash(lsof -ti:8000)",
+      "Bash(xargs kill -9)",
+      "Bash(kill -9 638322 638325)",
+      "Bash(kill 75153 75156)",
+      "Bash(xargs -I {} basename {} .py)",
+      "Bash(ps *)",
+      "Bash(ollama --version)",
+      "Bash(pkill -f uvicorn)",
+      "Bash(fuser -k 8000/tcp)",
+      "Bash(playwright install *)",
+      "Bash(pkill -f \"uvicorn\\\\|run.py\")",
+      "Bash(APP_PASSWORD=dev /home/oscar/Documents/Github/personal_finances/venv/bin/python /home/oscar/Documents/Github/personal_finances/run.py)",
+      "Bash(/home/oscar/Documents/Github/personal_finances/venv/bin/python3 *)"
     ]
   }
 }

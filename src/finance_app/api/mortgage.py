@@ -4,11 +4,15 @@ Mortgage Simulator API - Fixed payment with effective annual rate.
 Uses the EFFECTIVE ANNUAL RATE (EA), which is the standard in Colombia.
 The effective annual rate accounts for interest compounding, unlike the nominal rate.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import date
 
+from sqlalchemy.orm import Session
+
+from finance_app.database import get_db
+from finance_app.models.account import Account
 from finance_app.services.mortgage.service import (
     calculate_monthly_payment,
     generate_amortization_schedule,
@@ -219,4 +223,103 @@ def get_example():
         "years": 20,
         "start_date": "2025-01-15",
         "extra_payment": 0
+    }
+
+
+@router.get("/accounts")
+def list_mortgage_accounts(db: Session = Depends(get_db)):
+    """Return all accounts of type 'mortgage'."""
+    accounts = db.query(Account).filter_by(type="mortgage", is_closed=False).all()
+    result = []
+    for acc in accounts:
+        data = acc.to_dict()
+        # Attach linked debt info if available
+        debt = next((d for d in acc.debts if d.debt_type == "mortgage"), None)
+        if debt:
+            rate = None
+            if debt.annual_interest_rate is not None:
+                v = float(debt.annual_interest_rate)
+                rate = v if v > 1 else v * 100
+            elif debt.interest_rate is not None:
+                rate = debt.interest_rate
+            data.setdefault("interest_rate", rate)
+            data.setdefault("monthly_payment", debt.monthly_payment)
+            data["term_months"] = debt.term_months
+            data["loan_start_date"] = debt.start_date.isoformat() if debt.start_date else None
+            data["original_amount"] = debt.original_amount
+        result.append(data)
+    return result
+
+
+@router.get("/{account_id}/schedule")
+def get_mortgage_schedule(account_id: int, db: Session = Depends(get_db)):
+    """Generate the amortization schedule for a mortgage account."""
+    acc = db.query(Account).filter_by(id=account_id, type="mortgage").first()
+    if not acc:
+        raise HTTPException(status_code=404, detail="Hipoteca no encontrada")
+
+    # Resolve interest rate: account field > linked debt fields
+    rate = acc.interest_rate
+    debt = next((d for d in acc.debts if d.debt_type == "mortgage"), None)
+    if rate is None and debt:
+        if debt.annual_interest_rate is not None:
+            v = float(debt.annual_interest_rate)
+            rate = v if v > 1 else v * 100
+        elif debt.interest_rate is not None:
+            rate = debt.interest_rate
+
+    if rate is None:
+        raise HTTPException(
+            status_code=422,
+            detail="La hipoteca no tiene tasa de interés registrada. "
+                   "Actualiza la tasa en la sección de Cuentas para ver la tabla de amortización."
+        )
+
+    balance = abs(acc.balance or 0)
+    if balance == 0 and debt:
+        balance = debt.current_balance or 0
+
+    # Resolve term in years
+    years = acc.loan_years
+    if years is None and debt:
+        years = debt.loan_years or (debt.term_months // 12 if debt.term_months else None)
+    if years is None:
+        # Estimate from balance and monthly payment
+        mp = acc.monthly_payment or (debt.monthly_payment if debt else None)
+        if mp and mp > 0 and rate:
+            mr = (1 + rate / 100) ** (1 / 12) - 1
+            if mr > 0 and balance * mr / mp < 1:
+                import math
+                n = -math.log(1 - balance * mr / mp) / math.log(1 + mr)
+                years = max(1, math.ceil(n / 12))
+        if years is None:
+            raise HTTPException(status_code=422, detail="No se pudo determinar el plazo de la hipoteca.")
+
+    # Resolve start date
+    start_date = acc.loan_start_date
+    if start_date is None and debt and debt.start_date:
+        start_date = debt.start_date
+
+    schedule = generate_amortization_schedule(
+        principal=balance,
+        annual_rate=rate / 100,
+        years=int(years),
+        start_date=start_date,
+    )
+
+    return {
+        "account_id": account_id,
+        "annual_rate": rate,
+        "years": years,
+        "schedule": [
+            {
+                "payment_number": r["payment_number"],
+                "date": r["date"].isoformat(),
+                "payment": r["payment"],
+                "principal": r["principal"],
+                "interest": r["interest"],
+                "balance": r["balance"],
+            }
+            for r in schedule
+        ],
     }

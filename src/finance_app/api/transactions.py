@@ -143,6 +143,8 @@ def list_transactions(
     category_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    search: Optional[str] = None,
+    transaction_type: Optional[str] = None,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
@@ -153,6 +155,8 @@ def list_transactions(
         category_id=category_id,
         start_date=start_date,
         end_date=end_date,
+        search=search,
+        transaction_type=transaction_type,
         limit=limit
     )
     cop_currency = db.query(Currency).filter_by(code="COP").first()

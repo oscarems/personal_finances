@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from datetime import date
 
 from finance_app.database import get_db
-from finance_app.models import Category, CategoryGroup
+from finance_app.models import Category, CategoryGroup, Currency
 from finance_app.services.emergency_fund_service import (
     calculate_emergency_coverage,
     get_monthly_essential_expenses,
@@ -52,7 +52,7 @@ def get_emergency_coverage(
     - currency_id: Target currency ID (default: 1 = COP)
 
     Returns:
-        EmergencyCoverageResponse with coverage details.
+        EmergencyCoverageResponse with coverage details plus secondary currency totals.
     """
     month_date = None
     if month:
@@ -62,6 +62,24 @@ def get_emergency_coverage(
             raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM-DD")
 
     coverage = calculate_emergency_coverage(db, month_date, currency_id)
+
+    # Also compute totals in the secondary currency (COP ↔ USD)
+    primary_currency = db.query(Currency).get(currency_id)
+    primary_code = primary_currency.code if primary_currency else 'COP'
+
+    secondary_code = 'USD' if primary_code == 'COP' else 'COP'
+    secondary_currency = db.query(Currency).filter_by(code=secondary_code).first()
+
+    if secondary_currency:
+        secondary = calculate_emergency_coverage(db, month_date, secondary_currency.id)
+        coverage['secondary_currency_code'] = secondary_code
+        coverage['emergency_funds_total_secondary'] = secondary['emergency_funds_total']
+        coverage['essential_expenses_total_secondary'] = secondary['essential_expenses_total']
+    else:
+        coverage['secondary_currency_code'] = None
+        coverage['emergency_funds_total_secondary'] = None
+        coverage['essential_expenses_total_secondary'] = None
+
     return coverage
 
 

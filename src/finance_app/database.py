@@ -308,7 +308,7 @@ def init_db(engine_override=None) -> None:
         Debt, DebtPayment, DebtCategoryAllocation, DebtAmortizationMonthly,
         DebtSnapshotMonthly, DebtSnapshotProjectedMonthly,
         AlertRule, BudgetAlertState, ReconciliationSession,
-        EmailScrapeTransaction, PatrimonioAsset
+        EmailScrapeTransaction, PatrimonioAsset, GmailProcessedMessage
     )
 
     active_engine = engine_override or engine

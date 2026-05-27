@@ -20,6 +20,8 @@ from finance_app.models.transaction_split import TransactionSplit
 from finance_app.models.goal import Goal, GoalContribution
 from finance_app.models.patrimonio_asset import PatrimonioAsset
 from finance_app.models.email_sender_rule import EmailSenderRule
+from finance_app.models.gmail_message import GmailProcessedMessage
+from finance_app.models.merchant_rule import MerchantRule
 # PatrimonioDebt removed — debts use the Debt model directly
 
 __all__ = [
@@ -50,4 +52,6 @@ __all__ = [
     'Tag',
     'PatrimonioAsset',
     'EmailSenderRule',
+    'GmailProcessedMessage',
+    'MerchantRule',
 ]
