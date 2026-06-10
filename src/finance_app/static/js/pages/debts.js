@@ -34,7 +34,7 @@ function renderPage(container, debts, summary) {
   );
 
   const alertsBanner = hasAlerts ? `
-    <div class="alerts-banner" style="margin-bottom:16px;display:flex;flex-direction:column;gap:8px">
+    <div class="alerts-banner flex flex-col gap-2 mb-4">
       ${(summary.high_utilization_alerts ?? []).map(a => `
         <div class="alert alert-${a.severity === 'critical' ? 'danger' : 'warning'}">
           ⚠ <strong>${sanitize(a.name)}</strong>: utilización del ${a.utilization_pct.toFixed(0)}% del cupo —
@@ -56,7 +56,7 @@ function renderPage(container, debts, summary) {
 
     ${alertsBanner}
 
-    <div class="kpi-grid" style="margin-bottom:24px">
+    <div class="kpi-grid mb-4">
       <div class="kpi-card">
         <div class="kpi-label">Total Deuda COP</div>
         <div class="kpi-value negative">${fmtCurrency(totalCOP, 'COP')}</div>
@@ -111,8 +111,8 @@ function renderPage(container, debts, summary) {
 function debtSection(title, debts, container) {
   if (!debts.length) return '';
   return `
-    <div style="margin-bottom:28px">
-      <h3 style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin:0 0 12px;font-weight:600">${title}</h3>
+    <div class="mb-4">
+      <h3 class="section-header text-soft" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin:0 0 12px">${title}</h3>
       <div class="section-grid cols-auto">
         ${debts.map(d => debtCard(d)).join('')}
       </div>
@@ -134,28 +134,28 @@ function debtCard(d) {
   return `
     <div class="card">
       <div style="padding:16px 20px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div class="flex justify-between items-center mb-3">
           <div>
             <div style="font-weight:600;font-size:0.9375rem">${sanitize(d.name)}</div>
-            <div style="font-size:0.72rem;color:var(--text-soft)">${sanitize(d.institution ?? d.debt_type ?? '—')}</div>
+            <div class="text-soft" style="font-size:0.72rem">${sanitize(d.institution ?? d.debt_type ?? '—')}</div>
           </div>
           ${rate > 0 ? `<span class="badge badge-${rateClass}">${rate.toFixed(1)}% EA</span>` : ''}
         </div>
 
-        <div class="amount negative" style="font-size:1.375rem;font-weight:600;margin-bottom:8px">
+        <div class="amount negative mb-2" style="font-size:1.375rem;font-weight:600">
           ${fmtCurrency(balance, currency)}
         </div>
 
         ${hasLimit ? `
-          <div style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-soft);margin-bottom:4px">
+          <div class="mb-3">
+            <div class="flex justify-between text-soft mb-1" style="font-size:0.72rem">
               <span>Usado</span>
               <span>${pct.toFixed(0)}%</span>
             </div>
             <div class="progress-wrap">
               <div class="progress-fill ${pct >= 70 ? 'danger' : pct >= 30 ? 'warning' : 'ok'}" style="width:${pct}%"></div>
             </div>
-            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:4px">
+            <div class="text-soft mt-1" style="font-size:0.72rem">
               ${fmtCurrency(original, currency)} original/límite
             </div>
           </div>
@@ -163,10 +163,10 @@ function debtCard(d) {
 
         ${monthly > 0 ? `
           <div style="font-size:0.8rem;color:var(--text-secondary)">
-            Cuota mensual: <strong style="font-family:var(--font-mono)">${fmtCurrency(monthly, currency)}</strong>
+            Cuota mensual: <strong class="amount">${fmtCurrency(monthly, currency)}</strong>
           </div>` : ''}
       </div>
-      <div style="display:flex;gap:8px;padding:10px 20px;border-top:1px solid var(--border-muted);background:var(--bg-surface-muted)">
+      <div class="flex gap-2" style="padding:10px 20px;border-top:1px solid var(--border-muted);background:var(--bg-surface-muted)">
         <button class="btn btn-ghost btn-xs" data-detail-debt="${d.id}">Ver detalles</button>
         <button class="btn btn-ghost btn-xs" data-simulate-debt="${d.id}">Simular pago</button>
         <button class="btn btn-ghost btn-xs" data-edit-debt="${d.id}">Editar</button>
@@ -194,9 +194,9 @@ async function openDebtDetail(debt) {
     const installmentsSection = isCard ? (() => {
       const list = installments ?? [];
       return `
-        <div style="margin-bottom:16px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <h4 style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin:0;font-weight:600">Compras en Cuotas</h4>
+        <div class="mb-4">
+          <div class="flex justify-between items-center mb-2">
+            <h4 class="text-soft" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;margin:0;font-weight:600">Compras en Cuotas</h4>
             <button class="btn btn-ghost btn-xs" id="btnAddInstallment">+ Agregar</button>
           </div>
           ${list.length ? `
@@ -219,13 +219,13 @@ async function openDebtDetail(debt) {
                 </tr>`).join('')}
               </tbody>
             </table>
-          </div>` : `<div class="empty-state" style="padding:12px 0"><p style="font-size:0.85rem">Sin cuotas diferidas registradas.</p></div>`}
+          </div>` : `<div class="empty-state" style="padding:12px 0"><p>Sin cuotas diferidas registradas.</p></div>`}
         </div>`;
     })() : '';
 
     const costSection = costAnalysis ? `
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-muted)">
-        <h4 style="font-size:0.8rem;text-transform:uppercase;color:var(--text-soft);margin:0 0 12px;font-weight:600">Costo Total de la Deuda</h4>
+      <div class="mt-4" style="padding-top:16px;border-top:1px solid var(--border-muted)">
+        <h4 class="text-soft mb-3" style="font-size:0.8rem;text-transform:uppercase;margin:0;font-weight:600">Costo Total de la Deuda</h4>
         <div class="stat-row">
           <div class="stat-chip">
             <span class="stat-chip-label">Pagado hasta hoy</span>
@@ -241,7 +241,7 @@ async function openDebtDetail(debt) {
           </div>
         </div>
         ${costAnalysis.minimum_projection?.months_if_minimum != null ? `
-          <div class="alert alert-warning" style="margin-top:12px;font-size:0.85rem">
+          <div class="alert alert-warning mt-3" style="font-size:0.85rem">
             ⚠ Si solo pagas el mínimo mensual (${fmtCurrency(costAnalysis.minimum_projection.monthly_minimum ?? 0, currency)}):
             pagarás en ${costAnalysis.minimum_projection.months_if_minimum} meses
             con <strong>${fmtCurrency(costAnalysis.minimum_projection.total_interest_if_minimum ?? 0, currency)} adicionales en intereses</strong>
@@ -250,7 +250,7 @@ async function openDebtDetail(debt) {
       </div>` : '';
 
     modal.body.innerHTML = `
-      <div class="stat-row" style="margin-bottom:16px">
+      <div class="stat-row mb-4">
         <div class="stat-chip">
           <span class="stat-chip-label">Saldo Actual</span>
           <span class="stat-chip-value negative">${fmtCurrency(debt.current_balance ?? debt.balance ?? 0, currency)}</span>
@@ -281,10 +281,10 @@ async function openDebtDetail(debt) {
               ${rows.map(r => `
                 <tr>
                   <td class="td-soft" style="font-size:0.8rem">${fmtDate(r.date ?? r.payment_date)}</td>
-                  <td class="td-right td-mono" style="font-size:0.8rem">${fmtCurrency(r.payment ?? r.total_payment ?? 0, currency)}</td>
-                  <td class="td-right td-mono" style="font-size:0.8rem;color:var(--color-danger)">${fmtCurrency(r.interest ?? r.interest_payment ?? 0, currency)}</td>
-                  <td class="td-right td-mono" style="font-size:0.8rem;color:var(--color-success)">${fmtCurrency(r.principal ?? r.principal_payment ?? 0, currency)}</td>
-                  <td class="td-right td-mono" style="font-size:0.8rem">${fmtCurrency(r.ending_balance ?? r.balance ?? r.remaining_balance ?? 0, currency)}</td>
+                  <td class="td-right td-mono amount" style="font-size:0.8rem">${fmtCurrency(r.payment ?? r.total_payment ?? 0, currency)}</td>
+                  <td class="td-right td-mono amount text-danger" style="font-size:0.8rem">${fmtCurrency(r.interest ?? r.interest_payment ?? 0, currency)}</td>
+                  <td class="td-right td-mono amount text-success" style="font-size:0.8rem">${fmtCurrency(r.principal ?? r.principal_payment ?? 0, currency)}</td>
+                  <td class="td-right td-mono amount" style="font-size:0.8rem">${fmtCurrency(r.ending_balance ?? r.balance ?? r.remaining_balance ?? 0, currency)}</td>
                 </tr>`).join('')}
             </tbody>
           </table>
@@ -307,7 +307,7 @@ function openSimulateModal(debt) {
   const currency = debt.currency_code ?? debt.currency?.code ?? 'COP';
 
   const content = `
-    <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:16px">
+    <p class="mb-4" style="font-size:0.875rem;color:var(--text-secondary)">
       Saldo actual: <strong class="amount negative">${fmtCurrency(debt.current_balance ?? debt.balance ?? 0, currency)}</strong> —
       Tasa: <strong>${(debt.interest_rate ?? 0).toFixed(2)}% EA</strong>
     </p>
@@ -325,8 +325,8 @@ function openSimulateModal(debt) {
         </select>
       </div>
     </div>
-    <div id="sim-result" style="margin-top:16px"></div>
-    <div class="modal-footer" style="border-top:none;padding:0;justify-content:flex-start;margin-top:8px">
+    <div id="sim-result" class="mt-4"></div>
+    <div class="modal-footer mt-2" style="border-top:none;padding:0;justify-content:flex-start">
       <button class="btn btn-primary btn-sm" id="btnRunSim">Simular</button>
     </div>
   `;
@@ -532,9 +532,9 @@ function openInstallmentForm(debtId, currency, onSaved) {
       <input type="text" id="inst-start" value="${new Date().toISOString().split('T')[0]}">
     </div>
     <div class="form-group">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <label class="flex items-center gap-2" style="cursor:pointer">
         <input type="checkbox" id="inst-interest">
-        <span class="form-label" style="margin:0">Incluye intereses</span>
+        <span class="form-label mb-0">Incluye intereses</span>
       </label>
     </div>
   `;

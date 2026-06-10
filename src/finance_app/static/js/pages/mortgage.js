@@ -45,7 +45,7 @@ function render(container, list) {
       <div class="section-grid cols-auto">
         ${list.map(m => mortgageCard(m)).join('')}
       </div>
-      <div class="card" style="margin-top:20px">
+      <div class="card mt-4">
         <div class="card-header">
           <span class="card-title">Tabla de Amortización</span>
           <select id="selMortgage" style="font-size:0.8rem;max-width:200px">
@@ -56,7 +56,7 @@ function render(container, list) {
           <div class="page-loading"><div class="spinner"></div></div>
         </div>
       </div>
-      <div class="card" style="margin-top:20px">
+      <div class="card mt-4">
         <div class="card-header"><span class="card-title">Proyección de Saldo</span></div>
         <div class="card-body" style="height:260px;position:relative">
           <canvas id="mortChart"></canvas>
@@ -108,24 +108,24 @@ async function loadAmortization(container, id, list) {
 
     amortEl.innerHTML = rows.length ? `
       <div style="max-height:320px;overflow-y:auto">
-        <table>
+        <table class="fin-table">
           <thead>
             <tr>
               <th>Mes</th>
-              <th class="td-right">Cuota</th>
-              <th class="td-right" style="color:var(--color-danger)">Interés</th>
-              <th class="td-right" style="color:var(--color-success)">Capital</th>
-              <th class="td-right">Saldo</th>
+              <th class="amount">Cuota</th>
+              <th class="amount text-danger">Interés</th>
+              <th class="amount text-success">Capital</th>
+              <th class="amount">Saldo</th>
             </tr>
           </thead>
           <tbody>
             ${rows.slice(0, 60).map(r => `
               <tr>
-                <td class="td-soft" style="font-size:0.8rem;white-space:nowrap">${fmtDate(r.date ?? r.payment_date)}</td>
-                <td class="td-right td-mono" style="font-size:0.8rem">${fmtCurrency(r.payment ?? r.total_payment ?? 0, currency)}</td>
-                <td class="td-right td-mono" style="font-size:0.8rem;color:var(--color-danger)">${fmtCurrency(r.interest ?? r.interest_payment ?? 0, currency)}</td>
-                <td class="td-right td-mono" style="font-size:0.8rem;color:var(--color-success)">${fmtCurrency(r.principal ?? r.principal_payment ?? 0, currency)}</td>
-                <td class="td-right td-mono" style="font-size:0.8rem">${fmtCurrency(r.balance ?? r.remaining_balance ?? 0, currency)}</td>
+                <td class="td-soft" style="white-space:nowrap">${fmtDate(r.date ?? r.payment_date)}</td>
+                <td class="amount">${fmtCurrency(r.payment ?? r.total_payment ?? 0, currency)}</td>
+                <td class="amount text-danger">${fmtCurrency(r.interest ?? r.interest_payment ?? 0, currency)}</td>
+                <td class="amount text-success">${fmtCurrency(r.principal ?? r.principal_payment ?? 0, currency)}</td>
+                <td class="amount">${fmtCurrency(r.balance ?? r.remaining_balance ?? 0, currency)}</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -144,8 +144,8 @@ async function loadAmortization(container, id, list) {
           datasets: [{
             label: 'Saldo restante',
             data: sample.map(r => r.balance ?? r.remaining_balance ?? 0),
-            borderColor: 'var(--color-primary)',
-            backgroundColor: 'rgba(217,119,6,0.1)',
+            borderColor: (window.CHART_PALETTE ?? ['#60A5FA'])[0],
+            backgroundColor: 'rgba(96,165,250,0.1)',
             fill: true, tension: 0.3,
           }],
         },
@@ -181,7 +181,7 @@ function openSimulateModal(prefill = {}) {
     title: 'Simulador de Abono Extra',
     size: 'lg',
     content: `
-      <p style="color:var(--text-soft);font-size:0.85rem;margin-bottom:16px">
+      <p class="text-soft mb-4" style="font-size:0.85rem">
         Calcula cuánto tiempo e intereses ahorras si aumentas tu pago mensual.
       </p>
       <div class="form-row cols-2">
@@ -207,12 +207,12 @@ function openSimulateModal(prefill = {}) {
           </select>
         </div>
       </div>
-      <div class="form-group" style="margin-top:4px">
+      <div class="form-group mt-1">
         <label class="form-label">Abono extra al capital por mes</label>
         <input type="number" id="ms-extra" placeholder="500000" step="100000" min="0">
-        <span style="font-size:0.78rem;color:var(--text-soft)">Deja en 0 para ver solo la proyección base.</span>
+        <span class="text-soft" style="font-size:0.78rem">Deja en 0 para ver solo la proyección base.</span>
       </div>
-      <div id="ms-result" style="margin-top:20px"></div>
+      <div id="ms-result" class="mt-4"></div>
     `,
     submitLabel: 'Simular',
     keepOpen: true,
@@ -240,65 +240,65 @@ function openSimulateModal(prefill = {}) {
       };
 
       resultEl.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr${withExtra ? ' 1fr' : ''};gap:16px">
+        <div class="${withExtra ? 'grid-2' : ''}">
           <div>
-            <div style="font-size:0.75rem;font-weight:600;color:var(--text-soft);text-transform:uppercase;margin-bottom:10px">
+            <div class="text-soft mb-2" style="font-size:0.75rem;font-weight:600;text-transform:uppercase">
               Escenario base
             </div>
-            <div class="stat-chip" style="margin-bottom:8px">
+            <div class="stat-chip mb-2">
               <span class="stat-chip-label">Cuota mensual</span>
               <span class="stat-chip-value">${fmtCurrency(base.monthly_payment, currency)}</span>
             </div>
-            <div class="stat-chip" style="margin-bottom:8px">
+            <div class="stat-chip mb-2">
               <span class="stat-chip-label">Plazo total</span>
               <span class="stat-chip-value">${fmtMonths(base.months)}</span>
             </div>
-            <div class="stat-chip" style="margin-bottom:8px">
+            <div class="stat-chip mb-2">
               <span class="stat-chip-label">Total intereses</span>
-              <span class="stat-chip-value negative">${fmtCurrency(base.total_interest, currency)}</span>
+              <span class="stat-chip-value negative amount">${fmtCurrency(base.total_interest, currency)}</span>
             </div>
             <div class="stat-chip">
               <span class="stat-chip-label">Total pagado</span>
-              <span class="stat-chip-value">${fmtCurrency(base.total_paid, currency)}</span>
+              <span class="stat-chip-value amount">${fmtCurrency(base.total_paid, currency)}</span>
             </div>
           </div>
           ${withExtra ? `
-          <div style="background:var(--color-success-bg,rgba(34,197,94,0.08));border:1px solid var(--color-success);border-radius:8px;padding:14px">
-            <div style="font-size:0.75rem;font-weight:600;color:var(--color-success);text-transform:uppercase;margin-bottom:10px">
-              Con abono extra · ${fmtCurrency(extra, currency)}/mes
+          <div style="background:rgba(34,197,94,0.08);border:1px solid var(--fin-success);border-radius:8px;padding:14px">
+            <div class="text-success mb-2" style="font-size:0.75rem;font-weight:600;text-transform:uppercase">
+              Con abono extra · <span class="amount">${fmtCurrency(extra, currency)}</span>/mes
             </div>
-            <div class="stat-chip" style="margin-bottom:8px">
+            <div class="stat-chip mb-2">
               <span class="stat-chip-label">Cuota total</span>
-              <span class="stat-chip-value">${fmtCurrency(withExtra.monthly_payment, currency)}</span>
+              <span class="stat-chip-value amount">${fmtCurrency(withExtra.monthly_payment, currency)}</span>
             </div>
-            <div class="stat-chip" style="margin-bottom:8px">
+            <div class="stat-chip mb-2">
               <span class="stat-chip-label">Nuevo plazo</span>
               <span class="stat-chip-value">${fmtMonths(withExtra.months)}</span>
             </div>
-            <div class="stat-chip" style="margin-bottom:8px">
+            <div class="stat-chip mb-2">
               <span class="stat-chip-label">Total intereses</span>
-              <span class="stat-chip-value negative">${fmtCurrency(withExtra.total_interest, currency)}</span>
+              <span class="stat-chip-value negative amount">${fmtCurrency(withExtra.total_interest, currency)}</span>
             </div>
-            <div class="stat-chip" style="margin-bottom:8px">
+            <div class="stat-chip mb-2">
               <span class="stat-chip-label">Total pagado</span>
-              <span class="stat-chip-value">${fmtCurrency(withExtra.total_paid, currency)}</span>
+              <span class="stat-chip-value amount">${fmtCurrency(withExtra.total_paid, currency)}</span>
             </div>
-            <div style="border-top:1px solid var(--color-success);margin-top:12px;padding-top:12px">
-              <div style="font-size:0.75rem;font-weight:600;color:var(--color-success);margin-bottom:8px">Ahorros</div>
-              <div class="stat-chip" style="margin-bottom:6px">
+            <div class="mt-3" style="border-top:1px solid var(--fin-success);padding-top:12px">
+              <div class="text-success mb-2" style="font-size:0.75rem;font-weight:600">Ahorros</div>
+              <div class="stat-chip mb-1">
                 <span class="stat-chip-label">Tiempo ahorrado</span>
-                <span class="stat-chip-value positive">${fmtMonths(base.months - withExtra.months)}</span>
+                <span class="stat-chip-value text-success">${fmtMonths(base.months - withExtra.months)}</span>
               </div>
               <div class="stat-chip">
                 <span class="stat-chip-label">Intereses ahorrados</span>
-                <span class="stat-chip-value positive">${fmtCurrency(base.total_interest - withExtra.total_interest, currency)}</span>
+                <span class="stat-chip-value text-success amount">${fmtCurrency(base.total_interest - withExtra.total_interest, currency)}</span>
               </div>
             </div>
           </div>` : ''}
         </div>
-        ${withExtra ? `<p style="font-size:0.78rem;color:var(--text-soft);margin-top:12px">
+        ${withExtra ? `<p class="text-soft mt-3" style="font-size:0.78rem">
           Fecha estimada de pago: <strong>${withExtra.payoff_date}</strong> (vs ${base.payoff_date} sin abono extra)
-        </p>` : `<p style="font-size:0.78rem;color:var(--text-soft);margin-top:12px">
+        </p>` : `<p class="text-soft mt-3" style="font-size:0.78rem">
           Fecha estimada de pago: <strong>${base.payoff_date}</strong>
         </p>`}
       `;

@@ -138,13 +138,13 @@ function renderPage(incomeData, trendData, incomeSources, year, month, savingsRa
       </div>
     </div>
 
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+    <div class="flex items-center gap-3 mb-3">
       <button id="inc-prev" class="btn btn-ghost btn-sm">←</button>
       <h2 style="margin:0;font-size:18px;font-weight:600">${MONTH_NAMES[month-1]} ${year}</h2>
       <button id="inc-next" class="btn btn-ghost btn-sm" ${isCurrentMonth ? 'disabled' : ''}>→</button>
     </div>
 
-    <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:24px">
+    <div class="kpi-grid mb-4">
       <div class="kpi-card">
         <div class="kpi-label">Proyectado</div>
         <div class="kpi-value">${fmt(totalProjected)}</div>
@@ -153,7 +153,7 @@ function renderPage(incomeData, trendData, incomeSources, year, month, savingsRa
       <div class="kpi-card ${totalActual > 0 ? 'positive' : ''}">
         <div class="kpi-label">Recibido</div>
         <div class="kpi-value">${fmt(totalActual)}</div>
-        <div class="kpi-sub" style="color:${diffProjected >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+        <div class="kpi-sub" style="color:${diffProjected >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">
           ${diffProjected >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diffProjected))} vs proyectado
         </div>
       </div>
@@ -169,19 +169,19 @@ function renderPage(incomeData, trendData, incomeSources, year, month, savingsRa
       </div>
     </div>
 
-    <div class="section-grid cols-2" style="margin-bottom:24px">
+    <div class="section-grid cols-2 mb-4">
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ingresos del mes por categoría</h3></div>
         ${bySource.length === 0
-          ? `<div style="padding:24px;text-align:center;color:var(--color-text-muted)">Sin ingresos registrados este mes</div>`
-          : `<div style="overflow-x:auto"><table class="data-table">
-              <thead><tr><th>Categoría</th><th style="text-align:right">Monto</th><th style="text-align:right">%</th></tr></thead>
+          ? `<div class="empty-state"><p>Sin ingresos registrados este mes</p></div>`
+          : `<div style="overflow-x:auto"><table class="fin-table">
+              <thead><tr><th>Categoría</th><th class="td-right">Monto</th><th class="td-right">%</th></tr></thead>
               <tbody>
                 ${bySource.map(row => `
                   <tr>
                     <td>${sanitize(row.category_name)}</td>
-                    <td style="text-align:right;font-family:monospace">${fmt(row.amount)}</td>
-                    <td style="text-align:right;color:var(--color-text-muted);font-size:12px">
+                    <td class="td-right text-success"><span class="amount">${fmt(row.amount)}</span></td>
+                    <td class="td-right text-muted" style="font-size:12px">
                       ${totalActual > 0 ? (row.amount / totalActual * 100).toFixed(1) + '%' : '—'}
                     </td>
                   </tr>`).join('')}
@@ -191,34 +191,32 @@ function renderPage(incomeData, trendData, incomeSources, year, month, savingsRa
       </div>
 
       <div class="card">
-        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
-          <h3 class="card-title" style="margin:0">Fuentes recurrentes</h3>
+        <div class="card-header flex items-center justify-between">
+          <h3 class="card-title">Fuentes recurrentes</h3>
           <button id="btn-add-recurring" class="btn btn-primary btn-sm">+ Agregar fuente</button>
         </div>
         ${active.length === 0
-          ? `<div style="padding:24px;text-align:center;color:var(--color-text-muted)">
-              No hay fuentes activas. Agrega nómina, freelance u otras.
-            </div>`
-          : `<div style="overflow-x:auto"><table class="data-table">
-              <thead><tr><th>Fuente</th><th>Frecuencia</th><th style="text-align:right">Monto</th><th style="width:80px"></th></tr></thead>
+          ? `<div class="empty-state"><p>No hay fuentes activas. Agrega nómina, freelance u otras.</p></div>`
+          : `<div style="overflow-x:auto"><table class="fin-table">
+              <thead><tr><th>Fuente</th><th>Frecuencia</th><th class="td-right">Monto</th><th style="width:80px"></th></tr></thead>
               <tbody>${active.map(r => recurringRow(r, true)).join('')}</tbody>
             </table></div>`
         }
         ${inactive.length > 0 ? `
-          <details style="border-top:1px solid var(--border-muted);padding:8px 16px 12px">
-            <summary style="cursor:pointer;font-size:0.75rem;color:var(--color-text-muted)">
+          <details style="border-top:1px solid var(--fin-border);padding:8px 16px 12px">
+            <summary class="text-muted" style="cursor:pointer;font-size:0.75rem">
               Inactivas (${inactive.length})
             </summary>
-            <table class="data-table" style="margin-top:8px">
+            <table class="fin-table mt-2">
               <tbody>${inactive.map(r => recurringRow(r, false)).join('')}</tbody>
             </table>
           </details>` : ''}
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:24px">
+    <div class="card mb-4">
       <div class="card-header"><h3 class="card-title">Últimos 6 meses — Ingresos vs Gastos</h3></div>
-      <div style="padding:16px"><canvas id="incomeChart" style="width:100%;height:260px"></canvas></div>
+      <div class="card-body"><canvas id="incomeChart" style="width:100%;height:260px"></canvas></div>
     </div>
 
     ${savingsRateSection(savingsRateData)}
@@ -229,16 +227,15 @@ function recurringRow(r, isActive) {
   const code = r.currency?.code ?? 'COP';
   return `
     <tr style="${isActive ? '' : 'opacity:0.5'}">
-      <td style="font-size:0.8125rem;font-weight:500">${sanitize(r.description ?? r.name ?? '—')}</td>
-      <td style="font-size:0.78rem;color:var(--color-text-muted)">${FREQ_LABELS[r.frequency] ?? r.frequency ?? '—'}</td>
-      <td style="text-align:right;font-family:monospace;font-size:0.8125rem;color:var(--color-success)">+${fmt(r.amount ?? 0, code)}</td>
-      <td style="text-align:right;white-space:nowrap">
+      <td class="text-soft" style="font-weight:500">${sanitize(r.description ?? r.name ?? '—')}</td>
+      <td class="text-muted" style="font-size:0.78rem">${FREQ_LABELS[r.frequency] ?? r.frequency ?? '—'}</td>
+      <td class="td-right text-success"><span class="amount">+${fmt(r.amount ?? 0, code)}</span></td>
+      <td class="td-right" style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" data-rec-edit="${r.id}" title="Editar">✏</button>
         <button class="btn btn-ghost btn-xs" data-rec-toggle="${r.id}" data-rec-active="${isActive}"
           title="${isActive ? 'Desactivar' : 'Activar'}"
-          style="color:${isActive ? 'var(--color-text-muted)' : 'var(--color-success)'}">${isActive ? '⏸' : '▶'}</button>
-        <button class="btn btn-ghost btn-xs" data-rec-delete="${r.id}" title="Eliminar"
-          style="color:var(--color-danger)">✕</button>
+          style="color:${isActive ? 'var(--fin-ink-3)' : 'var(--fin-success)'}">${isActive ? '⏸' : '▶'}</button>
+        <button class="btn btn-ghost btn-xs text-danger" data-rec-delete="${r.id}" title="Eliminar">✕</button>
       </td>
     </tr>`;
 }
@@ -440,8 +437,8 @@ function renderChart(container, trendData) {
     data: {
       labels,
       datasets: [
-        { label:'Ingresos', data:income,  backgroundColor:'rgba(34,197,94,0.7)', borderRadius:4 },
-        { label:'Gastos',   data:expense, backgroundColor:'rgba(239,68,68,0.6)', borderRadius:4 },
+        { label:'Ingresos', data:income,  backgroundColor:'var(--fin-success)', borderRadius:4 },
+        { label:'Gastos',   data:expense, backgroundColor:'var(--fin-danger)', borderRadius:4 },
       ],
     },
     options: {
@@ -449,17 +446,17 @@ function renderChart(container, trendData) {
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
       plugins: {
-        legend: { labels:{ color:'#94a3b8', font:{ size:12 } } },
+        legend: { labels:{ color:'var(--fin-ink-2)', font:{ size:12 } } },
         tooltip: { callbacks:{ label: ctx => `${ctx.dataset.label}: ${fmtCOP(ctx.raw)}` } },
       },
       scales: {
-        x: { ticks:{ color:'#94a3b8', font:{ size:11 } }, grid:{ display:false } },
+        x: { ticks:{ color:'var(--fin-ink-2)', font:{ size:11 } }, grid:{ display:false } },
         y: {
           ticks: {
-            color:'#94a3b8', font:{ size:11 },
+            color:'var(--fin-ink-2)', font:{ size:11 },
             callback: v => new Intl.NumberFormat('es-CO', { notation:'compact', currency:'COP', style:'currency', maximumFractionDigits:0 }).format(v),
           },
-          grid: { color:'rgba(148,163,184,0.08)' },
+          grid: { color:'var(--fin-border)' },
         },
       },
     },
@@ -472,27 +469,27 @@ function savingsRateSection(sr) {
   const avg = sr.average_savings_rate ?? 0;
 
   return `
-    <div class="card" style="margin-top:24px">
+    <div class="card mt-4">
       <div class="card-header">
         <h3 class="card-title">Tasa de Ahorro — Histórico</h3>
-        <div style="display:flex;align-items:center;gap:8px">
-          <label style="font-size:0.78rem;color:var(--text-secondary)">Meta:</label>
+        <div class="flex items-center gap-1">
+          <label class="text-muted" style="font-size:0.78rem">Meta:</label>
           <input type="number" id="sr-target" value="${savedTarget}" min="0" max="100" step="1"
-            style="width:60px;padding:3px 6px;font-size:0.78rem;border:1px solid var(--border-muted);background:var(--bg-input);color:var(--text-primary);border-radius:5px">
-          <span style="font-size:0.78rem;color:var(--text-secondary)">%</span>
+            class="input-field" style="width:60px;padding:3px 6px;font-size:0.78rem">
+          <span class="text-muted" style="font-size:0.78rem">%</span>
         </div>
       </div>
-      <div style="padding:16px"><canvas id="savingsRateChart" style="width:100%;height:220px"></canvas></div>
-      <div style="padding:0 16px 16px;display:flex;flex-wrap:wrap;gap:12px">
-        <div style="font-size:0.8rem;color:var(--text-secondary)">
+      <div class="card-body"><canvas id="savingsRateChart" style="width:100%;height:220px"></canvas></div>
+      <div class="card-body flex" style="flex-wrap:wrap;gap:12px;padding-top:0">
+        <div class="text-muted" style="font-size:0.8rem">
           Promedio (${sr.monthly.length} meses):
-          <strong class="${avg >= savedTarget ? 'amount positive' : 'amount negative'}" style="margin-left:4px">${avg.toFixed(1)}%</strong>
+          <strong class="${avg >= savedTarget ? 'amount text-success' : 'amount text-danger'}" style="margin-left:4px">${avg.toFixed(1)}%</strong>
         </div>
-        <div style="font-size:0.8rem;color:var(--text-secondary)">
+        <div class="text-muted" style="font-size:0.8rem">
           Meta: <strong style="margin-left:4px">${savedTarget}%</strong>
           ${avg >= savedTarget
-            ? '<span style="color:var(--color-success);font-size:0.75rem;margin-left:4px">✓ Cumplida</span>'
-            : '<span style="color:var(--color-danger);font-size:0.75rem;margin-left:4px">⚠ Por debajo</span>'}
+            ? '<span class="text-success" style="font-size:0.75rem;margin-left:4px">✓ Cumplida</span>'
+            : '<span class="text-danger" style="font-size:0.75rem;margin-left:4px">⚠ Por debajo</span>'}
         </div>
       </div>
     </div>`;
@@ -517,7 +514,7 @@ function renderSavingsRateChart(container, sr) {
           {
             label: 'Tasa de ahorro',
             data: rates,
-            borderColor: '#22c55e',
+            borderColor: 'var(--fin-success)',
             backgroundColor: 'rgba(34,197,94,0.1)',
             borderWidth: 2,
             pointRadius: 4,
@@ -527,7 +524,7 @@ function renderSavingsRateChart(container, sr) {
           {
             label: `Meta (${target}%)`,
             data: labels.map(() => target),
-            borderColor: 'rgba(251,191,36,0.7)',
+            borderColor: 'var(--fin-amber)',
             borderDash: [6, 4],
             borderWidth: 1.5,
             pointRadius: 0,
@@ -538,12 +535,12 @@ function renderSavingsRateChart(container, sr) {
       options: {
         responsive: true,
         plugins: {
-          legend: { labels:{ color:'var(--text-secondary)', font:{ size:11 } } },
+          legend: { labels:{ color:'var(--fin-ink-2)', font:{ size:11 } } },
           tooltip: { callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%` } },
         },
         scales: {
-          y: { ticks:{ callback: v => v+'%', color:'#94a3b8', font:{ size:10 } }, grid:{ color:'#1e293b' }, beginAtZero:true },
-          x: { ticks:{ color:'#94a3b8', font:{ size:10 } }, grid:{ display:false } },
+          y: { ticks:{ callback: v => v+'%', color:'var(--fin-ink-2)', font:{ size:10 } }, grid:{ color:'var(--fin-border)' }, beginAtZero:true },
+          x: { ticks:{ color:'var(--fin-ink-2)', font:{ size:10 } }, grid:{ display:false } },
         },
       },
     });
@@ -569,12 +566,12 @@ function loadChart(cb) {
 function skeleton() {
   return `
     <div class="page-header"><div class="skeleton" style="height:26px;width:160px"></div></div>
-    <div style="display:flex;gap:12px;margin-bottom:20px">
+    <div class="flex gap-2 mb-3">
       <div class="skeleton" style="height:32px;width:80px"></div>
     </div>
     <div class="kpi-grid">
       ${[0,1,2,3].map(() => `<div class="kpi-card"><div class="skeleton" style="height:60px"></div></div>`).join('')}
     </div>
-    <div class="card" style="margin-top:24px"><div class="skeleton" style="height:280px;margin:16px"></div></div>
+    <div class="card mt-4"><div class="skeleton" style="height:280px;margin:16px"></div></div>
   `;
 }

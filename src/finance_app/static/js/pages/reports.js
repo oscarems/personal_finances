@@ -1,6 +1,17 @@
 import * as api from '../api/client.js';
 import { fmtCurrency, fmtNumber, sanitize, currentMonth, prevMonth, fmtMonthLabel, optional } from '../utils.js';
 
+// Use shared palette when available, fall back to local list
+function chartPalette(n) {
+  const p = window.CHART_PALETTE;
+  if (Array.isArray(p) && p.length) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(p[i % p.length]);
+    return out;
+  }
+  return LOCAL_COLORS.slice(0, n);
+}
+
 export const title = 'Reportes';
 
 let _month = currentMonth();
@@ -45,9 +56,9 @@ function renderShell(container) {
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-text"><h1>Reportes</h1></div>
-      <div class="page-header-actions" style="display:flex;align-items:center;gap:12px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <label style="font-size:0.8rem;color:var(--text-secondary)">Moneda</label>
+      <div class="page-header-actions flex items-center gap-3">
+        <div class="flex items-center gap-1">
+          <label class="text-muted" style="font-size:0.8rem">Moneda</label>
           <select id="rptCurrency" class="input-field" style="min-width:72px;padding:4px 8px;height:32px;font-size:0.8125rem">
             ${currencyOptions}
           </select>
@@ -60,7 +71,7 @@ function renderShell(container) {
       </div>
     </div>
     <div class="kpi-grid" id="rpt-kpis"></div>
-    <div class="section-grid cols-2" style="margin-bottom:24px">
+    <div class="section-grid cols-2 mb-4">
       <div class="card">
         <div class="card-header"><span class="card-title">Gasto por Categoría</span></div>
         <div class="card-body" style="height:280px;position:relative">
@@ -79,18 +90,18 @@ function renderShell(container) {
       <div class="card-body" id="rpt-detail"></div>
     </div>
 
-    <div class="card" style="margin-top:24px">
+    <div class="card mt-4">
       <div class="card-header" style="flex-wrap:wrap;gap:12px">
         <span class="card-title">Gasto por Categoría en el Tiempo</span>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto">
+        <div class="flex items-center gap-2" style="flex-wrap:wrap;margin-left:auto">
           <div class="tab-pills" id="granTabs">
             <button class="tab-pill ${_granularity === 'daily' ? 'active' : ''}" data-gran="daily">Diario</button>
             <button class="tab-pill ${_granularity === 'weekly' ? 'active' : ''}" data-gran="weekly">Semanal</button>
             <button class="tab-pill ${_granularity === 'monthly' ? 'active' : ''}" data-gran="monthly">Mensual</button>
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
+          <div class="flex items-center gap-1">
             <input type="date" id="otStartDate" class="input-field" style="height:32px;font-size:0.8125rem;padding:4px 8px" value="${_otStartDate}">
-            <span style="color:var(--text-secondary);font-size:0.8rem">→</span>
+            <span class="text-muted" style="font-size:0.8rem">→</span>
             <input type="date" id="otEndDate" class="input-field" style="height:32px;font-size:0.8125rem;padding:4px 8px" value="${_otEndDate}">
           </div>
         </div>
@@ -98,8 +109,8 @@ function renderShell(container) {
       <div class="card-body" style="padding-top:0;padding-bottom:0" id="otCategoryFilter"></div>
       <div class="card-body" style="height:320px;position:relative">
         <canvas id="overtimeChart"></canvas>
-        <div id="overtimeEmpty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:var(--text-secondary);font-size:0.875rem">Sin datos para el período</div>
-        <div id="overtimeLoading" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:var(--bg-surface);opacity:0.7;border-radius:8px"><div class="spinner"></div></div>
+        <div id="overtimeEmpty" class="empty-state" style="display:none;position:absolute;inset:0"><p>Sin datos para el período</p></div>
+        <div id="overtimeLoading" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:var(--fin-surface);opacity:0.7;border-radius:8px"><div class="spinner"></div></div>
       </div>
       <div class="card-body" style="padding-top:0" id="overtimeLegend"></div>
     </div>
@@ -206,17 +217,17 @@ async function loadData(container) {
     const spendCtx = container.querySelector('#spendChart');
     if (spendCtx && cats.length) {
       const sorted = [...cats].sort((a, b) => (b.spent ?? b.amount ?? 0) - (a.spent ?? a.amount ?? 0)).slice(0, 10);
-      const COLORS = ['#D97706','#059669','#0891B2','#7C3AED','#DB2777','#EA580C','#65A30D','#0284C7','#9333EA','#E11D48'];
+      const COLORS = chartPalette(sorted.length);
       _chart = new Chart(spendCtx, {
         type: 'doughnut',
         data: {
           labels: sorted.map(c => c.category_name ?? c.name),
-          datasets: [{ data: sorted.map(c => c.spent ?? c.amount ?? 0), backgroundColor: COLORS, borderWidth: 2, borderColor: 'var(--bg-surface)' }],
+          datasets: [{ data: sorted.map(c => c.spent ?? c.amount ?? 0), backgroundColor: COLORS, borderWidth: 2, borderColor: 'var(--fin-surface)' }],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'right', labels: { font: { size: 11 }, color: 'var(--text-secondary)', padding: 12 } },
+            legend: { position: 'right', labels: { font: { size: 11 }, color: 'var(--fin-ink-2)', padding: 12 } },
             tooltip: { callbacks: { label: (ctx) => ` ${fmt(ctx.raw)}` } },
           },
         },
@@ -233,7 +244,7 @@ async function loadData(container) {
           labels: ['Ingresos', 'Gastos'],
           datasets: [{
             data: [totalInc, totalExp],
-            backgroundColor: ['rgba(5,150,105,0.7)', 'rgba(220,38,38,0.7)'],
+            backgroundColor: ['var(--fin-success)', 'var(--fin-danger)'],
             borderRadius: 6,
           }],
         },
@@ -241,8 +252,8 @@ async function loadData(container) {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            y: { grid: { color: 'var(--border-muted)' }, ticks: { callback: v => fmt(v), font: { size: 10 }, color: 'var(--text-soft)' } },
-            x: { grid: { display: false }, ticks: { color: 'var(--text-secondary)' } },
+            y: { grid: { color: 'var(--fin-border)' }, ticks: { callback: v => fmt(v), font: { size: 10 }, color: 'var(--fin-ink-3)' } },
+            x: { grid: { display: false }, ticks: { color: 'var(--fin-ink-2)' } },
           },
         },
       });
@@ -251,7 +262,7 @@ async function loadData(container) {
     if (detailEl) {
       const sorted = [...cats].sort((a, b) => (b.spent ?? b.amount ?? 0) - (a.spent ?? a.amount ?? 0));
       detailEl.innerHTML = sorted.length ? `
-        <table>
+        <table class="fin-table">
           <thead>
             <tr>
               <th>Categoría</th>
@@ -266,9 +277,9 @@ async function loadData(container) {
               const pct = totalExp > 0 ? (amt / totalExp) * 100 : 0;
               return `
                 <tr>
-                  <td style="font-size:0.8125rem;font-weight:500">${sanitize(c.category_name ?? c.name ?? '—')}</td>
-                  <td class="td-right td-mono" style="font-size:0.8125rem">${fmt(amt)}</td>
-                  <td class="td-right" style="font-size:0.8125rem;color:var(--text-secondary)">${pct.toFixed(1)}%</td>
+                  <td class="text-soft" style="font-weight:500">${sanitize(c.category_name ?? c.name ?? '—')}</td>
+                  <td class="td-right"><span class="amount">${fmt(amt)}</span></td>
+                  <td class="td-right text-muted">${pct.toFixed(1)}%</td>
                   <td>
                     <div class="progress-wrap" style="min-width:80px">
                       <div class="progress-fill ok" style="width:${pct}%"></div>
@@ -285,11 +296,17 @@ async function loadData(container) {
   }
 }
 
-const CHART_COLORS = [
+const LOCAL_COLORS = [
   '#D97706','#059669','#0891B2','#7C3AED','#DB2777',
   '#EA580C','#65A30D','#0284C7','#9333EA','#E11D48',
   '#F59E0B','#10B981','#06B6D4','#8B5CF6','#EC4899',
 ];
+
+function getColor(idx) {
+  const p = window.CHART_PALETTE;
+  const src = (Array.isArray(p) && p.length) ? p : LOCAL_COLORS;
+  return src[idx % src.length];
+}
 
 function renderCategoryDropdown(container) {
   const el = container.querySelector('#otCategoryFilter');
@@ -305,8 +322,8 @@ function renderCategoryDropdown(container) {
   const label = allSelected ? 'Todas las categorías' : `${count} categoría${count !== 1 ? 's' : ''} seleccionada${count !== 1 ? 's' : ''}`;
 
   el.innerHTML = `
-    <div style="position:relative;display:inline-block;padding:8px 0 4px" id="catDropdownWrap">
-      <button id="catDropdownBtn" class="btn btn-ghost btn-sm" style="font-size:0.8rem;gap:6px;display:flex;align-items:center">
+    <div id="catDropdownWrap" style="position:relative;display:inline-block;padding:8px 0 4px">
+      <button id="catDropdownBtn" class="btn btn-ghost btn-sm flex items-center gap-1" style="font-size:0.8rem">
         <span id="catDropdownLabel">${label}</span>
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="opacity:0.6;flex-shrink:0">
           <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -314,25 +331,25 @@ function renderCategoryDropdown(container) {
       </button>
       <div id="catDropdownMenu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;
            min-width:220px;max-height:280px;overflow-y:auto;
-           background:var(--bg-elevated,#1e293b);border:1px solid var(--border-muted);
+           background:var(--fin-surface-2);border:1px solid var(--fin-border);
            border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.4);padding:6px 0">
-        <label style="display:flex;align-items:center;gap:10px;padding:7px 14px;cursor:pointer;
-                      font-size:0.8125rem;color:var(--text-secondary);border-bottom:1px solid var(--border-muted);
-                      margin-bottom:4px" id="catSelectAll">
-          <input type="checkbox" ${allSelected ? 'checked' : ''} style="accent-color:var(--accent,#2563eb);width:14px;height:14px">
-          <span style="font-weight:500;color:var(--text-primary)">Todas</span>
+        <label class="flex items-center gap-2 text-muted"
+               style="padding:7px 14px;cursor:pointer;font-size:0.8125rem;border-bottom:1px solid var(--fin-border);margin-bottom:4px"
+               id="catSelectAll">
+          <input type="checkbox" ${allSelected ? 'checked' : ''} style="accent-color:var(--fin-accent);width:14px;height:14px">
+          <span class="text-soft" style="font-weight:500">Todas</span>
         </label>
         ${_availableCategories.map((cat, idx) => {
           const checked = !allSelected && _selectedCategories.has(cat);
-          const color = CHART_COLORS[idx % CHART_COLORS.length];
+          const color = getColor(idx);
           return `
-            <label style="display:flex;align-items:center;gap:10px;padding:6px 14px;cursor:pointer;
-                          font-size:0.8125rem;color:var(--text-secondary);transition:background 0.1s"
-                   class="cat-dd-item" data-cat="${sanitize(cat)}"
-                   onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background=''">
+            <label class="flex items-center gap-2 text-muted cat-dd-item"
+                   style="padding:6px 14px;cursor:pointer;font-size:0.8125rem;transition:background 0.1s"
+                   data-cat="${sanitize(cat)}"
+                   onmouseover="this.style.background='var(--fin-surface)'" onmouseout="this.style.background=''">
               <input type="checkbox" ${checked ? 'checked' : ''} data-cat="${sanitize(cat)}"
                      style="accent-color:${color};width:14px;height:14px;flex-shrink:0">
-              <span style="display:flex;align-items:center;gap:7px">
+              <span class="flex items-center gap-1">
                 <span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0"></span>
                 ${sanitize(cat)}
               </span>
@@ -499,7 +516,7 @@ async function loadOvertimeChart(container) {
             stacked: false,
             grid: { display: false },
             ticks: {
-              color: 'var(--text-secondary)',
+              color: 'var(--fin-ink-2)',
               font: { size: 10 },
               maxRotation: isDaily ? 45 : 0,
               autoSkip: true,
@@ -509,8 +526,8 @@ async function loadOvertimeChart(container) {
           y: {
             stacked: false,
             beginAtZero: true,
-            grid: { color: 'var(--border-muted)' },
-            ticks: { callback: v => fmt(v), font: { size: 10 }, color: 'var(--text-soft)' },
+            grid: { color: 'var(--fin-border)' },
+            ticks: { callback: v => fmt(v), font: { size: 10 }, color: 'var(--fin-ink-3)' },
           },
         },
       },
@@ -518,15 +535,14 @@ async function loadOvertimeChart(container) {
 
     if (legendEl) {
       legendEl.innerHTML = `
-        <div style="display:flex;flex-wrap:wrap;gap:6px 12px;padding-top:8px;border-top:1px solid var(--border-muted)">
+        <div class="flex" style="flex-wrap:wrap;gap:6px 12px;padding-top:8px;border-top:1px solid var(--fin-border)">
           ${data.series.map((s, i) => {
             const colorIdx = _availableCategories.indexOf(s.category);
-            const color = CHART_COLORS[(colorIdx >= 0 ? colorIdx : i) % CHART_COLORS.length];
+            const color = getColor(colorIdx >= 0 ? colorIdx : i);
             return `
-              <button data-legend-idx="${i}" style="display:flex;align-items:center;gap:6px;font-size:0.78rem;
-                background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;
-                color:var(--text-secondary);transition:background 0.1s"
-                onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background=''">
+              <button data-legend-idx="${i}" class="text-muted flex items-center gap-1"
+                style="background:none;border:none;cursor:pointer;padding:3px 6px;border-radius:4px;font-size:0.78rem;transition:background 0.1s"
+                onmouseover="this.style.background='var(--fin-surface-2)'" onmouseout="this.style.background=''">
                 <span data-legend-dot="${i}" style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0"></span>
                 <span>${sanitize(s.category)}</span>
               </button>`;
@@ -547,6 +563,6 @@ async function loadOvertimeChart(container) {
     }
   } catch (err) {
     if (loadingEl) loadingEl.style.display = 'none';
-    if (legendEl) legendEl.innerHTML = `<div class="alert alert-danger" style="font-size:0.8rem">${sanitize(err.message)}</div>`;
+    if (legendEl) legendEl.innerHTML = `<div class="alert alert-danger text-soft">${sanitize(err.message)}</div>`;
   }
 }

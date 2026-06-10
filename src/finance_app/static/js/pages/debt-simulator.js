@@ -11,12 +11,12 @@ export async function mount(container) {
     <div style="display:grid;grid-template-columns:320px 1fr;gap:24px;align-items:start">
       <!-- Panel izquierdo: parámetros -->
       <div class="card" style="padding:20px">
-        <h3 style="font-size:0.9rem;font-weight:600;margin:0 0 16px">Parámetros</h3>
+        <h3 style="font-size:0.9rem;font-weight:600;margin:0 0 16px" class="mb-4">Parámetros</h3>
         <div class="form-group">
           <label class="form-label">Abono extra mensual (COP)</label>
           <input type="number" id="sim-extra" value="0" step="50000" min="0">
         </div>
-        <button class="btn btn-primary" id="btnCompare" style="width:100%;margin-top:16px">Comparar estrategias</button>
+        <button class="btn btn-primary w-full mt-4" id="btnCompare">Comparar estrategias</button>
       </div>
       <!-- Panel derecho: resultados -->
       <div id="sim-results">
@@ -76,32 +76,32 @@ function renderResults(data, extra) {
 
     return `
       <div class="card" style="padding:20px;border-top:3px solid ${color}">
-        <div style="font-weight:600;margin-bottom:4px">${label}</div>
-        <div style="font-size:0.75rem;color:var(--text-soft);margin-bottom:12px">${sublabel}</div>
+        <div style="font-weight:600" class="mb-1">${label}</div>
+        <div class="text-soft mb-3" style="font-size:0.75rem">${sublabel}</div>
 
         <div class="kpi-label">Tiempo total</div>
-        <div class="kpi-value" style="font-size:1.5rem;font-family:var(--font-mono)">${months} meses</div>
+        <div class="kpi-value amount" style="font-size:1.5rem">${months} meses</div>
 
-        <div class="kpi-label" style="margin-top:8px">Interés total</div>
-        <div class="kpi-value negative">${fmtCurrency(totalInterest, defaultCurrency)}</div>
+        <div class="kpi-label mt-2">Interés total</div>
+        <div class="kpi-value negative amount">${fmtCurrency(totalInterest, defaultCurrency)}</div>
 
-        <div class="kpi-label" style="margin-top:8px">Ahorro vs. mínimo</div>
-        <div class="kpi-value positive">${fmtCurrency(interestSaved, defaultCurrency)}</div>
+        <div class="kpi-label mt-2">Ahorro vs. mínimo</div>
+        <div class="kpi-value text-success amount">${fmtCurrency(interestSaved, defaultCurrency)}</div>
 
         ${monthsSaved > 0 ? `
-        <div class="kpi-label" style="margin-top:8px">Meses ahorrados</div>
-        <div class="kpi-value" style="color:var(--color-success)">${monthsSaved} meses</div>
+        <div class="kpi-label mt-2">Meses ahorrados</div>
+        <div class="kpi-value text-success">${monthsSaved} meses</div>
         ` : ''}
 
-        <div style="font-size:0.8rem;color:var(--text-soft);margin-top:8px">
+        <div class="text-soft mt-2" style="font-size:0.8rem">
           Pago estimado: ${payoffDate}
         </div>
 
         ${(s.debt_payoff_order?.length > 0) ? `
-        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-muted)">
-          <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin-bottom:6px;font-weight:600">Orden de pago</div>
+        <div class="mt-3" style="padding-top:12px;border-top:1px solid var(--border-muted)">
+          <div class="text-soft mb-2" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:600">Orden de pago</div>
           ${s.debt_payoff_order.map((d, i) => `
-            <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:2px">${i + 1}. ${sanitize(d.name ?? String(d.id))}</div>
+            <div class="mb-1" style="font-size:0.8rem;color:var(--text-secondary)">${i + 1}. ${sanitize(d.name ?? String(d.id))}</div>
           `).join('')}
         </div>` : ''}
       </div>
@@ -109,12 +109,12 @@ function renderResults(data, extra) {
   }).join('');
 
   const extraNote = extra > 0
-    ? `<div class="alert alert-info" style="margin-bottom:16px">Comparando con un abono extra mensual de <strong>${fmtCurrency(extra, 'COP')}</strong>.</div>`
+    ? `<div class="alert alert-info mb-4">Comparando con un abono extra mensual de <strong class="amount">${fmtCurrency(extra, 'COP')}</strong>.</div>`
     : '';
 
   return `
     ${extraNote}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+    <div class="grid-3">
       ${cards}
     </div>
   `;

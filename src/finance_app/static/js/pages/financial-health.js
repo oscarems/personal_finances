@@ -20,7 +20,10 @@ async function load(container) {
   } catch (err) {
     container.innerHTML = `
       <div class="page-header"><div class="page-header-text"><h1>Salud Financiera</h1></div></div>
-      <div class="alert alert-danger">${sanitize(err.message)}</div>`;
+      <div class="alert alert-danger">${sanitize(err.message)}</div>
+      <div class="fh-retry-wrap">
+        <button class="btn btn-ghost btn-sm fh-retry">Reintentar</button>
+      </div>`;
   }
 }
 
@@ -53,28 +56,28 @@ function render(container, data) {
     </div>
 
     <!-- ── SCORE HERO ──────────────────────────────────────────────────── -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px">
+    <div class="fh-hero-grid mb-4">
 
       <!-- Overall score -->
-      <div class="card fh-score-hero" style="grid-column:1;display:flex;flex-direction:column;gap:0">
-        <div style="padding:20px 20px 0">
+      <div class="card fh-score-hero flex flex-col fh-no-gap">
+        <div class="fh-card-top">
           <div class="fh-label-chip">Puntaje General</div>
           ${overall != null ? `
-            <div style="display:flex;align-items:flex-end;gap:10px;margin-top:8px">
+            <div class="flex gap-2 mt-2 fh-score-row">
               <div class="fh-big-score" style="color:${gradeInfo.color}">${overall.toFixed(0)}</div>
-              <div style="padding-bottom:8px">
+              <div class="fh-grade-info">
                 <div class="fh-grade-badge" style="background:${gradeInfo.bg};color:${gradeInfo.color}">Grado ${grade}</div>
-                <div style="font-size:0.7rem;color:var(--text-soft);margin-top:3px">${gradeInfo.label}</div>
+                <div class="fh-sub-note mt-1">${gradeInfo.label}</div>
               </div>
             </div>
             ${scoreGauge(overall, gradeInfo.color)}
-          ` : '<div style="color:var(--text-soft);font-size:0.875rem;padding:16px 0">Sin datos suficientes este mes</div>'}
+          ` : '<div class="text-soft fh-no-data">Sin datos suficientes este mes</div>'}
         </div>
         <!-- How is it calculated -->
-        <div class="fh-explain-box" style="margin:16px;border-top:none">
+        <div class="fh-explain-box fh-explain-box--no-top fh-explain-box--spaced">
           <div class="fh-explain-title">¿Cómo se calcula?</div>
           <p class="fh-explain-text">El puntaje general es el <strong>promedio de dos sub-puntajes</strong>, cada uno de 0 a 100:</p>
-          <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+          <div class="flex flex-col gap-2 mt-2">
             ${miniScoreExplain('Cumplimiento', adherence, 'Qué tan bien ejecutaste el presupuesto asignado (gastado vs. asignado por categoría).')}
             ${miniScoreExplain('Distribución', rule, `Qué tan cerca está tu gasto de la regla ${targets.needs}/${targets.wants}/${targets.savings}.`)}
           </div>
@@ -82,18 +85,18 @@ function render(container, data) {
       </div>
 
       <!-- Adherence explanation -->
-      <div class="card" style="display:flex;flex-direction:column">
-        <div style="padding:20px 20px 0">
-          <div class="fh-label-chip" style="background:rgba(99,102,241,0.15);color:#818cf8">Sub-puntaje 1</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;margin-bottom:4px">
-            <span style="font-size:1.0625rem;font-weight:700;color:var(--text-primary)">Cumplimiento</span>
+      <div class="card flex flex-col">
+        <div class="fh-card-top">
+          <div class="fh-label-chip fh-label-chip--indigo">Sub-puntaje 1</div>
+          <div class="flex items-center gap-2 mt-2 mb-1">
+            <span class="fh-sub-heading">Cumplimiento</span>
             ${scorePill(adherence)}
           </div>
-          <div class="fh-mini-gauge" style="margin-bottom:0">
+          <div class="fh-mini-gauge mb-0">
             <div style="height:100%;width:${adherence}%;background:${scoreColor(adherence)};border-radius:inherit;transition:width .5s"></div>
           </div>
         </div>
-        <div class="fh-explain-box" style="margin:16px">
+        <div class="fh-explain-box fh-explain-box--spaced">
           <div class="fh-explain-title">¿Qué mide?</div>
           <p class="fh-explain-text">Evalúa si <strong>gastaste dentro de lo que planeaste</strong>. Para cada categoría compara el gasto real contra el monto asignado en el presupuesto.</p>
           <div class="fh-formula-box">
@@ -101,26 +104,26 @@ function render(container, data) {
             <code>Puntaje = promedio × 100</code>
           </div>
           <div class="fh-scale">
-            <span style="color:var(--color-success)">≥ 80 Excelente</span>
-            <span style="color:var(--color-warning)">60–79 Regular</span>
-            <span style="color:var(--color-danger)">< 60 Crítico</span>
+            <span class="text-success">≥ 80 Excelente</span>
+            <span class="text-warning">60–79 Regular</span>
+            <span class="text-danger">< 60 Crítico</span>
           </div>
         </div>
       </div>
 
       <!-- Rule explanation -->
-      <div class="card" style="display:flex;flex-direction:column">
-        <div style="padding:20px 20px 0">
-          <div class="fh-label-chip" style="background:rgba(16,185,129,0.15);color:#34d399">Sub-puntaje 2</div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;margin-bottom:4px">
-            <span style="font-size:1.0625rem;font-weight:700;color:var(--text-primary)">Distribución</span>
+      <div class="card flex flex-col">
+        <div class="fh-card-top">
+          <div class="fh-label-chip fh-label-chip--green">Sub-puntaje 2</div>
+          <div class="flex items-center gap-2 mt-2 mb-1">
+            <span class="fh-sub-heading">Distribución</span>
             ${scorePill(rule)}
           </div>
-          <div class="fh-mini-gauge" style="margin-bottom:0">
+          <div class="fh-mini-gauge mb-0">
             <div style="height:100%;width:${rule}%;background:${scoreColor(rule)};border-radius:inherit;transition:width .5s"></div>
           </div>
         </div>
-        <div class="fh-explain-box" style="margin:16px">
+        <div class="fh-explain-box fh-explain-box--spaced">
           <div class="fh-explain-title">¿Qué mide?</div>
           <p class="fh-explain-text">Evalúa si tu <strong>distribución del gasto sigue la regla ${targets.needs}/${targets.wants}/${targets.savings}</strong>. Penaliza cuando una categoría se aleja mucho de su objetivo.</p>
           <div class="fh-formula-box">
@@ -128,34 +131,34 @@ function render(container, data) {
             <code>Puntaje = (1 − desviación) × 100</code>
           </div>
           <div class="fh-scale">
-            <span style="color:var(--color-success)">≥ 80 En meta</span>
-            <span style="color:var(--color-warning)">60–79 Cerca</span>
-            <span style="color:var(--color-danger)">< 60 Lejos</span>
+            <span class="text-success">≥ 80 En meta</span>
+            <span class="text-warning">60–79 Cerca</span>
+            <span class="text-danger">< 60 Lejos</span>
           </div>
         </div>
       </div>
     </div>
 
     <!-- ── REGLA 50/30/20 EXPLANATION ──────────────────────────────────── -->
-    <div class="fh-rule-banner" style="margin-bottom:24px">
+    <div class="fh-rule-banner mb-4">
       <div class="fh-rule-banner-title">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         ¿Qué es la Regla ${targets.needs}/${targets.wants}/${targets.savings}?
       </div>
       <p class="fh-rule-banner-text">Una guía de distribución del ingreso mensual. Divide tu sueldo en tres grandes grupos según su propósito:</p>
       <div class="fh-rule-pills">
-        <div class="fh-rule-pill" style="border-color:rgba(8,145,178,0.4);background:rgba(8,145,178,0.08)">
-          <span class="fh-rule-pill-pct" style="color:#22d3ee">${targets.needs}%</span>
+        <div class="fh-rule-pill fh-rule-pill--cyan">
+          <span class="fh-rule-pill-pct fh-rule-pill-pct--cyan">${targets.needs}%</span>
           <span class="fh-rule-pill-label">Necesidades</span>
           <span class="fh-rule-pill-desc">Gastos fijos e ineludibles: vivienda, comida, transporte, servicios públicos.</span>
         </div>
-        <div class="fh-rule-pill" style="border-color:rgba(217,119,6,0.4);background:rgba(217,119,6,0.08)">
-          <span class="fh-rule-pill-pct" style="color:#fbbf24">${targets.wants}%</span>
+        <div class="fh-rule-pill fh-rule-pill--amber">
+          <span class="fh-rule-pill-pct fh-rule-pill-pct--amber">${targets.wants}%</span>
           <span class="fh-rule-pill-label">Deseos</span>
           <span class="fh-rule-pill-desc">Gastos opcionales: entretenimiento, salidas, suscripciones, ropa no esencial.</span>
         </div>
-        <div class="fh-rule-pill" style="border-color:rgba(5,150,105,0.4);background:rgba(5,150,105,0.08)">
-          <span class="fh-rule-pill-pct" style="color:#34d399">${targets.savings}%</span>
+        <div class="fh-rule-pill fh-rule-pill--green">
+          <span class="fh-rule-pill-pct fh-rule-pill-pct--green">${targets.savings}%</span>
           <span class="fh-rule-pill-label">Ahorro / Deudas</span>
           <span class="fh-rule-pill-desc">Fondo de emergencia, inversión y pago de deudas por encima del mínimo.</span>
         </div>
@@ -163,7 +166,7 @@ function render(container, data) {
     </div>
 
     <!-- ── BUCKET CARDS ────────────────────────────────────────────────── -->
-    <div class="section-grid cols-3" style="margin-bottom:24px">
+    <div class="grid-3 mb-4">
       ${bucketCard('Necesidades', 'needs', buckets.needs, targets.needs, currency,
         '#22d3ee', 'rgba(8,145,178,0.8)',
         'Vivienda, servicios, comida, transporte y cualquier gasto que no puedas eliminar.')}
@@ -188,21 +191,40 @@ function render(container, data) {
     ${semaphoreSection(buckets, currency)}
 
     <!-- ── CHART ───────────────────────────────────────────────────────── -->
-    <div class="card" style="margin-bottom:24px">
+    <div class="card mb-4">
       <div class="card-header">
         <span class="card-title">${income.total_income > 0 ? 'Distribución Real vs. Objetivo (% del ingreso)' : 'Distribución del Presupuesto Asignado'}</span>
-        <span style="font-size:0.75rem;color:var(--text-soft)">Barras claras = objetivo</span>
+        <span class="fh-chart-note">Barras claras = objetivo</span>
       </div>
-      <div class="card-body" style="height:260px;position:relative">
+      <div class="card-body fh-chart-container">
         <canvas id="fhChart"></canvas>
       </div>
     </div>
 
     <style>
+      .fh-hero-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px }
+      .fh-no-gap { gap:0 }
+      .fh-score-row { align-items:flex-end }
+      .fh-grade-info { padding-bottom:8px }
+      .fh-retry-wrap { text-align:center;margin-top:16px }
+      .fh-explain-box--spaced { margin:16px }
+      .fh-explain-box--overbudget { margin:0 20px 16px;margin-top:-4px }
+      .fh-progress-track { height:6px;background:var(--border-muted);border-radius:3px;overflow:hidden }
+      .fh-progress-track--sm { height:5px }
+      .fh-bucket-def--spaced { margin:12px 20px 16px }
+      .fh-card-body--flush { padding-top:0 }
+      .fh-td-bold { font-weight:600 }
+      .fh-card-top { padding:20px 20px 0 }
       .fh-big-score { font-family:var(--font-display);font-size:3.75rem;font-weight:800;line-height:1;letter-spacing:-0.03em }
       .fh-grade-badge { display:inline-block;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px }
       .fh-label-chip { display:inline-block;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,0.07);color:var(--text-soft) }
+      .fh-label-chip--indigo { background:rgba(99,102,241,0.15);color:#818cf8 }
+      .fh-label-chip--green  { background:rgba(16,185,129,0.15);color:#34d399 }
+      .fh-sub-heading { font-size:1.0625rem;font-weight:700;color:var(--text-primary) }
+      .fh-sub-note { font-size:0.7rem;color:var(--text-soft) }
+      .fh-no-data { font-size:0.875rem;padding:16px 0 }
       .fh-explain-box { background:rgba(255,255,255,0.03);border:1px solid var(--border-muted);border-radius:10px;padding:12px 14px }
+      .fh-explain-box--no-top { border-top:none }
       .fh-explain-title { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-soft);margin-bottom:6px }
       .fh-explain-text { font-size:0.7875rem;color:var(--text-secondary);line-height:1.5;margin:0 }
       .fh-explain-text strong { color:var(--text-primary);font-weight:600 }
@@ -215,15 +237,77 @@ function render(container, data) {
       .fh-rule-banner-text { font-size:0.7875rem;color:var(--text-secondary);margin:0 0 12px }
       .fh-rule-pills { display:grid;grid-template-columns:repeat(3,1fr);gap:12px }
       .fh-rule-pill { border:1px solid;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:3px }
+      .fh-rule-pill--cyan  { border-color:rgba(8,145,178,0.4);background:rgba(8,145,178,0.08) }
+      .fh-rule-pill--amber { border-color:rgba(217,119,6,0.4);background:rgba(217,119,6,0.08) }
+      .fh-rule-pill--green { border-color:rgba(5,150,105,0.4);background:rgba(5,150,105,0.08) }
       .fh-rule-pill-pct { font-family:var(--font-mono);font-size:1.5rem;font-weight:800;line-height:1 }
+      .fh-rule-pill-pct--cyan  { color:#22d3ee }
+      .fh-rule-pill-pct--amber { color:#fbbf24 }
+      .fh-rule-pill-pct--green { color:#34d399 }
       .fh-rule-pill-label { font-size:0.75rem;font-weight:700;color:var(--text-primary) }
       .fh-rule-pill-desc { font-size:0.7rem;color:var(--text-soft);line-height:1.45;margin-top:2px }
       .fh-bucket-def { margin-top:10px;padding-top:10px;border-top:1px solid var(--border-muted) }
       .fh-bucket-def-text { font-size:0.7rem;color:var(--text-soft);line-height:1.45 }
       .fh-insights-grid { display:flex;flex-direction:column;gap:10px }
       .fh-insight-row { display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;border:1px solid }
+      .fh-insight-row--good { background:rgba(5,150,105,0.06);border-color:rgba(5,150,105,0.2) }
+      .fh-insight-row--warn { background:rgba(217,119,6,0.06);border-color:rgba(217,119,6,0.2) }
+      .fh-insight-row--bad  { background:rgba(220,38,38,0.06);border-color:rgba(220,38,38,0.2) }
       .fh-insight-icon { width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;flex-shrink:0;margin-top:1px }
+      .fh-insight-icon--good { background:rgba(5,150,105,0.15);color:var(--color-success) }
+      .fh-insight-icon--warn { background:rgba(217,119,6,0.15);color:var(--color-warning) }
+      .fh-insight-icon--bad  { background:rgba(220,38,38,0.15);color:var(--color-danger) }
+      .fh-insight-msg  { font-size:0.8125rem;font-weight:600;color:var(--text-primary) }
+      .fh-insight-detail { font-size:0.75rem;color:var(--text-soft);margin-top:2px;line-height:1.4 }
+      .fh-stat-box { text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border-muted) }
+      .fh-stat-label { font-size:0.65rem;color:var(--text-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em }
+      .fh-stat-value { font-family:var(--font-mono);font-size:0.9375rem;font-weight:700 }
+      .fh-score-box { text-align:center }
+      .fh-score-box-label { font-size:0.65rem;color:var(--text-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em }
+      .fh-score-box-grade { font-size:0.65rem;color:var(--text-soft) }
+      .fh-income-bucket { background:rgba(255,255,255,0.03);border:1px solid var(--border-muted);border-radius:10px;padding:12px 14px }
+      .fh-income-bucket-label { font-size:0.8125rem;font-weight:600 }
+      .fh-income-bucket-footer { font-size:0.7rem;color:var(--text-soft);margin-top:4px }
+      .fh-sema-row { display:grid;grid-template-columns:1.2rem 1fr auto;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-muted) }
+      .fh-sema-icon { font-size:0.85rem }
+      .fh-sema-name { font-size:0.8rem;font-weight:500 }
+      .fh-sema-bar-track { height:4px;background:var(--border-muted);border-radius:2px;margin-top:4px }
+      .fh-sema-right { text-align:right;min-width:110px }
+      .fh-sema-amount { font-size:0.75rem;font-family:var(--font-mono);color:var(--text-secondary) }
+      .fh-sema-pct { font-size:0.68rem;color:var(--text-soft) }
+      .fh-semaphore-note { font-size:0.72rem;color:var(--text-soft) }
+      .fh-chart-note { font-size:0.75rem;color:var(--text-soft) }
+      .fh-chart-container { height:260px;position:relative }
+      .fh-cat-list { border-top:1px solid var(--border-muted);padding:10px 20px 16px;display:flex;flex-direction:column;gap:5px }
+      .fh-cat-row { display:flex;justify-content:space-between;align-items:center }
+      .fh-cat-name { font-size:0.75rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60% }
+      .fh-cat-amount { font-family:var(--font-mono);font-size:0.75rem;color:var(--text-secondary) }
+      .fh-cat-more { font-size:0.65rem;color:var(--text-soft);text-align:right;margin-top:2px }
+      .fh-bucket-header { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px }
+      .fh-bucket-pct { font-family:var(--font-mono);font-size:2rem;font-weight:800;line-height:1 }
+      .fh-bucket-pct-unit { font-size:1rem;opacity:0.7 }
+      .fh-bucket-note { font-size:0.7rem;color:var(--text-soft);margin-top:2px }
+      .fh-bucket-right { text-align:right }
+      .fh-bucket-obj { font-size:0.65rem;color:var(--text-soft);margin-top:4px }
+      .fh-bucket-score { font-size:0.7rem;font-family:var(--font-mono);font-weight:700;margin-top:2px }
+      .fh-progress-labels { display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-soft);margin-top:3px }
+      .fh-gauge-labels { display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-soft);margin-top:4px }
+      .fh-mini-block { padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:8px }
+      .fh-mini-block-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:4px }
+      .fh-mini-block-label { font-size:0.7875rem;font-weight:600;color:var(--text-primary) }
+      .fh-mini-block-desc { font-size:0.7rem;color:var(--text-soft);line-height:1.4 }
+      .fh-mini-block-bar { margin-top:5px;height:3px;background:var(--border-muted);border-radius:2px;overflow:hidden }
+      .fh-gauge-track { height:8px;background:var(--border-muted);border-radius:4px;overflow:hidden }
+      .fh-gauge-wrap { margin:12px 0 6px }
+      .fh-badge-font { font-size:0.65rem }
+      .fh-overbudget-title { color:var(--color-danger) }
+      .fh-td-sm { font-size:0.8rem }
+      .fh-td-name { font-size:0.8125rem;font-weight:500 }
+      .fh-td-group { font-size:0.75rem;color:var(--text-soft) }
+      .fh-score-pill-value { font-family:var(--font-mono);font-size:1.25rem;font-weight:700 }
+      .fh-score-pill-denom { font-size:0.75rem;opacity:0.6 }
       @media (max-width:768px) {
+        .fh-hero-grid { grid-template-columns:1fr }
         .fh-rule-pills { grid-template-columns:1fr }
       }
     </style>
@@ -238,9 +322,23 @@ function render(container, data) {
     await load(container);
   });
 
+  // Reintentar button wiring (for error state)
+  container.querySelector('.fh-retry')?.addEventListener('click', () => load(container));
+
   const ctx = container.querySelector('#fhChart');
   if (ctx) {
     _chart?.destroy();
+    // Bucket colors are semantic (not positional) — using defined palette per bucket type
+    const cNeedsBar = 'rgba(8,145,178,0.85)';
+    const cWantsBar = 'rgba(217,119,6,0.85)';
+    const cSavBar   = 'rgba(5,150,105,0.85)';
+    const cNeedsObj = 'rgba(8,145,178,0.15)';
+    const cWantsObj = 'rgba(217,119,6,0.15)';
+    const cSavObj   = 'rgba(5,150,105,0.15)';
+    const cNeedsBdr = 'rgba(8,145,178,0.5)';
+    const cWantsBdr = 'rgba(217,119,6,0.5)';
+    const cSavBdr   = 'rgba(5,150,105,0.5)';
+
     if (income.total_income > 0) {
       const ib = income.buckets ?? {};
       _chart = new Chart(ctx, {
@@ -251,14 +349,14 @@ function render(container, data) {
             {
               label: 'Real (%)',
               data: [ib.needs?.pct_of_income ?? 0, ib.wants?.pct_of_income ?? 0, ib.savings?.pct_of_income ?? 0],
-              backgroundColor: ['rgba(8,145,178,0.85)', 'rgba(217,119,6,0.85)', 'rgba(5,150,105,0.85)'],
+              backgroundColor: [cNeedsBar, cWantsBar, cSavBar],
               borderRadius: 6,
             },
             {
               label: 'Objetivo (%)',
               data: [targets.needs, targets.wants, targets.savings],
-              backgroundColor: ['rgba(8,145,178,0.15)', 'rgba(217,119,6,0.15)', 'rgba(5,150,105,0.15)'],
-              borderColor:     ['rgba(8,145,178,0.5)', 'rgba(217,119,6,0.5)', 'rgba(5,150,105,0.5)'],
+              backgroundColor: [cNeedsObj, cWantsObj, cSavObj],
+              borderColor:     [cNeedsBdr, cWantsBdr, cSavBdr],
               borderWidth: 1.5,
               borderRadius: 6,
             },
@@ -279,14 +377,14 @@ function render(container, data) {
                 buckets.wants?.pct_of_assigned ?? 0,
                 buckets.savings?.pct_of_assigned ?? 0,
               ],
-              backgroundColor: ['rgba(8,145,178,0.85)', 'rgba(217,119,6,0.85)', 'rgba(5,150,105,0.85)'],
+              backgroundColor: [cNeedsBar, cWantsBar, cSavBar],
               borderRadius: 6,
             },
             {
               label: 'Objetivo (%)',
               data: [targets.needs, targets.wants, targets.savings],
-              backgroundColor: ['rgba(8,145,178,0.15)', 'rgba(217,119,6,0.15)', 'rgba(5,150,105,0.15)'],
-              borderColor:     ['rgba(8,145,178,0.5)', 'rgba(217,119,6,0.5)', 'rgba(5,150,105,0.5)'],
+              backgroundColor: [cNeedsObj, cWantsObj, cSavObj],
+              borderColor:     [cNeedsBdr, cWantsBdr, cSavBdr],
               borderWidth: 1.5,
               borderRadius: 6,
             },
@@ -315,17 +413,17 @@ function scoreColor(v) {
 
 function scorePill(v) {
   const color = scoreColor(v);
-  return `<span style="font-family:var(--font-mono);font-size:1.25rem;font-weight:700;color:${color}">${(v ?? 0).toFixed(0)}<span style="font-size:0.75rem;opacity:0.6">/100</span></span>`;
+  return `<span class="fh-score-pill-value" style="color:${color}">${(v ?? 0).toFixed(0)}<span class="fh-score-pill-denom">/100</span></span>`;
 }
 
 function scoreGauge(value, color) {
   const pct = Math.min(100, Math.max(0, value));
   return `
-    <div style="margin:12px 0 6px">
-      <div style="height:8px;background:var(--border-muted);border-radius:4px;overflow:hidden">
+    <div class="fh-gauge-wrap">
+      <div class="fh-gauge-track">
         <div style="height:100%;width:${pct}%;background:${color};border-radius:inherit;transition:width .6s cubic-bezier(.4,0,.2,1)"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-soft);margin-top:4px">
+      <div class="fh-gauge-labels">
         <span>0</span><span>Crítico</span><span>Regular</span><span>Excelente</span><span>100</span>
       </div>
     </div>`;
@@ -335,13 +433,13 @@ function miniScoreExplain(label, value, description) {
   const v = value ?? 0;
   const color = scoreColor(v);
   return `
-    <div style="padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:0.7875rem;font-weight:600;color:var(--text-primary)">${label}</span>
-        <span style="font-family:var(--font-mono);font-size:0.875rem;font-weight:700;color:${color}">${v.toFixed(0)}</span>
+    <div class="fh-mini-block">
+      <div class="fh-mini-block-header">
+        <span class="fh-mini-block-label">${label}</span>
+        <span class="fh-score-pill-value" style="font-size:0.875rem;color:${color}">${v.toFixed(0)}</span>
       </div>
-      <div style="font-size:0.7rem;color:var(--text-soft);line-height:1.4">${description}</div>
-      <div style="margin-top:5px;height:3px;background:var(--border-muted);border-radius:2px;overflow:hidden">
+      <div class="fh-mini-block-desc">${description}</div>
+      <div class="fh-mini-block-bar">
         <div style="height:100%;width:${v}%;background:${color};border-radius:inherit"></div>
       </div>
     </div>`;
@@ -357,37 +455,38 @@ function bucketCard(label, key, b, targetPct, currency, accentColor, barColor, d
   const badgeLabel = isGood ? '✓ En meta' : (diff > 0 ? `+${diff.toFixed(1)}% exceso` : `${diff.toFixed(1)}% bajo`);
   const ruleScore  = b.rule_score ?? 0;
   const fillPct    = Math.min(100, actual / (targetPct || 1) * 100);
+  const ruleScoreColor = scoreColor(ruleScore);
 
   return `
-    <div class="card" style="display:flex;flex-direction:column">
-      <div style="padding:18px 20px 0">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+    <div class="card flex flex-col">
+      <div class="fh-card-top">
+        <div class="fh-bucket-header">
           <div>
-            <div class="fh-label-chip" style="background:${barColor.replace('0.8', '0.15')};color:${accentColor};margin-bottom:6px">${label}</div>
-            <div style="font-family:var(--font-mono);font-size:2rem;font-weight:800;color:${accentColor};line-height:1">${actual.toFixed(1)}<span style="font-size:1rem;opacity:0.7">%</span></div>
-            <div style="font-size:0.7rem;color:var(--text-soft);margin-top:2px">del presupuesto asignado</div>
+            <div class="fh-label-chip mb-2" style="background:${barColor.replace('0.8', '0.15')};color:${accentColor}">${label}</div>
+            <div class="fh-bucket-pct" style="color:${accentColor}">${actual.toFixed(1)}<span class="fh-bucket-pct-unit">%</span></div>
+            <div class="fh-bucket-note">del presupuesto asignado</div>
           </div>
-          <div style="text-align:right">
-            <span class="badge ${badgeClass}" style="font-size:0.65rem">${badgeLabel}</span>
-            <div style="font-size:0.65rem;color:var(--text-soft);margin-top:4px">Objetivo: ${targetPct}%</div>
-            <div style="font-size:0.7rem;color:${scoreColor(ruleScore)};font-family:var(--font-mono);font-weight:700;margin-top:2px">${ruleScore}/100</div>
+          <div class="fh-bucket-right">
+            <span class="badge ${badgeClass} fh-badge-font">${badgeLabel}</span>
+            <div class="fh-bucket-obj">Objetivo: ${targetPct}%</div>
+            <div class="fh-bucket-score" style="color:${ruleScoreColor}">${ruleScore}/100</div>
           </div>
         </div>
 
         <!-- Progress -->
-        <div style="margin-bottom:6px">
-          <div style="height:6px;background:var(--border-muted);border-radius:3px;overflow:hidden">
+        <div class="mb-2">
+          <div class="fh-progress-track">
             <div style="height:100%;width:${fillPct}%;background:${barColor};border-radius:inherit;transition:width .5s"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-soft);margin-top:3px">
-            <span>Gastado: <span style="font-family:var(--font-mono)">${fmtCurrency(b.spent, currency)}</span></span>
-            <span>Asignado: <span style="font-family:var(--font-mono)">${fmtCurrency(b.assigned, currency)}</span></span>
+          <div class="fh-progress-labels">
+            <span>Gastado: <span class="amount">${fmtCurrency(b.spent, currency)}</span></span>
+            <span>Asignado: <span class="amount">${fmtCurrency(b.assigned, currency)}</span></span>
           </div>
         </div>
       </div>
 
       <!-- Definition box -->
-      <div class="fh-bucket-def" style="margin:12px 20px 16px;padding-top:10px">
+      <div class="fh-bucket-def fh-bucket-def--spaced">
         <div class="fh-explain-title">¿Qué incluye?</div>
         <p class="fh-bucket-def-text">${description}</p>
       </div>
@@ -399,14 +498,14 @@ function bucketCard(label, key, b, targetPct, currency, accentColor, barColor, d
 
 function categoriesList(cats, currency, accentColor) {
   return `
-    <div style="border-top:1px solid var(--border-muted);padding:10px 20px 16px;display:flex;flex-direction:column;gap:5px">
-      <div class="fh-explain-title" style="margin-bottom:4px">Detalle por categoría</div>
+    <div class="fh-cat-list">
+      <div class="fh-explain-title mb-1">Detalle por categoría</div>
       ${cats.slice(0, 6).map(c => `
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:0.75rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%">${sanitize(c.category_name ?? '—')}</span>
-          <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-secondary)">${fmtCurrency(c.spent, currency)}</span>
+        <div class="fh-cat-row">
+          <span class="fh-cat-name">${sanitize(c.category_name ?? '—')}</span>
+          <span class="fh-cat-amount">${fmtCurrency(c.spent, currency)}</span>
         </div>`).join('')}
-      ${cats.length > 6 ? `<div style="font-size:0.65rem;color:var(--text-soft);text-align:right;margin-top:2px">+${cats.length - 6} más</div>` : ''}
+      ${cats.length > 6 ? `<div class="fh-cat-more">+${cats.length - 6} más</div>` : ''}
     </div>`;
 }
 
@@ -416,10 +515,10 @@ function insightsSection(insights) {
   const bad  = insights.filter(i => i.kind === 'bad');
 
   return `
-    <div class="card" style="margin-bottom:24px">
+    <div class="card mb-4">
       <div class="card-header">
         <span class="card-title">Señales del mes</span>
-        <span style="font-size:0.75rem;color:var(--text-soft)">${insights.length} observación${insights.length !== 1 ? 'es' : ''}</span>
+        <span class="fh-chart-note">${insights.length} observación${insights.length !== 1 ? 'es' : ''}</span>
       </div>
       <div class="card-body">
         <div class="fh-insights-grid">
@@ -432,16 +531,15 @@ function insightsSection(insights) {
 function insightRow(ins) {
   const isGood = ins.kind === 'good';
   const isWarn = ins.kind === 'warn';
-  const color  = isGood ? 'var(--color-success)' : isWarn ? 'var(--color-warning)' : 'var(--color-danger)';
-  const bg     = isGood ? 'rgba(5,150,105,0.06)' : isWarn ? 'rgba(217,119,6,0.06)' : 'rgba(220,38,38,0.06)';
-  const border = isGood ? 'rgba(5,150,105,0.2)' : isWarn ? 'rgba(217,119,6,0.2)' : 'rgba(220,38,38,0.2)';
-  const icon   = isGood ? '✓' : isWarn ? '!' : '✗';
+  const rowCls  = isGood ? 'fh-insight-row--good' : isWarn ? 'fh-insight-row--warn' : 'fh-insight-row--bad';
+  const iconCls = isGood ? 'fh-insight-icon--good' : isWarn ? 'fh-insight-icon--warn' : 'fh-insight-icon--bad';
+  const icon    = isGood ? '✓' : isWarn ? '!' : '✗';
   return `
-    <div class="fh-insight-row" style="background:${bg};border-color:${border}">
-      <div class="fh-insight-icon" style="background:${bg.replace('0.06', '0.15')};color:${color}">${icon}</div>
+    <div class="fh-insight-row ${rowCls}">
+      <div class="fh-insight-icon ${iconCls}">${icon}</div>
       <div>
-        <div style="font-size:0.8125rem;font-weight:600;color:var(--text-primary)">${sanitize(ins.message)}</div>
-        ${ins.detail ? `<div style="font-size:0.75rem;color:var(--text-soft);margin-top:2px;line-height:1.4">${sanitize(ins.detail)}</div>` : ''}
+        <div class="fh-insight-msg">${sanitize(ins.message)}</div>
+        ${ins.detail ? `<div class="fh-insight-detail">${sanitize(ins.detail)}</div>` : ''}
       </div>
     </div>`;
 }
@@ -452,28 +550,28 @@ function incomeSection(income, targets, currency) {
   const gradeColor = scoreColor(score);
 
   return `
-    <div class="card" style="margin-bottom:24px">
+    <div class="card mb-4">
       <div class="card-header">
         <span class="card-title">Análisis por Ingreso Real</span>
-        <span style="font-size:0.75rem;color:var(--text-soft)">Ingreso total: ${fmtCurrency(income.total_income, currency)}</span>
+        <span class="fh-chart-note">Ingreso total: <span class="amount">${fmtCurrency(income.total_income, currency)}</span></span>
       </div>
       <div class="card-body">
-        <div class="fh-explain-box" style="margin-bottom:16px">
+        <div class="fh-explain-box mb-4">
           <div class="fh-explain-title">¿Cómo se lee esta sección?</div>
           <p class="fh-explain-text">Aquí el análisis usa tu <strong>ingreso real del mes</strong> (en lugar del presupuesto asignado) para medir qué porcentaje de tu sueldo fue a cada grupo. Esto permite comparar contra la regla ${targets.needs}/${targets.wants}/${targets.savings} de forma más precisa.</p>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        <div class="grid-4 mb-4">
           ${incomeStatBox('Ingreso', income.total_income, currency, 'var(--color-success)')}
           ${incomeStatBox('Gastado', income.total_spent, currency, 'var(--color-danger)')}
           ${incomeStatBox('Sin usar', income.total_income - income.total_spent, currency,
             (income.total_income - income.total_spent) >= 0 ? 'var(--color-success)' : 'var(--color-danger)')}
-          <div style="text-align:center">
-            <div style="font-size:0.65rem;color:var(--text-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em">Puntaje regla</div>
-            <div style="font-family:var(--font-mono);font-size:1.75rem;font-weight:800;color:${gradeColor}">${score.toFixed(0)}</div>
-            <div style="font-size:0.65rem;color:var(--text-soft)">Grado ${income.grade ?? '—'}</div>
+          <div class="fh-score-box">
+            <div class="fh-score-box-label">Puntaje regla</div>
+            <div class="amount fh-big-score" style="font-size:1.75rem;color:${gradeColor}">${score.toFixed(0)}</div>
+            <div class="fh-score-box-grade">Grado ${income.grade ?? '—'}</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="grid-3">
           ${incomeBucketRow('Necesidades', ib.needs, targets.needs, 'rgba(8,145,178,0.8)', '#22d3ee')}
           ${incomeBucketRow('Deseos', ib.wants, targets.wants, 'rgba(217,119,6,0.8)', '#fbbf24')}
           ${incomeBucketRow('Ahorro', ib.savings, targets.savings, 'rgba(5,150,105,0.8)', '#34d399')}
@@ -484,9 +582,9 @@ function incomeSection(income, targets, currency) {
 
 function incomeStatBox(label, value, currency, color) {
   return `
-    <div style="text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border-muted)">
-      <div style="font-size:0.65rem;color:var(--text-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em">${label}</div>
-      <div style="font-family:var(--font-mono);font-size:0.9375rem;font-weight:700;color:${color}">${fmtCurrency(value, currency)}</div>
+    <div class="fh-stat-box">
+      <div class="fh-stat-label">${label}</div>
+      <div class="fh-stat-value" style="color:${color}">${fmtCurrency(value, currency)}</div>
     </div>`;
 }
 
@@ -497,51 +595,51 @@ function incomeBucketRow(label, b, targetPct, barColor, accentColor) {
   const isGood = Math.abs(diff) <= 5;
   const isWarn = !isGood && Math.abs(diff) <= 15;
   return `
-    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-muted);border-radius:10px;padding:12px 14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:0.8125rem;font-weight:600;color:${accentColor}">${label}</span>
-        <span class="badge ${isGood ? 'badge-success' : isWarn ? 'badge-warning' : 'badge-danger'}" style="font-size:0.65rem">
+    <div class="fh-income-bucket">
+      <div class="flex justify-between items-center mb-2">
+        <span class="fh-income-bucket-label" style="color:${accentColor}">${label}</span>
+        <span class="badge ${isGood ? 'badge-success' : isWarn ? 'badge-warning' : 'badge-danger'} fh-badge-font">
           ${pct.toFixed(1)}% / ${targetPct}%
         </span>
       </div>
-      <div style="height:5px;background:var(--border-muted);border-radius:3px;overflow:hidden">
+      <div class="fh-progress-track fh-progress-track--sm">
         <div style="height:100%;width:${Math.min(100, pct / (targetPct || 1) * 100)}%;background:${barColor};border-radius:inherit;transition:width .4s"></div>
       </div>
-      <div style="font-size:0.7rem;color:var(--text-soft);margin-top:4px">${fmtCurrency(b.amount ?? 0, 'COP')} este mes</div>
+      <div class="fh-income-bucket-footer"><span class="amount">${fmtCurrency(b.amount ?? 0, 'COP')}</span> este mes</div>
     </div>`;
 }
 
 function overBudgetSection(items, currency) {
   return `
-    <div class="card" style="margin-bottom:24px">
+    <div class="card mb-4">
       <div class="card-header">
-        <span class="card-title" style="color:var(--color-danger)">⚠ Categorías Excedidas</span>
+        <span class="card-title fh-overbudget-title">⚠ Categorías Excedidas</span>
         <span class="badge badge-danger">${items.length}</span>
       </div>
-      <div class="fh-explain-box" style="margin:0 20px 16px;margin-top:-4px">
+      <div class="fh-explain-box fh-explain-box--overbudget">
         <p class="fh-explain-text">Estas categorías gastaron <strong>más de lo asignado</strong> este mes. Cada una resta puntos al puntaje de Cumplimiento.</p>
       </div>
-      <div class="card-body" style="padding-top:0">
-        <table>
+      <div class="card-body fh-card-body--flush">
+        <table class="fin-table">
           <thead>
             <tr>
               <th>Categoría</th>
               <th>Grupo</th>
-              <th class="td-right">Asignado</th>
-              <th class="td-right">Gastado</th>
-              <th class="td-right">Exceso</th>
-              <th class="td-right">%</th>
+              <th class="amount">Asignado</th>
+              <th class="amount">Gastado</th>
+              <th class="amount">Exceso</th>
+              <th class="amount">%</th>
             </tr>
           </thead>
           <tbody>
             ${items.map(c => `
               <tr>
-                <td style="font-size:0.8125rem;font-weight:500">${sanitize(c.category_name ?? '—')}</td>
-                <td style="font-size:0.75rem;color:var(--text-soft)">${sanitize(c.group_name ?? '—')}</td>
-                <td class="td-right td-mono" style="font-size:0.8rem">${fmtCurrency(c.assigned, currency)}</td>
-                <td class="td-right td-mono" style="font-size:0.8rem">${fmtCurrency(c.spent, currency)}</td>
-                <td class="td-right td-mono" style="font-size:0.8rem;color:var(--color-danger);font-weight:600">${fmtCurrency(c.overspend, currency)}</td>
-                <td class="td-right" style="font-size:0.8rem;color:var(--color-danger)">${c.overspend_pct?.toFixed(1) ?? '—'}%</td>
+                <td class="fh-td-name">${sanitize(c.category_name ?? '—')}</td>
+                <td class="fh-td-group">${sanitize(c.group_name ?? '—')}</td>
+                <td class="amount fh-td-sm">${fmtCurrency(c.assigned, currency)}</td>
+                <td class="amount fh-td-sm">${fmtCurrency(c.spent, currency)}</td>
+                <td class="amount fh-td-sm text-danger fh-td-bold">${fmtCurrency(c.overspend, currency)}</td>
+                <td class="amount fh-td-sm text-danger">${c.overspend_pct?.toFixed(1) ?? '—'}%</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -584,28 +682,28 @@ function semaphoreSection(buckets, currency) {
     const barColor = status === 'ok' ? 'var(--color-success)' : status === 'warning' ? 'var(--color-warning)' : 'var(--color-danger)';
 
     return `
-      <div style="display:grid;grid-template-columns:1.2rem 1fr auto;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-muted)">
-        <span style="font-size:0.85rem">${light}</span>
+      <div class="fh-sema-row">
+        <span class="fh-sema-icon">${light}</span>
         <div>
-          <div style="font-size:0.8rem;font-weight:500">${sanitize(c.category_name)}</div>
-          <div style="height:4px;background:var(--border-muted);border-radius:2px;margin-top:4px">
+          <div class="fh-sema-name">${sanitize(c.category_name)}</div>
+          <div class="fh-sema-bar-track">
             <div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:2px;transition:width .3s"></div>
           </div>
         </div>
-        <div style="text-align:right;min-width:110px">
-          <div style="font-size:0.75rem;font-family:var(--font-mono);color:var(--text-secondary)">${fmtCurrency(spent, currency)}</div>
-          <div style="font-size:0.68rem;color:var(--text-soft)">${assigned > 0 ? pct.toFixed(0) + '% de ' + fmtCurrency(assigned, currency) : 'sin asignar'}</div>
+        <div class="fh-sema-right">
+          <div class="fh-sema-amount">${fmtCurrency(spent, currency)}</div>
+          <div class="fh-sema-pct">${assigned > 0 ? pct.toFixed(0) + '% de ' + fmtCurrency(assigned, currency) : 'sin asignar'}</div>
         </div>
       </div>`;
   }).join('');
 
   return `
-    <div class="card" style="margin-bottom:24px">
+    <div class="card mb-4">
       <div class="card-header">
         <span class="card-title">Semáforo por Categoría</span>
-        <span style="font-size:0.72rem;color:var(--text-soft)">🟢 OK · 🟡 Precaución · 🔴 Excedido</span>
+        <span class="fh-semaphore-note">🟢 OK · 🟡 Precaución · 🔴 Excedido</span>
       </div>
-      <div class="card-body" style="padding-top:0">${rows}</div>
+      <div class="card-body fh-card-body--flush">${rows}</div>
     </div>`;
 }
 
