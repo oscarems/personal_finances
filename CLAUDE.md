@@ -24,26 +24,22 @@ Módulos activos: cuentas, presupuesto, transacciones, análisis, simuladores, p
 ## Arquitectura de Carpetas
 
 ```
-gestor_finanzas_personales/
-├── backend/
-│   ├── main.py              # FastAPI app entry point
-│   ├── models/              # SQLAlchemy models
-│   ├── routers/             # Endpoints por módulo
-│   ├── services/            # Lógica de negocio
-│   ├── schemas/             # Pydantic schemas
-│   └── db/                  # Sesión y migraciones (Alembic)
-├── frontend/
-│   ├── index.html           # Punto de entrada
-│   ├── css/
-│   │   ├── main.css         # Estilos globales y variables
-│   │   └── components/      # Estilos por componente
-│   ├── js/
-│   │   ├── pages/           # Lógica por página/sección
-│   │   ├── components/      # Componentes reutilizables (funciones/módulos)
-│   │   ├── api/             # Llamadas al backend (fetch wrappers)
-│   │   └── utils/           # Helpers y utilidades
-├── web_scrapping_email.py   # Script existente de parsing de correos
-└── .env                     # Variables de entorno (no commitear)
+personal_finances/
+├── run.py                      # Entry point (uvicorn)
+├── web_scrapping_email.py      # Parser IMAP Gmail
+├── src/finance_app/
+│   ├── app.py                  # FastAPI app + routers
+│   ├── auth.py                 # Login por cookie (deshabilitado, app local)
+│   ├── database.py             # Engine, sesiones, migraciones (_apply_sqlite_migrations)
+│   ├── api/                    # Routers (delgados)
+│   ├── services/               # Lógica de negocio
+│   ├── models/                 # SQLAlchemy models
+│   ├── domain/                 # Lógica de dominio (debts, fx)
+│   ├── config/                 # Settings
+│   ├── templates/              # Solo login.html, chat_ui.html, base.html
+│   └── static/                 # SPA: index.html, js/, styles/, css/
+├── tests/
+└── docs/
 ```
 
 ---
