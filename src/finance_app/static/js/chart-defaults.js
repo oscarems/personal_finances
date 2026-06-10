@@ -5,16 +5,13 @@
 (function () {
   if (typeof Chart === 'undefined') return;
 
-  const PALETTE = [
-    '#3B82F6','#10B981','#F59E0B','#8B5CF6','#EF4444',
-    '#06B6D4','#F97316','#A855F7','#14B8A6','#EC4899',
-    '#84CC16','#6366F1',
-  ];
+  const PALETTE = ['#60A5FA','#34D399','#FBBF24','#F87171','#A78BFA','#22D3EE','#FB923C','#F472B6'];
 
   // ── Global font & color ────────────────────────────────────────────────────
-  Chart.defaults.font.family  = '"Inter", system-ui, sans-serif';
+  Chart.defaults.font.family  = "'Inter', system-ui, sans-serif";
   Chart.defaults.font.size    = 12;
-  Chart.defaults.color        = 'rgba(148,163,184,0.85)';
+  Chart.defaults.color        = '#94A3B8';
+  Chart.defaults.borderColor  = 'rgba(148, 163, 184, 0.12)';
   Chart.defaults.layout.padding = 4;
 
   // ── Animation ──────────────────────────────────────────────────────────────
@@ -31,12 +28,12 @@
   Chart.defaults.plugins.legend.labels.boxHeight        = 8;
 
   // ── Tooltip ────────────────────────────────────────────────────────────────
-  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15,23,42,0.93)';
-  Chart.defaults.plugins.tooltip.titleColor      = '#f1f5f9';
-  Chart.defaults.plugins.tooltip.bodyColor       = 'rgba(148,163,184,0.9)';
-  Chart.defaults.plugins.tooltip.borderColor     = 'rgba(255,255,255,0.08)';
+  Chart.defaults.plugins.tooltip.backgroundColor = '#1E293B';
+  Chart.defaults.plugins.tooltip.titleColor      = '#F1F5F9';
+  Chart.defaults.plugins.tooltip.bodyColor       = '#94A3B8';
+  Chart.defaults.plugins.tooltip.borderColor     = 'rgba(148, 163, 184, 0.2)';
   Chart.defaults.plugins.tooltip.borderWidth     = 1;
-  Chart.defaults.plugins.tooltip.padding         = { x: 14, y: 10 };
+  Chart.defaults.plugins.tooltip.padding         = 10;
   Chart.defaults.plugins.tooltip.cornerRadius    = 10;
   Chart.defaults.plugins.tooltip.titleFont       = { size: 12, weight: '600', family: '"Inter", system-ui, sans-serif' };
   Chart.defaults.plugins.tooltip.bodyFont        = { size: 12, family: '"Inter", system-ui, sans-serif' };
@@ -49,14 +46,15 @@
   // ── Scale grid & ticks (Chart.js v4: use overrides per scale type) ─────────
   const scaleStyle = {
     grid: {
-      color:       'rgba(148,163,184,0.08)',
-      lineWidth:   1,
+      color:     'rgba(148, 163, 184, 0.08)',
+      lineWidth: 1,
+      drawBorder: false,
     },
     border: {
       display: false,
     },
     ticks: {
-      color:   'rgba(148,163,184,0.7)',
+      color:   '#94A3B8',
       padding: 8,
       font:    { size: 11 },
     },

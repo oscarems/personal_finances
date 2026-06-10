@@ -91,12 +91,12 @@ export function progressPct(used, total) {
   return Math.min(100, (used / total) * 100);
 }
 
-export function progressBar(used, total) {
+export function progressBar(used, total, { danger = 90, warning = 70 } = {}) {
   const pct = progressPct(used, total);
-  const cls = progressFillClass(used, total);
+  const cls = pct >= danger ? 'text-danger' : pct >= warning ? 'text-warning' : 'text-success';
   return `
-    <div class="progress-wrap">
-      <div class="progress-fill ${cls}" style="width:${pct}%"></div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill ${cls}" style="width:${Math.min(pct, 100)}%"></div>
     </div>`;
 }
 

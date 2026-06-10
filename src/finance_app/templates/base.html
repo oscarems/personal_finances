@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Personal Finances{% endblock %}</title>
 
+    <style>html,body{background:#0F172A;color:#F1F5F9;margin:0}</style>
     <!-- Google Fonts: Inter (UI) · JetBrains Mono (numbers) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <!-- Tabler Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
@@ -19,11 +20,11 @@
             theme: {
                 extend: {
                     colors: {
-                        primary:  { 50: '#D8EFE3', 100: '#D8EFE3', 500: '#2D6A4F', 600: '#245740', 700: '#1C4533' },
-                        success:  { 50: '#D8EFE3', 500: '#2D6A4F', 600: '#245740', 700: '#1C4533' },
-                        danger:   { 50: '#FDECEA', 500: '#C0392B', 600: '#A93226', 700: '#922B21' },
-                        warning:  { 50: '#FDF0E4', 500: '#B7621A', 600: '#9D5417', 700: '#844614' },
-                        neutral:  { 50: '#F5F3EF', 100: '#F0EDE8', 200: '#EAE7E2', 400: '#A09890', 500: '#6B6560', 700: '#1A1714', 900: '#1A1714' },
+                        primary:  { 50: 'rgba(96,165,250,0.10)', 100: 'rgba(96,165,250,0.18)', 500: '#60A5FA', 600: '#3B82F6', 700: '#2563EB' },
+                        success:  { 50: 'rgba(52,211,153,0.10)', 500: '#34D399', 600: '#10B981', 700: '#059669' },
+                        danger:   { 50: 'rgba(248,113,113,0.10)', 500: '#F87171', 600: '#EF4444', 700: '#DC2626' },
+                        warning:  { 50: 'rgba(251,191,36,0.10)', 500: '#FBBF24', 600: '#F59E0B', 700: '#D97706' },
+                        neutral:  { 50: '#0F172A', 100: '#1E293B', 200: '#16213A', 400: '#64748B', 500: '#94A3B8', 700: '#CBD5E1', 900: '#F1F5F9' },
                     },
                     fontFamily: {
                         display: ['"Inter"', 'system-ui', 'sans-serif'],
@@ -44,6 +45,7 @@
     </script>
 
     <link rel="stylesheet" href="/static/styles/design-system.css?v=900">
+    <link rel="stylesheet" href="/static/css/layout.css">
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -70,8 +72,8 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            background: var(--fin-ink);
-            border-right: none;
+            background: #0B1222;
+            border-right: 1px solid rgba(148,163,184,0.14);
             overflow: hidden;
             position: relative;
             z-index: 30;
@@ -97,7 +99,7 @@
         .sidebar-logo-dot {
             width: 7px; height: 7px;
             border-radius: 2px;
-            background: #2D6A4F;
+            background: #60A5FA;
             flex-shrink: 0;
         }
 
@@ -181,8 +183,8 @@
                 position: fixed;
                 top: 0; left: 0; right: 0;
                 height: 52px;
-                background: var(--fin-ink);
-                border-bottom: 1px solid rgba(255,255,255,0.06);
+                background: rgba(15,23,42,0.95);
+                border-bottom: 1px solid rgba(148,163,184,0.14);
                 padding: 0 0.875rem;
                 z-index: 40;
             }
@@ -252,7 +254,7 @@
         }
     </style>
 </head>
-<body style="background:var(--fin-bg);font-family:'Inter',sans-serif">
+<body style="background:#0F172A;color:#F1F5F9;font-family:'Inter',system-ui,sans-serif">
 
 <div class="app-shell">
 
