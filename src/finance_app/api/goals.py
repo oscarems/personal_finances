@@ -10,6 +10,7 @@ from sqlalchemy import func
 from finance_app.database import get_db
 from finance_app.models import Goal, GoalContribution, BudgetMonth, Currency
 from finance_app.services.goal_service import calculate_goal_progress
+from finance_app.services.goal_budget_service import sync_goal_budget_category
 
 router = APIRouter()
 
@@ -64,6 +65,13 @@ def create_goal(payload: GoalCreate, db: Session = Depends(get_db)):
 
     goal = Goal(**payload.dict())
     db.add(goal)
+    db.flush()
+
+    # Auto-create budget category if none was provided
+    if not goal.category_id:
+        category_id = sync_goal_budget_category(db, goal)
+        goal.category_id = category_id
+
     db.commit()
     db.refresh(goal)
     return calculate_goal_progress(db, goal)
@@ -75,9 +83,17 @@ def update_goal(goal_id: int, payload: GoalUpdate, db: Session = Depends(get_db)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
+    _budget_trigger_fields = {"target_amount", "target_date", "start_date", "start_amount", "name", "currency_id"}
     updates = payload.dict(exclude_unset=True)
+    needs_budget_sync = bool(_budget_trigger_fields & updates.keys())
+
     for key, value in updates.items():
         setattr(goal, key, value)
+
+    db.flush()
+
+    if needs_budget_sync and goal.category_id:
+        sync_goal_budget_category(db, goal, recalculate=False)
 
     db.commit()
     db.refresh(goal)

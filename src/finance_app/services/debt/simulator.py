@@ -119,6 +119,88 @@ def simulate_payoff(debts: list, extra_payment: float, strategy: str) -> dict:
     }
 
 
+def compare_strategies(debts: list, extra_payment: float = 0.0) -> dict:
+    """Compara avalancha, bola de nieve y pago mínimo para el mismo conjunto de deudas.
+
+    Returns:
+        {
+            "avalanche": {
+                "months": int,
+                "total_interest": float,
+                "payoff_date": str,
+                "interest_saved_vs_minimum": float,
+                "months_saved_vs_minimum": int,
+                "debt_payoff_order": [{"id": int, "name": str}]
+            },
+            "snowball": { ... mismos campos ... },
+            "minimum_only": {
+                "months": int,
+                "total_interest": float,
+                "payoff_date": str,
+                "interest_saved_vs_minimum": 0.0,
+                "months_saved_vs_minimum": 0
+            }
+        }
+    """
+    extra = float(extra_payment) if extra_payment else 0.0
+
+    minimum_result = simulate_payoff(debts, extra_payment=0, strategy="none")
+    minimum_months = minimum_result["months_saved"]  # baseline_months when extra=0 means months_saved=0
+    # When extra=0, payoff_date == payoff_date_extra and months_saved == 0
+    # We need the actual months count — derive from payoff_date
+    today = date.today()
+
+    def _months_to(iso_date: str) -> int:
+        target = date.fromisoformat(iso_date)
+        delta = (target.year - today.year) * 12 + (target.month - today.month)
+        return max(delta, 0)
+
+    min_months = _months_to(minimum_result["payoff_date"])
+    min_interest = minimum_result["total_interest"]
+    min_payoff_date = minimum_result["payoff_date"]
+
+    def _build_scenario(strategy: str) -> dict:
+        base = simulate_payoff(debts, extra_payment=0, strategy=strategy)
+        base_months = _months_to(base["payoff_date"])
+        base_interest = base["total_interest"]
+        base_payoff_date = base["payoff_date"]
+
+        if extra > 0:
+            with_extra = simulate_payoff(debts, extra_payment=extra, strategy=strategy)
+            scenario_months = _months_to(with_extra["payoff_date_extra"])
+            scenario_interest = with_extra["total_interest_extra"]
+            scenario_payoff_date = with_extra["payoff_date_extra"]
+        else:
+            scenario_months = base_months
+            scenario_interest = base_interest
+            scenario_payoff_date = base_payoff_date
+
+        states = _build_states(debts)
+        ordered = _sort_states(states, strategy)
+        debt_payoff_order = [{"id": s.id, "name": s.name} for s in ordered]
+
+        return {
+            "months": scenario_months,
+            "total_interest": scenario_interest,
+            "payoff_date": scenario_payoff_date,
+            "interest_saved_vs_minimum": round(min_interest - scenario_interest, 2),
+            "months_saved_vs_minimum": min_months - scenario_months,
+            "debt_payoff_order": debt_payoff_order,
+        }
+
+    return {
+        "avalanche": _build_scenario("avalanche"),
+        "snowball": _build_scenario("snowball"),
+        "minimum_only": {
+            "months": min_months,
+            "total_interest": min_interest,
+            "payoff_date": min_payoff_date,
+            "interest_saved_vs_minimum": 0.0,
+            "months_saved_vs_minimum": 0,
+        },
+    }
+
+
 def _run_simulation(
     states: List[_DebtState],
     extra: Decimal,

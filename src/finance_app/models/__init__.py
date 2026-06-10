@@ -7,6 +7,7 @@ from finance_app.models.budget import BudgetMonth
 from finance_app.models.recurring_transaction import RecurringTransaction
 from finance_app.models.exchange_rate import ExchangeRate
 from finance_app.models.debt import Debt, DebtPayment
+from finance_app.models.debt_installment import DebtInstallment
 from finance_app.models.debt_category_allocation import DebtCategoryAllocation
 from finance_app.models.debt_amortization import DebtAmortizationMonthly
 from finance_app.models.debt_snapshot import DebtSnapshotMonthly, DebtSnapshotProjectedMonthly
@@ -22,6 +23,10 @@ from finance_app.models.patrimonio_asset import PatrimonioAsset
 from finance_app.models.email_sender_rule import EmailSenderRule
 from finance_app.models.gmail_message import GmailProcessedMessage
 from finance_app.models.merchant_rule import MerchantRule
+from finance_app.models.investment_portfolio import InvestmentPortfolio
+from finance_app.models.investment_asset import InvestmentAsset
+from finance_app.models.asset_price_history import AssetPriceHistory
+from finance_app.models.net_worth_snapshot import NetWorthSnapshot
 # PatrimonioDebt removed — debts use the Debt model directly
 
 __all__ = [
@@ -36,6 +41,7 @@ __all__ = [
     'ExchangeRate',
     'Debt',
     'DebtPayment',
+    'DebtInstallment',
     'DebtCategoryAllocation',
     'DebtAmortizationMonthly',
     'DebtSnapshotMonthly',
@@ -54,4 +60,8 @@ __all__ = [
     'EmailSenderRule',
     'GmailProcessedMessage',
     'MerchantRule',
+    'InvestmentPortfolio',
+    'InvestmentAsset',
+    'AssetPriceHistory',
+    'NetWorthSnapshot',
 ]

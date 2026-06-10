@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +12,7 @@ from finance_app.models.merchant_rule import MerchantRule
 from finance_app.services import gmail_ollama_service as ollama_svc
 from finance_app.services.transaction_service import create_transaction
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -79,7 +81,7 @@ def process_email(
 
     accounts = [a.to_dict() for a in db.query(Account).filter_by(is_closed=False).all()]
     categories = [
-        {"id": c.id, "name": c.name}
+        {"id": c.id, "name": c.name, "group": c.category_group.name if c.category_group else ""}
         for c in db.query(Category).filter_by(is_hidden=False).order_by(Category.name).all()
     ]
     merchant_rules = [r.to_dict() for r in db.query(MerchantRule).order_by(MerchantRule.merchant_name).all()]
@@ -87,6 +89,7 @@ def process_email(
     try:
         result = ollama_svc.call_ollama(record.body_text or "", accounts, categories, merchant_rules=merchant_rules, model=model)
     except Exception as exc:
+        logger.exception("Error llamando a Ollama (model=%s, message_id=%s)", model, message_id)
         raise HTTPException(status_code=503, detail=f"Error llamando a Ollama: {exc}")
 
     return result
@@ -252,6 +255,42 @@ def bulk_reset(payload: dict, db: Session = Depends(get_db)):
 
     db.commit()
     return {"results": results}
+
+
+class ReprocessAllPayload(BaseModel):
+    message_ids: list[str] | None = None
+
+
+@router.post("/reprocess-all")
+def reprocess_all(payload: ReprocessAllPayload = ReprocessAllPayload(), db: Session = Depends(get_db)):
+    """Reset processed/skipped gmail messages and return their IDs for reprocessing.
+
+    If message_ids is provided, only those messages are reset. Otherwise all are reset.
+    """
+    query = db.query(GmailProcessedMessage).filter(
+        (GmailProcessedMessage.processed_at.isnot(None)) | (GmailProcessedMessage.skipped.is_(True))
+    )
+    if payload.message_ids is not None:
+        query = query.filter(GmailProcessedMessage.message_id.in_(payload.message_ids))
+
+    records = query.all()
+
+    total_deleted_txs = []
+    message_ids = []
+    for record in records:
+        deleted = _delete_email_transactions(db, record.message_id, record.transaction_id)
+        total_deleted_txs.extend(deleted)
+        record.processed_at = None
+        record.skipped = False
+        record.transaction_id = None
+        message_ids.append(record.message_id)
+
+    db.commit()
+    return {
+        "reset_count": len(message_ids),
+        "deleted_transaction_count": len(total_deleted_txs),
+        "message_ids": message_ids,
+    }
 
 
 @router.post("/skip/{message_id:path}")

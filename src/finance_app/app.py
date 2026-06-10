@@ -47,6 +47,8 @@ from finance_app.api import (
 from finance_app.api import email_sender_rules
 from finance_app.api import merchant_rules as merchant_rules_module
 from finance_app.api import chat as chat_module
+from finance_app.api import portfolio as portfolio_module
+from finance_app.api import fire as fire_module
 from finance_app.api.reports_pkg import router as reports_router
 from finance_app.services.recurring_service import generate_due_transactions
 from finance_app.auth import router as auth_router, register_auth_exception_handler, APP_PASSWORD
@@ -124,6 +126,8 @@ app.include_router(merchant_rules_module.router, prefix="/api/merchant-rules", t
 app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
 app.include_router(cash_flow.router, prefix="/api/cash-flow", tags=["cash-flow"])
 app.include_router(setup.router, prefix="/api/setup", tags=["setup"])
+app.include_router(portfolio_module.router, prefix="/api/v1/portfolio", tags=["portfolio"])
+app.include_router(fire_module.router, prefix="/api/v1/fire", tags=["fire"])
 app.include_router(auth_router)
 register_auth_exception_handler(app)
 

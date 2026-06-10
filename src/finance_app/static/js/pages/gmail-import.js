@@ -73,6 +73,7 @@ function renderShell(container) {
               </div>
               <button class="btn btn-primary" id="btnSync">Sincronizar</button>
               <button class="btn btn-secondary" id="btnBulkToggle" title="Modo lote: selecciona varios correos y procésalos a la vez">Lote</button>
+              <button class="btn btn-warning" id="btnReprocessAll" title="Resetea todos los correos procesados/omitidos y los reprocesa con Ollama">↺ Reprocesar todos</button>
             </div>
           </div>
         </div>
@@ -103,6 +104,7 @@ function renderShell(container) {
 
   container.querySelector('#btnSync').addEventListener('click', () => syncEmails(container));
   container.querySelector('#btnBulkToggle').addEventListener('click', () => toggleBulkMode(container));
+  container.querySelector('#btnReprocessAll').addEventListener('click', () => reprocessAll(container));
 }
 
 // ---------------------------------------------------------------------------
@@ -830,6 +832,89 @@ async function submitConfirm(container, messageId) {
     toast.error(err.message);
     btn.disabled = false;
     btn.textContent = 'Confirmar';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reprocess all
+// ---------------------------------------------------------------------------
+
+async function reprocessAll(container) {
+  if (!_emails.length) {
+    toast.warning('Sincroniza primero para cargar correos.');
+    return;
+  }
+
+  const processed = _emails.filter(e => e.processed || e.skipped);
+  const pending   = _emails.filter(e => !e.processed && !e.skipped);
+
+  const warningBlock = processed.length > 0
+    ? `<div style="background:color-mix(in srgb,var(--color-danger,#ef4444) 10%,transparent);border:1px solid color-mix(in srgb,var(--color-danger,#ef4444) 30%,transparent);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-weight:600;font-size:0.875rem;color:var(--color-danger,#ef4444);margin-bottom:6px">⚠ Transacciones que se eliminarán</div>
+        <div style="font-size:0.82rem;color:var(--text-soft)">
+          <strong style="color:var(--text-primary)">${processed.length} correo${processed.length !== 1 ? 's' : ''}</strong>
+          ya procesado${processed.length !== 1 ? 's' : ''} o${processed.length !== 1 ? '' : ''} omitido${processed.length !== 1 ? 's' : ''}
+          tendrán sus transacciones eliminadas de la base de datos.
+        </div>
+      </div>`
+    : `<div style="background:color-mix(in srgb,var(--color-success,#22c55e) 10%,transparent);border:1px solid color-mix(in srgb,var(--color-success,#22c55e) 30%,transparent);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:0.82rem;color:var(--text-soft)">
+        Sin transacciones previas en la lista — no se eliminará nada.
+      </div>`;
+
+  const summaryRows = [
+    { label: 'Correos en lista', value: _emails.length, color: '' },
+    { label: 'Pendientes (se procesarán)', value: pending.length, color: 'var(--color-warning,#f59e0b)' },
+    { label: 'Ya procesados / omitidos', value: processed.length, color: processed.length > 0 ? 'var(--color-danger,#ef4444)' : '' },
+  ].map(r => `
+    <div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:5px 0;border-bottom:1px solid var(--border-color)">
+      <span style="color:var(--text-soft)">${r.label}</span>
+      <strong style="color:${r.color || 'var(--text-primary)'}}">${r.value}</strong>
+    </div>`).join('');
+
+  const modal = openModal({
+    title: '↺ Reprocesar todos los correos',
+    size: 'sm',
+    content: `
+      ${warningBlock}
+      <div style="margin-bottom:16px">${summaryRows}</div>
+      <p style="font-size:0.8rem;color:var(--text-soft);margin:0">
+        Solo se afectan los <strong>${_emails.length} correo${_emails.length !== 1 ? 's' : ''}</strong>
+        cargados actualmente en la lista. Ollama los analizará uno a uno.
+      </p>`,
+    submitLabel: processed.length > 0 ? `Eliminar y reprocesar (${processed.length})` : `Reprocesar todo (${_emails.length})`,
+    cancelLabel: 'Cancelar',
+    submitClass: processed.length > 0 ? 'btn btn-danger' : 'btn btn-primary',
+    onSubmit: async () => {
+      modal.close();
+      await _doReprocessAll(container);
+    },
+  });
+}
+
+async function _doReprocessAll(container) {
+  const btn = container.querySelector('#btnReprocessAll');
+  btn.disabled = true;
+  btn.textContent = 'Reseteando...';
+
+  const listMessageIds = _emails.map(e => e.message_id);
+
+  try {
+    const { reset_count, deleted_transaction_count } = await api.gmailImport.reprocessAll({ message_ids: listMessageIds });
+    if (reset_count > 0) {
+      toast.info(`${reset_count} correo${reset_count !== 1 ? 's' : ''} reseteado${reset_count !== 1 ? 's' : ''} · ${deleted_transaction_count} transacción${deleted_transaction_count !== 1 ? 'es' : ''} eliminada${deleted_transaction_count !== 1 ? 's' : ''}`);
+    }
+
+    _emails.forEach(e => { e.processed = false; e.skipped = false; e.transaction_id = null; });
+    _selectedIds.clear();
+    _emails.forEach(e => _selectedIds.add(e.message_id));
+
+    renderEmailList(container);
+    await startBulkProcess(container);
+  } catch (err) {
+    toast.error(`Error al reprocesar: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↺ Reprocesar todos';
   }
 }
 

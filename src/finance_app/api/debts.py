@@ -44,7 +44,18 @@ from finance_app.services.debt.helpers import (
     calculate_suggested_minimum_payment,
 )
 from finance_app.domain.fx.service import convert_to_cop
-from finance_app.services.debt.simulator import simulate_payoff
+from finance_app.services.debt.simulator import simulate_payoff, compare_strategies
+from finance_app.services.debt.cost_analysis import analyze_debt_cost
+from finance_app.services.debt.installments import (
+    get_installments,
+    create_installment,
+    update_installment,
+    delete_installment,
+    get_installments_summary,
+)
+from finance_app.services.debt.helpers import get_billing_cycle_info
+from finance_app.domain.debts.snapshot import snapshot_after_payment
+from finance_app.models.debt_installment import DebtInstallment
 
 router = APIRouter()
 
@@ -356,6 +367,15 @@ def get_debt(debt_id: int, include_payments: bool = False, db: Session = Depends
         include_payments=include_payments,
         amortization_map=amortization_map,
     )
+
+
+@router.get("/{debt_id}/cost-analysis")
+def get_debt_cost_analysis(debt_id: int, db: Session = Depends(get_db)):
+    """Retorna el costo total histórico de una deuda y la proyección si solo se paga el mínimo."""
+    debt = db.query(Debt).filter_by(id=debt_id).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+    return analyze_debt_cost(db, debt)
 
 
 @router.post("/{debt_id}/confirm-balance")
@@ -763,6 +783,7 @@ def create_debt_payment(debt_id: int, payment_data: DebtPaymentCreate, db: Sessi
     db.commit()
     db.refresh(new_payment)
     db.refresh(debt)
+    snapshot_after_payment(db, debt_id)
 
     return {
         "payment": new_payment.to_dict(),
@@ -803,8 +824,103 @@ def delete_debt_payment(debt_id: int, payment_id: int, db: Session = Depends(get
         debt.is_active = True
 
     db.commit()
+    snapshot_after_payment(db, debt_id)
 
     return {
         "success": True,
         "message": "Payment deleted and debt balance restored"
     }
+
+
+# ---------------------------------------------------------------------------
+# Strategy comparison
+# ---------------------------------------------------------------------------
+
+@router.get("/strategy-comparison")
+def debt_strategy_comparison(
+    extra_payment: float = 0.0,
+    db: Session = Depends(get_db),
+):
+    """Compara avalancha, bola de nieve y pago mínimo para todas las deudas activas."""
+    debts = db.query(Debt).filter(Debt.is_active == True).all()
+    if not debts:
+        return {
+            "avalanche": None,
+            "snowball": None,
+            "minimum_only": None,
+        }
+    return compare_strategies(debts, extra_payment)
+
+
+# ---------------------------------------------------------------------------
+# Installments (compras en cuotas)
+# ---------------------------------------------------------------------------
+
+class InstallmentCreate(BaseModel):
+    description: str
+    total_amount: float
+    installments_total: int
+    monthly_amount: float
+    start_date: date
+    has_interest: bool = False
+    installments_paid: int = 0
+
+
+class InstallmentUpdate(BaseModel):
+    description: Optional[str] = None
+    total_amount: Optional[float] = None
+    installments_total: Optional[int] = None
+    installments_paid: Optional[int] = None
+    monthly_amount: Optional[float] = None
+    start_date: Optional[date] = None
+    has_interest: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+@router.get("/{debt_id}/installments")
+def list_installments(debt_id: int, active_only: bool = True, db: Session = Depends(get_db)):
+    return get_installments(db, debt_id, active_only=active_only)
+
+
+@router.post("/{debt_id}/installments")
+def add_installment(debt_id: int, data: InstallmentCreate, db: Session = Depends(get_db)):
+    try:
+        inst = create_installment(db, debt_id, data.model_dump())
+        return inst.to_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/{debt_id}/installments/{installment_id}")
+def edit_installment(debt_id: int, installment_id: int, data: InstallmentUpdate, db: Session = Depends(get_db)):
+    try:
+        inst = update_installment(db, installment_id, data.model_dump(exclude_none=True))
+        return inst.to_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/{debt_id}/installments/{installment_id}")
+def remove_installment(debt_id: int, installment_id: int, db: Session = Depends(get_db)):
+    deleted = delete_installment(db, installment_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Installment not found")
+    return {"success": True}
+
+
+@router.get("/{debt_id}/installments/summary")
+def installments_summary(debt_id: int, db: Session = Depends(get_db)):
+    return get_installments_summary(db, debt_id)
+
+
+# ---------------------------------------------------------------------------
+# Billing cycle info
+# ---------------------------------------------------------------------------
+
+@router.get("/{debt_id}/billing-cycle")
+def get_billing_cycle(debt_id: int, db: Session = Depends(get_db)):
+    """Retorna el ciclo de facturación actual de una tarjeta de crédito."""
+    debt = db.query(Debt).filter_by(id=debt_id).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+    return get_billing_cycle_info(debt)

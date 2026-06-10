@@ -1,7 +1,10 @@
 """
 Transactions API endpoints
 """
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Literal
 from pydantic import BaseModel
@@ -145,6 +148,7 @@ def list_transactions(
     end_date: Optional[date] = None,
     search: Optional[str] = None,
     transaction_type: Optional[str] = None,
+    uncategorized: bool = False,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
@@ -157,6 +161,7 @@ def list_transactions(
         end_date=end_date,
         search=search,
         transaction_type=transaction_type,
+        uncategorized=uncategorized,
         limit=limit
     )
     cop_currency = db.query(Currency).filter_by(code="COP").first()
@@ -171,6 +176,62 @@ def list_transactions(
         enriched_transactions.append(serialized)
 
     return enriched_transactions
+
+
+@router.get("/export")
+def export_transactions(
+    account_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    search: Optional[str] = None,
+    transaction_type: Optional[str] = None,
+    limit: int = 0,  # 0 = unlimited
+    db: Session = Depends(get_db)
+):
+    """Export transactions as a CSV file with dual-currency columns."""
+    transactions = get_transactions(
+        db,
+        account_id=account_id,
+        category_id=category_id,
+        start_date=start_date,
+        end_date=end_date,
+        search=search,
+        transaction_type=transaction_type,
+        limit=limit if limit > 0 else None
+    )
+    cop_currency = db.query(Currency).filter_by(code="COP").first()
+    usd_currency = db.query(Currency).filter_by(code="USD").first()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Fecha", "Beneficiario", "Cuenta", "Categoría", "Memo",
+        "Monto (moneda original)", "Moneda", "Monto COP", "Monto USD"
+    ])
+
+    for transaction in transactions:
+        serialized = transaction.to_dict()
+        cop_amount, usd_amount = amounts_in_cop_and_usd(transaction, db, cop_currency, usd_currency)
+        currency_code = serialized.get("currency", {}).get("code", "") if isinstance(serialized.get("currency"), dict) else ""
+        writer.writerow([
+            serialized.get("date", ""),
+            serialized.get("payee_name", ""),
+            serialized.get("account_name", ""),
+            serialized.get("category_name", ""),
+            serialized.get("memo", ""),
+            serialized.get("amount", ""),
+            currency_code,
+            round(cop_amount, 2) if cop_amount is not None else "",
+            round(usd_amount, 2) if usd_amount is not None else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=\"transacciones.csv\""}
+    )
 
 
 @router.get("/last-manual")

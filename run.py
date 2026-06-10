@@ -10,14 +10,30 @@ import sys
 import uvicorn
 
 def _free_port(port: int) -> None:
-    result = subprocess.run(
-        ["lsof", "-ti", f"tcp:{port}"],
-        capture_output=True, text=True
-    )
-    pids = result.stdout.strip().split()
-    if pids:
-        subprocess.run(["kill", "-9"] + pids, check=False)
-        print(f"Killed existing process(es) on port {port}: {', '.join(pids)}")
+    import platform
+    if platform.system() == "Windows":
+        result = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True, text=True
+        )
+        pids = set()
+        for line in result.stdout.splitlines():
+            if f":{port}" in line and "LISTENING" in line:
+                parts = line.strip().split()
+                if parts:
+                    pids.add(parts[-1])
+        for pid in pids:
+            subprocess.run(["taskkill", "/F", "/PID", pid], check=False)
+            print(f"Killed existing process on port {port}: PID {pid}")
+    else:
+        result = subprocess.run(
+            ["lsof", "-ti", f"tcp:{port}"],
+            capture_output=True, text=True
+        )
+        pids = result.stdout.strip().split()
+        if pids:
+            subprocess.run(["kill", "-9"] + pids, check=False)
+            print(f"Killed existing process(es) on port {port}: {', '.join(pids)}")
 
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parent

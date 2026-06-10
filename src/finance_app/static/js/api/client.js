@@ -73,6 +73,7 @@ export const budgets = {
   coverExcess:   (d)            => post('/budgets/cover-overspending', d),
   assignedTotals:()             => get('/budgets/assigned-totals'),
   readyToAssign: ()             => get('/budgets/ready-to-assign').catch(() => null),
+  recalcSavings: ()             => post('/budgets/recalculate-savings'),
 };
 
 export const categories = {
@@ -89,11 +90,23 @@ export const categories = {
 };
 
 export const debts = {
-  list:         ()     => get('/debts'),
-  get:          (id)   => get(`/debts/${id}`),
-  amortization: (id)   => get(`/debts/${id}/amortization`),
-  simulate:     (data) => post('/debts/simulate', data),
-  timeline:     ()     => get('/debts/timeline').catch(() => []),
+  list:               ()              => get('/debts'),
+  get:                (id)            => get(`/debts/${id}`),
+  summary:            ()              => get('/debts/summary'),
+  schedule:           (id, mode)      => get(`/debts/${id}/schedule`, { mode: mode ?? 'plan' }),
+  costAnalysis:       (id)            => get(`/debts/${id}/cost-analysis`),
+  simulate:           (params)        => get('/debts/simulator', params),
+  timeline:           ()              => get('/debts/timeline').catch(() => []),
+  create:             (data)          => post('/debts', data),
+  update:             (id, data)      => patch(`/debts/${id}`, data),
+  delete:             (id)            => del(`/debts/${id}`),
+  payments:           (id)            => get(`/debts/${id}/payments`),
+  addPayment:         (id, data)      => post(`/debts/${id}/payments`, data),
+  installments:       (id)            => get(`/debts/${id}/installments`),
+  createInstallment:  (id, data)      => post(`/debts/${id}/installments`, data),
+  updateInstallment:  (id, iid, data) => patch(`/debts/${id}/installments/${iid}`, data),
+  deleteInstallment:  (id, iid)       => del(`/debts/${id}/installments/${iid}`),
+  strategyComparison: (params)        => get('/debts/strategy-comparison', params),
 };
 
 export const goals = {
@@ -122,11 +135,17 @@ export const emergencyFund = {
 };
 
 export const reports = {
-  spending:       (params) => get('/reports/spending', params),
-  balance:        (params) => get('/reports/balance', params),
-  income:         (params) => get('/reports/income', params),
-  financialHealth:(params) => get('/reports/financial-health', params),
-  debt:           (params) => get('/reports/debt', params),
+  spending:           (params) => get('/reports/spending', params),
+  balance:            (params) => get('/reports/balance', params),
+  income:             (params) => get('/reports/income', params),
+  cashflowSummary:    (params) => get('/reports/cashflow-summary', params),
+  financialHealth:    (params) => get('/reports/financial-health', params),
+  debt:               (params) => get('/reports/debt', params),
+  budgetIncomeExpenses: (params) => get('/reports/budget-income-expenses', params),
+  savingsRate:        (params) => get('/reports/savings-rate', params),
+  netWorthTimeline:   ()       => get('/reports/net-worth-timeline'),
+  spendingByCategory: (params) => get('/reports/spending-by-category', params),
+  spendingOverTime:   (params) => get('/reports/spending-by-category-over-time', params),
 };
 
 export const recurring = {
@@ -154,6 +173,7 @@ export const gmailImport = {
   reset:       (messageId)         => post(`/import/gmail/reset/${encodeURIComponent(messageId)}`),
   bulkReset:   (data)              => post('/import/gmail/bulk-reset', data),
   skip:        (messageId)         => post(`/import/gmail/skip/${encodeURIComponent(messageId)}`),
+  reprocessAll: (data)             => post('/import/gmail/reprocess-all', data ?? {}),
 };
 
 export const merchantRules = {
@@ -187,7 +207,15 @@ export const alerts = {
 };
 
 export const cashFlow = {
-  projection: (params) => get('/cash-flow/projection', params).catch(() => null),
+  forecast:  (params) => get('/cash-flow/forecast', params).catch(() => null),
+  upcoming:  (params) => get('/cash-flow/upcoming', params).catch(() => null),
+};
+
+export const reconciliation = {
+  summary:     (params)  => get('/reconciliation/summary', params),
+  markCleared: (data)    => post('/reconciliation/mark-cleared', data),
+  createSession: (data)  => post('/reconciliation/sessions', data),
+  sessions:    (accountId) => get(`/reconciliation/sessions/${accountId}`),
 };
 
 export const setup = {

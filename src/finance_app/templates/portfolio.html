@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Portafolio de Inversiones - Personal Finances{% endblock %}
+
+{% block content %}
+
+<div class="mb-8">
+    <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+            <h2 class="page-title">Portafolio de Inversiones</h2>
+            <p class="page-subtitle mt-1">Seguimiento de activos y rendimiento</p>
+        </div>
+        <button id="btnNewAsset" onclick="openNewAssetModal()" style="display:inline-flex;align-items:center;gap:8px;background:var(--fin-ink);color:#fff;font-family:var(--fin-font);font-size:13px;font-weight:500;border:none;border-radius:var(--radius-button);padding:0.5rem 1.125rem;cursor:pointer;transition:opacity 0.15s">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo Activo
+        </button>
+    </div>
+</div>
+
+<!-- Summary KPI Cards -->
+<div id="portfolioKpis" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card p-5 pf-skeleton-card"><div class="pf-skeleton-line" style="height:11px;width:55%"></div><div class="pf-skeleton-line" style="height:26px;width:75%;margin-top:10px"></div></div>
+    <div class="card p-5 pf-skeleton-card"><div class="pf-skeleton-line" style="height:11px;width:55%"></div><div class="pf-skeleton-line" style="height:26px;width:75%;margin-top:10px"></div></div>
+    <div class="card p-5 pf-skeleton-card"><div class="pf-skeleton-line" style="height:11px;width:55%"></div><div class="pf-skeleton-line" style="height:26px;width:75%;margin-top:10px"></div></div>
+    <div class="card p-5 pf-skeleton-card"><div class="pf-skeleton-line" style="height:11px;width:55%"></div><div class="pf-skeleton-line" style="height:26px;width:75%;margin-top:10px"></div></div>
+</div>
+
+<!-- Table + Chart -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+
+    <!-- Asset Table -->
+    <div class="card overflow-hidden md:col-span-2">
+        <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border-muted);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary)">Activos</span>
+            <span id="assetCount" style="font-size:11px;color:var(--text-soft)"></span>
+        </div>
+        <div style="overflow-x:auto">
+            <table class="pf-table" id="assetsTable">
+                <thead>
+                    <tr>
+                        <th>Símbolo</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th class="text-right">Unidades</th>
+                        <th class="text-right">P. Compra</th>
+                        <th class="text-right">P. Actual</th>
+                        <th class="text-right">Valor</th>
+                        <th class="text-right">Ganancia</th>
+                        <th class="text-right">Ret.%</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="assetsTableBody">
+                    <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-soft);font-size:13px">Cargando activos…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Allocation Chart -->
+    <div class="card p-5 flex flex-col">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px">Allocación por Clase</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:200px;position:relative">
+            <canvas id="allocationChart" style="max-width:200px;max-height:200px"></canvas>
+            <div id="allocationEmpty" style="display:none;text-align:center;color:var(--text-soft);font-size:13px">Sin datos</div>
+        </div>
+        <div id="allocationLegend" style="margin-top:14px;display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+
+</div>
+
+<!-- ── Modals ──────────────────────────────────── -->
+
+<!-- New Asset Modal -->
+<div id="newAssetModal" style="display:none;position:fixed;inset:0;z-index:50">
+    <div style="position:absolute;inset:0;background:rgba(26,23,20,0.45);backdrop-filter:blur(4px)" onclick="closeNewAssetModal()"></div>
+    <div style="position:relative;height:100%;display:flex;align-items:center;justify-content:center;padding:24px">
+        <div style="width:100%;max-width:480px;border-radius:var(--fin-radius);border:0.5px solid var(--fin-border);background:var(--fin-surface);box-shadow:var(--shadow-strong);max-height:90vh;overflow-y:auto">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem 1rem;border-bottom:0.5px solid var(--fin-border);position:sticky;top:0;background:var(--fin-surface);z-index:1">
+                <div>
+                    <p style="font-size:0.625rem;font-weight:500;color:var(--fin-ink-3);text-transform:uppercase;letter-spacing:0.10em">Portafolio</p>
+                    <h3 style="font-size:1rem;font-weight:600;color:var(--fin-ink);margin-top:0.2rem;letter-spacing:-0.02em">Nuevo Activo</h3>
+                </div>
+                <button onclick="closeNewAssetModal()" style="background:var(--fin-surface-2);border:0.5px solid var(--fin-border);border-radius:8px;width:28px;height:28px;cursor:pointer;color:var(--fin-ink-2);font-size:0.875rem;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+            <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1rem">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="pf-field">
+                        <label>Símbolo</label>
+                        <input id="naSimbolo" type="text" placeholder="BTC, AAPL, VOO..." class="pf-input">
+                    </div>
+                    <div class="pf-field">
+                        <label>Tipo</label>
+                        <select id="naTipo" class="pf-input">
+                            <option value="accion">Acción</option>
+                            <option value="etf">ETF</option>
+                            <option value="cripto">Cripto</option>
+                            <option value="fondo">Fondo</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pf-field">
+                    <label>Nombre</label>
+                    <input id="naNombre" type="text" placeholder="Nombre del activo" class="pf-input">
+                </div>
+                <div class="pf-field">
+                    <label>Clase de Activo</label>
+                    <select id="naClase" class="pf-input">
+                        <option value="renta_variable">Renta Variable</option>
+                        <option value="renta_fija">Renta Fija</option>
+                        <option value="liquidez">Liquidez</option>
+                        <option value="alternativo">Alternativo</option>
+                    </select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="pf-field">
+                        <label>Unidades</label>
+                        <input id="naUnidades" type="number" step="any" min="0" placeholder="0.00" class="pf-input">
+                    </div>
+                    <div class="pf-field">
+                        <label>Precio Compra</label>
+                        <input id="naPrecioCompra" type="number" step="any" min="0" placeholder="0.00" class="pf-input">
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="pf-field">
+                        <label>Fecha Compra</label>
+                        <input id="naFechaCompra" type="date" class="pf-input">
+                    </div>
+                    <div class="pf-field">
+                        <label>Moneda</label>
+                        <select id="naMoneda" class="pf-input">
+                            <option value="COP">COP</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="pf-field">
+                    <label>Notas <span style="color:var(--text-soft);font-weight:400">(opcional)</span></label>
+                    <textarea id="naNotas" rows="2" placeholder="Notas adicionales..." class="pf-input" style="resize:vertical"></textarea>
+                </div>
+                <div id="naError" style="display:none;color:var(--fin-danger);font-size:13px;padding:8px 12px;background:var(--fin-danger-light);border-radius:8px"></div>
+                <button id="naSubmit" onclick="submitNewAsset()" style="width:100%;background:var(--fin-ink);color:#fff;font-family:var(--fin-font);font-weight:500;font-size:13px;border:none;border-radius:var(--radius-button);padding:0.625rem;cursor:pointer;transition:opacity 0.15s">
+                    Guardar Activo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Price Modal -->
+<div id="priceModal" style="display:none;position:fixed;inset:0;z-index:50">
+    <div style="position:absolute;inset:0;background:rgba(26,23,20,0.45);backdrop-filter:blur(4px)" onclick="closePriceModal()"></div>
+    <div style="position:relative;height:100%;display:flex;align-items:center;justify-content:center;padding:24px">
+        <div style="width:100%;max-width:360px;border-radius:var(--fin-radius);border:0.5px solid var(--fin-border);background:var(--fin-surface);box-shadow:var(--shadow-strong)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem 1rem;border-bottom:0.5px solid var(--fin-border)">
+                <div>
+                    <p style="font-size:0.625rem;font-weight:500;color:var(--fin-ink-3);text-transform:uppercase;letter-spacing:0.10em">Portafolio</p>
+                    <h3 id="priceModalTitle" style="font-size:1rem;font-weight:600;color:var(--fin-ink);margin-top:0.2rem;letter-spacing:-0.02em">Actualizar Precio</h3>
+                </div>
+                <button onclick="closePriceModal()" style="background:var(--fin-surface-2);border:0.5px solid var(--fin-border);border-radius:8px;width:28px;height:28px;cursor:pointer;color:var(--fin-ink-2);font-size:0.875rem;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+            <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1rem">
+                <input type="hidden" id="priceAssetId">
+                <div class="pf-field">
+                    <label>Fecha</label>
+                    <input id="pFecha" type="date" class="pf-input">
+                </div>
+                <div class="pf-field">
+                    <label>Precio Actual</label>
+                    <input id="pPrecio" type="number" step="any" min="0" placeholder="0.00" class="pf-input">
+                </div>
+                <div id="pError" style="display:none;color:var(--fin-danger);font-size:13px;padding:8px 12px;background:var(--fin-danger-light);border-radius:8px"></div>
+                <button id="pSubmit" onclick="submitPrice()" style="width:100%;background:var(--fin-ink);color:#fff;font-family:var(--fin-font);font-weight:500;font-size:13px;border:none;border-radius:var(--radius-button);padding:0.625rem;cursor:pointer;transition:opacity 0.15s">
+                    Actualizar Precio
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.pf-table { width:100%;border-collapse:collapse; }
+.pf-table thead tr { border-bottom:1px solid var(--border-muted); }
+.pf-table th {
+    padding:10px 14px;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--text-soft);
+    white-space:nowrap;
+}
+.pf-table td {
+    padding:11px 14px;
+    font-size:13px;
+    color:var(--text-primary);
+    border-bottom:1px solid var(--border-muted);
+    white-space:nowrap;
+}
+.pf-table tbody tr:last-child td { border-bottom:none; }
+.pf-table tbody tr:hover td { background:var(--bg-surface-muted); }
+.pf-table .text-right { text-align:right; }
+.pf-table td.text-right { font-family:var(--font-mono);font-size:12px; }
+.pf-table .pf-symbol { font-family:var(--font-mono);font-weight:600;font-size:12px; }
+.pf-table .pf-badge {
+    display:inline-block;
+    font-size:10px;
+    font-weight:600;
+    padding:2px 7px;
+    border-radius:var(--radius-pill);
+    background:var(--bg-surface-muted);
+    color:var(--text-secondary);
+    border:0.5px solid var(--border-muted);
+    text-transform:capitalize;
+}
+.pf-positive { color:var(--color-success);font-weight:600; }
+.pf-negative { color:var(--color-danger);font-weight:600; }
+.pf-neutral  { color:var(--text-secondary); }
+
+.pf-action-btn {
+    background:none;
+    border:0.5px solid var(--border-muted);
+    border-radius:6px;
+    padding:4px 8px;
+    font-size:11px;
+    color:var(--text-secondary);
+    cursor:pointer;
+    transition:all 0.12s;
+    white-space:nowrap;
+}
+.pf-action-btn:hover { background:var(--bg-surface-muted);color:var(--text-primary); }
+
+.pf-field { display:flex;flex-direction:column;gap:5px; }
+.pf-field label { font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em; }
+.pf-input {
+    background:var(--bg-surface-muted);
+    border:0.5px solid var(--border-muted);
+    border-radius:8px;
+    padding:0.5rem 0.625rem;
+    font-family:var(--fin-font);
+    font-size:13px;
+    color:var(--text-primary);
+    outline:none;
+    width:100%;
+    box-sizing:border-box;
+    transition:border-color 0.15s;
+}
+.pf-input:focus { border-color:var(--border-focus); }
+
+.pf-skeleton-card { pointer-events:none; }
+.pf-skeleton-line {
+    background: linear-gradient(90deg, var(--bg-surface-muted) 0%, var(--border-muted) 50%, var(--bg-surface-muted) 100%);
+    background-size:200% 100%;
+    animation:pf-shimmer 1.4s infinite;
+    border-radius:6px;
+}
+@keyframes pf-shimmer {
+    0%   { background-position:200% 0; }
+    100% { background-position:-200% 0; }
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/pages/portfolio.js" type="module"></script>
+{% endblock %}

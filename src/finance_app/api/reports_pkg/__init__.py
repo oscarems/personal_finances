@@ -8,6 +8,7 @@ from .income import router as income_router
 from .balance import router as balance_router
 from .debt import router as debt_router
 from .financial_health import router as financial_health_router
+from .net_worth import router as net_worth_router
 
 router = APIRouter()
 router.include_router(spending_router)
@@ -15,3 +16,4 @@ router.include_router(income_router)
 router.include_router(balance_router)
 router.include_router(debt_router)
 router.include_router(financial_health_router)
+router.include_router(net_worth_router)

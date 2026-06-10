@@ -81,9 +81,12 @@ def fetch_and_store_emails(
             continue
 
         msg = email_lib.message_from_bytes(msg_data[0][1])
-        message_id = msg.get("Message-ID") or mail_id.decode(errors="ignore")
+        message_id = (msg.get("Message-ID") or mail_id.decode(errors="ignore")).strip()
         subject = msg.get("Subject") or ""
         sender = msg.get("From") or ""
+
+        if "uber pending" in subject.lower():
+            continue
 
         received_at = None
         hdr = msg.get("Date")
@@ -127,6 +130,32 @@ def list_ollama_models() -> list[str]:
         raise RuntimeError(f"No se pudo conectar a Ollama: {exc}")
 
 
+def _repair_truncated_json(raw: str) -> str:
+    """Best-effort repair of JSON truncated mid-token by the LLM token limit.
+
+    Handles the three most common truncation patterns:
+    - Unclosed string value:  {"a": "hello       → add closing " and }
+    - Dangling key (no value): {"a": 1, "b"}     → drop the incomplete pair
+    - Missing closing brace:   {"a": 1, "b": 2   → add }
+    """
+    s = raw.strip()
+
+    # Pattern 1: odd number of quotes → unclosed string somewhere
+    if s.count('"') % 2 != 0:
+        s = s + '"'
+
+    # Pattern 2: dangling key with no value — ends with  , "key"}  or  , "key"
+    # Remove the last incomplete key-value pair (key present but no colon+value)
+    s = re.sub(r',\s*"[^"]*"\s*\}$', '}', s)
+    s = re.sub(r',\s*"[^"]*"\s*$', '', s)
+
+    # Pattern 3: object not closed
+    if not s.rstrip().endswith('}'):
+        s = s.rstrip().rstrip(',') + '}'
+
+    return s
+
+
 def call_ollama(
     body_text: str,
     accounts: list[dict],
@@ -138,10 +167,13 @@ def call_ollama(
 
     # Formateo limpio de catálogos para que el LLM entienda la relación ID -> Concepto
     accounts_str = "\n".join(
-        f"- id={a['id']}: {a['name']} ({(a.get('currency') or {}).get('code', '')})"
+        f"- id={a['id']}: {a['name']} ({(a.get('currency') or {}).get('code', '')}) tipo={a.get('type', '')}"
         for a in accounts
     )
-    categories_str = "\n".join(f"- id={c['id']}: {c['name']}" for c in categories)
+    categories_str = "\n".join(
+        f"- id={c['id']}: {c['name']}" + (f" (grupo: {c['group']})" if c.get('group') else "")
+        for c in categories
+    )
 
     merchant_rules_str = ""
     if merchant_rules:
@@ -155,7 +187,7 @@ def call_ollama(
     prompt = f"""Eres un asistente automatizado de finanzas personales. Tu tarea es analizar el correo bancario adjunto y estructurar la transacción en el formato JSON solicitado.
 ### CORREO BANCARIO A ANALIZAR:
 ---
-{body_text[:1500]}
+{body_text[:1000]}
 ---
 
 ### CATÁLOGOS DISPONIBLES:
@@ -177,7 +209,13 @@ c. Entre varias cuentas en la misma moneda, prefiere la que mencione
     la misma red (Mastercard, Visa, etc.) o banco.
 d. Si aún es ambiguo, asigna null.
 5. "categoria_id": Si el comercio aparece en el MAPEO DE COMERCIOS, usa ese ID sin excepción.
-Si no, infiere por contexto. Si es ambiguo, usa null.
+Si no, infiere del nombre del comercio y el grupo de categoría. Ejemplos típicos:
+- Restaurantes, comida rápida, cafeterías → busca categoría de "Alimentación" o "Comidas"
+- Uber, Didi, Cabify, taxis, gasolina → busca categoría de "Transporte"
+- Netflix, Spotify, cine, entretenimiento → busca categoría de "Entretenimiento"
+- Farmacia, médico, clínica → busca categoría de "Salud"
+- Supermercados (Éxito, Jumbo, Carulla) → busca categoría de "Mercado" o "Supermercado"
+- Si no puedes inferir con seguridad razonable, usa null.
 6. "comentario": Extrae ÚNICAMENTE el nombre del comercio o lugar donde ocurrió la transacción. NO incluyas frases de tipo de movimiento ("COMPRAS", "PAGO", "TRANSFERENCIA"), ni información del banco o tarjeta ("tarjeta débito MASTERCARD terminación XXXX"). Solo el nombre del negocio o lugar. Ejemplo: si el correo dice "COMPRAS con tarjeta débito MASTERCARD terminación 5545, en DIDI RIDES CO", el comentario es "DIDI RIDES CO".
 
 ### FORMATO DE SALIDA:
@@ -201,8 +239,8 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido. Sin bloques markdown, sin explic
             "format": "json",  # Esto obliga a Ollama a usar json-grammars
             "options": {
                 "temperature": 0.1,
-                "num_ctx": 2048,
-                "num_predict": 150,
+                "num_ctx": 4096,
+                "num_predict": 256,
             },
         },
         timeout=90.0,
@@ -210,44 +248,47 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido. Sin bloques markdown, sin explic
     response.raise_for_status()
 
     raw = response.json().get("response", "{}").strip()
+    # Sanitize before JSON parsing: remove/replace characters that break JSON strings.
+    raw = raw.replace('\\n', ' ').replace('\\r', '')   # escaped sequences
+    raw = re.sub(r'[\r\n\t]+', ' ', raw)               # literal control chars
+    # Remove other ASCII control characters (U+0000–U+001F except space)
+    raw = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', raw)
 
-    try:
-        data = json.loads(raw)
-
-        # Post-procesamiento de seguridad: Asegurar que los IDs sean enteros o None
+    def _postprocess(data: dict) -> dict:
         if data.get("cuenta_id") is not None:
             data["cuenta_id"] = int(data["cuenta_id"])
         if data.get("categoria_id") is not None:
             data["categoria_id"] = int(data["categoria_id"])
         if data.get("monto") is not None:
             data["monto"] = float(data["monto"])
-
-        # Validar que los IDs devueltos existan en los catálogos enviados al modelo
+        # Sanitize comentario: strip surrounding whitespace and non-printable chars
+        if data.get("comentario"):
+            comentario = data["comentario"]
+            comentario = re.sub(r'[^\x20-\x7E\xA0-￿]', '', comentario)
+            data["comentario"] = comentario.strip()
         valid_account_ids = {a["id"] for a in accounts}
         valid_category_ids = {c["id"] for c in categories}
         if data.get("cuenta_id") not in valid_account_ids:
             data["cuenta_id"] = None
         if data.get("categoria_id") not in valid_category_ids:
             data["categoria_id"] = None
-
         data["_prompt"] = prompt
         return data
 
-    except (json.JSONDecodeError, ValueError) as e:
-        # Fallback por si el modelo envuelve el JSON en markdown a pesar de las reglas
-        match = re.search(r"\{.*\}", raw, re.DOTALL)
-        if match:
+    try:
+        data = json.loads(raw)
+        return _postprocess(data)
+
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Fallback: attempt to repair truncated JSON before giving up.
+    repaired = _repair_truncated_json(raw)
+    match = re.search(r"\{.*\}", repaired, re.DOTALL)
+    if match:
+        try:
             data = json.loads(match.group(0))
-            if data.get("cuenta_id") is not None:
-                data["cuenta_id"] = int(data["cuenta_id"])
-            if data.get("categoria_id") is not None:
-                data["categoria_id"] = int(data["categoria_id"])
-            valid_account_ids = {a["id"] for a in accounts}
-            valid_category_ids = {c["id"] for c in categories}
-            if data.get("cuenta_id") not in valid_account_ids:
-                data["cuenta_id"] = None
-            if data.get("categoria_id") not in valid_category_ids:
-                data["categoria_id"] = None
-            data["_prompt"] = prompt
-            return data
-        raise ValueError(f"Error procesando la respuesta del modelo: {raw[:200]}")
+            return _postprocess(data)
+        except (json.JSONDecodeError, ValueError):
+            pass
+    raise ValueError(f"Error procesando la respuesta del modelo: {raw[:200]}")

@@ -306,15 +306,18 @@ def init_db(engine_override=None) -> None:
         Currency, Account, CategoryGroup, Category,
         Payee, Transaction, BudgetMonth, RecurringTransaction, ExchangeRate,
         Debt, DebtPayment, DebtCategoryAllocation, DebtAmortizationMonthly,
-        DebtSnapshotMonthly, DebtSnapshotProjectedMonthly,
+        DebtSnapshotMonthly, DebtSnapshotProjectedMonthly, DebtInstallment,
         AlertRule, BudgetAlertState, ReconciliationSession,
-        EmailScrapeTransaction, PatrimonioAsset, GmailProcessedMessage
+        EmailScrapeTransaction, PatrimonioAsset, GmailProcessedMessage,
+        InvestmentPortfolio, InvestmentAsset, AssetPriceHistory,
+        NetWorthSnapshot  # noqa: F401
     )
 
     active_engine = engine_override or engine
     Base.metadata.create_all(bind=active_engine)
     _apply_sqlite_migrations(active_engine)
     _backfill_account_country(active_engine)
+    _backfill_gmail_message_ids(active_engine)
     logger.info("Database tables created")
 
 
@@ -346,6 +349,12 @@ _MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
     ("debts", "term_months", "term_months INTEGER"),
     ("debts", "next_due_date", "next_due_date DATE"),
     ("debts", "last_accrual_date", "last_accrual_date DATE"),
+    ("debts", "statement_day", "statement_day INTEGER"),
+    ("debts", "payment_due_day", "payment_due_day INTEGER"),
+    ("debts", "statement_balance", "statement_balance NUMERIC(18, 2)"),
+    ("debts", "min_payment_percentage", "min_payment_percentage FLOAT"),
+    ("debts", "monthly_interest_rate", "monthly_interest_rate FLOAT"),
+    ("debts", "rate_type", "rate_type VARCHAR(20) DEFAULT 'fixed'"),
     ("accounts", "country", "country VARCHAR(50)"),
     ("patrimonio_asset", "depreciation_method", "depreciation_method VARCHAR(40) DEFAULT 'sin_depreciacion'"),
     ("patrimonio_asset", "depreciation_rate", "depreciation_rate FLOAT"),
@@ -355,6 +364,30 @@ _MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
     ("patrimonio_asset", "return_rate", "return_rate FLOAT"),
     ("patrimonio_asset", "return_amount", "return_amount NUMERIC(18,2)"),
     ("goals", "category_id", "category_id INTEGER REFERENCES categories(id)"),
+    ("budget_months", "initial_overridden", "initial_overridden BOOLEAN DEFAULT 0"),
+    ("budget_months", "assigned_overridden", "assigned_overridden DEFAULT 0"),
+    ("investment_portfolios", "nombre", "nombre VARCHAR(200) NOT NULL DEFAULT ''"),
+    ("investment_portfolios", "descripcion", "descripcion VARCHAR(500)"),
+    ("investment_portfolios", "target_allocation", "target_allocation VARCHAR(500)"),
+    ("investment_portfolios", "moneda", "moneda VARCHAR(10) NOT NULL DEFAULT 'COP'"),
+    ("investment_portfolios", "created_at", "created_at DATETIME"),
+    ("investment_assets", "portfolio_id", "portfolio_id INTEGER REFERENCES investment_portfolios(id)"),
+    ("investment_assets", "simbolo", "simbolo VARCHAR(50) NOT NULL DEFAULT ''"),
+    ("investment_assets", "nombre", "nombre VARCHAR(200) NOT NULL DEFAULT ''"),
+    ("investment_assets", "tipo", "tipo VARCHAR(30) NOT NULL DEFAULT ''"),
+    ("investment_assets", "asset_class", "asset_class VARCHAR(30) NOT NULL DEFAULT ''"),
+    ("investment_assets", "unidades", "unidades FLOAT NOT NULL DEFAULT 0"),
+    ("investment_assets", "precio_compra", "precio_compra FLOAT NOT NULL DEFAULT 0"),
+    ("investment_assets", "fecha_compra", "fecha_compra DATE"),
+    ("investment_assets", "moneda", "moneda VARCHAR(10) NOT NULL DEFAULT 'USD'"),
+    ("investment_assets", "notas", "notas VARCHAR(500)"),
+    ("investment_assets", "activo", "activo BOOLEAN DEFAULT 1"),
+    ("investment_assets", "created_at", "created_at DATETIME"),
+    ("asset_price_history", "asset_id", "asset_id INTEGER NOT NULL DEFAULT 0 REFERENCES investment_assets(id)"),
+    ("asset_price_history", "fecha", "fecha DATE"),
+    ("asset_price_history", "precio", "precio FLOAT NOT NULL DEFAULT 0"),
+    ("asset_price_history", "fuente", "fuente VARCHAR(20) NOT NULL DEFAULT 'manual'"),
+    ("asset_price_history", "created_at", "created_at DATETIME"),
 ]
 
 _MIGRATION_INDEXES: list[tuple[str, str]] = [
@@ -387,6 +420,21 @@ ACCOUNT_COUNTRY_MAP: dict[str, str] = {
     "cuenta corriente cop": "Colombia",
     "ahorros usd": "Panama",
 }
+
+
+def _backfill_gmail_message_ids(engine_override=None) -> None:
+    """Strip leading/trailing whitespace from gmail message_ids stored with RFC 2822 header folding."""
+    active_engine = engine_override or engine
+    with active_engine.begin() as connection:
+        tables = {row[0] for row in connection.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))}
+        if "gmail_processed_messages" in tables:
+            connection.execute(text(
+                "UPDATE gmail_processed_messages SET message_id = TRIM(message_id) WHERE message_id != TRIM(message_id)"
+            ))
+        if "transactions" in tables:
+            connection.execute(text(
+                "UPDATE transactions SET source_id = TRIM(source_id) WHERE source = 'gmail_ollama' AND source_id != TRIM(source_id)"
+            ))
 
 
 def _backfill_account_country(engine_override=None):

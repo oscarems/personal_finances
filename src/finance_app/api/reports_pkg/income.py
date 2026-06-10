@@ -423,6 +423,83 @@ def get_period_summary(
     }
 
 
+@router.get("/cashflow-summary")
+def get_cashflow_summary(
+    month: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Monthly cashflow summary in both COP and USD separately.
+
+    Returns:
+    - income broken down by currency
+    - expenses (all) broken down by currency
+    - expenses excluding savings/accumulate categories
+    - disponible = income - non-savings expenses (per currency)
+    """
+    today = date.today()
+    if month:
+        year, mon = int(month.split('-')[0]), int(month.split('-')[1])
+        start = date(year, mon, 1)
+    else:
+        start = today.replace(day=1)
+    end_exclusive = start + relativedelta(months=1)
+
+    # Currencies: 1=COP, 2=USD
+    COP_ID, USD_ID = 1, 2
+
+    # Income transactions
+    income_rows = build_income_transactions_query(db, start, end_exclusive).with_entities(
+        Transaction.amount, Transaction.currency_id
+    ).all()
+
+    income_cop = sum(r.amount for r in income_rows if r.currency_id == COP_ID)
+    income_usd = sum(r.amount for r in income_rows if r.currency_id == USD_ID)
+
+    # Expense transactions (all)
+    expense_rows = build_spent_transactions_query(db, start, end_exclusive).with_entities(
+        Transaction.amount, Transaction.currency_id,
+        Category.id.label('cat_id')
+    ).all()
+
+    exp_cop = sum(abs(r.amount) for r in expense_rows if r.currency_id == COP_ID)
+    exp_usd = sum(abs(r.amount) for r in expense_rows if r.currency_id == USD_ID)
+
+    # Expenses excluding savings (accumulate categories)
+    accumulate_cat_ids = {
+        row[0] for row in db.query(Category.id).filter(Category.rollover_type == 'accumulate').all()
+    }
+
+    exp_no_sav_cop = sum(
+        abs(r.amount) for r in expense_rows
+        if r.currency_id == COP_ID and r.cat_id not in accumulate_cat_ids
+    )
+    exp_no_sav_usd = sum(
+        abs(r.amount) for r in expense_rows
+        if r.currency_id == USD_ID and r.cat_id not in accumulate_cat_ids
+    )
+
+    return {
+        "month": start.strftime("%Y-%m"),
+        "income": {
+            "cop": round(income_cop, 0),
+            "usd": round(income_usd, 2),
+        },
+        "expenses": {
+            "cop": round(exp_cop, 0),
+            "usd": round(exp_usd, 2),
+        },
+        "expenses_no_savings": {
+            "cop": round(exp_no_sav_cop, 0),
+            "usd": round(exp_no_sav_usd, 2),
+        },
+        "available": {
+            "cop": round(income_cop - exp_no_sav_cop, 0),
+            "usd": round(income_usd - exp_no_sav_usd, 2),
+        },
+    }
+
+
 @router.get("/savings-allocation-rate")
 def get_savings_allocation_rate(
     year: Optional[int] = None,

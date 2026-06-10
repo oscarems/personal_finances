@@ -168,14 +168,17 @@ async function handleToggle(container, e) {
   const { categoryId, flag } = e.target.dataset;
   const checked = e.target.checked;
   e.target.disabled = true;
+  console.log('[EF] toggle', { categoryId, flag, checked });
 
   try {
-    await api.emergencyFund.updateCategory(parseInt(categoryId), { [flag]: checked });
+    const patchResult = await api.emergencyFund.updateCategory(parseInt(categoryId), { [flag]: checked });
+    console.log('[EF] patch result', patchResult);
 
     const cat = allCategories.find(c => c.id === parseInt(categoryId));
     if (cat) cat[flag] = checked;
 
     coverageData = await api.emergencyFund.coverage();
+    console.log('[EF] coverage', coverageData);
 
     const months      = coverageData?.months_coverage ?? 0;
     const totalFund   = coverageData?.emergency_funds_total ?? 0;
@@ -188,6 +191,7 @@ async function handleToggle(container, e) {
     const isGood      = months >= target;
 
     const summary = container.querySelector('#ef-summary');
+    console.log('[EF] summary element', summary, 'months:', months, 'funds:', totalFund);
     if (summary) summary.innerHTML = renderSummary(months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2, target, isGood);
   } catch (err) {
     e.target.checked = !checked;

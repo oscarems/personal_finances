@@ -62,3 +62,18 @@ def build_debt_snapshots(
             )
             save_snapshot(db, snapshot)
         db.commit()
+
+
+def snapshot_after_payment(db, debt_id: int) -> None:
+    """Genera un snapshot del mes actual para una deuda después de registrar un pago.
+
+    Llama a build_debt_snapshots para el mes actual. Captura silenciosamente
+    cualquier excepción para no interrumpir el flujo del pago.
+    """
+    from datetime import date
+    try:
+        today = date.today()
+        start = today.replace(day=1)
+        build_debt_snapshots(db, start_month=start, end_month=start, rebuild=True)
+    except Exception:
+        pass

@@ -8,18 +8,22 @@ export const title = 'Dashboard';
 export async function mount(container) {
   container.innerHTML = skeletonHtml();
   try {
-    const [accounts, txResp, budget, debts, fxData, patrimonioData] = await Promise.all([
+    const [accounts, txResp, budget, debts, fxData, patrimonioData, cashflow, savingsRate, netWorthData, goals] = await Promise.all([
       api.accounts.list(),
       api.transactions.list({ limit: 10 }),
       api.budgets.current().catch(() => null),
       api.debts.list().catch(() => []),
       api.exchangeRates.current().catch(() => ({ rate: 4200 })),
       api.patrimonio.summary().catch(() => null),
+      api.reports.cashflowSummary().catch(() => null),
+      api.reports.savingsRate({ months: 3 }).catch(() => null),
+      api.reports.netWorthTimeline().catch(() => []),
+      api.goals.list().catch(() => []),
     ]);
     const txList = Array.isArray(txResp) ? txResp : (txResp?.transactions ?? txResp?.items ?? []);
     const usdRate = fxData?.rate ?? 4200;
-    container.innerHTML = renderPage(accounts, txList, budget, debts, usdRate, patrimonioData);
-    bindEvents(container, accounts);
+    container.innerHTML = renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals);
+    bindEvents(container, accounts, netWorthData);
   } catch (err) {
     container.innerHTML = `<div class="alert alert-danger">Error al cargar el dashboard: ${sanitize(err.message)}</div>`;
   }
@@ -48,7 +52,7 @@ function skeletonHtml() {
     </div>`;
 }
 
-function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData) {
+function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals = []) {
   const DEBT_TYPES = ['credit_card','credit_loan','mortgage'];
   const savings   = accounts.filter(a => !DEBT_TYPES.includes(a.type));
   const debtAccts = accounts.filter(a =>  DEBT_TYPES.includes(a.type));
@@ -79,8 +83,6 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData) {
 
   const expenseGroups = (budget?.groups ?? []).filter(g => !g.is_income);
   const expenseCats   = expenseGroups.flatMap(g => g.categories ?? []);
-  const totalAssigned = expenseCats.reduce((s, c) => s + (c.assigned ?? 0), 0);
-  const totalSpent    = expenseCats.reduce((s, c) => s + Math.abs(c.activity ?? 0), 0);
 
   const today = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   const todayCap = today.charAt(0).toUpperCase() + today.slice(1);
@@ -102,9 +104,11 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData) {
       ${currencyCard('USD', totalSavingsUSD, totalDebtsUSD)}
     </div>
 
-    <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-top:0">
-      ${kpiCard('Gastado este mes', totalSpent, 'COP', '', `de ${fmtCurrency(totalAssigned, 'COP')} asignado en categorías de gasto`)}
-      ${kpiCard('Por gastar este mes', Math.max(0, totalAssigned - totalSpent), 'COP', totalAssigned - totalSpent >= 0 ? 'positive' : 'negative', 'asignado − gastado en categorías de gasto')}
+    ${cashflowSection(cashflow, usdRate)}
+
+    <div class="section-grid cols-2" style="margin-bottom:20px">
+      ${savingsRateCard(savingsRate)}
+      ${netWorthChartCard(netWorthData)}
     </div>
 
     <div class="section-grid cols-2" style="margin-bottom:20px">
@@ -112,6 +116,7 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData) {
       ${recentTxCard(txList)}
     </div>
 
+    ${goals.filter(g => g.status !== 'achieved').length > 0 ? goalsWidget(goals.filter(g => g.status !== 'achieved')) : ''}
     ${budget && expenseCats.length > 0 ? budgetCard(expenseCats) : ''}
     ${debts.length > 0 ? debtsCard(debts) : ''}
   `;
@@ -264,10 +269,239 @@ function debtsCard(debts) {
     </div>`;
 }
 
-function bindEvents(container, accounts) {
+function cashflowSection(cf, usdRate = 4200) {
+  if (!cf) return '';
+
+  const inCOP  = cf.income?.cop  ?? 0;
+  const inUSD  = cf.income?.usd  ?? 0;
+  const exNoSavCOP = cf.expenses_no_savings?.cop ?? (cf.expenses?.cop ?? 0);
+  const exNoSavUSD = cf.expenses_no_savings?.usd ?? (cf.expenses?.usd ?? 0);
+  const exCOP  = cf.expenses?.cop ?? 0;
+  const exUSD  = cf.expenses?.usd ?? 0;
+  const savCOP = exCOP - exNoSavCOP;
+  const savUSD = exUSD - exNoSavUSD;
+  const balCOP = inCOP - exCOP;
+  const balUSD = inUSD - exUSD;
+
+  const inTotal  = inCOP  + inUSD  * usdRate;
+  const exTotal  = exNoSavCOP + exNoSavUSD * usdRate;
+  const savTotal = savCOP + savUSD * usdRate;
+  const balTotal = balCOP + balUSD * usdRate;
+
+  const hasSavings = savCOP > 0 || savUSD > 0;
+  const monthLabel = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+
+  function cell(value, currency, cls = '', bold = false) {
+    const style = `font-family:var(--font-mono);font-size:0.8rem;text-align:right;${bold ? 'font-weight:700;' : ''}`;
+    return `<td class="${cls}" style="${style}">${fmtCurrency(value, currency)}</td>`;
+  }
+
+  function row(label, cop, usd, total, cls = '', bold = false) {
+    const labelStyle = `font-size:0.8125rem;padding:9px 0;color:${bold ? 'var(--text-primary)' : 'var(--text-secondary)'};${bold ? 'font-weight:600;' : ''}`;
+    return `
+      <tr style="border-bottom:1px solid var(--border-muted)">
+        <td style="${labelStyle}">${label}</td>
+        ${cell(cop,   'COP', cls, bold)}
+        ${cell(usd,   'USD', cls, bold)}
+        ${cell(total, 'COP', cls, bold)}
+      </tr>`;
+  }
+
+  function dividerRow() {
+    return `<tr><td colspan="4" style="padding:0"><div style="border-top:2px solid var(--border-subtle);margin:2px 0"></div></td></tr>`;
+  }
+
+  const balCls = balTotal >= 0 ? 'positive' : 'negative';
+
+  return `
+    <div class="card" style="margin-bottom:0">
+      <div class="card-header">
+        <span class="card-title">Flujo del mes · ${monthLabel}</span>
+        <span style="font-size:0.72rem;color:var(--text-soft)">Total en COP · TRM ${fmtCurrency(usdRate, 'COP')}</span>
+      </div>
+      <div class="card-body" style="padding-top:4px;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr>
+              <th style="text-align:left;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px"></th>
+              <th style="text-align:right;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px">COP</th>
+              <th style="text-align:right;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px">USD</th>
+              <th style="text-align:right;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px">Total (COP)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${row('↑ Ingresos',  inCOP,      inUSD,      inTotal,  'positive')}
+            ${row('↓ Gastos',    exNoSavCOP, exNoSavUSD, exTotal,  'negative')}
+            ${hasSavings ? row('💰 Ahorros', savCOP, savUSD, savTotal, '') : ''}
+            ${dividerRow()}
+            ${row('Balance',     balCOP,     balUSD,     balTotal, balCls, true)}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function savingsRateCard(sr) {
+  if (!sr || !sr.monthly || sr.monthly.length === 0) {
+    return `
+      <div class="card">
+        <div class="card-header"><span class="card-title">Tasa de Ahorro</span></div>
+        <div class="card-body"><p class="empty-state">Sin datos de ingresos aún</p></div>
+      </div>`;
+  }
+
+  const months = sr.monthly.slice(-3);
+  const avg = sr.average_savings_rate ?? 0;
+  const avgCls = avg >= 20 ? 'positive' : avg >= 10 ? '' : 'negative';
+
+  const rows = months.map(m => {
+    const cls = m.savings_rate >= 20 ? 'positive' : m.savings_rate >= 10 ? '' : 'negative';
+    const bar = Math.max(0, Math.min(100, m.savings_rate));
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:0.78rem;color:var(--text-secondary)">${m.month_name}</span>
+          <span class="amount ${cls}" style="font-size:0.78rem;font-family:var(--font-mono)">${m.savings_rate.toFixed(1)}%</span>
+        </div>
+        <div style="height:5px;background:var(--border-muted);border-radius:3px">
+          <div style="height:100%;width:${bar}%;background:var(--color-${m.savings_rate >= 20 ? 'success' : m.savings_rate >= 10 ? 'warning' : 'danger'});border-radius:3px;transition:width .4s"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Tasa de Ahorro</span>
+        <a class="btn btn-ghost btn-sm" data-link="/income">Ver detalle</a>
+      </div>
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:16px">
+          <div class="kpi-label">Promedio trimestre</div>
+          <div class="kpi-value ${avgCls}" style="font-size:2rem">${avg.toFixed(1)}%</div>
+          <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">Meta recomendada: ≥ 20%</div>
+        </div>
+        ${rows}
+      </div>
+    </div>`;
+}
+
+function netWorthChartCard(data) {
+  if (!data || data.length === 0) {
+    return `
+      <div class="card">
+        <div class="card-header"><span class="card-title">Patrimonio Neto</span></div>
+        <div class="card-body"><p class="empty-state">El historial se construye mes a mes al abrir el dashboard</p></div>
+      </div>`;
+  }
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Patrimonio Neto · Evolución</span>
+      </div>
+      <div class="card-body" style="padding-top:8px">
+        <canvas id="netWorthChart" style="max-height:200px"></canvas>
+      </div>
+    </div>`;
+}
+
+function renderNetWorthChart(container, data) {
+  if (!data || data.length === 0) return;
+  const ctx = container.querySelector('#netWorthChart');
+  if (!ctx || !window.Chart) return;
+
+  const theme = window.getChartTheme ? window.getChartTheme() : {};
+  const labels = data.map(d => d.month);
+  const nets   = data.map(d => d.net_cop);
+
+  new window.Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Patrimonio Neto (COP)',
+        data: nets,
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.08)',
+        borderWidth: 2,
+        pointRadius: data.length === 1 ? 5 : 3,
+        fill: true,
+        tension: 0.3,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return ' ' + new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: theme.tickColor ?? '#94a3b8', maxTicksLimit: 6 }, grid: { color: theme.gridColor ?? '#1e293b' } },
+        y: {
+          ticks: {
+            color: theme.tickColor ?? '#94a3b8',
+            callback: v => {
+              if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+              if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+              if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+              return v;
+            },
+          },
+          grid: { color: theme.gridColor ?? '#1e293b' },
+        },
+      },
+    },
+  });
+}
+
+function goalsWidget(goals) {
+  const top = goals.slice(0, 4);
+  const rows = top.map(g => {
+    const current  = g.current_amount ?? 0;
+    const target   = g.target_amount ?? 0;
+    const currency = g.currency_code ?? 'COP';
+    const pct      = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+    const reqMonth = g.required_per_month ?? g.monthly_required ?? 0;
+    const barColor = pct >= 70 ? 'var(--color-success)' : pct >= 35 ? 'var(--color-warning)' : 'var(--color-danger)';
+    return `
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+          <span style="font-size:0.8125rem;font-weight:500">🎯 ${sanitize(g.name)}</span>
+          <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-secondary)">${pct.toFixed(0)}%</span>
+        </div>
+        <div style="height:5px;background:var(--border-muted);border-radius:3px;margin-bottom:4px">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-soft)">
+          <span>${fmtCurrency(current, currency)} de ${fmtCurrency(target, currency)}</span>
+          ${reqMonth > 0 ? `<span>${fmtCurrency(reqMonth, currency)}/mes</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">Metas de Ahorro</span>
+        <a class="btn btn-ghost btn-sm" data-link="/goals">Ver todas</a>
+      </div>
+      <div class="card-body">${rows}</div>
+    </div>`;
+}
+
+function bindEvents(container, accounts, netWorthData) {
   container.querySelector('#btnQuickAdd')?.addEventListener('click', () => {
     openQuickAdd(accounts);
   });
+  renderNetWorthChart(container, netWorthData);
 }
 
 function openQuickAdd(accounts) {

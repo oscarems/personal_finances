@@ -240,27 +240,39 @@ def get_spending_by_category_over_time(
             periods.append((current, month_end, current.strftime('%b %Y')))
             current = month_end
 
-    # Collect data per period per category
-    period_list = []
-    category_totals_global = {}
-    category_groups_map = {}
+    # Fetch ALL transactions for the full range in one query, then group in Python
+    all_allocations = expense_allocations(db, start_date_obj, end_date_obj + timedelta(days=1))
 
-    for period_start, period_end, label in periods:
-        allocations = expense_allocations(db, period_start, period_end)
-        period_categories = {}
-        for tx, category, allocation_amount in allocations:
-            cat_name = category.name if category else "Sin categoría"
-            group_name = category.category_group.name if category and category.category_group else "Sin grupo"
-            converted = convert_to_currency(allocation_amount, tx.currency_id, currency_id, exchange_rate)
-            period_categories[cat_name] = period_categories.get(cat_name, 0) + converted
-            category_totals_global[cat_name] = category_totals_global.get(cat_name, 0) + converted
-            if cat_name not in category_groups_map:
-                category_groups_map[cat_name] = group_name
+    from collections import defaultdict
 
-        period_list.append({
-            'label': label,
-            'categories': period_categories,
-        })
+    category_totals_global: dict[str, float] = {}
+    category_groups_map: dict[str, str] = {}
+    # per_period[i][cat_name] = amount
+    per_period: list[dict[str, float]] = [defaultdict(float) for _ in periods]
+
+    def find_period_idx(tx_date: date) -> int:
+        for i, (ps, pe, _) in enumerate(periods):
+            if ps <= tx_date < pe:
+                return i
+        return -1
+
+    for tx, category, allocation_amount in all_allocations:
+        cat_name = category.name if category else "Sin categoría"
+        group_name = category.category_group.name if category and category.category_group else "Sin grupo"
+        converted = convert_to_currency(allocation_amount, tx.currency_id, currency_id, exchange_rate)
+        tx_date = tx.date if isinstance(tx.date, date) else tx.date.date()
+
+        pidx = find_period_idx(tx_date)
+        if pidx >= 0:
+            per_period[pidx][cat_name] += converted
+        category_totals_global[cat_name] = category_totals_global.get(cat_name, 0) + converted
+        if cat_name not in category_groups_map:
+            category_groups_map[cat_name] = group_name
+
+    period_list = [
+        {'label': label, 'categories': dict(per_period[i])}
+        for i, (_, _, label) in enumerate(periods)
+    ]
 
     # All categories sorted by total spending
     all_categories_sorted = sorted(category_totals_global.items(), key=lambda x: x[1], reverse=True)

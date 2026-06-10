@@ -17,6 +17,8 @@ Aplicación web local para organizar finanzas personales: cuentas, presupuesto, 
 
 La app corre completamente en local. El backend sirve la API REST y el frontend se sirve como SPA.
 
+Módulos activos: cuentas, presupuesto, transacciones, análisis, simuladores, patrimonio, **portafolio de inversiones**, **dashboard FIRE**.
+
 ---
 
 ## Arquitectura de Carpetas
@@ -121,6 +123,17 @@ Para cada cuenta de tipo deuda:
   - **Método avalancha**: pagar primero la deuda con mayor tasa.
   - **Método bola de nieve**: pagar primero la deuda con menor saldo.
 - Mostrar proyección de saldo en el tiempo (gráfico de amortización).
+- **Comparador lado a lado**: tabla simultánea de avalancha vs. bola de nieve vs. solo mínimo (ruta `/simulador-deudas`).
+- **Costo total**: interés pagado históricamente + proyección de "si solo pagas el mínimo".
+- **Alertas de utilización**: banner automático cuando tarjeta supera 30% (warning) o 70% (critical).
+
+### 7. Tarjetas de Crédito — Funcionalidades Específicas
+
+- **Ciclo de facturación**: campos `statement_day` (día de corte) y `payment_due_day` (día límite), con cálculo automático de fecha de vencimiento del ciclo actual (`GET /debts/{id}/billing-cycle`).
+- **Pago mínimo real**: campo `min_payment_percentage` (ej: 5%) usado en `calculate_suggested_minimum_payment`.
+- **Tasa mensual efectiva**: campo `monthly_interest_rate` — si se define, el motor de amortización y todos los cálculos lo usan directamente en vez de derivar de la tasa anual.
+- **Tipo de tasa**: campo `rate_type` (`fixed` / `variable`) para documentar si la tasa cambia.
+- **Compras en cuotas** (`DebtInstallment`): modelo para diferidos, con cuotas totales/pagadas/restantes y resumen de saldo diferido pendiente. CRUD en `GET/POST/PATCH/DELETE /debts/{id}/installments`.
 
 ---
 
@@ -151,6 +164,8 @@ Para cada cuenta de tipo deuda:
 5. `/analisis` — Reportes y gráficos
 6. `/simuladores` — Fondo de emergencia y pago de deudas
 7. `/configuracion` — Gestión de bases de datos, plantilla de presupuesto, tasas de cambio
+8. `/portfolio` — Portafolio de inversiones reales (acciones, ETFs, cripto, fondos)
+9. `/fire` — Dashboard FIRE: independencia financiera, ratio, años restantes
 
 ---
 
@@ -192,42 +207,64 @@ DATABASE_PATH=./data/finanzas.sqlite
 
 ## Migraciones de Base de Datos
 
-No se usa Alembic. Las migraciones se aplican en `backend/db/session.py` mediante la función `aplicar_migraciones(engine)`, que usa `PRAGMA table_info` para detectar columnas faltantes y añadirlas con `ALTER TABLE ADD COLUMN`. Esta función se llama en `create_tables()` antes de crear tablas nuevas.
+No se usa Alembic. Las migraciones se aplican automáticamente en `src/finance_app/database.py` mediante `_apply_sqlite_migrations()`, llamada desde `init_db()` al arrancar la app.
 
-**Patrón:**
+**Patrón para agregar una columna:**
+
+1. Añadir `Column(...)` al modelo SQLAlchemy (cubre bases de datos nuevas via `create_all`).
+2. Añadir una tupla `(tabla, columna, DDL)` a la lista `_MIGRATION_COLUMNS` en `database.py:326` (cubre bases existentes).
+3. Si el campo debe aparecer en respuestas API, añadirlo a `to_dict()` del modelo.
 
 ```python
-def _add_column_if_missing(conn, table: str, column: str, definition: str):
-    cols = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
-    if column not in cols:
-        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
+# database.py — helper idempotente
+def ensure_sqlite_column(table_name, column_name, column_definition, engine_override=None):
+    # Si la columna no existe en PRAGMA table_info, hace ALTER TABLE ADD COLUMN
+    ...
+
+# Entrada en _MIGRATION_COLUMNS:
+("debts", "statement_day", "statement_day INTEGER"),
 ```
+
+**Nuevas tablas** (sin tuplas de migración, las crea `create_all`): añadir el modelo a `models/__init__.py` y al import de `init_db()` en `database.py`.
 
 ---
 
-## Campos extendidos (portados desde personal_finances)
+## Campos extendidos — Modelo `Debt`
 
-### Cuenta (backend/models/cuenta.py)
+### Campos de tarjeta de crédito (añadidos)
 
-Nuevos campos para el motor de amortización:
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `statement_day` | `INTEGER` | Día del mes en que cierra el estado de cuenta (1-31) |
+| `payment_due_day` | `INTEGER` | Día del mes límite de pago |
+| `statement_balance` | `NUMERIC(18,2)` | Saldo capturado al último corte |
+| `min_payment_percentage` | `FLOAT` | % del saldo para pago mínimo (ej: 5.0) |
+| `monthly_interest_rate` | `FLOAT` | Tasa mensual efectiva explícita (ej: 1.9 = 1.9%/mes) |
+| `rate_type` | `VARCHAR(20)` | `'fixed'` o `'variable'` |
 
-- `fecha_inicio: date | None` — fecha en que inició el préstamo/hipoteca
-- `plazo_meses: int | None` — plazo en meses (para generar tabla de amortización)
+### Campos existentes (referencia rápida)
 
-### Categoria (backend/models/categoria.py)
+- `interest_rate`: tasa anual en % — usada si `monthly_interest_rate` no está definida
+- `annual_interest_rate`: tasa anual en decimal — alternativa a `interest_rate`
+- `minimum_payment`: pago mínimo fijo almacenado
+- `credit_limit`: cupo de la tarjeta
+- `confirmed_balance` / `confirmed_balance_date`: balance confirmado desde estado de cuenta real
 
-Nuevos flags para el simulador de fondo de emergencia:
+### Modelo `DebtInstallment` (`models/debt_installment.py`)
 
-- `es_esencial: bool = False` — categoría de gasto esencial (base del cálculo)
-- `es_fondo_emergencia: bool = False` — categoría de ahorro que forma el fondo
+Compras diferidas en cuotas vinculadas a una tarjeta de crédito.
 
-### PresupuestoMes (backend/models/presupuesto.py)
+| Campo | Descripción |
+|---|---|
+| `debt_id` | FK a `debts.id` |
+| `description` | Descripción de la compra |
+| `total_amount` | Monto total de la compra |
+| `installments_total` / `installments_paid` | Cuotas totales / ya pagadas |
+| `monthly_amount` | Cuota mensual |
+| `start_date` | Fecha de la primera cuota |
+| `has_interest` | Si tiene interés diferido |
 
-Nuevos campos para cascada y acumulación de ahorros:
-
-- `asignado_sobreescrito: bool = False` — indica si el usuario editó el valor manualmente
-- `monto_inicial: float = 0.0` — disponible acumulado del mes anterior (solo categorías ahorro)
-- `monto_inicial_sobreescrito: bool = False` — indica si el monto_inicial fue editado manualmente
+Properties calculadas: `installments_remaining`, `amount_remaining`, `amount_paid`.
 
 ---
 
@@ -256,6 +293,114 @@ backend/services/simuladores/
 | `currency_code` | `moneda` |
 
 **Endpoints simuladores:** `GET/POST /api/v1/simuladores/deuda`, `/fondo-emergencia`, `/inversion`, `/amortizacion/{cuenta_id}`
+
+---
+
+## Servicios de Deuda — Referencia Rápida
+
+### `services/debt/`
+
+| Archivo | Función principal |
+|---|---|
+| `amortization_engine.py` | `AmortizationEngine.generate_schedule(debt, mode)` — tabla mes a mes con interés |
+| `amortization_service.py` | `ensure_debt_amortization_records(db, start, end)` — caché en `DebtAmortizationMonthly` |
+| `balance_service.py` | `calculate_scheduled_principal_balance(debt, as_of_date)` |
+| `helpers.py` | `calculate_credit_card_monthly_interest(debt)`, `calculate_suggested_minimum_payment(debt)`, `get_billing_cycle_info(debt)`, `debt_to_dict_with_calculated_balance(debt, db)` |
+| `simulator.py` | `simulate_payoff(debts, extra_payment, strategy)`, `compare_strategies(debts, extra_payment)` |
+| `cost_analysis.py` | `analyze_debt_cost(db, debt)` — histórico de pagos + proyección pago mínimo |
+| `installments.py` | CRUD de `DebtInstallment` + `get_installments_summary(db, debt_id)` |
+
+### `domain/debts/`
+
+| Archivo | Función principal |
+|---|---|
+| `snapshot.py` | `build_debt_snapshots(db, start_month, end_month)`, `snapshot_after_payment(db, debt_id)` |
+| `service.py` | `get_total_debt_principal_cop(db)` |
+| `repository.py` | fetch/save snapshots, allocations |
+
+### Endpoints de deuda (`api/debts.py`)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/debts/` | Lista de deudas activas |
+| GET | `/debts/summary` | Totales + alertas utilización + alto interés |
+| GET | `/debts/simulator` | Simulación con pago extra (query params) |
+| GET | `/debts/strategy-comparison` | Avalancha vs bola de nieve vs mínimo |
+| GET | `/debts/{id}` | Deuda individual |
+| GET | `/debts/{id}/cost-analysis` | Costo histórico + proyección pago mínimo |
+| GET | `/debts/{id}/billing-cycle` | Ciclo de facturación actual (tarjetas) |
+| GET | `/debts/{id}/schedule` | Tabla de amortización (`mode=plan/actual/hybrid`) |
+| GET/POST | `/debts/{id}/payments` | Historial / nuevo pago |
+| DELETE | `/debts/{id}/payments/{pid}` | Eliminar pago |
+| GET/POST | `/debts/{id}/installments` | Cuotas diferidas |
+| PATCH/DELETE | `/debts/{id}/installments/{iid}` | Editar / eliminar cuota |
+| GET | `/debts/{id}/installments/summary` | Resumen de diferidos |
+
+### Convenciones de tasa de interés
+
+- `monthly_interest_rate` (si definida) tiene prioridad sobre cualquier otra tasa en todos los cálculos.
+- Fallback: `annual_interest_rate` (Numeric, puede ser decimal 0.12 o porcentaje 12).
+- Fallback 2: `interest_rate` (Float, siempre en porcentaje, ej: 24.5).
+- Conversión estándar: `monthly_rate = (1 + annual_decimal)^(1/12) - 1`.
+
+---
+
+## Módulo Portafolio de Inversiones (Fase 7)
+
+### Modelos nuevos
+
+| Modelo | Tabla | Descripción |
+|---|---|---|
+| `InvestmentPortfolio` | `investment_portfolios` | Agrupador de activos con target_allocation JSON |
+| `InvestmentAsset` | `investment_assets` | Activo real: símbolo, unidades, precio_compra, tipo, asset_class |
+| `AssetPriceHistory` | `asset_price_history` | Historial de precios manuales/API con UNIQUE (asset_id, fecha) |
+
+Campos clave de `InvestmentAsset`: `simbolo`, `nombre`, `tipo` (accion/etf/cripto/fondo/otro), `asset_class` (renta_variable/renta_fija/liquidez/alternativo), `unidades`, `precio_compra`, `fecha_compra`, `moneda`, `activo`.
+
+### Servicios nuevos
+
+| Archivo | Responsabilidad |
+|---|---|
+| `services/portfolio_service.py` | CRUD portafolios y activos, cálculo ganancia/pérdida, allocation actual |
+| `services/fire_service.py` | Ratio FIRE, ingreso pasivo, % independencia, proyección años restantes |
+| `services/price_history_service.py` | Upsert de precios, historial, resumen consolidado de activos |
+
+### Métricas calculadas por activo
+
+- `precio_actual` = último precio en `asset_price_history`, o `precio_compra` si no hay historial
+- `valor_actual` = `unidades × precio_actual`
+- `costo_base` = `unidades × precio_compra`
+- `ganancia` = `valor_actual − costo_base`
+- `ganancia_pct` = `ganancia / costo_base × 100`
+
+### Endpoints (`api/portfolio.py`, prefix `/api/v1/portfolio`)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET/POST | `/` | Listar / crear portafolios |
+| GET/DELETE | `/{portfolio_id}` | Detalle / eliminar portafolio |
+| GET | `/{portfolio_id}/allocation` | Allocation actual vs target |
+| GET/POST | `/assets` | Todos los activos con precios / crear activo |
+| GET/DELETE | `/assets/{asset_id}` | Activo individual / soft delete |
+| GET/POST | `/assets/{asset_id}/prices` | Historial de precios / registrar precio |
+
+### Dashboard FIRE (`api/fire.py`, prefix `/api/v1/fire`)
+
+`GET /` retorna:
+
+```json
+{
+  "patrimonio_invertible": float,
+  "gastos_anuales_esenciales": float,
+  "ingreso_pasivo_anual": float,
+  "ratio_fire": float,
+  "independencia_pct": float,
+  "ingreso_pasivo_vs_gastos_pct": float,
+  "anos_restantes": float | null
+}
+```
+
+Regla: `ratio_fire = patrimonio_invertible / (gastos_anuales × 25)` (regla del 4%).
 
 ---
 
@@ -317,3 +462,58 @@ Antes de generar código:
 - No implementar dark mode.
 - No agregar funcionalidades no solicitadas.
 - No modificar automáticamente datos financieros sin confirmación explícita.
+
+---
+
+## Roadmap — Features Pendientes
+
+### Nivel 2 — Análisis avanzado (próxima sesión)
+
+**Tasa de ahorro real (Savings Rate)**
+- KPI central: `(ingresos - gastos) / ingresos * 100`
+- Mostrar en dashboard y en página de Ingresos
+- Histórico mensual de savings rate en gráfico de línea
+- Meta de savings rate configurable (alertar si baja)
+- Backend ya existe: `GET /api/reports/savings-rate`
+
+**Valor neto histórico (Net Worth timeline)**
+- Snapshot mensual de patrimonio neto: activos - pasivos
+- Gráfico de evolución histórica mes a mes
+- Requiere tabla `net_worth_snapshots (month, assets_cop, liabilities_cop, net_cop)`
+- Calcular automáticamente al inicio de cada mes o bajo demanda
+
+**Análisis de gastos discrecionales vs esenciales**
+- Campo `is_essential` ya existe en `Category`
+- Crear reporte mensual: % gasto esencial vs discrecional
+- Comparativo histórico y benchmarks (ej: regla 50/30/20)
+- Vista de semáforo por categoría
+
+---
+
+### Nivel 3 — Features diferenciadores (sesiones futuras)
+
+**Reglas de categorización automática**
+- Motor de reglas: `{campo: 'payee', contiene: 'Rappi'} → categoría: Comidas`
+- `MerchantRule` ya existe — extender para cubrir todos los campos de transacción
+- Aplicar automáticamente al importar Gmail y al crear transacciones manuales
+- UI de gestión de reglas mejorada con testing en tiempo real
+
+**Metas financieras con tracking avanzado**
+- `Goal` ya existe — mejorar con:
+  - Barra de progreso visual en dashboard
+  - Cálculo automático: "necesito ahorrar $X/mes para llegar a tiempo"
+  - Alerta si el ritmo actual no alcanza la meta
+  - Vinculación con categorías de presupuesto
+
+**Alertas inteligentes**
+- Reglas basadas en patrones: "gasto 40% más que promedio en X categoría"
+- Alertas de fondo de emergencia (si baja de N meses de cobertura)
+- Alertas de ratio FIRE (si no avanza en N meses)
+- `AlertRule` ya existe — extender para alertas de tendencia, no solo threshold
+
+**Importador CSV bancario**
+- Importar extractos de Davivienda Colombia (CSV/XLS)
+- Mapeo de columnas configurable
+- Deduplicación por fecha+monto+descripción
+- Vista de revisión antes de confirmar importación
+- Historial de importaciones con rollback

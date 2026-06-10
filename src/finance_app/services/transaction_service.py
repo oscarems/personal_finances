@@ -402,7 +402,7 @@ def create_transaction(db: Session, data):
 
 
 def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None, start_date=None,
-                     end_date=None, search=None, transaction_type=None, limit=None):
+                     end_date=None, search=None, transaction_type=None, limit=None, uncategorized=False):
     """
     Get transactions with optional filters
     """
@@ -415,6 +415,8 @@ def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None
 
     if category_id:
         query = query.filter(Transaction.category_id == category_id)
+    elif uncategorized:
+        query = query.filter(Transaction.category_id.is_(None))
 
     # tag_id intentionally ignored: transactions no longer depend on tags
 

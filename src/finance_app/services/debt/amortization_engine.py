@@ -81,6 +81,11 @@ class AmortizationEngine:
         return 0.0
 
     def _monthly_rate(self, debt: Debt) -> float:
+        # Prefer explicit monthly_interest_rate field when available
+        if getattr(debt, "monthly_interest_rate", None):
+            rate = float(debt.monthly_interest_rate)
+            return rate / 100 if rate > 1 else rate
+
         note = (debt.notes or "").lower()
         if "tasa_mensual" in note or "monthly_rate" in note:
             if debt.annual_interest_rate is not None:

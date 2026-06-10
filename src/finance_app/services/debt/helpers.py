@@ -4,6 +4,7 @@ Pure business logic, no HTTP/FastAPI dependencies.
 """
 from __future__ import annotations
 
+import calendar
 from datetime import date
 from typing import Optional
 
@@ -41,6 +42,12 @@ def calculate_credit_card_monthly_interest(debt: Debt) -> float:
     if balance <= 0:
         return 0.0
 
+    # Prefer explicit monthly rate when available
+    if getattr(debt, "monthly_interest_rate", None):
+        rate = float(debt.monthly_interest_rate)
+        monthly_rate = rate / 100 if rate > 1 else rate
+        return round(balance * monthly_rate, 2)
+
     annual_rate_raw = debt.annual_interest_rate or debt.interest_rate
     if not annual_rate_raw:
         return 0.0
@@ -74,7 +81,86 @@ def calculate_suggested_minimum_payment(debt: Debt) -> float:
     principal_chunk = balance * 0.01
     calculated = monthly_interest + principal_chunk
 
+    # If min_payment_percentage is set, it acts as an additional floor
+    if getattr(debt, "min_payment_percentage", None):
+        pct_minimum = balance * (float(debt.min_payment_percentage) / 100)
+        calculated = max(calculated, pct_minimum)
+
     return round(max(stored_min, calculated), 2)
+
+
+def get_billing_cycle_info(debt: Debt, reference_date: date | None = None) -> dict:
+    """Calculate the current billing cycle for a credit card.
+
+    Returns a dict with statement and payment due dates relative to
+    ``reference_date`` (defaults to today).
+
+    Keys returned:
+        statement_day, payment_due_day,
+        current_cycle_start, current_cycle_end,
+        payment_due_date,
+        days_until_statement, days_until_payment_due
+    All date values are ISO-format strings or None.
+    """
+    statement_day = getattr(debt, "statement_day", None)
+    payment_due_day = getattr(debt, "payment_due_day", None)
+
+    empty: dict = {
+        "statement_day": statement_day,
+        "payment_due_day": payment_due_day,
+        "current_cycle_start": None,
+        "current_cycle_end": None,
+        "payment_due_date": None,
+        "days_until_statement": None,
+        "days_until_payment_due": None,
+    }
+
+    if not statement_day:
+        return empty
+
+    ref = reference_date or date.today()
+    stmt_day = int(statement_day)
+
+    def _safe_date(year: int, month: int, day: int) -> date:
+        """Clamp day to the last valid day of the month."""
+        last_day = calendar.monthrange(year, month)[1]
+        return date(year, month, min(day, last_day))
+
+    # Determine current cycle end (next statement close)
+    if ref.day < stmt_day:
+        cycle_end = _safe_date(ref.year, ref.month, stmt_day)
+    else:
+        # Move to next month
+        if ref.month == 12:
+            cycle_end = _safe_date(ref.year + 1, 1, stmt_day)
+        else:
+            cycle_end = _safe_date(ref.year, ref.month + 1, stmt_day)
+
+    # Cycle start is one month before cycle_end + 1 day
+    from dateutil.relativedelta import relativedelta as _rd
+    cycle_start = cycle_end - _rd(months=1) + _rd(days=1)
+
+    # Payment due date: payment_due_day of the month after cycle_end
+    payment_due_date = None
+    days_until_payment_due = None
+    if payment_due_day:
+        due_month = cycle_end.month + 1
+        due_year = cycle_end.year
+        if due_month > 12:
+            due_month = 1
+            due_year += 1
+        payment_due_date = _safe_date(due_year, due_month, int(payment_due_day))
+        days_until_payment_due = (payment_due_date - ref).days
+
+    return {
+        "statement_day": stmt_day,
+        "payment_due_day": int(payment_due_day) if payment_due_day else None,
+        "current_cycle_start": cycle_start.isoformat(),
+        "current_cycle_end": cycle_end.isoformat(),
+        "payment_due_date": payment_due_date.isoformat() if payment_due_date else None,
+        "days_until_statement": (cycle_end - ref).days,
+        "days_until_payment_due": days_until_payment_due,
+    }
 
 
 def payment_principal_amount(payment: DebtPayment) -> float:

@@ -2,7 +2,7 @@ import { sanitize } from '../utils.js';
 
 let stack = [];
 
-export function openModal({ title, content, onSubmit, submitLabel = 'Guardar', size = 'md', onClose, keepOpen = false }) {
+export function openModal({ title, content, onSubmit, submitLabel = 'Guardar', submitClass = 'btn btn-primary', cancelLabel = 'Cancelar', size = 'md', onClose, keepOpen = false }) {
   const sizes = { sm: '420px', md: '560px', lg: '740px', xl: '960px' };
   const container = document.getElementById('modal-container');
   const wrap = document.createElement('div');
@@ -21,8 +21,8 @@ export function openModal({ title, content, onSubmit, submitLabel = 'Guardar', s
         <div class="modal-body"></div>
         ${onSubmit ? `
           <div class="modal-footer">
-            <button class="btn btn-secondary" data-cancel>Cancelar</button>
-            <button class="btn btn-primary" data-submit>${sanitize(submitLabel)}</button>
+            <button class="btn btn-secondary" data-cancel>${sanitize(cancelLabel)}</button>
+            <button class="${sanitize(submitClass)}" data-submit>${sanitize(submitLabel)}</button>
           </div>
         ` : ''}
       </div>
@@ -55,8 +55,14 @@ export function openModal({ title, content, onSubmit, submitLabel = 'Guardar', s
   }
 
   wrap.querySelector('.modal-close').addEventListener('click', close);
-  wrap.querySelector('.modal-overlay').addEventListener('click', e => {
-    if (e.target === e.currentTarget) close();
+  const overlay = wrap.querySelector('.modal-overlay');
+  let mousedownOnOverlay = false;
+  overlay.addEventListener('mousedown', e => {
+    mousedownOnOverlay = e.target === overlay;
+  });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay && mousedownOnOverlay) close();
+    mousedownOnOverlay = false;
   });
   wrap.querySelector('[data-cancel]')?.addEventListener('click', close);
 

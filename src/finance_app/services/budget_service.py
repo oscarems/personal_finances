@@ -390,7 +390,17 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
     initial_available = 0.0
 
     if category and category.rollover_type == 'accumulate':
-        if budget_month.initial_overridden:
+        # For multi-currency categories, only apply rollover to the active currency
+        # row (has assigned). Inactive rows (assigned=0, no activity) would otherwise
+        # accumulate stale rollover that gets double-counted in the total available.
+        is_inactive_multicurrency_row = (
+            not include_all_currencies
+            and (budget_month.assigned or 0.0) == 0.0
+            and activity == 0.0
+        )
+        if is_inactive_multicurrency_row:
+            budget_month.initial_amount = 0.0
+        elif budget_month.initial_overridden:
             # User set this value explicitly — respect it
             initial_available = budget_month.initial_amount or 0.0
         else:
@@ -605,13 +615,6 @@ def _build_category_budget(
         total_activity += convert(budget.activity, bcur.code, currency.code)
         total_available += convert(budget.available, bcur.code, currency.code)
 
-    total_initial = 0.0
-    if category.rollover_type == 'accumulate':
-        for budget in all_budgets:
-            bcur = all_currencies.get(budget.currency_id)
-            if bcur:
-                total_initial += convert(budget.initial_amount or 0.0, bcur.code, currency.code)
-
     # Determine the category's primary currency (only one active at a time)
     primary_budget = next((b for b in all_budgets if (b.assigned or 0.0) != 0.0), None)
     if primary_budget is None and all_budgets:
@@ -619,6 +622,12 @@ def _build_category_budget(
     pbcur = all_currencies.get(primary_budget.currency_id) if primary_budget else None
     primary_currency_code = pbcur.code if pbcur else currency.code
     assigned_native = float(primary_budget.assigned or 0.0) if primary_budget else 0.0
+
+    # Only use the primary budget's initial_amount to avoid double-counting across
+    # multiple currency rows for the same savings category.
+    total_initial = 0.0
+    if category.rollover_type == 'accumulate' and primary_budget and pbcur:
+        total_initial = convert(primary_budget.initial_amount or 0.0, pbcur.code, currency.code)
 
     return {
         'category_id': category.id,

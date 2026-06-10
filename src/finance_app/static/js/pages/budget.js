@@ -79,6 +79,7 @@ function renderPage(container) {
         <h1>Presupuesto</h1>
       </div>
       <div class="page-header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnRecalcSavings" title="Recalcula el disponible acumulado de todas las categorías de ahorro">↻ Recalcular ahorros</button>
         <button class="btn btn-ghost btn-sm" id="btnAddGroup">+ Grupo</button>
         <button class="btn btn-secondary btn-sm" id="btnAddCategory">+ Categoría</button>
         <button class="btn btn-primary btn-sm" id="btnInitMonth">Inicializar mes</button>
@@ -118,7 +119,19 @@ function renderPage(container) {
           <span style="color:var(--text-soft)" style="font-size:0.75rem">${fmtCurrency(totalSavings / _rate, 'USD')}</span>
         </div>` : ''}
       <div class="stat-chip" style="border-color:${readyToAssign >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
-        <span class="stat-chip-label">Listo para asignar</span>
+        <span class="stat-chip-label">
+          Listo para asignar
+          <span class="info-tooltip" tabindex="0" aria-label="Explicación de Listo para asignar">
+            &#9432;
+            <span class="tooltip-text">
+              Dinero que tienes pero aún no has asignado a ninguna categoría.<br><br>
+              <strong>= Saldo en cuentas de ahorro − Total disponible en presupuesto</strong><br><br>
+              Positivo: hay dinero sin categorizar.<br>
+              Negativo: asignaste más de lo que tienes.<br>
+              Ideal: $0 (cada peso tiene un destino).
+            </span>
+          </span>
+        </span>
         <span class="stat-chip-value" style="color:${readyToAssign >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
           ${fmtCurrency(readyToAssign, 'COP')}
         </span>
@@ -160,6 +173,18 @@ function renderPage(container) {
     try {
       await api.budgets.initialize(_month);
       toast.success('Mes inicializado desde plantilla');
+      await loadAndRender(container);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  });
+
+  // Recalculate savings rollover
+  container.querySelector('#btnRecalcSavings').addEventListener('click', async () => {
+    if (!confirm('¿Recalcular el disponible acumulado de todas las categorías de ahorro? Esto corrige datos desincronizados.')) return;
+    try {
+      await api.budgets.recalcSavings();
+      toast.success('Ahorros recalculados correctamente');
       await loadAndRender(container);
     } catch (err) {
       toast.error(err.message);
@@ -270,7 +295,8 @@ function openAssignedModal(el, container) {
   const isSavings      = cat.category_type === 'savings';
   const currentCurrency = cat.currency_code ?? 'COP';
   const currentAmount   = cat.assigned_native ?? (currentCurrency === 'USD' ? (cat.assigned ?? 0) / _rate : (cat.assigned ?? 0));
-  const initialCOP      = cat.initial_amount ?? 0;
+  // initial_amount from API is in display currency (COP). Convert to primary currency for editing.
+  const initialNative   = currentCurrency === 'USD' ? (cat.initial_amount ?? 0) / _rate : (cat.initial_amount ?? 0);
   const spentCOP        = cat.spent ?? 0;
   const spentUSD        = spentCOP / _rate;
 
@@ -299,18 +325,9 @@ function openAssignedModal(el, container) {
       ${isSavings ? `
         <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle)">
           <p style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-soft);margin-bottom:10px">Ya ahorrado (acumulado anterior)</p>
-          <div class="form-row cols-2" style="gap:12px">
-            <div class="form-group" style="flex:2">
-              <label class="form-label">Monto</label>
-              <input type="number" id="ma-initial" value="${Math.round(initialCOP)}" step="1000" min="0">
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Moneda</label>
-              <select id="ma-initial-currency">
-                <option value="COP">COP</option>
-                <option value="USD">USD</option>
-              </select>
-            </div>
+          <div class="form-group">
+            <label class="form-label">Monto (${currentCurrency})</label>
+            <input type="number" id="ma-initial" value="${currentCurrency === 'USD' ? initialNative.toFixed(2) : Math.round(initialNative)}" step="${currentCurrency === 'USD' ? '0.01' : '1000'}" min="0">
           </div>
           <p id="ma-initial-preview" style="font-size:0.8rem;color:var(--text-soft);margin-top:4px"></p>
         </div>
@@ -323,16 +340,10 @@ function openAssignedModal(el, container) {
       if (isNaN(amount) || amount < 0) throw new Error('Monto inválido');
 
       if (isSavings) {
-        const initial          = parseFloat(body.querySelector('#ma-initial').value);
-        const initial_currency = body.querySelector('#ma-initial-currency').value;
+        const initial = parseFloat(body.querySelector('#ma-initial').value);
         if (isNaN(initial) || initial < 0) throw new Error('Monto acumulado inválido');
-
-        if (initial_currency === currency_code) {
-          await api.budgets.update(_month, catId, { assigned: amount, currency_code, initial_amount: initial });
-        } else {
-          await api.budgets.update(_month, catId, { assigned: amount, currency_code });
-          await api.budgets.setInitial(_month, catId, { initial_amount: initial, currency_code: initial_currency });
-        }
+        // initial is always in currency_code (same as assigned); single call
+        await api.budgets.update(_month, catId, { assigned: amount, currency_code, initial_amount: initial });
       } else {
         await api.budgets.update(_month, catId, { assigned: amount, currency_code });
       }
@@ -368,28 +379,16 @@ function openAssignedModal(el, container) {
 
   if (isSavings) {
     const initialInput   = modal.body.querySelector('#ma-initial');
-    const initialCurSel  = modal.body.querySelector('#ma-initial-currency');
     const initialPreview = modal.body.querySelector('#ma-initial-preview');
-    if (initialInput && initialCurSel && initialPreview) {
+    if (initialInput && initialPreview) {
       const updateInitialPreview = () => {
         const amt = parseFloat(initialInput.value) || 0;
-        initialPreview.textContent = initialCurSel.value === 'COP'
+        initialPreview.textContent = currentCurrency === 'COP'
           ? `≈ ${fmtCurrency(amt / _rate, 'USD')}`
           : `≈ ${fmtCurrency(amt * _rate, 'COP')}`;
       };
       updateInitialPreview();
       initialInput.addEventListener('input', updateInitialPreview);
-      initialCurSel.addEventListener('change', () => {
-        const amt = parseFloat(initialInput.value) || 0;
-        if (initialCurSel.value === 'USD') {
-          initialInput.value = (amt / _rate).toFixed(2);
-          initialInput.step  = '0.01';
-        } else {
-          initialInput.value = Math.round(amt * _rate);
-          initialInput.step  = '1000';
-        }
-        updateInitialPreview();
-      });
     }
   }
 }
@@ -422,6 +421,12 @@ function openCategoryModal(cat, container) {
           </select>
         </div>
       </div>
+      <div class="form-group" style="margin-top:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.875rem">
+          <input type="checkbox" id="cf-essential" ${c.is_essential ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer">
+          <span>Gasto esencial <span style="color:var(--text-muted);font-size:0.8125rem">(Necesidades en salud financiera)</span></span>
+        </label>
+      </div>
       ${isEdit ? `
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle)">
           <button class="btn btn-danger btn-sm" id="cf-delete-btn" style="width:100%">Eliminar categoría</button>
@@ -433,6 +438,7 @@ function openCategoryModal(cat, container) {
       const name = body.querySelector('#cf-name').value.trim();
       const type = body.querySelector('#cf-type').value;
       const groupId = parseInt(body.querySelector('#cf-group').value);
+      const isEssential = body.querySelector('#cf-essential').checked;
       if (!name) throw new Error('El nombre es obligatorio');
       if (isNaN(groupId)) throw new Error('Selecciona un grupo');
 
@@ -441,6 +447,7 @@ function openCategoryModal(cat, container) {
           name,
           rollover_type: type === 'savings' ? 'accumulate' : 'reset',
           category_group_id: groupId,
+          is_essential: isEssential,
         });
         toast.success('Categoría actualizada');
       } else {

@@ -7,7 +7,7 @@ export const title = 'Transacciones';
 
 let _accounts  = [];
 let _categories= [];
-let _filters   = { search: '', account_id: '', category_id: '', date_from: '', date_to: '', type: '', limit: 100 };
+let _filters   = { search: '', account_id: '', category_id: '', date_from: '', date_to: '', type: '', uncategorized: false, limit: 100 };
 
 export async function mount(container) {
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
@@ -25,6 +25,7 @@ function renderPage(container) {
     <div class="page-header">
       <div class="page-header-text"><h1>Transacciones</h1></div>
       <div class="page-header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnExport" title="Exportar a CSV">↓ Exportar</button>
         <button class="btn btn-secondary btn-sm" id="btnTransfer">⇄ Transferencia</button>
         <button class="btn btn-primary btn-sm" id="btnNewTx">+ Nueva</button>
       </div>
@@ -63,6 +64,7 @@ function renderPage(container) {
             <option value="transfer" ${_filters.type === 'transfer' ? 'selected' : ''}>Transferencia</option>
           </select>
         </div>
+        <button class="filter-quick-btn" id="btnUncategorized">Sin categoría</button>
         <div class="filter-divider"></div>
         <div class="filter-date-range" id="filter-date-range">
           <input type="date" id="f-from" class="filter-date" value="${_filters.date_from}" title="Desde">
@@ -85,6 +87,7 @@ function renderPage(container) {
   updateFilterActiveStates(container);
   container.querySelector('#btnNewTx').addEventListener('click', () => openTxModal(null, container));
   container.querySelector('#btnTransfer').addEventListener('click', () => openTransferModal(container));
+  container.querySelector('#btnExport').addEventListener('click', () => exportTransactions());
 }
 
 function bindFilters(container) {
@@ -93,10 +96,21 @@ function bindFilters(container) {
 
   container.querySelector('#f-search').addEventListener('input', e => { _filters.search = e.target.value; doLoadAndUpdate(); });
   container.querySelector('#f-account').addEventListener('change', e => { _filters.account_id = e.target.value; doLoadAndUpdate(); });
-  container.querySelector('#f-category').addEventListener('change', e => { _filters.category_id = e.target.value; doLoadAndUpdate(); });
+  container.querySelector('#f-category').addEventListener('change', e => {
+    _filters.category_id = e.target.value;
+    if (e.target.value) { _filters.uncategorized = false; container.querySelector('#btnUncategorized').classList.remove('is-active'); }
+    doLoadAndUpdate();
+  });
   container.querySelector('#f-type').addEventListener('change', e => { _filters.type = e.target.value; doLoadAndUpdate(); });
   container.querySelector('#f-from').addEventListener('change', e => { _filters.date_from = e.target.value; doLoadAndUpdate(); });
   container.querySelector('#f-to').addEventListener('change', e => { _filters.date_to = e.target.value; doLoadAndUpdate(); });
+  container.querySelector('#btnUncategorized').addEventListener('click', () => {
+    _filters.uncategorized = !_filters.uncategorized;
+    if (_filters.uncategorized) _filters.category_id = '';
+    container.querySelector('#btnUncategorized').classList.toggle('is-active', _filters.uncategorized);
+    container.querySelector('#f-category').value = '';
+    doLoadAndUpdate();
+  });
 
   container.querySelector('#btnQuickMonth').addEventListener('click', () => {
     const now = new Date();
@@ -122,13 +136,14 @@ function bindFilters(container) {
   });
 
   container.querySelector('#btnClearFilters').addEventListener('click', () => {
-    _filters = { search: '', account_id: '', category_id: '', date_from: '', date_to: '', type: '', limit: 100 };
+    _filters = { search: '', account_id: '', category_id: '', date_from: '', date_to: '', type: '', uncategorized: false, limit: 100 };
     container.querySelector('#f-search').value   = '';
     container.querySelector('#f-account').value  = '';
     container.querySelector('#f-category').value = '';
     container.querySelector('#f-type').value     = '';
     container.querySelector('#f-from').value     = '';
     container.querySelector('#f-to').value       = '';
+    container.querySelector('#btnUncategorized').classList.remove('is-active');
     updateFilterActiveStates(container);
     loadTransactions(container);
   });
@@ -151,7 +166,7 @@ function updateFilterActiveStates(container) {
   container.querySelector('#filter-date-range')?.classList.toggle('is-active', dateActive);
 
   const count = [_filters.account_id, _filters.category_id, _filters.type,
-                  _filters.date_from || _filters.date_to, _filters.search]
+                  _filters.date_from || _filters.date_to, _filters.search, _filters.uncategorized]
                 .filter(Boolean).length;
   const badge = container.querySelector('#filterActiveCount');
   if (badge) { badge.textContent = count; badge.style.display = count ? '' : 'none'; }
@@ -164,12 +179,13 @@ async function loadTransactions(container) {
 
   try {
     const params = {};
-    if (_filters.search)      params.search      = _filters.search;
-    if (_filters.account_id)  params.account_id  = _filters.account_id;
-    if (_filters.category_id) params.category_id = _filters.category_id;
-    if (_filters.date_from)   params.start_date  = _filters.date_from;
-    if (_filters.date_to)     params.end_date    = _filters.date_to;
-    if (_filters.type)        params.transaction_type = _filters.type;
+    if (_filters.search)        params.search      = _filters.search;
+    if (_filters.account_id)    params.account_id  = _filters.account_id;
+    if (_filters.category_id)   params.category_id = _filters.category_id;
+    if (_filters.date_from)     params.start_date  = _filters.date_from;
+    if (_filters.date_to)       params.end_date    = _filters.date_to;
+    if (_filters.type)          params.transaction_type = _filters.type;
+    if (_filters.uncategorized) params.uncategorized = true;
     params.limit = _filters.limit;
 
     const resp = await api.transactions.list(params);
@@ -244,13 +260,38 @@ function txRow(tx) {
       <td class="td-soft" style="font-size:0.8rem">${sanitize(tx.account_name ?? '—')}</td>
       <td style="font-size:0.8rem">${sanitize(tx.category_name ?? '—')}</td>
       <td class="td-right td-mono amount ${cls}" style="font-size:0.8125rem">
-        ${sign}${fmtCurrency(Math.abs(tx.amount ?? 0), tx.currency?.code ?? 'COP')}
+        ${(() => {
+          const nativeCurrency = tx.currency?.code ?? 'COP';
+          const mainLine = `<div>${sign}${fmtCurrency(Math.abs(tx.amount ?? 0), nativeCurrency)}</div>`;
+          let secondaryLine = '';
+          if (nativeCurrency === 'COP' && tx.usd_amount != null) {
+            secondaryLine = `<div style="font-size:0.7rem;color:var(--text-soft);margin-top:1px">≈ ${fmtCurrency(Math.abs(tx.usd_amount), 'USD')}</div>`;
+          } else if (nativeCurrency === 'USD' && tx.cop_amount != null) {
+            secondaryLine = `<div style="font-size:0.7rem;color:var(--text-soft);margin-top:1px">≈ ${fmtCurrency(Math.abs(tx.cop_amount), 'COP')}</div>`;
+          }
+          return mainLine + secondaryLine;
+        })()}
       </td>
       <td style="text-align:right">
         <button class="btn btn-ghost btn-xs" data-edit-tx="${tx.id}" title="Editar">✏</button>
         <button class="btn btn-ghost btn-xs" style="color:var(--color-danger)" data-delete-tx="${tx.id}" title="Eliminar">✕</button>
       </td>
     </tr>`;
+}
+
+function exportTransactions() {
+  const params = new URLSearchParams();
+  if (_filters.search)      params.set('search', _filters.search);
+  if (_filters.account_id)  params.set('account_id', _filters.account_id);
+  if (_filters.category_id) params.set('category_id', _filters.category_id);
+  if (_filters.date_from)   params.set('start_date', _filters.date_from);
+  if (_filters.date_to)     params.set('end_date', _filters.date_to);
+  if (_filters.type)        params.set('transaction_type', _filters.type);
+  params.set('limit', '0'); // export all
+  const a = document.createElement('a');
+  a.href = `/api/v1/transactions/export?${params.toString()}`;
+  a.download = 'transacciones.csv';
+  a.click();
 }
 
 function txFormHtml(tx) {

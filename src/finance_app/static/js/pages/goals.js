@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, sanitize, progressBar, todayISO } from '../utils.js';
+import { fmtCurrency, fmtDate, sanitize, todayISO } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -18,8 +18,8 @@ export async function mount(container) {
 }
 
 function render(container, goals) {
-  const active   = goals.filter(g => !g.is_completed);
-  const completed= goals.filter(g => g.is_completed);
+  const active    = goals.filter(g => g.status !== 'achieved' && g.status !== 'cancelled');
+  const completed = goals.filter(g => g.status === 'achieved');
 
   container.innerHTML = `
     <div class="page-header">
@@ -72,55 +72,101 @@ function render(container, goals) {
 }
 
 function goalCard(g) {
-  const current  = g.current_amount ?? g.saved_amount ?? 0;
-  const target   = g.target_amount ?? g.goal_amount ?? 0;
-  const currency = g.currency_code ?? 'COP';
-  const pct      = target > 0 ? Math.min(100, (current / target) * 100) : 0;
-  const remaining= Math.max(0, target - current);
-  const fillClass= pct >= 100 ? 'ok' : pct >= 60 ? 'ok' : pct >= 30 ? 'warning' : 'danger';
+  const current   = g.current_amount ?? 0;
+  const target    = g.target_amount ?? 0;
+  const currency  = g.currency_code ?? 'COP';
+  const pct       = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+  const remaining = Math.max(0, target - current);
+  const isAchieved = g.status === 'achieved';
+
+  const fillColor = pct >= 100 ? 'var(--color-success)' : pct >= 60 ? 'var(--color-success)' : pct >= 30 ? 'var(--color-warning)' : 'var(--color-danger)';
+
+  // On-track indicator
+  const onTrackBadge = _onTrackBadge(g);
+
+  // Projection info
+  const projDate = g.projected_achievement_date;
+  const reqPerMonth = g.required_per_month ?? g.monthly_required ?? 0;
 
   return `
-    <div class="card ${g.is_completed ? 'card-completed' : ''}">
+    <div class="card ${isAchieved ? 'card-completed' : ''}">
       <div style="padding:16px 20px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
           <div>
-            <div style="font-weight:600;font-size:0.9375rem">
-              ${g.icon ? g.icon + ' ' : '🎯 '}${sanitize(g.name)}
-            </div>
-            ${g.deadline ? `<div style="font-size:0.72rem;color:var(--text-soft)">Fecha límite: ${fmtDate(g.deadline)}</div>` : ''}
+            <div style="font-weight:600;font-size:0.9375rem">🎯 ${sanitize(g.name)}</div>
+            ${g.target_date ? `<div style="font-size:0.72rem;color:var(--text-soft)">Fecha límite: ${fmtDate(g.target_date)}</div>` : ''}
           </div>
-          ${g.is_completed ? '<span class="badge badge-success">✓ Completada</span>' : ''}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${isAchieved ? '<span class="badge badge-success">✓ Completada</span>' : onTrackBadge}
+          </div>
         </div>
 
-        <div class="amount positive" style="font-size:1.25rem;font-weight:600;margin-bottom:4px">
+        <div class="amount positive" style="font-size:1.25rem;font-weight:600;margin-bottom:2px">
           ${fmtCurrency(current, currency)}
         </div>
         <div style="font-size:0.75rem;color:var(--text-soft);margin-bottom:10px">
           de ${fmtCurrency(target, currency)} meta
         </div>
 
-        <div style="margin-bottom:8px">
+        <div style="margin-bottom:10px">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-soft);margin-bottom:4px">
             <span>Progreso</span><span>${pct.toFixed(0)}%</span>
           </div>
-          <div class="progress-wrap">
-            <div class="progress-fill ${fillClass}" style="width:${pct}%"></div>
+          <div style="height:6px;background:var(--border-muted);border-radius:3px">
+            <div style="height:100%;width:${pct}%;background:${fillColor};border-radius:3px;transition:width .4s"></div>
           </div>
         </div>
 
-        ${remaining > 0 ? `<div style="font-size:0.75rem;color:var(--text-secondary)">Faltan: ${fmtCurrency(remaining, currency)}</div>` : ''}
+        ${remaining > 0 ? `
+          <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:0.75rem;color:var(--text-secondary)">
+            <span>Faltan: <strong>${fmtCurrency(remaining, currency)}</strong></span>
+            ${reqPerMonth > 0 ? `<span>Necesitas: <strong>${fmtCurrency(reqPerMonth, currency)}/mes</strong></span>` : ''}
+          </div>` : ''}
+
+        ${projDate && !isAchieved ? `
+          <div style="font-size:0.72rem;color:var(--text-soft);margin-top:6px">
+            Proyección: ${fmtDate(projDate)}
+          </div>` : ''}
+
         ${g.notes ? `<div style="font-size:0.75rem;color:var(--text-soft);margin-top:8px">${sanitize(g.notes)}</div>` : ''}
       </div>
       <div style="display:flex;gap:8px;padding:10px 20px;border-top:1px solid var(--border-muted);background:var(--bg-surface-muted)">
-        ${!g.is_completed ? `<button class="btn btn-primary btn-xs" data-contribute-goal="${g.id}">+ Abonar</button>` : ''}
+        ${!isAchieved ? `<button class="btn btn-primary btn-xs" data-contribute-goal="${g.id}">+ Abonar</button>` : ''}
         <button class="btn btn-ghost btn-xs" data-edit-goal="${g.id}">Editar</button>
         <button class="btn btn-ghost btn-xs" style="color:var(--color-danger)" data-delete-goal="${g.id}">Eliminar</button>
       </div>
     </div>`;
 }
 
+function _onTrackBadge(g) {
+  if (!g.target_date || !g.target_amount) return '';
+  const current = g.current_amount ?? 0;
+  const target  = g.target_amount;
+
+  const today = new Date();
+  const start = g.start_date ? new Date(g.start_date) : new Date(g.created_at);
+  const end   = new Date(g.target_date);
+
+  const totalMs   = end - start;
+  const elapsedMs = today - start;
+  if (totalMs <= 0) return '';
+
+  const expectedPct = Math.min(100, (elapsedMs / totalMs) * 100);
+  const actualPct   = target > 0 ? (current / target) * 100 : 0;
+  const diff = actualPct - expectedPct;
+
+  if (diff >= -5) {
+    return `<span style="font-size:0.68rem;padding:2px 7px;border-radius:10px;background:rgba(34,197,94,0.15);color:var(--color-success);font-weight:600">En camino</span>`;
+  } else if (diff >= -20) {
+    return `<span style="font-size:0.68rem;padding:2px 7px;border-radius:10px;background:rgba(245,158,11,0.15);color:var(--color-warning);font-weight:600">Leve retraso</span>`;
+  } else {
+    return `<span style="font-size:0.68rem;padding:2px 7px;border-radius:10px;background:rgba(239,68,68,0.15);color:var(--color-danger);font-weight:600">Atrasado</span>`;
+  }
+}
+
 function goalFormHtml(g) {
   const goal = g ?? {};
+  const today = todayISO();
   return `
     <div class="form-group" style="margin-bottom:16px">
       <label class="form-label required">Nombre</label>
@@ -129,11 +175,11 @@ function goalFormHtml(g) {
     <div class="form-row cols-2">
       <div class="form-group">
         <label class="form-label required">Monto Meta</label>
-        <input type="number" id="gf-target" value="${goal.target_amount ?? goal.goal_amount ?? ''}" step="1000" min="0">
+        <input type="number" id="gf-target" value="${goal.target_amount ?? ''}" step="1000" min="0">
       </div>
       <div class="form-group">
-        <label class="form-label">Monto Actual</label>
-        <input type="number" id="gf-current" value="${goal.current_amount ?? goal.saved_amount ?? ''}" step="1000" min="0">
+        <label class="form-label">Monto Inicial</label>
+        <input type="number" id="gf-start-amount" value="${goal.start_amount ?? '0'}" step="1000" min="0">
       </div>
     </div>
     <div class="form-row cols-2">
@@ -145,15 +191,13 @@ function goalFormHtml(g) {
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Fecha Límite</label>
-        <input type="date" id="gf-deadline" value="${goal.deadline ?? ''}">
+        <label class="form-label required">Fecha Límite</label>
+        <input type="date" id="gf-target-date" value="${goal.target_date ?? ''}">
       </div>
     </div>
-    <div class="form-row cols-2">
-      <div class="form-group">
-        <label class="form-label">Ícono</label>
-        <input type="text" id="gf-icon" value="${sanitize(goal.icon ?? '')}" placeholder="🎯" maxlength="4">
-      </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-label required">Fecha Inicio</label>
+      <input type="date" id="gf-start-date" value="${goal.start_date ?? today}">
     </div>
     <div class="form-group">
       <label class="form-label">Notas</label>
@@ -171,17 +215,23 @@ function openGoalModal(goal, container) {
     submitLabel: isEdit ? 'Actualizar' : 'Crear',
     onSubmit: async (body) => {
       const currencyIdMap = { COP: 1, USD: 2 };
-      const currCode = body.querySelector('#gf-currency').value;
+      const currCode     = body.querySelector('#gf-currency').value;
+      const targetDate   = body.querySelector('#gf-target-date').value;
+      const startDate    = body.querySelector('#gf-start-date').value;
+
       const data = {
-        name:           body.querySelector('#gf-name').value.trim(),
-        target_amount:  parseFloat(body.querySelector('#gf-target').value),
-        current_amount: parseFloat(body.querySelector('#gf-current').value || '0'),
-        currency_id:    currencyIdMap[currCode] ?? 1,
-        deadline:       body.querySelector('#gf-deadline').value || null,
-        icon:           body.querySelector('#gf-icon').value.trim() || null,
-        notes:          body.querySelector('#gf-notes').value.trim() || null,
+        name:         body.querySelector('#gf-name').value.trim(),
+        target_amount: parseFloat(body.querySelector('#gf-target').value),
+        start_amount:  parseFloat(body.querySelector('#gf-start-amount').value || '0'),
+        currency_id:  currencyIdMap[currCode] ?? 1,
+        target_date:  targetDate || null,
+        start_date:   startDate || todayISO(),
+        notes:        body.querySelector('#gf-notes').value.trim() || null,
       };
+
       if (!data.name || !data.target_amount) throw new Error('Nombre y monto son obligatorios');
+      if (!data.target_date) throw new Error('La fecha límite es obligatoria');
+
       if (isEdit) {
         await api.goals.update(goal.id, data);
         toast.success('Meta actualizada');
@@ -196,13 +246,16 @@ function openGoalModal(goal, container) {
 }
 
 function openContributionModal(goal, container) {
+  const currencyIdMap = { COP: 1, USD: 2 };
+  const currency = goal.currency_code ?? 'COP';
+
   openModal({
     title: `Abonar a: ${goal.name}`,
     size: 'sm',
     content: `
       <div style="margin-bottom:16px;font-size:0.875rem;color:var(--text-secondary)">
-        Progreso actual: <strong class="amount positive">${fmtCurrency(goal.current_amount ?? 0, goal.currency_code ?? 'COP')}</strong>
-        de ${fmtCurrency(goal.target_amount ?? 0, goal.currency_code ?? 'COP')}
+        Progreso: <strong class="amount positive">${fmtCurrency(goal.current_amount ?? 0, currency)}</strong>
+        de ${fmtCurrency(goal.target_amount ?? 0, currency)}
       </div>
       <div class="form-group" style="margin-bottom:16px">
         <label class="form-label required">Monto del abono</label>
@@ -218,7 +271,11 @@ function openContributionModal(goal, container) {
       const amount = parseFloat(body.querySelector('#cont-amount').value);
       const date   = body.querySelector('#cont-date').value;
       if (!amount) throw new Error('Ingresa un monto válido');
-      await api.goals.addContribution(goal.id, { amount, date });
+      await api.goals.addContribution(goal.id, {
+        amount,
+        date,
+        currency_id: currencyIdMap[currency] ?? 1,
+      });
       toast.success('Abono registrado');
       _goals = await api.goals.list();
       render(container, _goals);

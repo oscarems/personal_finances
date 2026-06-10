@@ -152,53 +152,56 @@ def get_emergency_funds(db: Session, target_currency_id: int = 1):
     funds_data = []
 
     for category in emergency_categories:
-        # Obtener el balance actual de cada fondo (último mes con presupuesto)
+        # Get the most recent budget row per currency
         latest_budgets = db.query(BudgetMonth).options(
             joinedload(BudgetMonth.currency)
         ).filter(
             BudgetMonth.category_id == category.id
         ).order_by(BudgetMonth.month.desc()).all()
 
-        # Agrupar por moneda y obtener el balance más reciente
-        currency_balances = {}
+        # Most recent row per currency
+        most_recent_by_currency: dict = {}
         for budget in latest_budgets:
-            currency_id = budget.currency_id
-            if currency_id not in currency_balances:
-                # Usar available del budget más reciente
-                balance = budget.available or 0.0
+            if budget.currency_id not in most_recent_by_currency:
+                most_recent_by_currency[budget.currency_id] = budget
 
-                # Si es negativo, usar 0
-                if balance < 0:
-                    balance = 0.0
+        has_multi_curr = len(most_recent_by_currency) > 1
 
-                currency_balances[currency_id] = {
-                    'balance': balance,
-                    'currency': budget.currency
-                }
+        # For multi-currency categories, only count the active currency (has assigned).
+        # Inactive rows accumulate stale rollover that would double-count the balance.
+        active_rows = [
+            b for b in most_recent_by_currency.values()
+            if (b.assigned or 0.0) != 0.0
+        ]
+        if has_multi_curr and active_rows:
+            rows_to_use = active_rows
+        else:
+            rows_to_use = list(most_recent_by_currency.values())
 
-        # Convertir y sumar todos los balances
-        for currency_id, data in currency_balances.items():
-            balance = data['balance']
-            if balance > 0:
-                source_currency_code = data['currency'].code if data['currency'] else 'COP'
-                target_currency_code = target_currency.code if target_currency else 'COP'
+        for budget in rows_to_use:
+            balance = budget.available or 0.0
+            if balance <= 0:
+                continue
 
-                converted = convert_currency(
-                    balance,
-                    source_currency_code,
-                    target_currency_code,
-                    db,
-                    today
-                )
-                total += converted
+            source_currency_code = budget.currency.code if budget.currency else 'COP'
+            target_currency_code = target_currency.code if target_currency else 'COP'
 
-                funds_data.append({
-                    'id': category.id,
-                    'name': category.name,
-                    'balance': balance,
-                    'balance_converted': converted,
-                    'currency_code': source_currency_code
-                })
+            converted = convert_currency(
+                balance,
+                source_currency_code,
+                target_currency_code,
+                db,
+                today
+            )
+            total += converted
+
+            funds_data.append({
+                'id': category.id,
+                'name': category.name,
+                'balance': balance,
+                'balance_converted': converted,
+                'currency_code': source_currency_code
+            })
 
     return {
         'total': round(total, 2),

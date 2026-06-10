@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Personal Finances{% endblock %}</title>
 
-    <!-- Google Fonts: Syne (display) · Outfit (body) · JetBrains Mono (numbers) -->
+    <!-- Google Fonts: Inter (UI) · JetBrains Mono (numbers) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Tabler Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,74 +19,35 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: {
-                            50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a',
-                            300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b',
-                            600: '#d97706', 700: '#b45309', 800: '#92400e', 900: '#78350f'
-                        },
-                        success: {
-                            50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0',
-                            300: '#6ee7b7', 400: '#34d399', 500: '#10b981',
-                            600: '#059669', 700: '#047857', 800: '#065f46', 900: '#064e3b'
-                        },
-                        danger: {
-                            50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca',
-                            300: '#fca5a5', 400: '#f87171', 500: '#ef4444',
-                            600: '#dc2626', 700: '#b91c1c', 800: '#991b1b', 900: '#7f1d1d'
-                        },
-                        warning: {
-                            50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a',
-                            300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b',
-                            600: '#d97706', 700: '#b45309', 800: '#92400e', 900: '#78350f'
-                        },
-                        accent: {
-                            50: '#ecfeff', 100: '#cffafe', 200: '#a5f3fc',
-                            300: '#67e8f9', 400: '#22d3ee', 500: '#06b6d4',
-                            600: '#0891b2', 700: '#0e7490', 800: '#155e75', 900: '#164e63'
-                        },
-                        neutral: {
-                            50: '#fafaf9', 100: '#f5f5f2', 200: '#e7e5e0',
-                            300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c',
-                            600: '#57534e', 700: '#44403c', 800: '#292524', 900: '#1c1917'
-                        },
-                        gray: {
-                            50: '#f9fafb', 100: '#f3f4f6', 200: '#e5e7eb',
-                            300: '#d1d5db', 400: '#9ca3af', 500: '#6b7280',
-                            600: '#4b5563', 700: '#374151', 800: '#1f2937', 900: '#111827'
-                        },
+                        primary:  { 50: '#D8EFE3', 100: '#D8EFE3', 500: '#2D6A4F', 600: '#245740', 700: '#1C4533' },
+                        success:  { 50: '#D8EFE3', 500: '#2D6A4F', 600: '#245740', 700: '#1C4533' },
+                        danger:   { 50: '#FDECEA', 500: '#C0392B', 600: '#A93226', 700: '#922B21' },
+                        warning:  { 50: '#FDF0E4', 500: '#B7621A', 600: '#9D5417', 700: '#844614' },
+                        neutral:  { 50: '#F5F3EF', 100: '#F0EDE8', 200: '#EAE7E2', 400: '#A09890', 500: '#6B6560', 700: '#1A1714', 900: '#1A1714' },
                     },
                     fontFamily: {
-                        display: ['"Syne"', 'system-ui', 'sans-serif'],
-                        sans:    ['"Outfit"', 'system-ui', 'sans-serif'],
+                        display: ['"Inter"', 'system-ui', 'sans-serif'],
+                        sans:    ['"Inter"', 'system-ui', 'sans-serif'],
                         mono:    ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
                     },
                     borderRadius: {
-                        card: '10px', button: '7px', xl: '14px', '2xl': '18px',
+                        card: '18px', button: '100px', xl: '18px', '2xl': '24px',
                     },
                     boxShadow: {
-                        soft:   '0 1px 2px rgba(28,25,23,0.05), 0 1px 3px rgba(28,25,23,0.04)',
-                        medium: '0 4px 12px rgba(28,25,23,0.08), 0 1px 4px rgba(28,25,23,0.04)',
-                        strong: '0 12px 32px rgba(28,25,23,0.12), 0 4px 8px rgba(28,25,23,0.06)',
+                        soft:   'none',
+                        medium: 'none',
+                        strong: '0 8px 32px rgba(26,23,20,0.12)',
                     }
                 }
             }
         }
     </script>
 
-    <!-- Early theme init (before paint) -->
-    <script>
-        (function() {
-            const stored = localStorage.getItem('theme');
-            const theme = stored || 'dark';
-            document.documentElement.setAttribute('data-theme', theme);
-            document.documentElement.style.colorScheme = theme;
-        })();
-    </script>
-
-    <link rel="stylesheet" href="/static/styles/design-system.css?v=600">
+    <link rel="stylesheet" href="/static/styles/design-system.css?v=900">
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/chart-defaults.js"></script>
 
     <!-- Flatpickr -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -107,8 +70,8 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--sidebar-border);
+            background: var(--fin-ink);
+            border-right: none;
             overflow: hidden;
             position: relative;
             z-index: 30;
@@ -116,16 +79,16 @@
 
         .sidebar-logo {
             padding: 1.25rem 1rem 1rem;
-            border-bottom: 1px solid var(--sidebar-border);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
             flex-shrink: 0;
         }
 
         .sidebar-logo-wordmark {
-            font-family: "Syne", sans-serif;
-            font-size: 1.0625rem;
-            font-weight: 700;
+            font-family: "Inter", sans-serif;
+            font-size: 0.9375rem;
+            font-weight: 600;
             letter-spacing: -0.02em;
-            color: #F0E8D8;
+            color: rgba(255,255,255,0.92);
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -134,18 +97,17 @@
         .sidebar-logo-dot {
             width: 7px; height: 7px;
             border-radius: 2px;
-            background: #F59E0B;
-            box-shadow: 0 0 8px rgba(245, 158, 11, 0.55);
+            background: #2D6A4F;
             flex-shrink: 0;
         }
 
         .sidebar-logo-sub {
-            font-family: "Outfit", sans-serif;
-            font-size: 0.5875rem;
+            font-family: "Inter", sans-serif;
+            font-size: 0.5625rem;
             font-weight: 500;
-            letter-spacing: 0.16em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
-            color: rgba(210, 200, 185, 0.30);
+            color: rgba(255,255,255,0.25);
             margin-top: 0.2rem;
             padding-left: 1.1875rem;
         }
@@ -161,7 +123,7 @@
 
         .sidebar-footer {
             padding: 0.75rem;
-            border-top: 1px solid var(--sidebar-border);
+            border-top: 1px solid rgba(255,255,255,0.06);
             flex-shrink: 0;
         }
 
@@ -170,7 +132,7 @@
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            background: var(--bg-primary);
+            background: var(--fin-bg);
             display: flex;
             flex-direction: column;
         }
@@ -219,18 +181,18 @@
                 position: fixed;
                 top: 0; left: 0; right: 0;
                 height: 52px;
-                background: var(--sidebar-bg);
-                border-bottom: 1px solid var(--sidebar-border);
+                background: var(--fin-ink);
+                border-bottom: 1px solid rgba(255,255,255,0.06);
                 padding: 0 0.875rem;
                 z-index: 40;
             }
 
             .mobile-topbar-title {
-                font-family: "Syne", sans-serif;
+                font-family: "Inter", sans-serif;
                 font-size: 0.9375rem;
                 font-weight: 600;
-                color: #F0E8D8;
-                letter-spacing: -0.015em;
+                color: rgba(255,255,255,0.90);
+                letter-spacing: -0.02em;
             }
         }
 
@@ -290,7 +252,7 @@
         }
     </style>
 </head>
-<body style="background:var(--bg-primary);font-family:'Outfit',sans-serif">
+<body style="background:var(--fin-bg);font-family:'Inter',sans-serif">
 
 <div class="app-shell">
 
@@ -385,6 +347,20 @@
                 </a>
             </div>
 
+            <div class="sidebar-section sidebar-section--inversiones">
+                <p class="sidebar-section-title">Inversiones</p>
+            </div>
+            <div style="padding:0 0.375rem">
+                <a href="/portfolio" class="nav-item" data-group="inversiones">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                    Portafolio
+                </a>
+                <a href="/fire" class="nav-item" data-group="inversiones">
+                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 01-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></svg></span>
+                    FIRE
+                </a>
+            </div>
+
             <div class="sidebar-section sidebar-section--importacion">
                 <p class="sidebar-section-title">Avanzado</p>
             </div>
@@ -392,14 +368,6 @@
                 <a href="/advanced/gmail" class="nav-item" data-group="avanzado">
                     <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
                     Gmail
-                </a>
-                <a href="/email-sender-rules" class="nav-item" data-group="avanzado">
-                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></span>
-                    Reglas de correo
-                </a>
-                <a href="/chat" class="nav-item" data-group="avanzado">
-                    <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>
-                    Chat SQL
                 </a>
                 <button id="openDbModalButton" class="nav-item w-full" data-group="administracion">
                     <span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
@@ -411,66 +379,60 @@
 
         <!-- Footer -->
         <div class="sidebar-footer">
-            <div class="theme-toggle">
-                <button id="themeToggle" class="theme-toggle__button" type="button" aria-live="polite">
-                    <span class="theme-toggle__icon" id="themeToggleIcon"></span>
-                    <span class="theme-toggle__label" id="themeToggleLabel">Oscuro</span>
-                </button>
-            </div>
-            <a href="/auth/logout" style="display:flex;align-items:center;gap:0.5rem;font-family:'Outfit',sans-serif;font-size:0.6875rem;color:rgba(210,200,185,0.35);margin-top:0.25rem;padding:0 0.25rem;transition:color 0.15s" onmouseover="this.style.color='#FB7185'" onmouseout="this.style.color='rgba(210,200,185,0.35)'">
+            <a href="/auth/logout" style="display:flex;align-items:center;gap:0.5rem;font-family:'Sora',sans-serif;font-size:0.6875rem;color:rgba(255,255,255,0.30);padding:0 0.25rem;transition:color 0.15s" onmouseover="this.style.color='#C0392B'" onmouseout="this.style.color='rgba(255,255,255,0.30)'">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/></svg>
                 Cerrar sesión
             </a>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5625rem;color:rgba(210,200,185,0.18);text-align:right;margin-top:0.5rem">v6.0</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:0.5rem;color:rgba(255,255,255,0.15);text-align:right;margin-top:0.5rem;margin-left:auto">v7.0</div>
         </div>
     </aside>
 
     <!-- ═══ DB MODAL ═════════════════════════════════════════ -->
     <div id="dbModal" class="fixed inset-0 z-50 hidden">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-db-modal-close></div>
+        <div class="absolute inset-0" style="background:rgba(26,23,20,0.45);backdrop-filter:blur(4px)" data-db-modal-close></div>
         <div class="relative h-full w-full flex items-center justify-center p-6">
-            <div style="width:100%;max-width:400px;border-radius:var(--radius-card);border:1px solid var(--border-muted);background:var(--sidebar-bg);color:var(--nav-text-strong);box-shadow:var(--shadow-lg,0 24px 64px rgba(0,0,0,0.6));">
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:1.25rem 1.5rem 1rem;border-bottom:1px solid var(--sidebar-border)">
+            <div style="width:100%;max-width:400px;border-radius:var(--fin-radius);border:0.5px solid var(--fin-border);background:var(--fin-surface);box-shadow:0 20px 60px rgba(26,23,20,0.12);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:1.25rem 1.5rem 1rem;border-bottom:0.5px solid var(--fin-border)">
                     <div>
-                        <p style="font-family:var(--font-sans);font-size:0.625rem;font-weight:700;color:var(--nav-accent-strong);text-transform:uppercase;letter-spacing:0.2em">Administración</p>
-                        <h2 style="font-family:var(--font-display);font-size:1.125rem;font-weight:700;color:var(--nav-text-strong);margin-top:0.25rem">Base de datos</h2>
+                        <p style="font-family:var(--fin-font);font-size:0.625rem;font-weight:500;color:var(--fin-ink-3);text-transform:uppercase;letter-spacing:0.10em">Administración</p>
+                        <h2 style="font-family:var(--fin-font);font-size:1rem;font-weight:600;color:var(--fin-ink);margin-top:0.25rem;letter-spacing:-0.02em">Base de datos</h2>
                     </div>
-                    <button data-db-modal-close style="background:var(--nav-hover-bg);border:1px solid var(--sidebar-border);border-radius:6px;width:30px;height:30px;cursor:pointer;color:var(--nav-text);font-size:0.875rem;display:flex;align-items:center;justify-content:center;transition:background var(--transition-fast)">✕</button>
+                    <button data-db-modal-close style="background:var(--fin-surface-2);border:0.5px solid var(--fin-border);border-radius:8px;width:28px;height:28px;cursor:pointer;color:var(--fin-ink-2);font-size:0.875rem;display:flex;align-items:center;justify-content:center">✕</button>
                 </div>
-                <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:1rem">
-                    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--sidebar-border);border-radius:10px;padding:0.875rem">
-                        <label for="dbModeSelect" style="display:block;font-family:var(--font-sans);font-size:0.6rem;font-weight:700;color:var(--nav-text);text-transform:uppercase;letter-spacing:0.14em;margin-bottom:0.5rem">Base activa</label>
-                        <select id="dbModeSelect" style="width:100%;background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.875rem;border-radius:7px;padding:0.5rem 0.625rem;border:1px solid var(--sidebar-border);outline:none;color-scheme:dark"></select>
-                        <p id="dbSelectedLabel" style="font-family:var(--font-sans);font-size:0.6875rem;color:var(--nav-text);margin-top:0.375rem;opacity:0.6">Seleccionada: --</p>
+                <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.875rem">
+                    <div style="background:var(--fin-surface-2);border:0.5px solid var(--fin-border);border-radius:10px;padding:0.875rem">
+                        <label for="dbModeSelect" style="display:block;font-family:var(--fin-font);font-size:0.625rem;font-weight:500;color:var(--fin-ink-3);text-transform:uppercase;letter-spacing:0.10em;margin-bottom:0.5rem">Base activa</label>
+                        <select id="dbModeSelect" style="width:100%;background:var(--fin-surface);color:var(--fin-ink);font-family:var(--fin-font);font-size:13px;border-radius:8px;padding:0.5rem 0.625rem;border:0.5px solid var(--fin-border);outline:none"></select>
+                        <p id="dbSelectedLabel" style="font-family:var(--fin-font);font-size:0.6875rem;color:var(--fin-ink-3);margin-top:0.375rem">Seleccionada: --</p>
                     </div>
 
-                    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--sidebar-border);border-radius:10px;padding:0.875rem">
-                        <p style="font-family:var(--font-sans);font-size:0.6rem;font-weight:700;color:var(--nav-text);text-transform:uppercase;letter-spacing:0.14em;margin-bottom:0.5rem">Crear nueva</p>
+                    <div style="background:var(--fin-surface-2);border:0.5px solid var(--fin-border);border-radius:10px;padding:0.875rem">
+                        <p style="font-family:var(--fin-font);font-size:0.625rem;font-weight:500;color:var(--fin-ink-3);text-transform:uppercase;letter-spacing:0.10em;margin-bottom:0.5rem">Crear nueva</p>
                         <div style="display:flex;flex-direction:column;gap:0.5rem">
-                            <input id="dbNameInput" type="text" placeholder="Nombre de la base" style="background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.875rem;border-radius:7px;padding:0.5rem 0.625rem;border:1px solid var(--sidebar-border);outline:none;width:100%"/>
-                            <button id="dbCreateButton" style="background:var(--nav-accent-strong);color:#0D0C0A;font-family:var(--font-sans);font-weight:700;font-size:0.8125rem;border:none;border-radius:7px;padding:0.5rem;cursor:pointer">Crear</button>
+                            <input id="dbNameInput" type="text" placeholder="Nombre de la base" style="background:var(--fin-surface);color:var(--fin-ink);font-family:var(--fin-font);font-size:13px;border-radius:8px;padding:0.5rem 0.625rem;border:0.5px solid var(--fin-border);outline:none;width:100%"/>
+                            <button id="dbCreateButton" style="background:var(--fin-ink);color:#fff;font-family:var(--fin-font);font-weight:500;font-size:13px;border:none;border-radius:100px;padding:0.5rem;cursor:pointer">Crear</button>
                         </div>
                     </div>
 
-                    <div style="background:rgba(255,255,255,0.03);border:1px solid var(--sidebar-border);border-radius:10px;padding:0.875rem">
+                    <div style="background:var(--fin-surface-2);border:0.5px solid var(--fin-border);border-radius:10px;padding:0.875rem">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
-                            <p style="font-family:var(--font-sans);font-size:0.6rem;font-weight:700;color:var(--nav-text);text-transform:uppercase;letter-spacing:0.14em">Acciones</p>
-                            <span id="dbActionHint" style="font-family:var(--font-sans);font-size:0.625rem;color:var(--nav-text);opacity:0.5">Solo bases personalizadas</span>
+                            <p style="font-family:var(--fin-font);font-size:0.625rem;font-weight:500;color:var(--fin-ink-3);text-transform:uppercase;letter-spacing:0.10em">Acciones</p>
+                            <span id="dbActionHint" style="font-family:var(--fin-font);font-size:0.625rem;color:var(--fin-ink-3)">Solo bases personalizadas</span>
                         </div>
                         <div style="display:flex;flex-direction:column;gap:0.5rem">
                             <div style="display:flex;gap:0.5rem">
-                                <input id="dbRenameInput" type="text" placeholder="Renombrar como" style="flex:1;background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.8125rem;border-radius:7px;padding:0.45rem 0.625rem;border:1px solid var(--sidebar-border);outline:none"/>
-                                <button id="dbRenameButton" style="background:var(--nav-hover-bg);border:1px solid var(--sidebar-border);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.75rem;font-weight:500;border-radius:7px;padding:0.45rem 0.75rem;cursor:pointer;white-space:nowrap">Renombrar</button>
+                                <input id="dbRenameInput" type="text" placeholder="Renombrar como" style="flex:1;background:var(--fin-surface);color:var(--fin-ink);font-family:var(--fin-font);font-size:13px;border-radius:8px;padding:0.45rem 0.625rem;border:0.5px solid var(--fin-border);outline:none"/>
+                                <button id="dbRenameButton" style="background:transparent;border:0.5px solid var(--fin-border);color:var(--fin-ink);font-family:var(--fin-font);font-size:12px;font-weight:500;border-radius:100px;padding:0.45rem 0.875rem;cursor:pointer;white-space:nowrap">Renombrar</button>
                             </div>
                             <div style="display:flex;gap:0.5rem">
-                                <input id="dbDuplicateInput" type="text" placeholder="Duplicar como" style="flex:1;background:rgba(255,255,255,0.05);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.8125rem;border-radius:7px;padding:0.45rem 0.625rem;border:1px solid var(--sidebar-border);outline:none"/>
-                                <button id="dbDuplicateButton" style="background:var(--nav-hover-bg);border:1px solid var(--sidebar-border);color:var(--nav-text-strong);font-family:var(--font-sans);font-size:0.75rem;font-weight:500;border-radius:7px;padding:0.45rem 0.75rem;cursor:pointer;white-space:nowrap">Duplicar</button>
+                                <input id="dbDuplicateInput" type="text" placeholder="Duplicar como" style="flex:1;background:var(--fin-surface);color:var(--fin-ink);font-family:var(--fin-font);font-size:13px;border-radius:8px;padding:0.45rem 0.625rem;border:0.5px solid var(--fin-border);outline:none"/>
+                                <button id="dbDuplicateButton" style="background:transparent;border:0.5px solid var(--fin-border);color:var(--fin-ink);font-family:var(--fin-font);font-size:12px;font-weight:500;border-radius:100px;padding:0.45rem 0.875rem;cursor:pointer;white-space:nowrap">Duplicar</button>
                             </div>
-                            <button id="dbDeleteButton" style="width:100%;border:1px solid rgba(251,113,133,0.30);color:#FB7185;background:rgba(251,113,133,0.06);font-family:var(--font-sans);font-size:0.8125rem;font-weight:500;border-radius:7px;padding:0.5rem;cursor:pointer">Eliminar base</button>
+                            <button id="dbDeleteButton" style="width:100%;border:0.5px solid rgba(192,57,43,0.30);color:var(--fin-danger);background:var(--fin-danger-light);font-family:var(--fin-font);font-size:13px;font-weight:500;border-radius:100px;padding:0.5rem;cursor:pointer">Eliminar base</button>
                         </div>
                     </div>
 
-                    <p id="dbModeStatus" style="font-family:var(--font-sans);font-size:0.75rem;color:var(--nav-text);display:none"></p>
+                    <p id="dbModeStatus" style="font-family:var(--fin-font);font-size:13px;color:var(--fin-ink-2);display:none"></p>
                 </div>
             </div>
         </div>
@@ -485,9 +447,7 @@
                 <span></span><span></span><span></span>
             </button>
             <span class="mobile-topbar-title" id="mobileTopbarTitle">Finanzas</span>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:0.5rem">
-<button id="mobileThemeBtn" onclick="window.toggleTheme()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);border-radius:7px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.8rem;color:rgba(220,224,235,0.7)">☀</button>
-            </div>
+            <div style="margin-left:auto"></div>
         </div>
 
         <div class="app-content">
@@ -596,35 +556,12 @@
 window.getThemeColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 window.getChartTheme = () => ({
-    text: window.getThemeColor('--chart-text'),
-    grid: window.getThemeColor('--chart-grid'),
-    border: window.getThemeColor('--chart-border'),
-    tooltipBg: window.getThemeColor('--chart-tooltip-bg'),
+    text:        window.getThemeColor('--chart-text'),
+    grid:        window.getThemeColor('--chart-grid'),
+    border:      window.getThemeColor('--chart-border'),
+    tooltipBg:   window.getThemeColor('--chart-tooltip-bg'),
     tooltipText: window.getThemeColor('--chart-tooltip-text')
 });
-
-window.updateThemeToggle = (theme) => {
-    const icon = document.getElementById('themeToggleIcon');
-    const label = document.getElementById('themeToggleLabel');
-    if (!icon || !label) return;
-    const isDark = theme === 'dark';
-    icon.textContent = isDark ? '☀' : '☾';
-    label.textContent = isDark ? 'Modo claro' : 'Modo oscuro';
-};
-
-window.setTheme = (theme, persist = true) => {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.style.colorScheme = theme;
-    if (persist) localStorage.setItem('theme', theme);
-    window.updateThemeToggle(theme);
-    window.applyChartTheme();
-    window.refreshChartsForTheme();
-};
-
-window.toggleTheme = () => {
-    const cur = document.documentElement.getAttribute('data-theme') || 'light';
-    window.setTheme(cur === 'dark' ? 'light' : 'dark');
-};
 
 window.applyChartTheme = () => {
     if (!window.Chart) return;
@@ -643,33 +580,12 @@ window.applyChartTheme = () => {
     }
 };
 
-window.refreshChartsForTheme = () => {
-    if (!window.Chart || !Chart.instances) return;
-    const charts = Chart.instances instanceof Map
-        ? Array.from(Chart.instances.values())
-        : Object.values(Chart.instances);
-    const t = window.getChartTheme();
-    charts.forEach(chart => {
-        if (!chart) return;
-        Object.values(chart.options.scales || {}).forEach(s => {
-            if (s.ticks) s.ticks.color = t.text;
-            if (s.grid) s.grid.color = t.grid;
-        });
-        if (chart.options.plugins?.legend?.labels) chart.options.plugins.legend.labels.color = t.text;
-        if (chart.options.plugins?.tooltip) {
-            chart.options.plugins.tooltip.backgroundColor = t.tooltipBg;
-            chart.options.plugins.tooltip.titleColor = t.tooltipText;
-            chart.options.plugins.tooltip.bodyColor = t.tooltipText;
-        }
-        chart.update();
-    });
-};
+window.refreshChartsForTheme = () => {};
+window.setTheme = () => {};
+window.toggleTheme = () => {};
+window.updateThemeToggle = () => {};
 
 window.applyChartTheme();
-
-document.addEventListener('click', (e) => {
-    if (e.target.closest('#themeToggle')) { e.preventDefault(); window.toggleTheme(); }
-});
 </script>
 
 <script>
@@ -986,21 +902,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Mobile theme button sync
-    const mobileThemeBtn = document.getElementById('mobileThemeBtn');
-    if (mobileThemeBtn) {
-        const sync = () => { mobileThemeBtn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀' : '☾'; };
-        sync();
-        const orig = window.setTheme;
-        window.setTheme = function(t, p) { orig(t, p); sync(); };
-    }
-
-    window.updateThemeToggle(document.documentElement.getAttribute('data-theme') || 'light');
-
-    // System theme
-    const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-    if (mq) mq.addEventListener('change', e => { if (!localStorage.getItem('theme')) window.setTheme(e.matches ? 'dark' : 'light', false); });
-
     // ── DB Modal ────────────────────────────────────
     const openBtn  = document.getElementById('openDbModalButton');
     const dbModal  = document.getElementById('dbModal');
@@ -1031,7 +932,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const setStatus = (msg, err=false) => {
             dbModeStatus.textContent = msg;
             dbModeStatus.style.display = 'block';
-            dbModeStatus.style.color = err ? '#FB7185' : 'rgba(220,224,235,0.45)';
+            dbModeStatus.style.color = err ? 'var(--fin-danger)' : 'var(--fin-ink-3)';
         };
 
         const updateLabel = () => {

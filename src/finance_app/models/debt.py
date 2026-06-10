@@ -63,12 +63,26 @@ class Debt(Base):
     confirmed_balance = Column(Numeric(18, 2))  # Balance confirmed by user from bank statement
     confirmed_balance_date = Column(Date)        # Date the balance was confirmed
 
+    # Credit card billing cycle (#1)
+    statement_day = Column(Integer)              # Day of month the statement closes (1-31)
+    payment_due_day = Column(Integer)            # Days after statement close to pay (or absolute day)
+    statement_balance = Column(Numeric(18, 2))   # Balance captured at last statement close
+
+    # Credit card payment rules (#2)
+    min_payment_percentage = Column(Float)       # Min payment as % of balance (e.g. 5.0)
+
+    # Interest rate detail (#3, #9)
+    monthly_interest_rate = Column(Float)        # Effective monthly rate (overrides annual if set)
+    rate_type = Column(String(20), default='fixed')  # 'fixed' or 'variable'
+
     # Relationships
     account = relationship('Account', back_populates='debts')
     category = relationship('Category')
     currency = relationship('Currency')
     payments = relationship('DebtPayment', back_populates='debt',
                            lazy=True, cascade='all, delete-orphan')
+    installments = relationship('DebtInstallment', back_populates='debt',
+                                lazy=True, cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Debt {self.name} ({self.debt_type}): {self.currency_code} {self.current_balance}>'
@@ -101,6 +115,12 @@ class Debt(Base):
             'has_insurance': self.has_insurance,
             'confirmed_balance': float(self.confirmed_balance) if self.confirmed_balance is not None else None,
             'confirmed_balance_date': self.confirmed_balance_date.isoformat() if self.confirmed_balance_date else None,
+            'statement_day': self.statement_day,
+            'payment_due_day': self.payment_due_day,
+            'statement_balance': float(self.statement_balance) if self.statement_balance is not None else None,
+            'min_payment_percentage': self.min_payment_percentage,
+            'monthly_interest_rate': self.monthly_interest_rate,
+            'rate_type': self.rate_type or 'fixed',
         }
 
         # Additional calculations
@@ -142,18 +162,40 @@ class Debt(Base):
         if self.current_balance <= 0:
             return 0
 
-        # Simple calculation without interest
+        has_rate = self.interest_rate or self.annual_interest_rate
+        if has_rate and self.start_date:
+            try:
+                from finance_app.services.debt.amortization_engine import AmortizationEngine
+                engine = AmortizationEngine()
+                schedule = engine.generate_schedule(self, mode="plan")
+                if schedule:
+                    return len(schedule)
+            except Exception:
+                pass
+
+        # Fallback: simple calculation without interest
         return int(self.current_balance / self.monthly_payment) + 1
 
     def calculate_total_interest(self):
         """Calculate total estimated interest to pay."""
-        if not self.interest_rate or not self.monthly_payment:
+        if not self.monthly_payment:
             return None
 
+        has_rate = self.interest_rate or self.annual_interest_rate
+        if has_rate and self.start_date:
+            try:
+                from finance_app.services.debt.amortization_engine import AmortizationEngine
+                engine = AmortizationEngine()
+                schedule = engine.generate_schedule(self, mode="plan")
+                if schedule:
+                    return sum(entry["interest"] for entry in schedule)
+            except Exception:
+                pass
+
+        # Fallback: simple calculation without interest
         months = self.calculate_remaining_months()
         if months is None:
             return None
-
         total_to_pay = self.monthly_payment * months
         return total_to_pay - self.current_balance
 
