@@ -25,7 +25,7 @@ export async function mount(container) {
     if (usdRate === null) {
       // Exchange rate is primary data — show error and omit consolidated totals
       const partial = document.createElement('div');
-      partial.innerHTML = `<div class="alert alert-danger" style="margin-bottom:20px">No se pudo obtener la tasa de cambio — los totales consolidados están ocultos.</div>`;
+      partial.innerHTML = `<div class="alert alert-danger mb-4">No se pudo obtener la tasa de cambio — los totales consolidados están ocultos.</div>`;
       container.innerHTML = renderPage(accounts, txList, budget, debts, null, null, cashflow, savingsRate, netWorthData, goals);
       container.insertBefore(partial.firstElementChild, container.firstElementChild);
     } else {
@@ -55,8 +55,8 @@ function skeletonHtml() {
       `).join('')}
     </div>
     <div class="section-grid cols-2">
-      <div class="card"><div style="height:200px" class="skeleton" style="margin:0;border-radius:0"></div></div>
-      <div class="card"><div style="height:200px" class="skeleton" style="margin:0;border-radius:0"></div></div>
+      <div class="card"><div style="height:200px" class="skeleton"></div></div>
+      <div class="card"><div style="height:200px" class="skeleton"></div></div>
     </div>`;
 }
 
@@ -144,13 +144,13 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, ca
 function patrimonioBigCard(neto, activos, deudas, patrimonioActivosCOP) {
   const cls = neto >= 0 ? 'positive' : 'negative';
   return `
-    <div class="kpi-card" style="grid-column:span 1">
+    <div class="kpi-card">
       <div class="kpi-label">Patrimonio Neto</div>
       <div class="kpi-value ${cls}">${fmtCurrency(neto, 'COP')}</div>
-      <div class="kpi-sub" style="margin-top:8px;display:flex;flex-direction:column;gap:3px">
-        <span style="color:var(--color-success)">Activos: ${fmtCurrency(activos, 'COP')}</span>
-        ${patrimonioActivosCOP > 0 ? `<span style="color:var(--color-success);opacity:0.7;font-size:0.72rem;padding-left:6px">incl. patrimonio: ${fmtCurrency(patrimonioActivosCOP, 'COP')}</span>` : ''}
-        <span style="color:var(--color-danger)">Deudas: ${fmtCurrency(deudas, 'COP')}</span>
+      <div class="kpi-sub kpi-sub-stack mt-2">
+        <span class="text-success">Activos: ${fmtCurrency(activos, 'COP')}</span>
+        ${patrimonioActivosCOP > 0 ? `<span class="text-success" style="opacity:0.7;font-size:0.72rem;padding-left:6px">incl. patrimonio: ${fmtCurrency(patrimonioActivosCOP, 'COP')}</span>` : ''}
+        <span class="text-danger">Deudas: ${fmtCurrency(deudas, 'COP')}</span>
         <span style="font-size:0.67rem;opacity:0.6">todo en COP</span>
       </div>
     </div>`;
@@ -164,9 +164,9 @@ function currencyCard(currency, totalCuentas, totalDeudas) {
     <div class="kpi-card">
       <div class="kpi-label">${flag} ${currency}</div>
       <div class="kpi-value ${cls}">${fmtCurrency(neto, currency)}</div>
-      <div class="kpi-sub" style="margin-top:8px;display:flex;flex-direction:column;gap:3px">
-        <span style="color:var(--color-success)">Cuentas: ${fmtCurrency(totalCuentas, currency)}</span>
-        <span style="color:var(--color-danger)">Deudas: &nbsp;${fmtCurrency(totalDeudas, currency)}</span>
+      <div class="kpi-sub kpi-sub-stack mt-2">
+        <span class="text-success">Cuentas: ${fmtCurrency(totalCuentas, currency)}</span>
+        <span class="text-danger">Deudas: &nbsp;${fmtCurrency(totalDeudas, currency)}</span>
       </div>
     </div>`;
 }
@@ -182,10 +182,10 @@ function kpiCard(label, value, currency, cls = '', sub = '') {
 
 function accountsCard(accounts) {
   const rows = accounts.slice(0, 7).map(a => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border-muted)">
+    <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--border-muted)">
       <div>
         <div style="font-size:0.8125rem;font-weight:500">${sanitize(a.name)}</div>
-        <div style="font-size:0.72rem;color:var(--text-soft)">${sanitize(a.country ?? a.type ?? '')}</div>
+        <div class="text-soft" style="font-size:0.72rem">${sanitize(a.country ?? a.type ?? '')}</div>
       </div>
       <span class="amount ${amountClass(a.balance)}" style="font-size:0.8125rem">
         ${fmtCurrency(a.balance ?? 0, a.currency?.code ?? 'COP')}
@@ -199,7 +199,7 @@ function accountsCard(accounts) {
         <a class="btn btn-ghost btn-sm" data-link="/accounts">Ver todas</a>
       </div>
       <div class="card-body">
-        ${rows || '<div class="empty-state" style="padding:20px"><p>Sin cuentas</p></div>'}
+        ${rows || '<div class="empty-state"><p>Sin cuentas</p></div>'}
       </div>
     </div>`;
 }
@@ -210,12 +210,12 @@ function recentTxCard(txList) {
     const sign = isIncome ? '+' : '-';
     const cls  = isIncome ? 'positive' : 'negative';
     return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border-muted)">
+      <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--border-muted)">
         <div style="min-width:0;flex:1;margin-right:8px">
           <div style="font-size:0.8125rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${sanitize(tx.payee_name || tx.memo || 'Sin descripción')}
           </div>
-          <div style="font-size:0.72rem;color:var(--text-soft)">
+          <div class="text-soft" style="font-size:0.72rem">
             ${fmtDateShort(tx.date)} · ${sanitize(tx.category_name ?? 'Sin cat.')}
           </div>
         </div>
@@ -232,7 +232,7 @@ function recentTxCard(txList) {
         <a class="btn btn-ghost btn-sm" data-link="/transactions">Ver todas</a>
       </div>
       <div class="card-body">
-        ${rows || '<div class="empty-state" style="padding:20px"><p>Sin transacciones</p></div>'}
+        ${rows || '<div class="empty-state"><p>Sin transacciones</p></div>'}
       </div>
     </div>`;
 }
@@ -243,9 +243,9 @@ function budgetCard(cats) {
     .slice(0, 8)
     .map(c => `
       <div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">
+        <div class="flex justify-between" style="font-size:0.8rem;margin-bottom:4px">
           <span style="font-weight:500">${sanitize(c.category_name)}</span>
-          <span style="font-family:var(--font-mono);color:var(--text-secondary)">
+          <span class="amount text-soft">
             ${fmtCurrency(Math.abs(c.activity ?? 0), 'COP')} / ${fmtCurrency(c.assigned ?? 0, 'COP')}
           </span>
         </div>
@@ -259,17 +259,17 @@ function budgetCard(cats) {
         <a class="btn btn-ghost btn-sm" data-link="/budget">Ver completo</a>
       </div>
       <div class="card-body">
-        ${rows || '<div class="empty-state" style="padding:20px"><p>Sin presupuesto configurado</p></div>'}
+        ${rows || '<div class="empty-state"><p>Sin presupuesto configurado</p></div>'}
       </div>
     </div>`;
 }
 
 function debtsCard(debts) {
   const rows = debts.slice(0, 5).map(d => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border-muted)">
+    <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--border-muted)">
       <div>
         <div style="font-size:0.8125rem;font-weight:500">${sanitize(d.name)}</div>
-        <div style="font-size:0.72rem;color:var(--text-soft)">
+        <div class="text-soft" style="font-size:0.72rem">
           ${d.interest_rate != null ? d.interest_rate.toFixed(1) + '% EA' : d.debt_type ?? '—'}
         </div>
       </div>
@@ -336,16 +336,16 @@ function cashflowSection(cf, usdRate = 4200) {
     <div class="card" style="margin-bottom:0">
       <div class="card-header">
         <span class="card-title">Flujo del mes · ${monthLabel}</span>
-        <span style="font-size:0.72rem;color:var(--text-soft)">Total en COP · TRM ${fmtCurrency(usdRate, 'COP')}</span>
+        <span class="text-soft" style="font-size:0.72rem">Total en COP · TRM ${fmtCurrency(usdRate, 'COP')}</span>
       </div>
       <div class="card-body" style="padding-top:4px;overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
           <thead>
             <tr>
-              <th style="text-align:left;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px"></th>
-              <th style="text-align:right;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px">COP</th>
-              <th style="text-align:right;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px">USD</th>
-              <th style="text-align:right;font-size:0.7rem;color:var(--text-soft);font-weight:500;padding-bottom:6px">Total (COP)</th>
+              <th class="text-soft" style="text-align:left;font-size:0.7rem;font-weight:500;padding-bottom:6px"></th>
+              <th class="text-soft" style="text-align:right;font-size:0.7rem;font-weight:500;padding-bottom:6px">COP</th>
+              <th class="text-soft" style="text-align:right;font-size:0.7rem;font-weight:500;padding-bottom:6px">USD</th>
+              <th class="text-soft" style="text-align:right;font-size:0.7rem;font-weight:500;padding-bottom:6px">Total (COP)</th>
             </tr>
           </thead>
           <tbody>
@@ -378,9 +378,9 @@ function savingsRateCard(sr) {
     const bar = Math.max(0, Math.min(100, m.savings_rate));
     return `
       <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span style="font-size:0.78rem;color:var(--text-secondary)">${m.month_name}</span>
-          <span class="amount ${cls}" style="font-size:0.78rem;font-family:var(--font-mono)">${m.savings_rate.toFixed(1)}%</span>
+        <div class="flex justify-between mb-1">
+          <span class="text-soft" style="font-size:0.78rem">${m.month_name}</span>
+          <span class="amount ${cls}" style="font-size:0.78rem">${m.savings_rate.toFixed(1)}%</span>
         </div>
         <div style="height:5px;background:var(--border-muted);border-radius:3px">
           <div style="height:100%;width:${bar}%;background:var(--color-${m.savings_rate >= 20 ? 'success' : m.savings_rate >= 10 ? 'warning' : 'danger'});border-radius:3px;transition:width .4s"></div>
@@ -398,7 +398,7 @@ function savingsRateCard(sr) {
         <div style="text-align:center;margin-bottom:16px">
           <div class="kpi-label">Promedio trimestre</div>
           <div class="kpi-value ${avgCls}" style="font-size:2rem">${avg.toFixed(1)}%</div>
-          <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">Meta recomendada: ≥ 20%</div>
+          <div class="text-soft mt-1" style="font-size:0.72rem">Meta recomendada: ≥ 20%</div>
         </div>
         ${rows}
       </div>
@@ -431,6 +431,7 @@ function renderNetWorthChart(container, data) {
   if (!ctx || !window.Chart) return;
 
   const theme = window.getChartTheme ? window.getChartTheme() : {};
+  const palette = window.CHART_PALETTE ?? ['#60A5FA','#34D399','#FBBF24','#F87171','#A78BFA','#22D3EE','#FB923C','#F472B6'];
   const labels = data.map(d => d.month);
   const nets   = data.map(d => d.net_cop);
 
@@ -441,8 +442,9 @@ function renderNetWorthChart(container, data) {
       datasets: [{
         label: 'Patrimonio Neto (COP)',
         data: nets,
-        borderColor: '#22c55e',
-        backgroundColor: 'rgba(34,197,94,0.08)',
+        borderColor: palette[1],
+        backgroundColor: palette[1].replace(/^#/, 'rgba(').replace(/(.{2})(.{2})(.{2})$/, (_, r, g, b) =>
+          `${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)},0.08)`),
         borderWidth: 2,
         pointRadius: data.length === 1 ? 5 : 3,
         fill: true,
@@ -492,14 +494,14 @@ function goalsWidget(goals) {
     const barColor = pct >= 70 ? 'var(--color-success)' : pct >= 35 ? 'var(--color-warning)' : 'var(--color-danger)';
     return `
       <div style="margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <div class="flex justify-between items-center mb-1">
           <span style="font-size:0.8125rem;font-weight:500">🎯 ${sanitize(g.name)}</span>
-          <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-secondary)">${pct.toFixed(0)}%</span>
+          <span class="amount text-soft" style="font-size:0.75rem">${pct.toFixed(0)}%</span>
         </div>
         <div style="height:5px;background:var(--border-muted);border-radius:3px;margin-bottom:4px">
           <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-soft)">
+        <div class="flex justify-between text-soft" style="font-size:0.72rem">
           <span>${fmtCurrency(current, currency)} de ${fmtCurrency(target, currency)}</span>
           ${reqMonth > 0 ? `<span>${fmtCurrency(reqMonth, currency)}/mes</span>` : ''}
         </div>

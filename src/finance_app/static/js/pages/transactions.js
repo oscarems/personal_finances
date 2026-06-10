@@ -2,6 +2,7 @@ import * as api from '../api/client.js';
 import { fmtCurrency, fmtDate, sanitize, debounce, todayISO } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
 
 export const title = 'Transacciones';
 
@@ -72,14 +73,14 @@ function renderPage(container) {
           <input type="date" id="f-to" class="filter-date" value="${_filters.date_to}" title="Hasta">
         </div>
         <button class="filter-clear-btn" id="btnClearFilters">
-          Limpiar <span class="filter-active-count" id="filterActiveCount" style="display:none">0</span>
+          Limpiar <span class="filter-active-count" id="filterActiveCount" hidden>0</span>
         </button>
       </div>
     </div>
 
-    <div id="tx-summary" style="display:flex;gap:8px;margin-bottom:12px;font-size:0.8125rem;color:var(--text-secondary)"></div>
+    <div id="tx-summary" class="flex items-center gap-2 mb-3 text-soft" style="font-size:0.8125rem"></div>
     <div id="tx-table-wrap" class="table-wrap">
-      <div class="page-loading" style="min-height:200px"><div class="spinner"></div></div>
+      <div class="page-loading"><div class="spinner"></div></div>
     </div>
   `;
 
@@ -169,13 +170,13 @@ function updateFilterActiveStates(container) {
                   _filters.date_from || _filters.date_to, _filters.search, _filters.uncategorized]
                 .filter(Boolean).length;
   const badge = container.querySelector('#filterActiveCount');
-  if (badge) { badge.textContent = count; badge.style.display = count ? '' : 'none'; }
+  if (badge) { badge.textContent = count; badge.hidden = !count; }
 }
 
 async function loadTransactions(container) {
   const wrap = container.querySelector('#tx-table-wrap');
   if (!wrap) return;
-  wrap.innerHTML = '<div class="page-loading" style="min-height:200px"><div class="spinner"></div></div>';
+  wrap.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
 
   try {
     const params = {};
@@ -200,25 +201,25 @@ async function loadTransactions(container) {
     if (summary) {
       summary.innerHTML = `
         <span>${txList.length} resultado${txList.length !== 1 ? 's' : ''}</span>
-        <span style="margin-left:8px;color:var(--color-success)">↑ ${fmtCurrency(income, 'COP')}</span>
-        <span style="margin-left:8px;color:var(--color-danger)">↓ ${fmtCurrency(expense, 'COP')}</span>
+        <span class="text-success amount">↑ ${fmtCurrency(income, 'COP')}</span>
+        <span class="text-danger amount">↓ ${fmtCurrency(expense, 'COP')}</span>
       `;
     }
 
     if (!txList.length) {
-      wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><h3>Sin transacciones</h3><p>No se encontraron resultados con los filtros aplicados.</p></div>`;
+      wrap.innerHTML = emptyState({ icon: '📋', title: 'Sin transacciones', hint: 'No se encontraron resultados con los filtros aplicados.' });
       return;
     }
 
     wrap.innerHTML = `
-      <table>
+      <table class="fin-table">
         <thead>
           <tr>
             <th style="width:100px">Fecha</th>
             <th>Beneficiario / Desc.</th>
             <th>Cuenta</th>
             <th>Categoría</th>
-            <th class="td-right" style="width:140px">Monto</th>
+            <th class="amount" style="width:140px">Monto</th>
             <th style="width:60px"></th>
           </tr>
         </thead>
@@ -240,41 +241,41 @@ async function loadTransactions(container) {
     });
 
   } catch (err) {
-    wrap.innerHTML = `<div class="alert alert-danger" style="margin:16px">${sanitize(err.message)}</div>`;
+    wrap.innerHTML = `<div class="alert alert-danger mt-3">${sanitize(err.message)}</div>`;
   }
 }
 
 function txRow(tx) {
   const isTransfer = tx.transfer_account_id != null;
   const isIncome = !isTransfer && (tx.amount ?? 0) >= 0;
-  const cls = isIncome ? 'positive' : isTransfer ? '' : 'negative';
   const sign = isIncome ? '+' : isTransfer ? '⇄ ' : '-';
+  const amountCls = isIncome ? 'text-success' : isTransfer ? '' : 'text-danger';
 
   return `
     <tr>
-      <td class="td-soft" style="font-size:0.8rem;white-space:nowrap">${fmtDate(tx.date)}</td>
-      <td style="font-size:0.8125rem">
-        <div style="font-weight:500">${sanitize(tx.payee_name || tx.memo || '—')}</div>
-        ${tx.memo ? `<div style="font-size:0.72rem;color:var(--text-soft)">${sanitize(tx.memo)}</div>` : ''}
+      <td class="td-soft tx-date">${fmtDate(tx.date)}</td>
+      <td class="tx-payee">
+        <div class="tx-payee-name">${sanitize(tx.payee_name || tx.memo || '—')}</div>
+        ${tx.memo && tx.payee_name ? `<div class="tx-memo text-soft">${sanitize(tx.memo)}</div>` : ''}
       </td>
-      <td class="td-soft" style="font-size:0.8rem">${sanitize(tx.account_name ?? '—')}</td>
-      <td style="font-size:0.8rem">${sanitize(tx.category_name ?? '—')}</td>
-      <td class="td-right td-mono amount ${cls}" style="font-size:0.8125rem">
+      <td class="td-soft tx-meta">${sanitize(tx.account_name ?? '—')}</td>
+      <td class="tx-meta">${sanitize(tx.category_name ?? '—')}</td>
+      <td class="amount ${amountCls}">
         ${(() => {
           const nativeCurrency = tx.currency?.code ?? 'COP';
           const mainLine = `<div>${sign}${fmtCurrency(Math.abs(tx.amount ?? 0), nativeCurrency)}</div>`;
           let secondaryLine = '';
           if (nativeCurrency === 'COP' && tx.usd_amount != null) {
-            secondaryLine = `<div style="font-size:0.7rem;color:var(--text-soft);margin-top:1px">≈ ${fmtCurrency(Math.abs(tx.usd_amount), 'USD')}</div>`;
+            secondaryLine = `<div class="tx-secondary text-soft">≈ ${fmtCurrency(Math.abs(tx.usd_amount), 'USD')}</div>`;
           } else if (nativeCurrency === 'USD' && tx.cop_amount != null) {
-            secondaryLine = `<div style="font-size:0.7rem;color:var(--text-soft);margin-top:1px">≈ ${fmtCurrency(Math.abs(tx.cop_amount), 'COP')}</div>`;
+            secondaryLine = `<div class="tx-secondary text-soft">≈ ${fmtCurrency(Math.abs(tx.cop_amount), 'COP')}</div>`;
           }
           return mainLine + secondaryLine;
         })()}
       </td>
-      <td style="text-align:right">
+      <td class="td-right">
         <button class="btn btn-ghost btn-xs" data-edit-tx="${tx.id}" title="Editar">✏</button>
-        <button class="btn btn-ghost btn-xs" style="color:var(--color-danger)" data-delete-tx="${tx.id}" title="Eliminar">✕</button>
+        <button class="btn btn-ghost btn-xs text-danger" data-delete-tx="${tx.id}" title="Eliminar">✕</button>
       </td>
     </tr>`;
 }
@@ -339,7 +340,7 @@ function txFormHtml(tx) {
         </select>
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:16px">
+    <div class="form-group mb-3">
       <label class="form-label">Beneficiario / Descripción</label>
       <input type="text" id="tf-payee" value="${sanitize(t.payee_name ?? '')}" placeholder="Ej: Éxito">
     </div>

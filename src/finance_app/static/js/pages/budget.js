@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional } from '../utils.js';
+import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional, progressBar } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -54,10 +54,10 @@ function flattenBudgetCats(data) {
 function fmtDual(amount_cop, currency = 'COP', native = null) {
   if (currency === 'USD') {
     const usdVal = native !== null ? native : amount_cop / _rate;
-    return `${fmtCurrency(usdVal, 'USD')}<br><small style="color:var(--text-soft);font-size:0.7rem">≈ ${fmtCurrency(amount_cop, 'COP')}</small>`;
+    return `${fmtCurrency(usdVal, 'USD')}<br><small class="text-soft" style="font-size:0.7rem">≈ ${fmtCurrency(amount_cop, 'COP')}</small>`;
   }
   const usd = amount_cop / _rate;
-  return `${fmtCurrency(amount_cop, 'COP')}<br><small style="color:var(--text-soft);font-size:0.7rem">≈ ${fmtCurrency(usd, 'USD')}</small>`;
+  return `${fmtCurrency(amount_cop, 'COP')}<br><small class="text-soft" style="font-size:0.7rem">≈ ${fmtCurrency(usd, 'USD')}</small>`;
 }
 
 function renderPage(container) {
@@ -86,7 +86,7 @@ function renderPage(container) {
       </div>
     </div>
 
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+    <div class="flex items-center gap-4 mb-4">
       <div class="month-nav">
         <button class="btn btn-ghost btn-sm" id="btnPrevMonth">‹ Anterior</button>
         <span class="month-nav-label">${fmtMonthLabel(_month)}</span>
@@ -94,31 +94,31 @@ function renderPage(container) {
       </div>
     </div>
 
-    <div class="stat-row" style="margin-bottom:20px">
+    <div class="stat-row mb-4">
       <div class="stat-chip">
         <span class="stat-chip-label">Asignado</span>
-        <span class="stat-chip-value">${fmtCurrency(totalAssigned, 'COP')}</span>
-        <span style="color:var(--text-soft)" style="font-size:0.75rem">${fmtCurrency(totalAssigned / _rate, 'USD')}</span>
+        <span class="stat-chip-value amount">${fmtCurrency(totalAssigned, 'COP')}</span>
+        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalAssigned / _rate, 'USD')}</span>
       </div>
       <div class="stat-chip">
         <span class="stat-chip-label">Gastado</span>
-        <span class="stat-chip-value" style="color:var(--color-danger)">${fmtCurrency(totalSpent, 'COP')}</span>
-        <span style="color:var(--text-soft)" style="font-size:0.75rem">${fmtCurrency(totalSpent / _rate, 'USD')}</span>
+        <span class="stat-chip-value text-danger amount">${fmtCurrency(totalSpent, 'COP')}</span>
+        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalSpent / _rate, 'USD')}</span>
       </div>
       <div class="stat-chip">
         <span class="stat-chip-label">Disponible</span>
-        <span class="stat-chip-value" style="color:${totalAvailable >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+        <span class="stat-chip-value amount ${totalAvailable >= 0 ? 'text-success' : 'text-danger'}">
           ${fmtCurrency(totalAvailable, 'COP')}
         </span>
-        <span style="color:var(--text-soft)" style="font-size:0.75rem">${fmtCurrency(totalAvailable / _rate, 'USD')}</span>
+        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalAvailable / _rate, 'USD')}</span>
       </div>
       ${totalSavings > 0 ? `
         <div class="stat-chip">
           <span class="stat-chip-label">Ahorros acumulados</span>
-          <span class="stat-chip-value" style="color:var(--color-accent)">${fmtCurrency(totalSavings, 'COP')}</span>
-          <span style="color:var(--text-soft)" style="font-size:0.75rem">${fmtCurrency(totalSavings / _rate, 'USD')}</span>
+          <span class="stat-chip-value amount" style="color:var(--color-accent)">${fmtCurrency(totalSavings, 'COP')}</span>
+          <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalSavings / _rate, 'USD')}</span>
         </div>` : ''}
-      <div class="stat-chip" style="border-color:${readyToAssign >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+      <div class="stat-chip" style="border-color:${readyToAssign >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">
         <span class="stat-chip-label">
           Listo para asignar
           <span class="info-tooltip" tabindex="0" aria-label="Explicación de Listo para asignar">
@@ -132,10 +132,10 @@ function renderPage(container) {
             </span>
           </span>
         </span>
-        <span class="stat-chip-value" style="color:${readyToAssign >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+        <span class="stat-chip-value amount ${readyToAssign >= 0 ? 'text-success' : 'text-danger'}">
           ${fmtCurrency(readyToAssign, 'COP')}
         </span>
-        <span style="color:var(--text-soft);font-size:0.75rem">${fmtCurrency(readyToAssign / _rate, 'USD')}</span>
+        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(readyToAssign / _rate, 'USD')}</span>
       </div>
     </div>
 
@@ -144,9 +144,9 @@ function renderPage(container) {
         <thead>
           <tr>
             <th style="width:34%">Categoría</th>
-            <th style="text-align:right;width:16%">Asignado<br><small style="color:var(--text-soft)" style="font-weight:400">COP / USD</small></th>
-            <th style="text-align:right;width:16%">Gastado<br><small style="color:var(--text-soft)" style="font-weight:400">COP / USD</small></th>
-            <th style="text-align:right;width:16%">Disponible<br><small style="color:var(--text-soft)" style="font-weight:400">COP / USD</small></th>
+            <th class="td-right" style="width:16%">Asignado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
+            <th class="td-right" style="width:16%">Gastado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
+            <th class="td-right" style="width:16%">Disponible<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
             <th style="width:13%">Uso</th>
             <th style="width:5%"></th>
           </tr>
@@ -222,16 +222,16 @@ function groupRows(group, cats) {
   const totSpent     = cats.reduce((s, c) => s + (c.spent     ?? 0), 0);
   const totAvailable = cats.reduce((s, c) => s + (c.available ?? 0), 0);
 
-  const availColor = totAvailable >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+  const availColorClass = totAvailable >= 0 ? 'text-success' : 'text-danger';
 
   const header = `
-    <tr style="background:var(--bg-surface-muted)">
-      <td style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);padding:8px 16px">
-        <span ${grpId ? `data-edit-group="${grpId}" style="cursor:pointer;border-bottom:1px dashed var(--border-subtle)" title="Editar grupo"` : ''}>${grpName}</span>
+    <tr style="background:var(--fin-surface-2)">
+      <td style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:8px 16px" class="text-soft">
+        <span ${grpId ? `data-edit-group="${grpId}" style="cursor:pointer;border-bottom:1px dashed currentColor" title="Editar grupo"` : ''}>${grpName}</span>
       </td>
-      <td class="td-right td-mono" style="font-size:0.72rem;font-weight:700;color:var(--text-soft);padding:8px 4px">${fmtCurrency(totAssigned, 'COP')}</td>
-      <td class="td-right td-mono" style="font-size:0.72rem;font-weight:700;color:var(--text-soft);padding:8px 4px">${fmtCurrency(totSpent, 'COP')}</td>
-      <td class="td-right td-mono" style="font-size:0.72rem;font-weight:700;color:${availColor};padding:8px 4px">${fmtCurrency(totAvailable, 'COP')}</td>
+      <td class="td-right td-mono text-soft amount" style="font-size:0.72rem;font-weight:700;padding:8px 4px">${fmtCurrency(totAssigned, 'COP')}</td>
+      <td class="td-right td-mono text-soft amount" style="font-size:0.72rem;font-weight:700;padding:8px 4px">${fmtCurrency(totSpent, 'COP')}</td>
+      <td class="td-right td-mono amount ${availColorClass}" style="font-size:0.72rem;font-weight:700;padding:8px 4px">${fmtCurrency(totAvailable, 'COP')}</td>
       <td colspan="2"></td>
     </tr>`;
   const rows = cats.map(c => categoryRow(c)).join('');
@@ -247,12 +247,11 @@ function categoryRow(c) {
   const initial_amount  = c.initial_amount  ?? 0;
   const isSavings       = c.category_type   === 'savings';
 
-  const pct = assigned > 0 ? Math.min(100, (spent / assigned) * 100) : 0;
-  const fillClass = pct >= 100 ? 'danger' : pct >= 80 ? 'warning' : 'ok';
-
   const assignedHtml = isSavings && initial_amount > 0
-    ? `${fmtDual(assigned, currency_code, assigned_native)}<br><small style="color:var(--color-accent);font-size:0.68rem;white-space:nowrap">+ ${fmtCurrency(initial_amount, 'COP')} guardado</small>`
+    ? `${fmtDual(assigned, currency_code, assigned_native)}<br><small class="amount" style="color:var(--color-accent);font-size:0.68rem;white-space:nowrap">+ ${fmtCurrency(initial_amount, 'COP')} guardado</small>`
     : fmtDual(assigned, currency_code, assigned_native);
+
+  const availClass = available >= 0 ? 'text-success' : 'text-danger';
 
   return `
     <tr>
@@ -264,13 +263,11 @@ function categoryRow(c) {
         ${assignedHtml}
       </td>
       <td class="td-right td-mono td-soft" style="font-size:0.8125rem;line-height:1.4">${fmtDual(spent)}</td>
-      <td class="td-right td-mono" style="font-size:0.8125rem;line-height:1.4;color:${available >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+      <td class="td-right td-mono ${availClass}" style="font-size:0.8125rem;line-height:1.4">
         ${fmtDual(available)}
       </td>
       <td>
-        <div class="progress-wrap" style="min-width:60px">
-          <div class="progress-fill ${fillClass}" style="width:${pct}%"></div>
-        </div>
+        ${progressBar(spent, assigned, { danger: 100, warning: 80 })}
       </td>
       <td>
         <button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría">⋯</button>
@@ -304,16 +301,16 @@ function openAssignedModal(el, container) {
     title: `Asignar: ${cat.category_name}`,
     size: 'sm',
     content: `
-      <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:16px">
-        Gastado: <strong>${fmtCurrency(spentCOP, 'COP')}</strong>
-        <span style="color:var(--text-soft)">(≈ ${fmtCurrency(spentUSD, 'USD')})</span>
+      <p class="mb-3" style="font-size:0.875rem">
+        Gastado: <strong class="amount">${fmtCurrency(spentCOP, 'COP')}</strong>
+        <span class="text-soft">(≈ ${fmtCurrency(spentUSD, 'USD')})</span>
       </p>
-      <div class="form-row cols-2" style="gap:12px">
-        <div class="form-group" style="flex:2">
+      <div class="form-row cols-2" style="grid-template-columns:2fr 1fr">
+        <div class="form-group">
           <label class="form-label required">Asignado este mes</label>
           <input type="number" id="ma-amount" value="${currentCurrency === 'USD' ? currentAmount.toFixed(2) : Math.round(currentAmount)}" step="${currentCurrency === 'USD' ? '0.01' : '1000'}" autofocus>
         </div>
-        <div class="form-group" style="flex:1">
+        <div class="form-group">
           <label class="form-label">Moneda</label>
           <select id="ma-currency">
             <option value="COP" ${currentCurrency === 'COP' ? 'selected' : ''}>COP</option>
@@ -321,15 +318,15 @@ function openAssignedModal(el, container) {
           </select>
         </div>
       </div>
-      <p id="ma-preview" style="font-size:0.8rem;color:var(--text-soft);margin-top:4px"></p>
+      <p id="ma-preview" class="text-soft" style="font-size:0.8rem;margin-top:4px"></p>
       ${isSavings ? `
-        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-subtle)">
-          <p style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-soft);margin-bottom:10px">Ya ahorrado (acumulado anterior)</p>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--fin-surface-2)">
+          <p class="text-soft" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Ya ahorrado (acumulado anterior)</p>
           <div class="form-group">
             <label class="form-label">Monto (${currentCurrency})</label>
             <input type="number" id="ma-initial" value="${currentCurrency === 'USD' ? initialNative.toFixed(2) : Math.round(initialNative)}" step="${currentCurrency === 'USD' ? '0.01' : '1000'}" min="0">
           </div>
-          <p id="ma-initial-preview" style="font-size:0.8rem;color:var(--text-soft);margin-top:4px"></p>
+          <p id="ma-initial-preview" class="text-soft" style="font-size:0.8rem;margin-top:4px"></p>
         </div>
       ` : ''}
     `,
@@ -402,11 +399,11 @@ function openCategoryModal(cat, container) {
     title: isEdit ? `Editar: ${c.category_name}` : 'Nueva Categoría',
     size: 'sm',
     content: `
-      <div class="form-group" style="margin-bottom:16px">
+      <div class="form-group mb-3">
         <label class="form-label required">Nombre</label>
         <input type="text" id="cf-name" value="${sanitize(c.category_name ?? '')}" placeholder="Ej: Alimentación" autofocus>
       </div>
-      <div class="form-row cols-2" style="gap:12px">
+      <div class="form-row cols-2">
         <div class="form-group">
           <label class="form-label">Tipo</label>
           <select id="cf-type">
@@ -421,15 +418,15 @@ function openCategoryModal(cat, container) {
           </select>
         </div>
       </div>
-      <div class="form-group" style="margin-top:12px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.875rem">
+      <div class="form-group mt-3">
+        <label class="flex items-center gap-2" style="cursor:pointer;font-size:0.875rem">
           <input type="checkbox" id="cf-essential" ${c.is_essential ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer">
-          <span>Gasto esencial <span style="color:var(--text-muted);font-size:0.8125rem">(Necesidades en salud financiera)</span></span>
+          <span>Gasto esencial <span class="text-soft" style="font-size:0.8125rem">(Necesidades en salud financiera)</span></span>
         </label>
       </div>
       ${isEdit ? `
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle)">
-          <button class="btn btn-danger btn-sm" id="cf-delete-btn" style="width:100%">Eliminar categoría</button>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--fin-surface-2)">
+          <button class="btn btn-danger btn-sm w-full" id="cf-delete-btn">Eliminar categoría</button>
         </div>
       ` : ''}
     `,
@@ -500,7 +497,7 @@ function openGroupModal(group, container) {
     title: isEdit ? `Editar grupo: ${group.name}` : 'Nuevo Grupo',
     size: 'sm',
     content: `
-      <div class="form-group" style="margin-bottom:16px">
+      <div class="form-group mb-3">
         <label class="form-label required">Nombre del grupo</label>
         <input type="text" id="gf-name" value="${sanitize(group?.name ?? '')}" placeholder="Ej: Vivienda" autofocus>
       </div>
@@ -514,8 +511,8 @@ function openGroupModal(group, container) {
         </div>
       ` : ''}
       ${isEdit ? `
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-subtle)">
-          <button class="btn btn-danger btn-sm" id="gf-delete-btn" style="width:100%">Eliminar grupo</button>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--fin-surface-2)">
+          <button class="btn btn-danger btn-sm w-full" id="gf-delete-btn">Eliminar grupo</button>
         </div>
       ` : ''}
     `,
