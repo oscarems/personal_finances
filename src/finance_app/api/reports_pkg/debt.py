@@ -194,7 +194,7 @@ def get_debt_principal_timeline(
         today=today,
     )
 
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
     debt_meta = [
         {"id": debt.id, "name": debt.name, "debt_type": debt.debt_type, "currency_code": debt.currency_code}
         for debt in debts
@@ -311,7 +311,7 @@ def get_debt_summary(
     canonical_total = sum(entry.principal_remaining for entry in amortization_map.values())
     _log_debt_mismatch("debt-summary", legacy_total, canonical_total)
 
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
 
     return {
         'debts': debt_details,
@@ -335,7 +335,7 @@ def get_debt_payoff_projection(
     db: Session = Depends(get_db)
 ):
     """Project debt payoff schedule with optional extra payments."""
-    debt = db.query(Debt).get(debt_id)
+    debt = db.get(Debt, debt_id)
     if not debt:
         raise HTTPException(status_code=404, detail="Debt not found")
 
@@ -384,7 +384,7 @@ def get_debt_payoff_projection(
 
     payoff_date = schedule[-1]['date'] if schedule else None
     months_to_payoff = len(schedule)
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
 
     return {
         'debt': {

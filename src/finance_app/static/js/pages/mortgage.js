@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, sanitize } from '../utils.js';
+import { fmtCurrency, fmtDate, sanitize, optional } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -12,7 +12,7 @@ export async function mount(container) {
   try {
     const [mortgages, accounts] = await Promise.all([
       api.mortgage.accounts(),
-      api.accounts.list({ account_type: 'mortgage' }).catch(() => []),
+      optional(api.accounts.list({ account_type: 'mortgage' }), [], 'Cuentas Hipoteca'),
     ]);
     const list = mortgages.length ? mortgages : accounts.filter(a => a.type === 'mortgage');
     render(container, list);

@@ -325,7 +325,7 @@ def import_ynab_csv(db: Session, csv_file_path: str, default_currency_code: str 
                 db.add(transaction)
 
                 # Update account balance
-                account = db.query(Account).get(account_id)
+                account = db.get(Account, account_id)
                 if account:
                     account.balance += amount
 

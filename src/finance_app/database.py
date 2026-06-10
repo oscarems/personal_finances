@@ -7,7 +7,7 @@ import shutil
 logger = logging.getLogger(__name__)
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from finance_app.config import (
     SQLALCHEMY_DATABASE_URI,

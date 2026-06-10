@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { sanitize } from '../utils.js';
+import { sanitize, optional } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { navigate } from '../router.js';
 
@@ -9,7 +9,7 @@ export async function mount(container) {
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     const [rates, currencies] = await Promise.all([
-      api.exchangeRates.list().catch(() => []),
+      optional(api.exchangeRates.list(), [], 'Tasas de Cambio'),
       api.currencies.list(),
     ]);
     render(container, rates, currencies);
@@ -103,7 +103,7 @@ function render(container, rates, currencies) {
     try {
       await api.exchangeRates.sync();
       toast.success('Tasas actualizadas');
-      const rates = await api.exchangeRates.list().catch(() => []);
+      const rates = await optional(api.exchangeRates.list(), [], 'Tasas de Cambio');
       container.querySelector('#ratesBody').innerHTML = rates.length ? 'Actualizado — recarga la página' : 'Sin datos';
     } catch (err) { toast.error(err.message); }
   });

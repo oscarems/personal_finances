@@ -54,7 +54,7 @@ def create_alert_rule(rule_data: AlertRuleCreate, db: Session = Depends(get_db))
 
 @router.patch("/rules/{rule_id}")
 def update_alert_rule(rule_id: int, rule_data: AlertRuleUpdate, db: Session = Depends(get_db)):
-    rule = db.query(AlertRule).get(rule_id)
+    rule = db.get(AlertRule, rule_id)
     if not rule:
         raise HTTPException(status_code=404, detail="Alert rule not found")
 
@@ -72,7 +72,7 @@ def update_alert_rule(rule_id: int, rule_data: AlertRuleUpdate, db: Session = De
 
 @router.delete("/rules/{rule_id}")
 def delete_alert_rule(rule_id: int, db: Session = Depends(get_db)):
-    rule = db.query(AlertRule).get(rule_id)
+    rule = db.get(AlertRule, rule_id)
     if not rule:
         raise HTTPException(status_code=404, detail="Alert rule not found")
     db.delete(rule)

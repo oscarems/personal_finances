@@ -24,7 +24,7 @@ from finance_app.models import (
 )
 from finance_app.services.budget_service import (
     assign_money_to_category,
-    calculate_available,
+    recalculate_budget_available,
     get_or_create_budget_month,
 )
 from finance_app.api.reports_pkg import debt as reports_debt_mod
@@ -94,8 +94,8 @@ class TestModule2_AssignedProtection:
         assert budget.activity == 0.0
         assert budget.available == 0.0
 
-    def test_new_budget_does_not_copy_previous_assigned(self):
-        """Creating a new month should NOT copy assigned from the previous month."""
+    def test_new_budget_inherits_previous_assigned(self):
+        """Creating a new month should inherit assigned from the previous month."""
         db = _make_session()
         _seed_currencies(db)
         cat = _seed_category(db, "Servicios")
@@ -111,8 +111,8 @@ class TestModule2_AssignedProtection:
         new_month = date(2026, 3, 1)
         new_budget = get_or_create_budget_month(db, cat.id, new_month, currency_id=1)
 
-        # Should NOT copy 500000 from previous month
-        assert new_budget.assigned == 0.0
+        # Should inherit 500000 from previous month
+        assert new_budget.assigned == 500000.0
 
     def test_assign_money_sets_assigned_explicitly(self):
         """assign_money_to_category should be the only way to set assigned."""
@@ -152,7 +152,7 @@ class TestModule2_AvailableSemantics:
         db.add(tx)
         db.commit()
 
-        calculate_available(db, budget)
+        recalculate_budget_available(db, budget)
         db.commit()
 
         assert budget.activity == -200000.0
@@ -168,13 +168,13 @@ class TestModule2_AvailableSemantics:
 
         # Month 1: assign 1M
         budget1 = assign_money_to_category(db, cat.id, month1, currency_id=1, amount=1000000.0)
-        calculate_available(db, budget1)
+        recalculate_budget_available(db, budget1)
         db.commit()
         assert budget1.available == 1000000.0
 
         # Month 2: assign another 500k
         budget2 = assign_money_to_category(db, cat.id, month2, currency_id=1, amount=500000.0)
-        calculate_available(db, budget2)
+        recalculate_budget_available(db, budget2)
         db.commit()
 
         # Should accumulate: 1M from month1 + 500k from month2

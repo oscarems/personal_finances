@@ -103,7 +103,7 @@ def confirm_transaction(payload: ConfirmPayload, db: Session = Depends(get_db)):
     if record.processed_at:
         raise HTTPException(status_code=409, detail="Este correo ya fue procesado")
 
-    account = db.query(Account).get(payload.cuenta_id)
+    account = db.get(Account, payload.cuenta_id)
     if not account:
         raise HTTPException(status_code=400, detail="Cuenta no encontrada")
 
@@ -169,7 +169,7 @@ def bulk_confirm(payload: BulkConfirmPayload, db: Session = Depends(get_db)):
             results.append({"message_id": item.message_id, "status": "skipped", "reason": "Ya procesado"})
             continue
 
-        account = db.query(Account).get(item.cuenta_id)
+        account = db.get(Account, item.cuenta_id)
         if not account:
             results.append({"message_id": item.message_id, "status": "error", "reason": "Cuenta no encontrada"})
             continue
@@ -212,7 +212,7 @@ def _delete_email_transactions(db: Session, message_id: str, linked_tx_id: int |
     """Delete the linked transaction and any orphaned transactions with matching source_id."""
     deleted = []
     if linked_tx_id:
-        tx = db.query(Transaction).get(linked_tx_id)
+        tx = db.get(Transaction, linked_tx_id)
         if tx:
             deleted.append(tx.id)
             db.delete(tx)

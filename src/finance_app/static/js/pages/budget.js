@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel } from '../utils.js';
+import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -20,7 +20,7 @@ async function loadAndRender(container) {
     const [budgetData, cats, rateData] = await Promise.all([
       api.budgets.month(_month),
       api.categories.list(),
-      api.exchangeRates.current().catch(() => null),
+      optional(api.exchangeRates.current(), null, 'Tasa de Cambio'),
     ]);
     _data = budgetData;
     _cats = cats;

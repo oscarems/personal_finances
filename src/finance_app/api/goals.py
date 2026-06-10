@@ -79,7 +79,7 @@ def create_goal(payload: GoalCreate, db: Session = Depends(get_db)):
 
 @router.patch("/{goal_id}")
 def update_goal(goal_id: int, payload: GoalUpdate, db: Session = Depends(get_db)):
-    goal = db.query(Goal).get(goal_id)
+    goal = db.get(Goal, goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
@@ -102,7 +102,7 @@ def update_goal(goal_id: int, payload: GoalUpdate, db: Session = Depends(get_db)
 
 @router.delete("/{goal_id}")
 def delete_goal(goal_id: int, db: Session = Depends(get_db)):
-    goal = db.query(Goal).get(goal_id)
+    goal = db.get(Goal, goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
@@ -114,7 +114,7 @@ def delete_goal(goal_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{goal_id}/contributions")
 def add_contribution(goal_id: int, payload: GoalContributionCreate, db: Session = Depends(get_db)):
-    goal = db.query(Goal).get(goal_id)
+    goal = db.get(Goal, goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
@@ -127,11 +127,11 @@ def add_contribution(goal_id: int, payload: GoalContributionCreate, db: Session 
 @router.get("/{goal_id}/progress")
 def get_goal_budget_progress(goal_id: int, db: Session = Depends(get_db)):
     """Get goal progress based on BudgetMonth assigned amounts for the goal's linked category."""
-    goal = db.query(Goal).get(goal_id)
+    goal = db.get(Goal, goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
-    currency = db.query(Currency).get(goal.currency_id)
+    currency = db.get(Currency, goal.currency_id)
     currency_code = currency.code if currency else "COP"
 
     if not goal.category_id:

@@ -27,7 +27,12 @@ _signer = TimestampSigner(SECRET_KEY)
 
 
 def _valid_session(request: Request) -> bool:
-    """Authentication disabled — always returns True."""
+    """Authentication disabled — always returns True.
+
+    Auth deshabilitada deliberadamente — app de uso local.
+    Para rehabilitarla, restaurar la verificación de cookie firmada en
+    `_valid_session` (ver git history, commit 1480f54).
+    """
     return True
 
 

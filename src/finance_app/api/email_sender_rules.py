@@ -54,21 +54,21 @@ def list_categories(db: Session = Depends(get_db)):
 
 @router.patch("/{rule_id}")
 def update_rule(rule_id: int, body: RuleUpdate, db: Session = Depends(get_db)):
-    rule = db.query(EmailSenderRule).get(rule_id)
+    rule = db.get(EmailSenderRule, rule_id)
     if not rule:
         raise HTTPException(404, "Rule not found")
 
     if rule.rule_purpose == "account":
         if body.account_id is None:
             raise HTTPException(400, "account_id requerido para reglas de cuenta")
-        account = db.query(Account).get(body.account_id)
+        account = db.get(Account, body.account_id)
         if not account:
             raise HTTPException(400, "Account not found")
         rule.account_id = body.account_id
     else:
         if body.category_id is None:
             raise HTTPException(400, "category_id requerido para reglas de categoría")
-        category = db.query(Category).get(body.category_id)
+        category = db.get(Category, body.category_id)
         if not category:
             raise HTTPException(400, "Category not found")
         rule.category_id = body.category_id
@@ -102,14 +102,14 @@ def create_rule(body: RuleCreate, db: Session = Depends(get_db)):
     if rule_purpose == "account":
         if body.account_id is None:
             raise HTTPException(400, "account_id requerido para reglas de cuenta")
-        account = db.query(Account).get(body.account_id)
+        account = db.get(Account, body.account_id)
         if not account:
             raise HTTPException(400, "Account not found")
         account_id = body.account_id
     else:
         if body.category_id is None:
             raise HTTPException(400, "category_id requerido para reglas de categoría")
-        category = db.query(Category).get(body.category_id)
+        category = db.get(Category, body.category_id)
         if not category:
             raise HTTPException(400, "Category not found")
         category_id = body.category_id
@@ -132,7 +132,7 @@ def create_rule(body: RuleCreate, db: Session = Depends(get_db)):
 
 @router.delete("/{rule_id}")
 def delete_rule(rule_id: int, db: Session = Depends(get_db)):
-    rule = db.query(EmailSenderRule).get(rule_id)
+    rule = db.get(EmailSenderRule, rule_id)
     if not rule:
         raise HTTPException(404, "Rule not found")
     db.delete(rule)

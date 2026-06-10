@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtNumber, sanitize, currentMonth, prevMonth, fmtMonthLabel } from '../utils.js';
+import { fmtCurrency, fmtNumber, sanitize, currentMonth, prevMonth, fmtMonthLabel, optional } from '../utils.js';
 
 export const title = 'Reportes';
 
@@ -18,7 +18,7 @@ let _availableCategories = [];
 
 export async function mount(container) {
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
-  _currencies = await api.currencies.list().catch(() => [{ id: 1, code: 'COP' }, { id: 2, code: 'USD' }]);
+  _currencies = await optional(api.currencies.list(), [{ id: 1, code: 'COP' }, { id: 2, code: 'USD' }], 'Monedas');
   renderShell(container);
   await loadData(container);
 }
@@ -165,8 +165,8 @@ async function loadData(container) {
 
   try {
     const [spending, income] = await Promise.all([
-      api.reports.spending({ month: _month, currency_id: _currencyId }).catch(() => null),
-      api.reports.income({ month: _month, currency_id: _currencyId }).catch(() => null),
+      optional(api.reports.spending({ month: _month, currency_id: _currencyId }), null, 'Reporte de Gastos'),
+      optional(api.reports.income({ month: _month, currency_id: _currencyId }), null, 'Reporte de Ingresos'),
     ]);
 
     const cats      = spending?.categories ?? spending?.by_category ?? [];

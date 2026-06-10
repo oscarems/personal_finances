@@ -361,7 +361,7 @@ def _category_trend_alerts(
         if avg < min_threshold:
             continue
         if current_amt > avg * 1.4:
-            cat = db.query(Category).get(cat_id)
+            cat = db.get(Category, cat_id)
             if not cat or cat.rollover_type == "accumulate":
                 continue
             diff_pct = ((current_amt - avg) / avg) * 100

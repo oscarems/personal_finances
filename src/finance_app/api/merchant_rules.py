@@ -31,7 +31,7 @@ def create_rule(body: MerchantRuleCreate, db: Session = Depends(get_db)):
     if not name:
         raise HTTPException(400, "El nombre del comercio no puede estar vacío")
 
-    category = db.query(Category).get(body.category_id)
+    category = db.get(Category, body.category_id)
     if not category:
         raise HTTPException(400, "Categoría no encontrada")
 
@@ -48,7 +48,7 @@ def create_rule(body: MerchantRuleCreate, db: Session = Depends(get_db)):
 
 @router.put("/{rule_id}")
 def update_rule(rule_id: int, body: MerchantRuleUpdate, db: Session = Depends(get_db)):
-    rule = db.query(MerchantRule).get(rule_id)
+    rule = db.get(MerchantRule, rule_id)
     if not rule:
         raise HTTPException(404, "Regla no encontrada")
 
@@ -65,7 +65,7 @@ def update_rule(rule_id: int, body: MerchantRuleUpdate, db: Session = Depends(ge
         rule.merchant_name = name
 
     if body.category_id is not None:
-        category = db.query(Category).get(body.category_id)
+        category = db.get(Category, body.category_id)
         if not category:
             raise HTTPException(400, "Categoría no encontrada")
         rule.category_id = body.category_id
@@ -77,7 +77,7 @@ def update_rule(rule_id: int, body: MerchantRuleUpdate, db: Session = Depends(ge
 
 @router.delete("/{rule_id}")
 def delete_rule(rule_id: int, db: Session = Depends(get_db)):
-    rule = db.query(MerchantRule).get(rule_id)
+    rule = db.get(MerchantRule, rule_id)
     if not rule:
         raise HTTPException(404, "Regla no encontrada")
     db.delete(rule)

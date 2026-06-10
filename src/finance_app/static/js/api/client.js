@@ -72,7 +72,7 @@ export const budgets = {
   initialize:    (m)            => { const { year, month } = parseMonth(m); return post(`/budgets/initialize/${year}/${month}`); },
   coverExcess:   (d)            => post('/budgets/cover-overspending', d),
   assignedTotals:()             => get('/budgets/assigned-totals'),
-  readyToAssign: ()             => get('/budgets/ready-to-assign').catch(() => null),
+  readyToAssign: ()             => get('/budgets/ready-to-assign'),
   recalcSavings: ()             => post('/budgets/recalculate-savings'),
 };
 
@@ -96,7 +96,7 @@ export const debts = {
   schedule:           (id, mode)      => get(`/debts/${id}/schedule`, { mode: mode ?? 'plan' }),
   costAnalysis:       (id)            => get(`/debts/${id}/cost-analysis`),
   simulate:           (params)        => get('/debts/simulator', params),
-  timeline:           ()              => get('/debts/timeline').catch(() => []),
+  timeline:           ()              => get('/debts/timeline'),
   create:             (data)          => post('/debts', data),
   update:             (id, data)      => patch(`/debts/${id}`, data),
   delete:             (id)            => del(`/debts/${id}`),
@@ -118,7 +118,7 @@ export const goals = {
 };
 
 export const mortgage = {
-  accounts:    ()     => get('/mortgage/accounts').catch(() => []),
+  accounts:    ()     => get('/mortgage/accounts'),
   schedule:    (id)   => get(`/mortgage/${id}/schedule`),
   payment:     (id,d) => post(`/mortgage/${id}/payments`, d),
   calculate:   (data) => post('/mortgage/calculate', data),
@@ -130,7 +130,7 @@ export const investmentSimulator = {
 
 export const emergencyFund = {
   coverage:       (params) => get('/emergency-fund/coverage', params),
-  categories:     ()       => get('/emergency-fund/categories').catch(() => []),
+  categories:     ()       => get('/emergency-fund/categories'),
   updateCategory: (id, flags) => patch(`/emergency-fund/categories/${id}`, flags),
 };
 
@@ -188,8 +188,8 @@ export const chat = {
 };
 
 export const patrimonio = {
-  summary:     ()       => get('/patrimonio/resumen').catch(() => null),
-  assets:      ()       => get('/patrimonio/activos').catch(() => []),
+  summary:     ()       => get('/patrimonio/resumen'),
+  assets:      ()       => get('/patrimonio/activos'),
   createAsset: (data)   => post('/patrimonio/activos', data),
   updateAsset: (id, d)  => put(`/patrimonio/activos/${id}`, d),
   deleteAsset: (id)     => del(`/patrimonio/activos/${id}`),
@@ -197,18 +197,18 @@ export const patrimonio = {
 
 export const exchangeRates = {
   list:    ()  => get('/exchange-rates'),
-  current: ()  => get('/exchange-rates/current').catch(() => ({ USD: 1, COP: 1 })),
+  current: ()  => get('/exchange-rates/current'),
   sync:    ()  => post('/exchange-rates/sync'),
 };
 
 export const alerts = {
-  list:    ()   => get('/alerts').catch(() => []),
+  list:    ()   => get('/alerts'),
   dismiss: (id) => post(`/alerts/${id}/dismiss`),
 };
 
 export const cashFlow = {
-  forecast:  (params) => get('/cash-flow/forecast', params).catch(() => null),
-  upcoming:  (params) => get('/cash-flow/upcoming', params).catch(() => null),
+  forecast:  (params) => get('/cash-flow/forecast', params),
+  upcoming:  (params) => get('/cash-flow/upcoming', params),
 };
 
 export const reconciliation = {
@@ -224,7 +224,7 @@ export const setup = {
 };
 
 export const currencies = {
-  list: () => get('/currencies').catch(() => [{ code: 'COP' }, { code: 'USD' }]),
+  list: () => get('/currencies'),
 };
 
 export const admin = {

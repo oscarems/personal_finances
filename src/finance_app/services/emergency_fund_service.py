@@ -48,7 +48,7 @@ def get_monthly_essential_expenses(db: Session, month_date: date, target_currenc
             'categories': []
         }
 
-    target_currency = db.query(Currency).get(target_currency_id)
+    target_currency = db.get(Currency, target_currency_id)
 
     total = 0.0
     categories_data = []
@@ -145,7 +145,7 @@ def get_emergency_funds(db: Session, target_currency_id: int = 1):
             'funds': []
         }
 
-    target_currency = db.query(Currency).get(target_currency_id)
+    target_currency = db.get(Currency, target_currency_id)
     today = date.today()
 
     total = 0.0
@@ -268,7 +268,7 @@ def calculate_emergency_coverage(db: Session, month_date: date = None, target_cu
         else:
             recommendation = 'Sin fondos. Necesitas empezar a construir tu fondo de emergencia urgentemente.'
 
-    target_currency = db.query(Currency).get(target_currency_id)
+    target_currency = db.get(Currency, target_currency_id)
 
     return {
         'months_coverage': round(months_coverage, 2) if months_coverage != float('inf') else 999.99,

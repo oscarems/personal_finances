@@ -154,7 +154,7 @@ def assign_budget(assignment: BudgetAssignment, db: Session = Depends(get_db)):
 
     # Si se proporciona rollover_type, actualizar la categoría
     if assignment.rollover_type:
-        category = db.query(Category).get(assignment.category_id)
+        category = db.get(Category, assignment.category_id)
         if category:
             category.rollover_type = assignment.rollover_type
             db.commit()
@@ -185,8 +185,8 @@ def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(
     if not currency:
         return {"error": "Currency not found"}
 
-    source_cat = db.query(Category).get(request.source_category_id)
-    target_cat = db.query(Category).get(request.target_category_id)
+    source_cat = db.get(Category, request.source_category_id)
+    target_cat = db.get(Category, request.target_category_id)
     if not source_cat or not target_cat:
         return {"error": "Category not found"}
 
@@ -285,7 +285,7 @@ def recalculate_savings_budgets(db: Session = Depends(get_db)):
         ).all()
 
         for (currency_id,) in budget_currencies:
-            currency = db.query(Currency).get(currency_id)
+            currency = db.get(Currency, currency_id)
 
             # Obtener todos los presupuestos de esta categoría en esta moneda
             budgets = db.query(BudgetMonth).filter(

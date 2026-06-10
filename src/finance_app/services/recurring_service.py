@@ -243,7 +243,7 @@ def generate_due_transactions(db: Session, up_to_date: date = None) -> dict:
                 db.flush()
 
                 # Update account balance
-                account = db.query(Account).get(recurring.account_id)
+                account = db.get(Account, recurring.account_id)
                 if account:
                     account.balance += signed_amount
                     if account.type in {'credit_card', 'credit_loan', 'mortgage'}:

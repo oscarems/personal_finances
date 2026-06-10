@@ -82,7 +82,7 @@ def get_spending_by_category(
     ]
     results.sort(key=lambda x: x['amount'], reverse=True)
     total_expenses = sum(r['amount'] for r in results)
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
 
     return {
         'start_date': start_date_obj.isoformat(),
@@ -186,7 +186,7 @@ def get_spending_trends(
 
     category_name = None
     if category_id:
-        category = db.query(Category).get(category_id)
+        category = db.get(Category, category_id)
         if category:
             category_name = category.name
 

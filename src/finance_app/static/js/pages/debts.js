@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, fmtNumber, sanitize, progressBar } from '../utils.js';
+import { fmtCurrency, fmtDate, fmtNumber, sanitize, progressBar, optional } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -8,7 +8,7 @@ export const title = 'Deudas';
 export async function mount(container) {
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
-    const [debts, summary] = await Promise.all([api.debts.list(), api.debts.summary().catch(() => null)]);
+    const [debts, summary] = await Promise.all([api.debts.list(), optional(api.debts.summary(), null, 'Resumen de Deudas')]);
     renderPage(container, debts, summary);
   } catch (err) {
     container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
@@ -185,8 +185,8 @@ async function openDebtDetail(debt) {
     const isCard = (debt.debt_type === 'credit_card' || debt.account_type === 'credit_card');
     const [amort, costAnalysis, installments] = await Promise.all([
       api.debts.schedule(debt.id, 'plan'),
-      api.debts.costAnalysis(debt.id).catch(() => null),
-      isCard ? api.debts.installments(debt.id).catch(() => []) : Promise.resolve([]),
+      optional(api.debts.costAnalysis(debt.id), null, 'Análisis de Costo'),
+      isCard ? optional(api.debts.installments(debt.id), [], 'Cuotas Diferidas') : Promise.resolve([]),
     ]);
     const rows = (amort?.schedule ?? []).slice(0, 24);
     const currency = debt.currency_code ?? 'COP';

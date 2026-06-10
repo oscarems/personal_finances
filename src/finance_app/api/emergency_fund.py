@@ -64,7 +64,7 @@ def get_emergency_coverage(
     coverage = calculate_emergency_coverage(db, month_date, currency_id)
 
     # Also compute totals in the secondary currency (COP ↔ USD)
-    primary_currency = db.query(Currency).get(currency_id)
+    primary_currency = db.get(Currency, currency_id)
     primary_code = primary_currency.code if primary_currency else 'COP'
 
     secondary_code = 'USD' if primary_code == 'COP' else 'COP'
@@ -167,7 +167,7 @@ def update_category_flags(
     Returns:
         Updated category.
     """
-    category = db.query(Category).get(category_id)
+    category = db.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 

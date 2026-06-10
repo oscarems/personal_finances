@@ -369,7 +369,7 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
         Example: spending $50 → activity = -$50.
     """
     # Get category to check rollover type
-    category = db.query(Category).get(budget_month.category_id)
+    category = db.get(Category, budget_month.category_id)
 
     # Get activity from transactions
     month = budget_month.month.month
@@ -650,7 +650,7 @@ def calculate_total_in_accounts(db: Session, currency_id: int) -> float:
 
     Excludes debt accounts (credit_card, credit_loan, mortgage).
     """
-    target_currency = db.query(Currency).get(currency_id)
+    target_currency = db.get(Currency, currency_id)
     convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
 
     excluded_types = {'credit_card', 'credit_loan', 'mortgage'}
@@ -704,7 +704,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         - Excludes debt accounts (credit_card, credit_loan, mortgage).
         - Tracking accounts are NOT included.
     """
-    target_currency = db.query(Currency).get(currency_id)
+    target_currency = db.get(Currency, currency_id)
     convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
 
     total_in_accounts = calculate_total_in_accounts(db, currency_id)
@@ -738,7 +738,7 @@ def calculate_assigned_this_month(db: Session, month_date, currency_id):
     Computed as the delta between this month's assigned and the previous month's assigned,
     per category/currency.
     """
-    target_currency = db.query(Currency).get(currency_id)
+    target_currency = db.get(Currency, currency_id)
     if not target_currency:
         return 0.0
 
@@ -780,7 +780,7 @@ def calculate_spent_to_date(db: Session, month_date, currency_id):
     Calculate total spending from the first day of the month through today (inclusive).
     Only considers expense transactions (negative amounts) and excludes income.
     """
-    target_currency = db.query(Currency).get(currency_id)
+    target_currency = db.get(Currency, currency_id)
     if not target_currency:
         return 0.0
 
@@ -822,7 +822,7 @@ def get_spent_transactions_to_date(db: Session, month_date, currency_id):
     of the month through today (inclusive), with each amount converted to the
     target currency for display in the UI.
     """
-    target_currency = db.query(Currency).get(currency_id)
+    target_currency = db.get(Currency, currency_id)
     if not target_currency:
         return {"error": "Currency not found"}
 

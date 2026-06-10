@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { sanitize, todayISO } from '../utils.js';
+import { sanitize, todayISO, optional } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -18,9 +18,9 @@ let _accounts = [], _categories = [], _currencies = [], _incomeCats = [];
 
 async function loadMeta() {
   [_accounts, _categories, _currencies] = await Promise.all([
-    api.accounts.list().catch(() => []),
-    api.categories.list().catch(() => []),
-    api.currencies.list().catch(() => []),
+    optional(api.accounts.list(), [], 'Cuentas'),
+    optional(api.categories.list(), [], 'Categorías'),
+    optional(api.currencies.list(), [], 'Monedas'),
   ]);
   // Income categories: prefer is_income flag, fall back to group name heuristic
   _incomeCats = _categories.filter(c =>
@@ -46,8 +46,8 @@ export async function mount(container) {
       const [incomeData, trendData, recurring, savingsRate] = await Promise.all([
         api.reports.income({ month: monthStr }),
         api.reports.budgetIncomeExpenses({ months: 6 }),
-        api.recurring.list().catch(() => []),
-        api.reports.savingsRate({ months: 12 }).catch(() => null),
+        optional(api.recurring.list(), [], 'Recurrentes'),
+        optional(api.reports.savingsRate({ months: 12 }), null, 'Tasa de Ahorro'),
       ]);
 
       const incomeSources = (Array.isArray(recurring) ? recurring : [])

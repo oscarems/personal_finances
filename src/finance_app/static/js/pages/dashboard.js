@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, fmtDateShort, sanitize, amountClass, progressBar } from '../utils.js';
+import { fmtCurrency, fmtDate, fmtDateShort, sanitize, amountClass, progressBar, optional } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { openModal } from '../components/modal.js';
 
@@ -11,18 +11,26 @@ export async function mount(container) {
     const [accounts, txResp, budget, debts, fxData, patrimonioData, cashflow, savingsRate, netWorthData, goals] = await Promise.all([
       api.accounts.list(),
       api.transactions.list({ limit: 10 }),
-      api.budgets.current().catch(() => null),
-      api.debts.list().catch(() => []),
-      api.exchangeRates.current().catch(() => ({ rate: 4200 })),
-      api.patrimonio.summary().catch(() => null),
-      api.reports.cashflowSummary().catch(() => null),
-      api.reports.savingsRate({ months: 3 }).catch(() => null),
-      api.reports.netWorthTimeline().catch(() => []),
-      api.goals.list().catch(() => []),
+      optional(api.budgets.current(), null, 'Presupuesto'),
+      optional(api.debts.list(), [], 'Deudas'),
+      api.exchangeRates.current(),
+      optional(api.patrimonio.summary(), null, 'Patrimonio'),
+      optional(api.reports.cashflowSummary(), null, 'Flujo de Caja'),
+      optional(api.reports.savingsRate({ months: 3 }), null, 'Tasa de Ahorro'),
+      optional(api.reports.netWorthTimeline(), [], 'Historial Patrimonio'),
+      optional(api.goals.list(), [], 'Metas'),
     ]);
     const txList = Array.isArray(txResp) ? txResp : (txResp?.transactions ?? txResp?.items ?? []);
-    const usdRate = fxData?.rate ?? 4200;
-    container.innerHTML = renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals);
+    const usdRate = fxData?.rate ?? fxData?.USD ?? null;
+    if (usdRate === null) {
+      // Exchange rate is primary data — show error and omit consolidated totals
+      const partial = document.createElement('div');
+      partial.innerHTML = `<div class="alert alert-danger" style="margin-bottom:20px">No se pudo obtener la tasa de cambio — los totales consolidados están ocultos.</div>`;
+      container.innerHTML = renderPage(accounts, txList, budget, debts, null, null, cashflow, savingsRate, netWorthData, goals);
+      container.insertBefore(partial.firstElementChild, container.firstElementChild);
+    } else {
+      container.innerHTML = renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals);
+    }
     bindEvents(container, accounts, netWorthData);
   } catch (err) {
     container.innerHTML = `<div class="alert alert-danger">Error al cargar el dashboard: ${sanitize(err.message)}</div>`;
@@ -67,25 +75,42 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, ca
   const totalDebtsCOP   = debtsCOP.reduce((s, a) => s + Math.abs(a.balance ?? 0), 0);
   const totalDebtsUSD   = debtsUSD.reduce((s, a) => s + Math.abs(a.balance ?? 0), 0);
 
-  // Activos de patrimonio (inmuebles, vehículos, etc.) separados por moneda
-  const patrimonioActivos = patrimonioData?.activos ?? [];
-  const patrimonioActivosCOP = patrimonioActivos
-    .filter(a => (a.currency?.code ?? 'COP') === 'COP')
-    .reduce((s, a) => s + (a.valor_actual ?? 0), 0);
-  const patrimonioActivosUSD = patrimonioActivos
-    .filter(a => (a.currency?.code ?? 'COP') === 'USD')
-    .reduce((s, a) => s + (a.valor_actual ?? 0), 0);
-
-  // Patrimonio neto en COP (convirtiendo USD a COP)
-  const activosCOP  = totalSavingsCOP + totalSavingsUSD * usdRate + patrimonioActivosCOP + patrimonioActivosUSD * usdRate;
-  const deudasCOP   = totalDebtsCOP   + totalDebtsUSD  * usdRate;
-  const patrimonioNeto = activosCOP - deudasCOP;
-
   const expenseGroups = (budget?.groups ?? []).filter(g => !g.is_income);
   const expenseCats   = expenseGroups.flatMap(g => g.categories ?? []);
 
   const today = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   const todayCap = today.charAt(0).toUpperCase() + today.slice(1);
+
+  // Consolidated (multi-currency) KPI cards require the exchange rate
+  let consolidatedSection = '';
+  if (usdRate !== null) {
+    const patrimonioActivos = patrimonioData?.activos ?? [];
+    const patrimonioActivosCOP = patrimonioActivos
+      .filter(a => (a.currency?.code ?? 'COP') === 'COP')
+      .reduce((s, a) => s + (a.valor_actual ?? 0), 0);
+    const patrimonioActivosUSD = patrimonioActivos
+      .filter(a => (a.currency?.code ?? 'COP') === 'USD')
+      .reduce((s, a) => s + (a.valor_actual ?? 0), 0);
+
+    const activosCOP  = totalSavingsCOP + totalSavingsUSD * usdRate + patrimonioActivosCOP + patrimonioActivosUSD * usdRate;
+    const deudasCOP   = totalDebtsCOP   + totalDebtsUSD  * usdRate;
+    const patrimonioNeto = activosCOP - deudasCOP;
+
+    consolidatedSection = `
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+        ${patrimonioBigCard(patrimonioNeto, activosCOP, deudasCOP, patrimonioActivosCOP + patrimonioActivosUSD * usdRate)}
+        ${currencyCard('COP', totalSavingsCOP, totalDebtsCOP)}
+        ${currencyCard('USD', totalSavingsUSD, totalDebtsUSD)}
+      </div>
+      ${cashflowSection(cashflow, usdRate)}`;
+  } else {
+    // No exchange rate: show per-currency cards without consolidated totals
+    consolidatedSection = `
+      <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">
+        ${currencyCard('COP', totalSavingsCOP, totalDebtsCOP)}
+        ${currencyCard('USD', totalSavingsUSD, totalDebtsUSD)}
+      </div>`;
+  }
 
   return `
     <div class="page-header">
@@ -98,13 +123,7 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, ca
       </div>
     </div>
 
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
-      ${patrimonioBigCard(patrimonioNeto, activosCOP, deudasCOP, patrimonioActivosCOP + patrimonioActivosUSD * usdRate)}
-      ${currencyCard('COP', totalSavingsCOP, totalDebtsCOP)}
-      ${currencyCard('USD', totalSavingsUSD, totalDebtsUSD)}
-    </div>
-
-    ${cashflowSection(cashflow, usdRate)}
+    ${consolidatedSection}
 
     <div class="section-grid cols-2" style="margin-bottom:20px">
       ${savingsRateCard(savingsRate)}

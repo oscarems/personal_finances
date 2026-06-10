@@ -113,7 +113,7 @@ def account_summary(db: Session = Depends(get_db)):
 @router.get("/{account_id}")
 def get_account(account_id: int, db: Session = Depends(get_db)):
     """Get single account"""
-    account = db.query(Account).get(account_id)
+    account = db.get(Account, account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return account.to_dict()
@@ -123,7 +123,7 @@ def get_account(account_id: int, db: Session = Depends(get_db)):
 def create_account(account_data: AccountCreate, db: Session = Depends(get_db)):
     """Create new account"""
     # Verify currency exists
-    currency = db.query(Currency).get(account_data.currency_id)
+    currency = db.get(Currency, account_data.currency_id)
     if not currency:
         raise HTTPException(status_code=400, detail="Currency not found")
 
@@ -180,7 +180,7 @@ def create_account(account_data: AccountCreate, db: Session = Depends(get_db)):
 @router.put("/{account_id}")
 def update_account(account_id: int, account_data: AccountUpdate, db: Session = Depends(get_db)):
     """Update account"""
-    account = db.query(Account).get(account_id)
+    account = db.get(Account, account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
@@ -225,7 +225,7 @@ def update_account(account_id: int, account_data: AccountUpdate, db: Session = D
 @router.delete("/{account_id}")
 def delete_account(account_id: int, db: Session = Depends(get_db)):
     """Close account (soft delete)"""
-    account = db.query(Account).get(account_id)
+    account = db.get(Account, account_id)
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 

@@ -25,7 +25,7 @@ def get_reconciliation_summary(
     Raises:
         ValueError: If account not found.
     """
-    account = db.query(Account).get(account_id)
+    account = db.get(Account, account_id)
     if not account:
         raise ValueError("Account not found")
 

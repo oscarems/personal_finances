@@ -61,11 +61,6 @@ INDEX_HTML = STATIC_DIR / "index.html"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    if not APP_PASSWORD:
-        raise RuntimeError(
-            "APP_PASSWORD environment variable is not set. "
-            "Set it before starting the app (e.g. APP_PASSWORD=mysecret)."
-        )
     init_db()
     default_name = default_database_name()
     ensure_database_initialized(default_name)

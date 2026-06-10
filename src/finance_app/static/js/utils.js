@@ -143,3 +143,27 @@ export function sortBy(arr, key, dir = 'asc') {
     return dir === 'asc' ? cmp : -cmp;
   });
 }
+
+const _degraded = new Set();
+
+export async function optional(promise, fallback, label) {
+  try { return await promise; }
+  catch (err) {
+    console.error(`[${label}]`, err);
+    notifyDegraded(label);
+    return fallback;
+  }
+}
+
+function notifyDegraded(label) {
+  if (_degraded.has(label)) return;
+  _degraded.add(label);
+  const msg = `Algunos datos no cargaron: ${label}`;
+  if (typeof window._toast === 'function') {
+    window._toast(msg, 'warning');
+  } else {
+    import('./components/toast.js').then(({ toast }) => toast.warning(msg)).catch(() => {});
+  }
+}
+
+export function resetDegraded() { _degraded.clear(); }

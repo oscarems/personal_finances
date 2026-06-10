@@ -178,7 +178,7 @@ def get_budget_income_expenses(
         })
         current_date += relativedelta(months=1)
 
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
     currency_dict = currency.to_dict() if currency else None
 
     return {
@@ -289,7 +289,7 @@ def get_savings_rate(
     total_expenses = sum(m['expenses'] for m in monthly_data)
     total_savings = total_income - total_expenses
     avg_savings_rate = (total_savings / total_income * 100) if total_income > 0 else 0
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
 
     return {
         'monthly': monthly_data,
@@ -342,7 +342,7 @@ def get_summary(
     avg_daily_expense = aom_total_expenses / 30 if aom_total_expenses > 0 else 0
     age_of_money = round(total_balance / avg_daily_expense) if avg_daily_expense > 0 else 0
 
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
 
     return {
         'current_month': {
@@ -383,7 +383,7 @@ def get_period_summary(
 
     months_count = (end_date_obj.year - start_date_obj.year) * 12 + (end_date_obj.month - start_date_obj.month) + 1
     average_monthly_expenses = total_expenses / months_count if months_count > 0 else 0
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
 
     # Compute previous period of same length for trend comparison
     period_days = (end_date_obj - start_date_obj).days + 1
@@ -536,7 +536,7 @@ def get_savings_allocation_rate(
 
     rate = (savings_assigned / total_assigned * 100) if total_assigned > 0 else 0
 
-    currency = db.query(Currency).get(currency_id)
+    currency = db.get(Currency, currency_id)
     return {
         "year": year,
         "month": month,

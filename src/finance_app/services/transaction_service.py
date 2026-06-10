@@ -65,8 +65,8 @@ def normalize_transaction_currency(
     if account.currency_id == currency_id:
         return amount, currency_id, None
 
-    from_currency = db.query(Currency).get(currency_id)
-    to_currency = db.query(Currency).get(account.currency_id)
+    from_currency = db.get(Currency, currency_id)
+    to_currency = db.get(Currency, account.currency_id)
 
     if not from_currency or not to_currency:
         return amount, currency_id, None
@@ -106,7 +106,7 @@ def build_transaction_audit_fields(
     base_amount = None
 
     if base_currency:
-        original_currency = db.query(Currency).get(original_currency_id)
+        original_currency = db.get(Currency, original_currency_id)
         if original_currency and original_currency.code != base_currency.code:
             base_amount = convert_currency(
                 amount=original_amount,
@@ -345,7 +345,7 @@ def create_transaction(db: Session, data):
                 db.flush()
 
         transaction_date = data.get('date', date.today())
-        account = db.query(Account).get(data['account_id'])
+        account = db.get(Account, data['account_id'])
         signed_amount = normalize_transaction_amount(data['amount'], transaction_type)
         normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
             db,
@@ -485,12 +485,12 @@ def get_last_manual_transactions_by_account(db: Session) -> list[dict]:
 
 def get_transaction_by_id(db: Session, transaction_id):
     """Get single transaction by ID"""
-    return db.query(Transaction).get(transaction_id)
+    return db.get(Transaction, transaction_id)
 
 
 def update_transaction(db: Session, transaction_id, data):
     """Update existing transaction"""
-    transaction = db.query(Transaction).get(transaction_id)
+    transaction = db.get(Transaction, transaction_id)
     if not transaction:
         return None
 
@@ -505,7 +505,7 @@ def update_transaction(db: Session, transaction_id, data):
     old_amount = transaction.amount
     old_account_id = transaction.account_id
     old_date = transaction.date
-    old_account = db.query(Account).get(old_account_id)
+    old_account = db.get(Account, old_account_id)
 
     if not has_mortgage_allocation:
         _reverse_debt_impact(db, transaction, old_account)
@@ -536,7 +536,7 @@ def update_transaction(db: Session, transaction_id, data):
     candidate_amount = data.get('amount', transaction.original_amount)
     original_amount = normalize_transaction_amount(candidate_amount, transaction_type)
     original_currency_id = data.get('currency_id', transaction.original_currency_id)
-    new_account = db.query(Account).get(transaction.account_id)
+    new_account = db.get(Account, transaction.account_id)
     normalized_amount, normalized_currency_id, fx_rate = normalize_transaction_currency(
         db,
         original_amount,
@@ -559,7 +559,7 @@ def update_transaction(db: Session, transaction_id, data):
     transaction.base_currency_id = base_currency_id
 
     # Update account balances
-    old_account = db.query(Account).get(old_account_id)
+    old_account = db.get(Account, old_account_id)
     if old_account and transaction_affects_balance(old_account, old_date):
         old_account.balance -= old_amount
 
@@ -578,7 +578,7 @@ def update_transaction(db: Session, transaction_id, data):
 
 def delete_transaction(db: Session, transaction_id):
     """Delete transaction and update account balance"""
-    transaction = db.query(Transaction).get(transaction_id)
+    transaction = db.get(Transaction, transaction_id)
     if not transaction:
         return False
 
@@ -599,7 +599,7 @@ def delete_transaction(db: Session, transaction_id):
 
         if linked_transaction:
             # Update linked account balance
-            linked_account = db.query(Account).get(linked_transaction.account_id)
+            linked_account = db.get(Account, linked_transaction.account_id)
             if linked_account and transaction_affects_balance(linked_account, linked_transaction.date):
                 linked_account.balance -= linked_transaction.amount
             _reverse_debt_impact(db, linked_transaction, linked_account)
@@ -608,7 +608,7 @@ def delete_transaction(db: Session, transaction_id):
     mortgage_allocation = db.query(MortgagePaymentAllocation).filter_by(transaction_id=transaction.id).first()
 
     # Update account balance
-    account = db.query(Account).get(transaction.account_id)
+    account = db.get(Account, transaction.account_id)
     if account and transaction_affects_balance(account, transaction.date):
         account.balance -= transaction.amount
     if mortgage_allocation:
@@ -654,7 +654,7 @@ def create_adjustment(db: Session, data):
         >>> print(adjustment.amount)  # 50000 (difference)
     """
     # Get the account
-    account = db.query(Account).get(data['account_id'])
+    account = db.get(Account, data['account_id'])
     if not account:
         raise ValueError("Invalid account ID")
 
@@ -806,8 +806,8 @@ def create_transfer(db: Session, data):
         raise ValueError("Transfer amount must be positive")
 
     # Get accounts
-    from_account = db.query(Account).get(data['from_account_id'])
-    to_account = db.query(Account).get(data['to_account_id'])
+    from_account = db.get(Account, data['from_account_id'])
+    to_account = db.get(Account, data['to_account_id'])
 
     if not from_account or not to_account:
         raise ValueError("Invalid account IDs")
@@ -815,8 +815,8 @@ def create_transfer(db: Session, data):
     # Get currencies
     from_currency_id = data.get('from_currency_id') or from_account.currency_id
     to_currency_id = data.get('to_currency_id') or to_account.currency_id
-    from_currency = db.query(Currency).get(from_currency_id)
-    to_currency = db.query(Currency).get(to_currency_id)
+    from_currency = db.get(Currency, from_currency_id)
+    to_currency = db.get(Currency, to_currency_id)
     if not from_currency or not to_currency:
         raise ValueError("Invalid currency IDs")
 
@@ -939,7 +939,7 @@ def get_monthly_activity(
     start_date = date(year, month, 1)
     end_date = start_date + relativedelta(months=1)
 
-    category = db.query(Category).options(joinedload(Category.category_group)).get(category_id)
+    category = db.get(Category, category_id)
 
     filters = [
         Transaction.category_id == category_id,
@@ -959,7 +959,7 @@ def get_monthly_activity(
         and_(*filters)
     ).all()
 
-    target_currency = db.query(Currency).get(currency_id)
+    target_currency = db.get(Currency, currency_id)
 
     if not target_currency:
         return sum(t.amount for t in transactions)
@@ -991,7 +991,7 @@ def get_monthly_spent(
     start_date = date(year, month, 1)
     end_date = start_date + relativedelta(months=1)
 
-    category = db.query(Category).options(joinedload(Category.category_group)).get(category_id)
+    category = db.get(Category, category_id)
     if category and category.category_group and category.category_group.is_income:
         return 0.0
 
@@ -1009,7 +1009,7 @@ def get_monthly_spent(
         and_(*filters)
     ).all()
 
-    target_currency = db.query(Currency).get(currency_id)
+    target_currency = db.get(Currency, currency_id)
 
     if not target_currency:
         return sum(t.amount for t in transactions)
@@ -1064,7 +1064,7 @@ def amounts_in_cop_and_usd(transaction, db: Session, cop_currency, usd_currency)
     if not original_currency_id or original_amount is None or not transaction_date:
         return cop_amount, usd_amount
 
-    original_currency = db.query(Currency).get(original_currency_id)
+    original_currency = db.get(Currency, original_currency_id)
     original_currency_code = original_currency.code if original_currency else None
     if not original_currency_code:
         return cop_amount, usd_amount

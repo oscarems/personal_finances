@@ -76,7 +76,7 @@ def list_recurring_transactions(
 @router.get("/{recurring_id}")
 def get_recurring_transaction(recurring_id: int, db: Session = Depends(get_db)):
     """Get single recurring transaction"""
-    recurring = db.query(RecurringTransaction).get(recurring_id)
+    recurring = db.get(RecurringTransaction, recurring_id)
     if not recurring:
         raise HTTPException(status_code=404, detail="Recurring transaction not found")
     data = recurring.to_dict()
@@ -137,7 +137,7 @@ def update_recurring_transaction(
     db: Session = Depends(get_db)
 ):
     """Update recurring transaction"""
-    recurring = db.query(RecurringTransaction).get(recurring_id)
+    recurring = db.get(RecurringTransaction, recurring_id)
     if not recurring:
         raise HTTPException(status_code=404, detail="Recurring transaction not found")
 
@@ -187,7 +187,7 @@ def update_recurring_transaction(
 @router.delete("/{recurring_id}")
 def delete_recurring_transaction(recurring_id: int, db: Session = Depends(get_db)):
     """Delete recurring transaction"""
-    recurring = db.query(RecurringTransaction).get(recurring_id)
+    recurring = db.get(RecurringTransaction, recurring_id)
     if not recurring:
         raise HTTPException(status_code=404, detail="Recurring transaction not found")
 
@@ -200,7 +200,7 @@ def delete_recurring_transaction(recurring_id: int, db: Session = Depends(get_db
 @router.post("/{recurring_id}/toggle")
 def toggle_recurring_transaction(recurring_id: int, db: Session = Depends(get_db)):
     """Toggle active status of recurring transaction"""
-    recurring = db.query(RecurringTransaction).get(recurring_id)
+    recurring = db.get(RecurringTransaction, recurring_id)
     if not recurring:
         raise HTTPException(status_code=404, detail="Recurring transaction not found")
 
@@ -221,7 +221,7 @@ def preview_recurring_transaction(
     db: Session = Depends(get_db)
 ):
     """Preview next N occurrences of recurring transaction"""
-    recurring = db.query(RecurringTransaction).get(recurring_id)
+    recurring = db.get(RecurringTransaction, recurring_id)
     if not recurring:
         raise HTTPException(status_code=404, detail="Recurring transaction not found")
 

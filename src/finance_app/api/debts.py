@@ -349,6 +349,151 @@ def get_debts_summary(db: Session = Depends(get_db)):
     return summary
 
 
+def _parse_month(month_str: Optional[str], fallback: date) -> date:
+    if not month_str:
+        return fallback.replace(day=1)
+    if len(month_str) == 7:
+        return date.fromisoformat(f"{month_str}-01")
+    return date.fromisoformat(month_str).replace(day=1)
+
+
+def _iter_months(start_month: date, end_month: date) -> List[date]:
+    months = []
+    current = start_month.replace(day=1)
+    end_month = end_month.replace(day=1)
+    while current <= end_month:
+        months.append(current)
+        current = current + relativedelta(months=1)
+    return months
+
+
+@router.get("/timeline")
+def get_debt_timeline(
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    include_projected: bool = True,
+    db: Session = Depends(get_db),
+):
+    today = date.today()
+    start_month = _parse_month(start, today)
+    end_month = _parse_month(end, today)
+    months = _iter_months(start_month, end_month)
+
+    current_month = today.replace(day=1)
+
+    # Separate debts: loans/mortgages use amortization records; credit cards use account balance.
+    loan_debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
+    credit_card_debts = db.query(Debt).filter(Debt.debt_type == "credit_card").all()
+
+    loan_debt_ids = [debt.id for debt in loan_debts]
+    if loan_debt_ids:
+        ensure_debt_amortization_records(db, start_month, end_month)
+    amortization_records = fetch_amortization_range(db, start_month, end_month, loan_debt_ids) if loan_debt_ids else {}
+
+    all_debts = loan_debts + credit_card_debts
+    per_debt = {
+        str(debt.id): {
+            "name": debt.name,
+            "debt_type": debt.debt_type,
+            "currency_code": debt.currency_code,
+            "principal_cop_by_month": [],
+            "principal_original_by_month": [],
+        }
+        for debt in all_debts
+    }
+
+    # Pre-compute projected credit card balances for future months.
+    # Each future month reduces the balance by (payment - interest), simulating
+    # the user paying the minimum (or monthly_payment if set) every month.
+    cc_projected_balances: dict[int, dict[date, float]] = {}
+    next_month = (current_month + relativedelta(months=1))
+    for debt in credit_card_debts:
+        current_cc_balance = max(
+            0.0,
+            -(float(debt.account.balance or 0.0)) if debt.account else float(debt.current_balance or 0.0)
+        )
+        payment = float(debt.monthly_payment or debt.minimum_payment or 0.0)
+        annual_rate_raw = debt.annual_interest_rate or debt.interest_rate
+        annual = float(annual_rate_raw) if annual_rate_raw else 0.0
+        annual_decimal = annual / 100 if annual > 1 else annual
+        monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1 if annual_decimal > 0 else 0.0
+
+        projected: dict[date, float] = {}
+        balance = current_cc_balance
+        for proj_month in months:
+            if proj_month < next_month:
+                continue
+            interest = balance * monthly_rate
+            principal_paid = max(0.0, payment - interest)
+            balance = max(0.0, balance - principal_paid)
+            projected[proj_month] = round(balance, 2)
+        cc_projected_balances[debt.id] = projected
+
+    totals_cop_by_month = []
+    month_labels = []
+
+    for month in months:
+        month_labels.append(month.strftime("%Y-%m"))
+        total_cop = 0.0
+
+        for debt in loan_debts:
+            record = amortization_records.get((debt.id, month))
+            if record:
+                principal_original = float(record.principal_remaining)
+                principal_cop = float(convert_to_cop(principal_original, debt.currency_code, month, db=db))
+                total_cop += principal_cop
+            else:
+                principal_original = 0.0
+                principal_cop = 0.0
+            per_debt[str(debt.id)]["principal_cop_by_month"].append(round(principal_cop, 2))
+            per_debt[str(debt.id)]["principal_original_by_month"].append(round(principal_original, 2))
+
+        # Credit cards: past/present months use real account balance;
+        # future months project balance declining by payment - interest each period.
+        for debt in credit_card_debts:
+            current_cc_balance = max(
+                0.0,
+                -(float(debt.account.balance or 0.0)) if debt.account else float(debt.current_balance or 0.0)
+            )
+            if month <= current_month:
+                cc_balance = current_cc_balance
+            else:
+                # Use pre-computed projected balance from cc_projected_balances
+                cc_balance = cc_projected_balances.get(debt.id, {}).get(month, current_cc_balance)
+            principal_cop = float(convert_to_cop(cc_balance, debt.currency_code, month, db=db))
+            total_cop += principal_cop
+            per_debt[str(debt.id)]["principal_cop_by_month"].append(round(principal_cop, 2))
+            per_debt[str(debt.id)]["principal_original_by_month"].append(round(cc_balance, 2))
+
+        totals_cop_by_month.append(round(total_cop, 2))
+
+    return {
+        "months": month_labels,
+        "totals_cop_by_month": totals_cop_by_month,
+        "per_debt": per_debt,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Strategy comparison
+# ---------------------------------------------------------------------------
+
+@router.get("/strategy-comparison")
+def debt_strategy_comparison(
+    extra_payment: float = 0.0,
+    db: Session = Depends(get_db),
+):
+    """Compara avalancha, bola de nieve y pago mínimo para todas las deudas activas."""
+    debts = db.query(Debt).filter(Debt.is_active == True).all()
+    if not debts:
+        return {
+            "avalanche": None,
+            "snowball": None,
+            "minimum_only": None,
+        }
+    return compare_strategies(debts, extra_payment)
+
+
 @router.get("/{debt_id}")
 def get_debt(debt_id: int, include_payments: bool = False, db: Session = Depends(get_db)):
     debt = db.query(Debt).filter_by(id=debt_id).first()
@@ -540,131 +685,6 @@ def delete_debt(debt_id: int, db: Session = Depends(get_db)):
     }
 
 
-def _parse_month(month_str: Optional[str], fallback: date) -> date:
-    if not month_str:
-        return fallback.replace(day=1)
-    if len(month_str) == 7:
-        return date.fromisoformat(f"{month_str}-01")
-    return date.fromisoformat(month_str).replace(day=1)
-
-
-def _iter_months(start_month: date, end_month: date) -> List[date]:
-    months = []
-    current = start_month.replace(day=1)
-    end_month = end_month.replace(day=1)
-    while current <= end_month:
-        months.append(current)
-        current = current + relativedelta(months=1)
-    return months
-
-
-@router.get("/timeline")
-def get_debt_timeline(
-    start: Optional[str] = None,
-    end: Optional[str] = None,
-    include_projected: bool = True,
-    db: Session = Depends(get_db),
-):
-    today = date.today()
-    start_month = _parse_month(start, today)
-    end_month = _parse_month(end, today)
-    months = _iter_months(start_month, end_month)
-
-    current_month = today.replace(day=1)
-
-    # Separate debts: loans/mortgages use amortization records; credit cards use account balance.
-    loan_debts = db.query(Debt).filter(Debt.debt_type != "credit_card").all()
-    credit_card_debts = db.query(Debt).filter(Debt.debt_type == "credit_card").all()
-
-    loan_debt_ids = [debt.id for debt in loan_debts]
-    if loan_debt_ids:
-        ensure_debt_amortization_records(db, start_month, end_month)
-    amortization_records = fetch_amortization_range(db, start_month, end_month, loan_debt_ids) if loan_debt_ids else {}
-
-    all_debts = loan_debts + credit_card_debts
-    per_debt = {
-        str(debt.id): {
-            "name": debt.name,
-            "debt_type": debt.debt_type,
-            "currency_code": debt.currency_code,
-            "principal_cop_by_month": [],
-            "principal_original_by_month": [],
-        }
-        for debt in all_debts
-    }
-
-    # Pre-compute projected credit card balances for future months.
-    # Each future month reduces the balance by (payment - interest), simulating
-    # the user paying the minimum (or monthly_payment if set) every month.
-    cc_projected_balances: dict[int, dict[date, float]] = {}
-    next_month = (current_month + relativedelta(months=1))
-    for debt in credit_card_debts:
-        current_cc_balance = max(
-            0.0,
-            -(float(debt.account.balance or 0.0)) if debt.account else float(debt.current_balance or 0.0)
-        )
-        payment = float(debt.monthly_payment or debt.minimum_payment or 0.0)
-        annual_rate_raw = debt.annual_interest_rate or debt.interest_rate
-        annual = float(annual_rate_raw) if annual_rate_raw else 0.0
-        annual_decimal = annual / 100 if annual > 1 else annual
-        monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1 if annual_decimal > 0 else 0.0
-
-        projected: dict[date, float] = {}
-        balance = current_cc_balance
-        for proj_month in months:
-            if proj_month < next_month:
-                continue
-            interest = balance * monthly_rate
-            principal_paid = max(0.0, payment - interest)
-            balance = max(0.0, balance - principal_paid)
-            projected[proj_month] = round(balance, 2)
-        cc_projected_balances[debt.id] = projected
-
-    totals_cop_by_month = []
-    month_labels = []
-
-    for month in months:
-        month_labels.append(month.strftime("%Y-%m"))
-        total_cop = 0.0
-
-        for debt in loan_debts:
-            record = amortization_records.get((debt.id, month))
-            if record:
-                principal_original = float(record.principal_remaining)
-                principal_cop = float(convert_to_cop(principal_original, debt.currency_code, month, db=db))
-                total_cop += principal_cop
-            else:
-                principal_original = 0.0
-                principal_cop = 0.0
-            per_debt[str(debt.id)]["principal_cop_by_month"].append(round(principal_cop, 2))
-            per_debt[str(debt.id)]["principal_original_by_month"].append(round(principal_original, 2))
-
-        # Credit cards: past/present months use real account balance;
-        # future months project balance declining by payment - interest each period.
-        for debt in credit_card_debts:
-            current_cc_balance = max(
-                0.0,
-                -(float(debt.account.balance or 0.0)) if debt.account else float(debt.current_balance or 0.0)
-            )
-            if month <= current_month:
-                cc_balance = current_cc_balance
-            else:
-                # Use pre-computed projected balance from cc_projected_balances
-                cc_balance = cc_projected_balances.get(debt.id, {}).get(month, current_cc_balance)
-            principal_cop = float(convert_to_cop(cc_balance, debt.currency_code, month, db=db))
-            total_cop += principal_cop
-            per_debt[str(debt.id)]["principal_cop_by_month"].append(round(principal_cop, 2))
-            per_debt[str(debt.id)]["principal_original_by_month"].append(round(cc_balance, 2))
-
-        totals_cop_by_month.append(round(total_cop, 2))
-
-    return {
-        "months": month_labels,
-        "totals_cop_by_month": totals_cop_by_month,
-        "per_debt": per_debt,
-    }
-
-
 @router.get("/{debt_id}/schedule")
 def get_debt_schedule(
     debt_id: int,
@@ -830,26 +850,6 @@ def delete_debt_payment(debt_id: int, payment_id: int, db: Session = Depends(get
         "success": True,
         "message": "Payment deleted and debt balance restored"
     }
-
-
-# ---------------------------------------------------------------------------
-# Strategy comparison
-# ---------------------------------------------------------------------------
-
-@router.get("/strategy-comparison")
-def debt_strategy_comparison(
-    extra_payment: float = 0.0,
-    db: Session = Depends(get_db),
-):
-    """Compara avalancha, bola de nieve y pago mínimo para todas las deudas activas."""
-    debts = db.query(Debt).filter(Debt.is_active == True).all()
-    if not debts:
-        return {
-            "avalanche": None,
-            "snowball": None,
-            "minimum_only": None,
-        }
-    return compare_strategies(debts, extra_payment)
 
 
 # ---------------------------------------------------------------------------

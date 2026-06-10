@@ -12,8 +12,8 @@ def _convert_amount(db: Session, amount: float, from_currency_id: int, to_curren
     """Convert amount between currencies using exchange rate for a given date."""
     if from_currency_id == to_currency_id:
         return amount
-    from_currency = db.query(Currency).get(from_currency_id)
-    to_currency = db.query(Currency).get(to_currency_id)
+    from_currency = db.get(Currency, from_currency_id)
+    to_currency = db.get(Currency, to_currency_id)
     if not from_currency or not to_currency:
         return amount
     return convert_currency(
@@ -40,7 +40,7 @@ def calculate_goal_progress(db: Session, goal: Goal, as_of: date | None = None, 
     """
     as_of = as_of or date.today()
     if goal.linked_account_id:
-        account = db.query(Account).get(goal.linked_account_id)
+        account = db.get(Account, goal.linked_account_id)
         if account:
             current_amount = _convert_amount(db, account.balance or 0.0, account.currency_id, goal.currency_id, as_of)
             current_amount = max(0.0, current_amount - (goal.start_amount or 0.0))

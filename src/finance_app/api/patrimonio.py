@@ -215,7 +215,7 @@ def create_activo(payload: AssetCreate, db: Session = Depends(get_db)):
 
 @router.get("/activos/{asset_id}")
 def get_activo(asset_id: int, db: Session = Depends(get_db)):
-    asset = db.query(PatrimonioAsset).get(asset_id)
+    asset = db.get(PatrimonioAsset, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     return asset.to_dict()
@@ -223,7 +223,7 @@ def get_activo(asset_id: int, db: Session = Depends(get_db)):
 
 @router.put("/activos/{asset_id}")
 def update_activo(asset_id: int, payload: AssetUpdate, db: Session = Depends(get_db)):
-    asset = db.query(PatrimonioAsset).get(asset_id)
+    asset = db.get(PatrimonioAsset, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     for k, v in payload.model_dump(exclude_unset=True).items():
@@ -235,7 +235,7 @@ def update_activo(asset_id: int, payload: AssetUpdate, db: Session = Depends(get
 
 @router.delete("/activos/{asset_id}")
 def delete_activo(asset_id: int, db: Session = Depends(get_db)):
-    asset = db.query(PatrimonioAsset).get(asset_id)
+    asset = db.get(PatrimonioAsset, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     db.delete(asset)
@@ -250,7 +250,7 @@ def activo_timeline(
     hasta: str = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    asset = db.query(PatrimonioAsset).get(asset_id)
+    asset = db.get(PatrimonioAsset, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 

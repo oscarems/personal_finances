@@ -200,7 +200,7 @@ def get_budget_alerts(
             continue
 
         for cat in group.get("categories", []):
-            category = db.query(Category).get(cat["category_id"])
+            category = db.get(Category, cat["category_id"])
             if not category or not category.category_group or category.category_group.is_income:
                 continue
             if not getattr(category, "alerts_enabled", True):

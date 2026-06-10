@@ -33,7 +33,7 @@ def recalculate_all_savings_budgets():
 
             if category.initial_currency_id:
                 from finance_app.models import Currency
-                initial_currency = db.query(Currency).get(category.initial_currency_id)
+                initial_currency = db.get(Currency, category.initial_currency_id)
                 print(f"  - Moneda inicial: {initial_currency.code}")
             else:
                 print(f"  - Moneda inicial: No configurada (usará fallback)")
@@ -45,7 +45,7 @@ def recalculate_all_savings_budgets():
 
             for (currency_id,) in budget_currencies:
                 from finance_app.models import Currency
-                currency = db.query(Currency).get(currency_id)
+                currency = db.get(Currency, currency_id)
                 print(f"\n  Procesando moneda: {currency.code}")
 
                 # Obtener todos los presupuestos de esta categoría en esta moneda, ordenados por fecha

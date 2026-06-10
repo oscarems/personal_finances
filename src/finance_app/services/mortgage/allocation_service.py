@@ -41,7 +41,7 @@ def _days_between(start: date, end: date) -> int:
 
 
 def _currency_from_transaction(db: Session, transaction: Transaction) -> Currency:
-    currency = db.query(Currency).get(transaction.currency_id)
+    currency = db.get(Currency, transaction.currency_id)
     if not currency:
         raise ValueError("Transaction currency not found.")
     return currency
