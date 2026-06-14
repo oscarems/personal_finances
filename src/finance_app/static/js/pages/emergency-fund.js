@@ -44,7 +44,7 @@ function render(container) {
       </div>
     </div>
 
-    <div id="ef-summary" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+    <div id="ef-summary" class="grid-2 mb-3" style="gap:20px">
       ${renderSummary(months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2, target, isGood)}
     </div>
 
@@ -52,7 +52,7 @@ function render(container) {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Gastos Esenciales</span>
-          <span style="font-size:0.75rem;color:var(--text-soft)">¿Cuánto necesitas cada mes?</span>
+          <span class="text-soft" style="font-size:0.75rem">¿Cuánto necesitas cada mes?</span>
         </div>
         <div class="card-body" style="padding-top:0">
           ${renderCategoryList(expenseCats, 'is_essential')}
@@ -62,7 +62,7 @@ function render(container) {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Fondos de Emergencia</span>
-          <span style="font-size:0.75rem;color:var(--text-soft)">¿Qué ahorros cubren emergencias?</span>
+          <span class="text-soft" style="font-size:0.75rem">¿Qué ahorros cubren emergencias?</span>
         </div>
         <div class="card-body" style="padding-top:0">
           ${renderCategoryList(savingsCats, 'is_emergency_fund')}
@@ -78,31 +78,35 @@ function render(container) {
 
 function renderDualCurrency(primary, primaryCurrency, secondary, secondaryCurrency) {
   if (secondary === null || secondaryCurrency === null) return '';
-  return `<div style="font-size:0.78rem;color:var(--text-soft);margin-top:2px">${fmtCurrency(secondary, secondaryCurrency)}</div>`;
+  return `<div class="text-soft amount mt-1" style="font-size:0.78rem">${fmtCurrency(secondary, secondaryCurrency)}</div>`;
+}
+
+function coverageTextClass(months, target) {
+  if (months >= target) return 'text-success';
+  if (months >= target * 0.5) return 'text-warning';
+  return 'text-danger';
 }
 
 function renderSummary(months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2, target, isGood) {
   const pct = Math.min(100, (months / target) * 100);
   const barClass = isGood ? 'ok' : months >= target * 0.5 ? 'warning' : 'danger';
-  const valueColor = isGood
-    ? 'var(--color-success)'
-    : months >= target * 0.5 ? 'var(--color-warning)' : 'var(--color-danger)';
+  const valueClass = coverageTextClass(months, target);
 
-  const missing       = Math.max(0, monthlyExp * target - totalFund);
-  const missing2      = monthlyExp2 !== null ? Math.max(0, monthlyExp2 * target - totalFund2) : null;
+  const missing  = Math.max(0, monthlyExp * target - totalFund);
+  const missing2 = monthlyExp2 !== null ? Math.max(0, monthlyExp2 * target - totalFund2) : null;
 
   return `
     <div class="card">
       <div class="card-body" style="text-align:center;padding:32px 20px">
-        <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin-bottom:12px">Cobertura</div>
-        <div style="font-family:var(--font-display);font-size:4rem;font-weight:700;line-height:1;color:${valueColor}">
+        <div class="text-soft" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Cobertura</div>
+        <div class="amount ${valueClass}" style="font-family:var(--font-display);font-size:4rem;font-weight:700;line-height:1">
           ${fmtNumber(months === 999.99 ? 0 : months, 1)}
         </div>
-        <div style="font-size:1rem;color:var(--text-secondary);margin-bottom:16px">meses cubiertos</div>
+        <div class="text-muted mb-3" style="font-size:1rem">meses cubiertos</div>
         <div class="progress-wrap" style="margin:0 auto;max-width:240px;height:8px">
           <div class="progress-fill ${barClass}" style="width:${pct}%"></div>
         </div>
-        <div style="font-size:0.8rem;color:var(--text-soft);margin-top:8px">
+        <div class="text-soft mt-2" style="font-size:0.8rem">
           Meta: ${target} meses ${isGood ? '✓' : `(faltan ${fmtNumber(Math.max(0, target - months), 1)})`}
         </div>
       </div>
@@ -111,23 +115,23 @@ function renderSummary(months, totalFund, monthlyExp, currency, totalFund2, mont
     <div class="section-grid" style="grid-template-columns:1fr;gap:12px">
       <div class="kpi-card">
         <div class="kpi-label">Total Fondo de Emergencia</div>
-        <div class="kpi-value positive">${fmtCurrency(totalFund, currency)}</div>
+        <div class="kpi-value amount text-success">${fmtCurrency(totalFund, currency)}</div>
         ${renderDualCurrency(totalFund, currency, totalFund2, currency2)}
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Gasto Mensual Esencial</div>
-        <div class="kpi-value">${fmtCurrency(monthlyExp, currency)}</div>
+        <div class="kpi-value amount">${fmtCurrency(monthlyExp, currency)}</div>
         ${renderDualCurrency(monthlyExp, currency, monthlyExp2, currency2)}
       </div>
       ${!isGood
         ? `<div class="kpi-card">
             <div class="kpi-label">Falta para meta</div>
-            <div class="kpi-value negative">${fmtCurrency(missing, currency)}</div>
+            <div class="kpi-value amount text-danger">${fmtCurrency(missing, currency)}</div>
             ${renderDualCurrency(missing, currency, missing2, currency2)}
           </div>`
         : `<div class="kpi-card">
             <div class="kpi-label">Estado</div>
-            <div class="kpi-value positive" style="font-size:1rem">¡Fondo completo!</div>
+            <div class="kpi-value text-success" style="font-size:1rem">¡Fondo completo!</div>
           </div>`}
     </div>
   `;
@@ -146,18 +150,18 @@ function renderCategoryList(cats, flag) {
   }
 
   return Object.entries(byGroup).map(([group, groupCats]) => `
-    <div style="margin-bottom:16px">
-      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-soft);padding:10px 0 6px">${sanitize(group)}</div>
+    <div class="mb-3">
+      <div class="text-soft" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;padding:10px 0 6px">${sanitize(group)}</div>
       ${groupCats.map(cat => `
-        <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background 0.15s"
+        <label class="flex items-center gap-2" style="padding:6px 8px;border-radius:6px;cursor:pointer;transition:background 0.15s"
                onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
           <input type="checkbox"
                  data-ef-toggle
                  data-category-id="${cat.id}"
                  data-flag="${flag}"
                  ${cat[flag] ? 'checked' : ''}
-                 style="width:16px;height:16px;accent-color:var(--color-primary);cursor:pointer;flex-shrink:0">
-          <span style="font-size:0.875rem;color:var(--text-primary)">${sanitize(cat.name)}</span>
+                 style="width:16px;height:16px;accent-color:var(--fin-accent);cursor:pointer;flex-shrink:0">
+          <span style="font-size:0.875rem">${sanitize(cat.name)}</span>
         </label>
       `).join('')}
     </div>

@@ -69,6 +69,7 @@ function renderPage(forecast, upcoming, horizon, currency) {
   const negKpiLabel = daysNeg ? '⚠ Balance negativo' : 'Balance negativo';
 
   const upcomingEvents = (upcoming?.events ?? []).slice(0, 15);
+  const netFlow = summary?.net ?? 0;
 
   return `
     <div class="page-header">
@@ -76,7 +77,7 @@ function renderPage(forecast, upcoming, horizon, currency) {
         <h1 class="page-title">Flujo de Caja</h1>
         <p class="page-subtitle">Proyección de balance para los próximos ${horizon} días</p>
       </div>
-      <div class="page-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="page-actions flex gap-2 items-center" style="flex-wrap:wrap">
         <div class="btn-group">
           ${HORIZONS.map(h => `<button class="btn ${h===horizon?'btn-primary':'btn-ghost'} btn-sm" data-horizon="${h}">${h}d</button>`).join('')}
         </div>
@@ -89,39 +90,39 @@ function renderPage(forecast, upcoming, horizon, currency) {
     <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
       <div class="kpi-card">
         <div class="kpi-label">Balance Actual</div>
-        <div class="kpi-value">${fmt(starting_balance_cop)}</div>
+        <div class="kpi-value amount">${fmt(starting_balance_cop)}</div>
         <div class="kpi-sub">Cuentas de ahorro/corriente</div>
       </div>
       <div class="kpi-card ${balance30 < 0 ? 'danger' : ''}">
         <div class="kpi-label">En 30 días</div>
-        <div class="kpi-value">${fmt(balance30)}</div>
+        <div class="kpi-value amount ${balance30 < 0 ? 'text-danger' : ''}">${fmt(balance30)}</div>
       </div>
       <div class="kpi-card ${balance60 < 0 ? 'danger' : ''}">
         <div class="kpi-label">En 60 días</div>
-        <div class="kpi-value">${fmt(balance60)}</div>
+        <div class="kpi-value amount ${balance60 < 0 ? 'text-danger' : ''}">${fmt(balance60)}</div>
       </div>
       <div class="${negKpiClass}">
         <div class="kpi-label">${negKpiLabel}</div>
-        <div class="kpi-value">${negKpiVal}</div>
+        <div class="kpi-value ${daysNeg ? 'text-danger' : 'text-success'}">${negKpiVal}</div>
       </div>
     </div>
 
-    <div class="section-grid cols-3" style="margin-bottom:16px">
+    <div class="grid-3 mb-2">
       <div class="card" style="padding:12px 16px;text-align:center">
-        <div style="color:var(--color-success);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Ingresos proyectados</div>
-        <div style="font-size:18px;font-weight:600;font-family:monospace;margin-top:4px">${fmt(summary?.total_income ?? 0)}</div>
+        <div class="text-success" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Ingresos proyectados</div>
+        <div class="amount" style="font-size:18px;font-weight:600;margin-top:4px">${fmt(summary?.total_income ?? 0)}</div>
       </div>
       <div class="card" style="padding:12px 16px;text-align:center">
-        <div style="color:var(--color-danger);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Gastos proyectados</div>
-        <div style="font-size:18px;font-weight:600;font-family:monospace;margin-top:4px">${fmt(Math.abs(summary?.total_expense ?? 0))}</div>
+        <div class="text-danger" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Gastos proyectados</div>
+        <div class="amount" style="font-size:18px;font-weight:600;margin-top:4px">${fmt(Math.abs(summary?.total_expense ?? 0))}</div>
       </div>
       <div class="card" style="padding:12px 16px;text-align:center">
-        <div style="color:var(--color-text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Flujo neto</div>
-        <div style="font-size:18px;font-weight:600;font-family:monospace;margin-top:4px;color:${(summary?.net ?? 0) >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${fmt(summary?.net ?? 0)}</div>
+        <div class="text-muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em">Flujo neto</div>
+        <div class="amount ${netFlow >= 0 ? 'text-success' : 'text-danger'}" style="font-size:18px;font-weight:600;margin-top:4px">${fmt(netFlow)}</div>
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:24px">
+    <div class="card mb-3">
       <div class="card-header"><h3 class="card-title">Balance proyectado</h3></div>
       <div style="padding:16px">
         <canvas id="cashFlowChart" style="width:100%;height:280px"></canvas>
@@ -131,19 +132,20 @@ function renderPage(forecast, upcoming, horizon, currency) {
     <div class="card">
       <div class="card-header"><h3 class="card-title">Próximos eventos (14 días)</h3></div>
       ${upcomingEvents.length === 0
-        ? '<div style="padding:24px;text-align:center;color:var(--color-text-muted)">No hay eventos próximos</div>'
-        : `<div style="overflow-x:auto"><table class="data-table">
+        ? '<div class="empty-state" style="padding:24px">No hay eventos próximos</div>'
+        : `<div style="overflow-x:auto"><table class="fin-table">
             <thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th style="text-align:right">Monto</th></tr></thead>
             <tbody>
               ${upcomingEvents.map(ev => {
                 const isIncome = ev.type === 'income';
                 const badge = ev.type === 'debt_payment' ? 'badge-warning' : isIncome ? 'badge-success' : 'badge-danger';
                 const label = ev.type === 'debt_payment' ? 'Deuda' : isIncome ? 'Ingreso' : 'Gasto';
+                const amtCls = isIncome ? 'text-success' : 'text-danger';
                 return `<tr>
-                  <td style="white-space:nowrap">${ev.date}</td>
+                  <td style="white-space:nowrap">${sanitize(ev.date)}</td>
                   <td>${sanitize(ev.label)}</td>
                   <td><span class="badge ${badge}">${label}</span></td>
-                  <td style="text-align:right;font-family:monospace;color:${isIncome ? 'var(--color-success)' : 'var(--color-danger)'}">
+                  <td class="text-right amount ${amtCls}">
                     ${isIncome ? '+' : '-'}${fmt(Math.abs(ev.amount_cop ?? ev.amount_signed ?? 0))}
                   </td>
                 </tr>`;
@@ -164,6 +166,10 @@ function renderChart(container, forecast) {
   const labels = forecast.daily_balance.map(d => d.date.slice(5));
   const data   = forecast.daily_balance.map(d => d.balance);
 
+  // Use CHART_PALETTE accent or fall back to blue
+  const palette = window.CHART_PALETTE ?? [];
+  const lineColor = palette[0] ?? '#3b82f6';
+
   function doRender(Chart) {
     new Chart(canvas, {
       type: 'line',
@@ -172,8 +178,10 @@ function renderChart(container, forecast) {
         datasets: [{
           label: 'Balance COP',
           data,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59,130,246,0.08)',
+          borderColor: lineColor,
+          backgroundColor: lineColor.startsWith('#')
+            ? lineColor + '14'
+            : 'rgba(59,130,246,0.08)',
           borderWidth: 2,
           pointRadius: 0,
           tension: 0.3,
@@ -194,12 +202,12 @@ function renderChart(container, forecast) {
         },
         scales: {
           x: {
-            ticks: { color: '#94a3b8', maxTicksLimit: 10, font: { size: 11 } },
+            ticks: { color: 'var(--fin-ink-3)', maxTicksLimit: 10, font: { size: 11 } },
             grid: { color: 'rgba(148,163,184,0.08)' },
           },
           y: {
             ticks: {
-              color: '#94a3b8',
+              color: 'var(--fin-ink-3)',
               font: { size: 11 },
               callback: v => new Intl.NumberFormat('es-CO', { notation: 'compact', currency: 'COP', style: 'currency', maximumFractionDigits: 0 }).format(v),
             },

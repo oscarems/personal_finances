@@ -41,22 +41,22 @@ function render(container, summary, assets) {
       </div>
     </div>
 
-    <div class="kpi-grid" style="margin-bottom:24px">
+    <div class="kpi-grid mb-3">
       <div class="kpi-card">
         <div class="kpi-label">Patrimonio Neto</div>
-        <div class="kpi-value ${netWorth >= 0 ? 'positive' : 'negative'}">${fmtCurrency(netWorth, 'COP')}</div>
+        <div class="kpi-value ${netWorth >= 0 ? 'positive' : 'negative'} amount">${fmtCurrency(netWorth, 'COP')}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Total Activos</div>
-        <div class="kpi-value positive">${fmtCurrency(totalAssets, 'COP')}</div>
+        <div class="kpi-value text-success amount">${fmtCurrency(totalAssets, 'COP')}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Total Pasivos</div>
-        <div class="kpi-value negative">${fmtCurrency(totalDebt, 'COP')}</div>
+        <div class="kpi-value text-danger amount">${fmtCurrency(totalDebt, 'COP')}</div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 300px;gap:20px;margin-bottom:24px">
+    <div class="grid-2 mb-3">
       <div class="card">
         <div class="card-header"><span class="card-title">Activos</span></div>
         <div class="card-body">
@@ -64,7 +64,7 @@ function render(container, summary, assets) {
           ${displayAssets.length === 0 ? `<div class="empty-state"><p>Sin activos registrados</p></div>` : ''}
         </div>
       </div>
-      <div class="card">
+      <div class="card" style="max-width:300px">
         <div class="card-header"><span class="card-title">Composición</span></div>
         <div class="card-body" style="height:260px;position:relative">
           <canvas id="patriChart"></canvas>
@@ -86,7 +86,7 @@ function render(container, summary, assets) {
   // Pie chart
   const ctx = container.querySelector('#patriChart');
   if (ctx && displayAssets.length) {
-    const COLORS = ['#D97706','#059669','#0891B2','#7C3AED','#DB2777','#EA580C'];
+    const COLORS = window.CHART_PALETTE ?? ['#D97706','#059669','#0891B2','#7C3AED','#DB2777','#EA580C'];
     const data = Object.entries(categories).map(([cat, list], i) => ({
       label: cat,
       value: list.reduce((s, a) => s + (a.valor_actual ?? a.valor_adquisicion ?? 0), 0),
@@ -98,12 +98,12 @@ function render(container, summary, assets) {
       type: 'doughnut',
       data: {
         labels: data.map(d => d.label),
-        datasets: [{ data: data.map(d => d.value), backgroundColor: data.map(d => d.color), borderWidth: 2, borderColor: 'var(--bg-surface)' }],
+        datasets: [{ data: data.map(d => d.value), backgroundColor: data.map(d => d.color), borderWidth: 2, borderColor: 'var(--fin-surface)' }],
       },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 10 }, color: 'var(--text-secondary)', padding: 8 } },
+          legend: { position: 'bottom', labels: { font: { size: 10 }, color: 'var(--fin-ink-3)', padding: 8 } },
           tooltip: { callbacks: { label: ctx => ` ${fmtCurrency(ctx.raw, 'COP')}` } },
         },
       },
@@ -122,23 +122,23 @@ function groupByTipo(assets) {
 function categorySection(cat, list) {
   const total = list.reduce((s, a) => s + (a.valor_actual ?? a.valor_adquisicion ?? 0), 0);
   return `
-    <div style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft)">${sanitize(cat)}</span>
-        <span style="font-family:var(--font-mono);font-size:0.8125rem;color:var(--text-secondary)">${fmtCurrency(total, 'COP')}</span>
+    <div class="mb-3">
+      <div class="flex justify-between mb-1">
+        <span class="text-soft" style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">${sanitize(cat)}</span>
+        <span class="amount text-muted" style="font-size:0.8125rem">${fmtCurrency(total, 'COP')}</span>
       </div>
       ${list.map(a => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-muted)">
+        <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--fin-border)">
           <div>
             <div style="font-size:0.8125rem;font-weight:500">${sanitize(a.nombre)}</div>
-            ${a.notas ? `<div style="font-size:0.72rem;color:var(--text-soft)">${sanitize(a.notas)}</div>` : ''}
+            ${a.notas ? `<div class="text-soft" style="font-size:0.72rem">${sanitize(a.notas)}</div>` : ''}
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="amount positive" style="font-size:0.8125rem">
+          <div class="flex items-center gap-2">
+            <span class="amount text-success" style="font-size:0.8125rem">
               ${fmtCurrency(a.valor_actual ?? a.valor_adquisicion ?? 0, a.currency?.code ?? 'COP')}
             </span>
             <button class="btn btn-ghost btn-xs" data-edit-asset="${a.id}">✏</button>
-            <button class="btn btn-ghost btn-xs" style="color:var(--color-danger)" data-delete-asset="${a.id}">✕</button>
+            <button class="btn btn-ghost btn-xs text-danger" data-delete-asset="${a.id}">✕</button>
           </div>
         </div>`).join('')}
     </div>`;
@@ -150,7 +150,7 @@ function assetFormHtml(asset) {
   const currencyIdMap = { COP: 1, USD: 2 };
   const currCode = a.currency?.code ?? 'COP';
   return `
-    <div class="form-group" style="margin-bottom:16px">
+    <div class="form-group mb-3">
       <label class="form-label required">Nombre</label>
       <input type="text" id="af-nombre" value="${sanitize(a.nombre ?? '')}" placeholder="Ej: Apartamento, Auto">
     </div>

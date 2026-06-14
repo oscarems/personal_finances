@@ -77,7 +77,7 @@ function summaryBanner(accounts) {
       ${Object.entries(byCurrency).map(([cur, total]) => `
         <div class="stat-chip">
           <span class="stat-chip-label">Balance ${cur}</span>
-          <span class="stat-chip-value" style="color:${total >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">
+          <span class="stat-chip-value amount ${total >= 0 ? 'text-success' : 'text-danger'}">
             ${fmtCurrency(total, cur)}
           </span>
         </div>
@@ -91,8 +91,8 @@ function summaryBanner(accounts) {
 
 function accountGroup(type, accounts) {
   return `
-    <div style="margin-bottom:24px">
-      <h3 style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin:0 0 12px;font-weight:600">
+    <div class="mb-3">
+      <h3 class="text-soft" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 12px;font-weight:600">
         ${accountTypeIcon(type)} ${accountTypeLabel(type)}
       </h3>
       <div class="section-grid cols-auto">
@@ -104,7 +104,7 @@ function accountGroup(type, accounts) {
 function accountCard(a) {
   const isDebt = ['credit_card','credit_loan','mortgage'].includes(a.type);
   const balance = a.balance ?? 0;
-  const balanceClass = isDebt ? 'negative' : balance >= 0 ? 'positive' : 'negative';
+  const balanceClass = isDebt ? 'text-danger' : balance >= 0 ? 'text-success' : 'text-danger';
   const currCode = a.currency?.code ?? 'COP';
 
   let utilization = '';
@@ -113,16 +113,16 @@ function accountCard(a) {
     const pct  = Math.min(100, (used / a.credit_limit) * 100);
     const cls  = pct >= 80 ? 'danger' : pct >= 50 ? 'warning' : 'ok';
     utilization = `
-      <div style="margin-top:12px">
-        <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-soft);margin-bottom:4px">
-          <span>Utilización</span>
-          <span>${pct.toFixed(0)}%</span>
+      <div class="mt-2">
+        <div class="flex justify-between mt-1 mb-1" style="font-size:0.72rem">
+          <span class="text-soft">Utilización</span>
+          <span class="text-soft">${pct.toFixed(0)}%</span>
         </div>
         <div class="progress-wrap">
           <div class="progress-fill ${cls}" style="width:${pct}%"></div>
         </div>
-        <div style="font-size:0.72rem;color:var(--text-soft);margin-top:4px">
-          Cupo: ${fmtCurrency(a.credit_limit, currCode)}
+        <div class="text-soft mt-1" style="font-size:0.72rem">
+          Cupo: <span class="amount">${fmtCurrency(a.credit_limit, currCode)}</span>
         </div>
       </div>`;
   }
@@ -130,10 +130,10 @@ function accountCard(a) {
   return `
     <div class="card" style="padding:0">
       <div style="padding:16px 20px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div class="flex justify-between items-center mb-2">
           <div>
             <div style="font-weight:600;font-size:0.9375rem">${sanitize(a.name)}</div>
-            <div style="font-size:0.75rem;color:var(--text-soft)">${sanitize(a.country ?? '')}</div>
+            <div class="text-soft" style="font-size:0.75rem">${sanitize(a.country ?? '')}</div>
           </div>
           <span class="badge badge-neutral" style="font-size:0.65rem">${currCode}</span>
         </div>
@@ -142,11 +142,11 @@ function accountCard(a) {
         </div>
         ${utilization}
         ${a.notes ? `
-          <div style="font-size:0.72rem;color:var(--text-soft);margin-top:8px;font-style:italic">
+          <div class="text-soft mt-2" style="font-size:0.72rem;font-style:italic">
             ${sanitize(a.notes)}
           </div>` : ''}
       </div>
-      <div style="display:flex;gap:8px;padding:10px 20px;border-top:1px solid var(--border-muted);background:var(--bg-surface-muted)">
+      <div class="flex gap-1" style="padding:10px 20px;border-top:1px solid var(--fin-border);background:var(--fin-surface-2)">
         <button class="btn btn-ghost btn-xs" data-adjust-account="${a.id}">Ajustar saldo</button>
         <button class="btn btn-ghost btn-xs" data-edit-account="${a.id}">Editar</button>
       </div>
@@ -265,13 +265,13 @@ function openAdjustModal(acct, container) {
     title: `Ajustar saldo: ${acct.name}`,
     size: 'sm',
     content: `
-      <div class="form-group" style="margin-bottom:16px">
+      <div class="form-group mb-3">
         <label class="form-label">Saldo actual registrado</label>
-        <div style="font-family:var(--font-mono);font-size:1.125rem;font-weight:600;padding:8px 0;color:var(--text-primary)">
+        <div class="amount" style="font-size:1.125rem;font-weight:600;padding:8px 0">
           ${fmtCurrency(acct.balance ?? 0, acct.currency?.code ?? 'COP')}
         </div>
       </div>
-      <div class="form-group" style="margin-bottom:16px">
+      <div class="form-group mb-3">
         <label class="form-label required">Saldo real del extracto</label>
         <input type="number" id="adj-balance" value="${acct.balance ?? ''}" step="0.01">
       </div>

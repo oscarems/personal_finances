@@ -39,29 +39,54 @@ async function loadFireDashboard() {
     const retiroSeguro = patrimonio * 0.04;
     const gap = Math.max(0, objetivo - patrimonio);
 
-    setText('valPatrimonio', formatCurrency(patrimonio, currency));
-    setText('valGastos', formatCurrency(gastosAnuales, currency));
-    setText('valIngreso', formatCurrency(ingresoPasivo, currency));
-    setText('valRatio', `${ratioFire.toFixed(2)}×`);
+    // KPI amounts — add .amount class via element update
+    const patrimonioEl = document.getElementById('valPatrimonio');
+    if (patrimonioEl) { patrimonioEl.textContent = formatCurrency(patrimonio, currency); patrimonioEl.classList.add('amount'); }
+
+    const gastosEl = document.getElementById('valGastos');
+    if (gastosEl) { gastosEl.textContent = formatCurrency(gastosAnuales, currency); gastosEl.classList.add('amount'); }
+
+    const ingresoEl = document.getElementById('valIngreso');
+    if (ingresoEl) { ingresoEl.textContent = formatCurrency(ingresoPasivo, currency); ingresoEl.classList.add('amount'); }
+
+    const ratioEl = document.getElementById('valRatio');
+    if (ratioEl) {
+      ratioEl.textContent = `${ratioFire.toFixed(2)}×`;
+      ratioEl.classList.add('amount');
+      ratioEl.classList.remove('text-success', 'text-danger', 'text-warning');
+      ratioEl.classList.add(ratioFire >= 1 ? 'text-success' : '');
+    }
 
     const aniosEl = document.getElementById('valAnios');
     if (aniosEl) {
+      aniosEl.classList.remove('text-success', 'text-danger', 'text-warning');
       if (ratioFire >= 1) {
         aniosEl.textContent = '¡Independencia alcanzada!';
-        aniosEl.style.color = 'var(--color-success)';
+        aniosEl.classList.add('text-success');
       } else if (aniosRestantes !== null && aniosRestantes < 999) {
-        aniosEl.textContent = `~${Math.ceil(aniosRestantes)} años restantes`;
+        const yr = Math.ceil(aniosRestantes);
+        aniosEl.textContent = `~${yr} años restantes`;
+        if (yr > 20)       aniosEl.classList.add('text-danger');
+        else if (yr >= 10) aniosEl.classList.add('text-warning');
+        else               aniosEl.classList.add('text-success');
       } else {
         aniosEl.textContent = 'Años estimados';
       }
     }
 
-    setText('targetFire', formatCurrency(objetivo, currency));
-    setText('safeWithdrawal', formatCurrency(retiroSeguro, currency));
-    setText('fireGap', gap > 0 ? `–${formatCurrency(gap, currency)}` : '¡Objetivo alcanzado!');
+    const targetEl = document.getElementById('targetFire');
+    if (targetEl) { targetEl.textContent = formatCurrency(objetivo, currency); targetEl.classList.add('amount'); }
+
+    const retiroEl = document.getElementById('safeWithdrawal');
+    if (retiroEl) { retiroEl.textContent = formatCurrency(retiroSeguro, currency); retiroEl.classList.add('amount'); }
 
     const gapEl = document.getElementById('fireGap');
-    if (gapEl) gapEl.style.color = gap > 0 ? 'var(--color-danger)' : 'var(--color-success)';
+    if (gapEl) {
+      gapEl.textContent = gap > 0 ? `–${formatCurrency(gap, currency)}` : '¡Objetivo alcanzado!';
+      gapEl.classList.add('amount');
+      gapEl.classList.remove('text-success', 'text-danger');
+      gapEl.classList.add(gap > 0 ? 'text-danger' : 'text-success');
+    }
 
     renderStatusBadge(ratioFire);
     renderGauge(pct);
@@ -79,26 +104,32 @@ function renderStatusBadge(ratio) {
   const desc = document.getElementById('fireStatusDesc');
   if (!badge) return;
 
-  let label, color, bg, borderColor, description;
+  let label, colorToken, description;
 
   if (ratio >= 1.0) {
-    label = 'Independencia alcanzada'; color = '#245740'; bg = 'rgba(45,106,79,0.09)'; borderColor = 'rgba(45,106,79,0.22)';
+    label = 'Independencia alcanzada';
+    colorToken = 'text-success';
     description = 'Has alcanzado la independencia financiera. Tu patrimonio puede sostener tus gastos indefinidamente.';
   } else if (ratio >= 0.75) {
-    label = 'Muy cerca'; color = '#245740'; bg = 'rgba(45,106,79,0.07)'; borderColor = 'rgba(45,106,79,0.18)';
+    label = 'Muy cerca';
+    colorToken = 'text-success';
     description = 'Estás en la recta final. Mantén el ritmo y llegarás pronto a tu objetivo FIRE.';
   } else if (ratio >= 0.5) {
-    label = 'En camino'; color = '#9D5417'; bg = 'rgba(183,98,26,0.08)'; borderColor = 'rgba(183,98,26,0.20)';
+    label = 'En camino';
+    colorToken = 'text-warning';
     description = 'Buen progreso. Has recorrido más de la mitad del camino hacia la independencia financiera.';
   } else if (ratio >= 0.25) {
-    label = 'Iniciando'; color = '#B7621A'; bg = 'rgba(183,98,26,0.06)'; borderColor = 'rgba(183,98,26,0.16)';
+    label = 'Iniciando';
+    colorToken = 'text-warning';
     description = 'Estás construyendo tu base. Cada ahorro te acerca más a tu libertad financiera.';
   } else {
-    label = 'Comenzando'; color = '#6B6560'; bg = 'rgba(107,101,96,0.07)'; borderColor = 'rgba(107,101,96,0.18)';
+    label = 'Comenzando';
+    colorToken = 'text-muted';
     description = 'El viaje FIRE comienza con el primer paso. Define tu objetivo y empieza a invertir consistentemente.';
   }
 
-  badge.style.cssText = `display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;padding:4px 12px;border-radius:100px;background:${bg};border:0.5px solid ${borderColor};color:${color}`;
+  badge.className = `badge ${colorToken}`;
+  badge.style.cssText = 'display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;padding:4px 12px;border-radius:100px;border:0.5px solid var(--fin-border)';
   badge.textContent = label;
 
   if (desc) desc.textContent = description;
@@ -121,7 +152,7 @@ function renderGauge(pct) {
 
   ctx.clearRect(0, 0, W, H);
 
-  const trackColor = getComputedStyle(document.documentElement).getPropertyValue('--border-muted').trim() || 'rgba(26,23,20,0.10)';
+  const trackColor = getComputedStyle(document.documentElement).getPropertyValue('--fin-border').trim() || 'rgba(26,23,20,0.10)';
   ctx.beginPath();
   ctx.arc(cx, cy, r, startAngle, endAngle);
   ctx.lineWidth = 18;
@@ -130,7 +161,12 @@ function renderGauge(pct) {
   ctx.stroke();
 
   if (pct > 0) {
-    const fillColor = pct >= 100 ? '#2D6A4F' : pct >= 75 ? '#2D6A4F' : pct >= 50 ? '#B7621A' : pct >= 25 ? '#B7621A' : '#6B6560';
+    // Map pct ranges to CSS token colours via getComputedStyle
+    const root = getComputedStyle(document.documentElement);
+    const successColor = root.getPropertyValue('--fin-success').trim() || '#2D6A4F';
+    const amberColor   = root.getPropertyValue('--fin-amber').trim()   || '#B7621A';
+    const mutedColor   = root.getPropertyValue('--fin-ink-3').trim()   || '#6B6560';
+    const fillColor = pct >= 75 ? successColor : pct >= 25 ? amberColor : mutedColor;
     ctx.beginPath();
     ctx.arc(cx, cy, r, startAngle, fillAngle);
     ctx.lineWidth = 18;

@@ -14,39 +14,39 @@ export async function mount(container) {
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:340px 1fr;gap:24px">
+    <div class="grid-2" style="grid-template-columns:340px 1fr;gap:24px">
       <div class="card">
         <div class="card-header"><span class="card-title">Parámetros</span></div>
         <div class="card-body">
-          <div class="form-group" style="margin-bottom:16px">
+          <div class="form-group mb-3">
             <label class="form-label required">Capital inicial</label>
             <input type="number" id="inv-initial" value="10000000" step="100000" min="0">
           </div>
-          <div class="form-group" style="margin-bottom:16px">
+          <div class="form-group mb-3">
             <label class="form-label">Aporte mensual</label>
             <input type="number" id="inv-monthly" value="500000" step="50000" min="0">
           </div>
-          <div class="form-group" style="margin-bottom:16px">
+          <div class="form-group mb-3">
             <label class="form-label required">Tasa de retorno anual (%)</label>
             <input type="number" id="inv-rate" value="12" step="0.5" min="0" max="100">
           </div>
-          <div class="form-group" style="margin-bottom:16px">
+          <div class="form-group mb-3">
             <label class="form-label required">Plazo (años)</label>
             <input type="number" id="inv-years" value="10" step="1" min="1" max="50">
           </div>
-          <div class="form-group" style="margin-bottom:20px">
+          <div class="form-group mb-4">
             <label class="form-label">Moneda</label>
             <select id="inv-currency">
               <option value="COP">COP</option>
               <option value="USD">USD</option>
             </select>
           </div>
-          <button class="btn btn-primary" style="width:100%" id="btnSimulate">Simular</button>
+          <button class="btn btn-primary w-full" id="btnSimulate">Simular</button>
         </div>
       </div>
 
       <div>
-        <div class="kpi-grid" id="inv-kpis" style="margin-bottom:20px"></div>
+        <div class="kpi-grid mb-3" id="inv-kpis"></div>
         <div class="card">
           <div class="card-header"><span class="card-title">Proyección de crecimiento</span></div>
           <div class="card-body" style="height:300px;position:relative">
@@ -89,23 +89,25 @@ function simulate(container) {
   const totalGain    = finalBalance - totalInvested;
   const roi          = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
 
+  const palette = window.CHART_PALETTE ?? ['#60A5FA','#34D399','#FBBF24','#F87171','#A78BFA','#22D3EE'];
+
   const kpisEl = container.querySelector('#inv-kpis');
   kpisEl.innerHTML = `
     <div class="kpi-card">
       <div class="kpi-label">Valor final</div>
-      <div class="kpi-value positive">${fmtCurrency(finalBalance, currency)}</div>
+      <div class="kpi-value amount text-success">${fmtCurrency(finalBalance, currency)}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Total invertido</div>
-      <div class="kpi-value">${fmtCurrency(totalInvested, currency)}</div>
+      <div class="kpi-value amount">${fmtCurrency(totalInvested, currency)}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Ganancia total</div>
-      <div class="kpi-value positive">${fmtCurrency(totalGain, currency)}</div>
+      <div class="kpi-value amount text-success">${fmtCurrency(totalGain, currency)}</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Retorno total</div>
-      <div class="kpi-value accent">${roi.toFixed(1)}%</div>
+      <div class="kpi-value amount accent">${roi.toFixed(1)}%</div>
     </div>
   `;
 
@@ -119,15 +121,15 @@ function simulate(container) {
         {
           label: 'Valor de la inversión',
           data: data.map(d => d.balance),
-          borderColor: 'var(--color-success)',
-          backgroundColor: 'rgba(5,150,105,0.1)',
+          borderColor: palette[1],
+          backgroundColor: palette[1] + '1a',
           fill: true, tension: 0.4,
         },
         {
           label: 'Total invertido',
           data: data.map(d => d.invested),
-          borderColor: 'var(--color-primary)',
-          backgroundColor: 'rgba(217,119,6,0.08)',
+          borderColor: palette[0],
+          backgroundColor: palette[0] + '14',
           fill: true, tension: 0.4,
           borderDash: [5, 5],
         },
@@ -140,7 +142,7 @@ function simulate(container) {
         tooltip: { callbacks: { label: ctx => ` ${fmtCurrency(ctx.raw, currency)}` } },
       },
       scales: {
-        y: { grid: { color: 'var(--border-muted)' }, ticks: { callback: v => fmtCurrency(v, currency), font: { size: 10 }, color: 'var(--text-soft)' } },
+        y: { grid: { color: 'var(--fin-border)' }, ticks: { callback: v => fmtCurrency(v, currency), font: { size: 10 }, color: 'var(--text-soft)' } },
         x: { grid: { display: false }, ticks: { color: 'var(--text-soft)', font: { size: 10 } } },
       },
     },

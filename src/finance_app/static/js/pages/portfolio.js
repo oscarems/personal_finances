@@ -18,9 +18,6 @@ const TIPO_LABELS = {
 const CLASE_LABELS = {
   renta_variable: 'Renta Variable', renta_fija: 'Renta Fija', liquidez: 'Liquidez', alternativo: 'Alternativo',
 };
-const CLASE_COLORS = {
-  renta_variable: '#2D6A4F', renta_fija: '#3d5a80', liquidez: '#B7621A', alternativo: '#6B6560',
-};
 
 function formatCurrency(value, moneda) {
   return fmtCurrency(value, moneda || 'COP');
@@ -28,8 +25,8 @@ function formatCurrency(value, moneda) {
 
 function formatPct(value) {
   const n = value ?? 0;
-  const cls = n >= 0 ? 'pf-positive' : 'pf-negative';
-  return `<span class="${cls}">${n >= 0 ? '+' : ''}${n.toFixed(2)}%</span>`;
+  const cls = n >= 0 ? 'text-success' : 'text-danger';
+  return `<span class="${cls} amount">${n >= 0 ? '+' : ''}${n.toFixed(2)}%</span>`;
 }
 
 async function loadAssets() {
@@ -40,7 +37,7 @@ async function loadAssets() {
     loadAllocation();
   } catch (err) {
     const tbody = document.getElementById('assetsTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--color-danger);font-size:13px">${err.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-danger" style="text-align:center;padding:32px;font-size:13px">${sanitize(err.message)}</td></tr>`;
   }
 }
 
@@ -57,30 +54,26 @@ function renderKpis() {
   const ganancia = totalValor - totalCosto;
   const retorno = totalCosto > 0 ? (ganancia / totalCosto) * 100 : 0;
   const moneda = allAssets[0]?.currency ?? allAssets[0]?.moneda ?? 'COP';
-  const gClass = ganancia >= 0 ? 'pf-positive' : 'pf-negative';
+  const gClass = ganancia >= 0 ? 'text-success' : 'text-danger';
 
   container.innerHTML = `
     <div class="card p-5">
-      <div class="pf-kpi-label">Valor Total</div>
-      <div class="pf-kpi-value" style="font-family:var(--font-mono);font-size:1.2rem;font-weight:600;color:var(--text-primary)">${formatCurrency(totalValor, moneda)}</div>
+      <div class="pf-kpi-label kpi-label">Valor Total</div>
+      <div class="pf-kpi-value amount" style="font-size:1.2rem;font-weight:600;color:var(--fin-ink)">${formatCurrency(totalValor, moneda)}</div>
     </div>
     <div class="card p-5">
-      <div class="pf-kpi-label">Costo Base</div>
-      <div class="pf-kpi-value" style="font-family:var(--font-mono);font-size:1.2rem;font-weight:600;color:var(--text-secondary)">${formatCurrency(totalCosto, moneda)}</div>
+      <div class="pf-kpi-label kpi-label">Costo Base</div>
+      <div class="pf-kpi-value amount text-muted" style="font-size:1.2rem;font-weight:600">${formatCurrency(totalCosto, moneda)}</div>
     </div>
     <div class="card p-5">
-      <div class="pf-kpi-label">Ganancia / Pérdida</div>
-      <div class="pf-kpi-value ${gClass}" style="font-family:var(--font-mono);font-size:1.2rem;font-weight:600">${formatCurrency(ganancia, moneda)}</div>
+      <div class="pf-kpi-label kpi-label">Ganancia / Pérdida</div>
+      <div class="pf-kpi-value amount ${gClass}" style="font-size:1.2rem;font-weight:600">${formatCurrency(ganancia, moneda)}</div>
     </div>
     <div class="card p-5">
-      <div class="pf-kpi-label">Retorno</div>
-      <div style="font-family:var(--font-mono);font-size:1.2rem;font-weight:600">${formatPct(retorno)}</div>
+      <div class="pf-kpi-label kpi-label">Retorno</div>
+      <div style="font-size:1.2rem;font-weight:600">${formatPct(retorno)}</div>
     </div>
   `;
-
-  container.querySelectorAll('.pf-kpi-label').forEach(el => {
-    el.style.cssText = 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-soft);margin-bottom:6px';
-  });
 }
 
 function renderTable(assets) {
@@ -91,8 +84,8 @@ function renderTable(assets) {
   if (count) count.textContent = `${assets.length} activo${assets.length !== 1 ? 's' : ''}`;
 
   if (!assets.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-soft);font-size:13px">
-      <div style="margin-bottom:8px">📊</div>
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state" style="padding:40px">
+      <div>📊</div>
       <div>Sin activos registrados</div>
     </td></tr>`;
     return;
@@ -110,16 +103,17 @@ function renderTable(assets) {
     const tipo = a.asset_type ?? a.tipo ?? '';
     const simbolo = a.symbol ?? a.simbolo ?? '—';
     const nombre = a.name ?? a.nombre ?? '—';
+    const ganCls = ganancia >= 0 ? 'text-success' : 'text-danger';
 
     return `<tr>
       <td class="pf-symbol">${sanitize(simbolo)}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${sanitize(nombre)}</td>
       <td><span class="pf-badge">${TIPO_LABELS[tipo] ?? sanitize(tipo)}</span></td>
-      <td class="text-right">${fmtNumber(unidades, 4)}</td>
-      <td class="text-right">${formatCurrency(precioCompra, moneda)}</td>
-      <td class="text-right">${formatCurrency(precioActual, moneda)}</td>
-      <td class="text-right" style="font-weight:600">${formatCurrency(valorActual, moneda)}</td>
-      <td class="text-right ${ganancia >= 0 ? 'pf-positive' : 'pf-negative'}">${formatCurrency(ganancia, moneda)}</td>
+      <td class="text-right amount">${fmtNumber(unidades, 4)}</td>
+      <td class="text-right amount">${formatCurrency(precioCompra, moneda)}</td>
+      <td class="text-right amount">${formatCurrency(precioActual, moneda)}</td>
+      <td class="text-right amount" style="font-weight:600">${formatCurrency(valorActual, moneda)}</td>
+      <td class="text-right amount ${ganCls}">${formatCurrency(ganancia, moneda)}</td>
       <td class="text-right">${formatPct(retorno)}</td>
       <td>
         <button class="pf-action-btn" onclick="openPriceModal(${a.id}, '${sanitize(simbolo)}')">Precio</button>
@@ -140,17 +134,21 @@ function loadAllocation() {
     return;
   }
 
+  const palette = window.CHART_PALETTE ?? ['#2D6A4F','#3d5a80','#B7621A','#6B6560','#D97706','#0891B2'];
+
   const byClase = {};
+  const claseOrder = [];
   for (const a of allAssets) {
     const clase = a.asset_class ?? a.clase ?? 'otro';
     const val = a.current_value ?? ((a.units ?? a.unidades ?? 0) * (a.current_price ?? a.precio_actual ?? a.purchase_price ?? a.precio_compra ?? 0));
-    byClase[clase] = (byClase[clase] ?? 0) + val;
+    if (!byClase[clase]) { byClase[clase] = 0; claseOrder.push(clase); }
+    byClase[clase] += val;
   }
 
-  const labels = Object.keys(byClase).map(k => CLASE_LABELS[k] ?? k);
-  const data = Object.values(byClase);
+  const labels = claseOrder.map(k => CLASE_LABELS[k] ?? k);
+  const data = claseOrder.map(k => byClase[k]);
   const total = data.reduce((s, v) => s + v, 0);
-  const colors = Object.keys(byClase).map(k => CLASE_COLORS[k] ?? '#A09890');
+  const colors = claseOrder.map((_, i) => palette[i % palette.length]);
 
   if (allocationChart) allocationChart.destroy();
 
@@ -175,15 +173,16 @@ function loadAllocation() {
   });
 
   if (legendEl) {
-    legendEl.innerHTML = Object.entries(byClase).map(([clase, val]) => {
+    legendEl.innerHTML = claseOrder.map((clase, i) => {
+      const val = byClase[clase];
       const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-      const color = CLASE_COLORS[clase] ?? '#A09890';
-      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div style="display:flex;align-items:center;gap:6px">
+      const color = colors[i];
+      return `<div class="flex justify-between items-center gap-2">
+        <div class="flex items-center gap-1">
           <span style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0"></span>
-          <span style="font-size:12px;color:var(--text-secondary)">${CLASE_LABELS[clase] ?? clase}</span>
+          <span class="text-muted" style="font-size:12px">${CLASE_LABELS[clase] ?? clase}</span>
         </div>
-        <span style="font-size:11px;font-family:var(--font-mono);color:var(--text-soft)">${pct}%</span>
+        <span class="amount text-soft" style="font-size:11px">${pct}%</span>
       </div>`;
     }).join('');
   }

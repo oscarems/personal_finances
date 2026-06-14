@@ -14,6 +14,139 @@ let _defaultModel = '';
 let _bulkMode = false;
 let _selectedIds = new Set();
 
+// ---------------------------------------------------------------------------
+// Page-scoped styles (injected once)
+// ---------------------------------------------------------------------------
+
+const _CSS = `
+.gi-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.gi-filter-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.gi-filter-bar .form-group { margin: 0; }
+.gi-filter-bar .fg-date  { flex: 1; min-width: 140px; }
+.gi-filter-bar .fg-max   { width: 90px; }
+.gi-filter-bar .fg-model { flex: 1; min-width: 160px; }
+.gi-bulk-toolbar {
+  display: none; margin-bottom: 8px; padding: 10px 14px;
+  background: var(--fin-surface-2); border-radius: var(--fin-radius);
+  border: 1px solid var(--fin-accent); align-items: center;
+  gap: 10px; flex-wrap: wrap;
+}
+.gi-bulk-toolbar.is-active { display: flex; }
+.gi-bulk-count { font-size: 0.8rem; min-width: 100px; }
+.gi-list-meta  { font-size: 0.75rem; margin-bottom: 8px; padding: 0 4px; }
+.gi-email-row  {
+  padding: 12px 16px; border-bottom: 1px solid var(--fin-border);
+  transition: background 0.15s;
+}
+.gi-email-row.is-selected { background: var(--fin-surface-2); }
+.gi-email-subject {
+  font-size: 0.8125rem; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gi-email-meta  { font-size: 0.72rem; margin-top: 2px; }
+.gi-email-preview {
+  font-size: 0.7rem; margin-top: 4px;
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.gi-email-actions { display: flex; gap: 6px; margin-top: 6px; }
+.gi-email-actions.is-done { margin-top: 4px; }
+.gi-bulk-check { margin-right: 8px; cursor: pointer; flex-shrink: 0; accent-color: var(--fin-accent); }
+.gi-badge { font-size: 0.65rem; }
+.gi-btn-preview { font-size: 0.7rem; padding: 2px 7px; opacity: 0.7; }
+.gi-btn-reprocess { font-size: 0.7rem; padding: 2px 8px; }
+.gi-btn-sm-action { font-size: 0.75rem; padding: 4px 10px; }
+.gi-progress-wrap { text-align: center; padding: 8px 0; }
+.gi-progress-subject {
+  font-size: 0.78rem; margin-bottom: 16px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 280px; margin-left: auto; margin-right: auto;
+}
+.gi-progress-track { background: var(--fin-border); border-radius: 999px; height: 6px; overflow: hidden; }
+.gi-progress-fill  { background: var(--fin-accent); height: 100%; transition: width 0.3s; }
+.gi-progress-pct   { font-size: 0.72rem; margin-top: 8px; }
+.gi-preview-meta   { margin-bottom: 12px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 4px; }
+.gi-preview-body   {
+  white-space: pre-wrap; word-break: break-word; font-size: 0.78rem;
+  line-height: 1.6; max-height: 420px; overflow-y: auto;
+  background: var(--fin-bg, #0f172a); padding: 12px;
+  border-radius: var(--fin-radius); border: 1px solid var(--fin-border);
+}
+.gi-review-item {
+  border-radius: 8px; padding: 14px; margin-bottom: 10px;
+  background: var(--fin-surface);
+}
+.gi-review-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gi-review-monto   { display: grid; grid-template-columns: 1fr 80px; gap: 6px; }
+.gi-full-col       { grid-column: 1 / -1; }
+.gi-form-sm label  { font-size: 0.72rem; }
+.gi-form-sm input,
+.gi-form-sm select { font-size: 0.78rem; padding: 5px 8px; }
+.gi-review-scroll  { max-height: 520px; overflow-y: auto; padding-right: 4px; }
+.gi-save-rule-row  {
+  margin-top: 4px; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--fin-surface-2);
+  border-radius: var(--fin-radius); border: 1px solid var(--fin-border);
+}
+.gi-save-rule-row input[type="checkbox"] { cursor: pointer; accent-color: var(--fin-accent); }
+.gi-save-rule-row label { font-size: 0.78rem; cursor: pointer; margin: 0; }
+.gi-warning-block  {
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;
+}
+.gi-warning-block--danger {
+  background: color-mix(in srgb, var(--fin-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fin-danger) 30%, transparent);
+}
+.gi-warning-block--success {
+  background: color-mix(in srgb, var(--fin-success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fin-success) 30%, transparent);
+  font-size: 0.82rem;
+}
+.gi-warning-title  { font-weight: 600; font-size: 0.875rem; margin-bottom: 6px; }
+.gi-summary-row {
+  display: flex; justify-content: space-between;
+  font-size: 0.82rem; padding: 5px 0;
+  border-bottom: 1px solid var(--fin-border);
+}
+.gi-prompt-summary { font-size: 0.75rem; cursor: pointer; user-select: none; padding: 6px 8px; border-radius: var(--fin-radius); border: 1px solid var(--fin-border); }
+.gi-prompt-pre     {
+  margin-top: 6px; white-space: pre-wrap; word-break: break-word;
+  font-size: 0.72rem; line-height: 1.55; max-height: 340px; overflow-y: auto;
+  background: var(--fin-bg, #0f172a); padding: 12px;
+  border-radius: var(--fin-radius); border: 1px solid var(--fin-border);
+}
+.gi-monto-grid { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
+.gi-card-title-ellipsis { font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gi-right-empty { padding: 32px; text-align: center; }
+.gi-right-icon  { font-size: 2rem; margin-bottom: 12px; }
+.gi-analyzing   { padding: 32px; text-align: center; }
+.gi-spinner-center { margin: 0 auto 16px; }
+.gi-process-label { font-size: 0.9rem; font-weight: 500; margin-bottom: 6px; }
+.gi-filter-card-body { padding: 16px; }
+.gi-fg-compact  { margin: 0; }
+.gi-email-row-top   { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.gi-email-row-left  { display: flex; align-items: flex-start; min-width: 0; flex: 1; }
+.gi-email-row-content { min-width: 0; flex: 1; }
+.gi-email-badge { flex-shrink: 0; }
+.gi-review-item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.gi-review-item-title  { flex: 1; min-width: 0; }
+.gi-review-check { cursor: pointer; accent-color: var(--fin-accent); }
+.gi-card-body-md { padding: 20px; }
+.gi-actions-row  { display: flex; gap: 10px; margin-top: 20px; }
+.gi-cancel-right { margin-left: auto; }
+.gi-review-info-text { font-size: 0.78rem; }
+.gi-summary-note { font-size: 0.8rem; margin: 0; }
+.gi-warning-detail { font-size: 0.82rem; }
+`;
+
+function _ensureStyles() {
+  if (document.getElementById('gi-styles')) return;
+  const el = document.createElement('style');
+  el.id = 'gi-styles';
+  el.textContent = _CSS;
+  document.head.appendChild(el);
+}
+
 const defaultSince = () => {
   const d = new Date();
   d.setDate(d.getDate() - 30);
@@ -21,6 +154,7 @@ const defaultSince = () => {
 };
 
 export async function mount(container) {
+  _ensureStyles();
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
     [_categories, _accounts] = await Promise.all([
@@ -36,7 +170,14 @@ export async function mount(container) {
     }
     renderShell(container);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">⚠️</div>
+        <h3>Error al cargar</h3>
+        <p>${sanitize(err.message)}</p>
+        <button class="btn btn-primary" id="btnRetry">Reintentar</button>
+      </div>`;
+    container.querySelector('#btnRetry').addEventListener('click', () => mount(container));
   }
 }
 
@@ -49,20 +190,20 @@ function renderShell(container) {
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+    <div class="gi-layout">
       <div>
-        <div class="card" style="margin-bottom:16px">
-          <div class="card-body" style="padding:16px">
-            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-              <div class="form-group" style="margin:0;flex:1;min-width:140px">
+        <div class="card mb-3">
+          <div class="card-body gi-filter-card-body">
+            <div class="gi-filter-bar">
+              <div class="form-group fg-date">
                 <label class="form-label">Desde</label>
                 <input type="date" id="gi-since" value="${defaultSince()}">
               </div>
-              <div class="form-group" style="margin:0;width:90px">
+              <div class="form-group fg-max">
                 <label class="form-label">Máx.</label>
                 <input type="number" id="gi-max" value="50" min="1" max="200">
               </div>
-              <div class="form-group" style="margin:0;flex:1;min-width:160px">
+              <div class="form-group fg-model">
                 <label class="form-label">Modelo Ollama</label>
                 ${_ollamaModels.length
                   ? `<select id="gi-model" class="form-input">
@@ -78,10 +219,10 @@ function renderShell(container) {
           </div>
         </div>
 
-        <div id="gi-bulk-toolbar" style="display:none;margin-bottom:8px;padding:10px 14px;background:var(--bg-elevated);border-radius:8px;border:1px solid var(--color-primary,#3b82f6);align-items:center;gap:10px;flex-wrap:wrap">
-          <span id="gi-bulk-count" style="font-size:0.8rem;color:var(--text-soft);min-width:100px">0 seleccionados</span>
-          <button class="btn btn-secondary btn-sm" id="btnSelectAll" style="font-size:0.75rem;padding:4px 10px">Todos los pendientes</button>
-          <button class="btn btn-secondary btn-sm" id="btnSelectNone" style="font-size:0.75rem;padding:4px 10px">Ninguno</button>
+        <div id="gi-bulk-toolbar" class="gi-bulk-toolbar">
+          <span id="gi-bulk-count" class="gi-bulk-count text-muted">0 seleccionados</span>
+          <button class="btn btn-secondary btn-sm gi-btn-sm-action" id="btnSelectAll">Todos los pendientes</button>
+          <button class="btn btn-secondary btn-sm gi-btn-sm-action" id="btnSelectNone">Ninguno</button>
           <button class="btn btn-primary btn-sm" id="btnBulkProcess" style="font-size:0.75rem;padding:4px 14px;margin-left:auto" disabled>
             Procesar (0)
           </button>
@@ -153,9 +294,9 @@ function renderEmailList(container) {
 
   const pending = _emails.filter(e => !e.processed && !e.skipped);
   listEl.innerHTML = `
-    <div style="font-size:0.75rem;color:var(--text-soft);margin-bottom:8px;padding:0 4px">
+    <div class="gi-list-meta text-muted">
       ${_emails.length} correo${_emails.length !== 1 ? 's' : ''} ·
-      <span style="color:var(--color-warning)">${pending.length} pendiente${pending.length !== 1 ? 's' : ''}</span>
+      <span class="text-warning">${pending.length} pendiente${pending.length !== 1 ? 's' : ''}</span>
     </div>
     <div class="card" style="overflow:hidden">
       ${_emails.map(e => emailRow(e)).join('')}
@@ -207,53 +348,50 @@ function renderEmailList(container) {
 function emailRow(email) {
   const isPending = !email.processed && !email.skipped;
   const statusBadge = email.processed
-    ? '<span class="badge badge-success" style="font-size:0.65rem">Procesado</span>'
+    ? '<span class="badge badge-success gi-badge">Procesado</span>'
     : email.skipped
-    ? '<span class="badge badge-neutral" style="font-size:0.65rem">Omitido</span>'
-    : '<span class="badge badge-warning" style="font-size:0.65rem">Pendiente</span>';
+    ? '<span class="badge badge-neutral gi-badge">Omitido</span>'
+    : '<span class="badge badge-warning gi-badge">Pendiente</span>';
 
   const mid = sanitize(email.message_id);
 
   const bulkCheckbox = _bulkMode
     ? `<input type="checkbox" class="gi-bulk-check" data-mid="${mid}" data-pending="${isPending}"
-         ${_selectedIds.has(email.message_id) ? 'checked' : ''}
-         style="margin-right:8px;cursor:pointer;flex-shrink:0;accent-color:var(--color-primary,#3b82f6)">`
+         ${_selectedIds.has(email.message_id) ? 'checked' : ''}>`
     : '';
 
-  const previewBtn = `<button class="btn btn-ghost btn-sm btn-preview" data-mid="${mid}" title="Ver cuerpo del correo" style="font-size:0.7rem;padding:2px 7px;opacity:0.7">👁</button>`;
+  const previewBtn = `<button class="btn btn-ghost btn-sm btn-preview gi-btn-preview" data-mid="${mid}" title="Ver cuerpo del correo">👁</button>`;
 
   const reprocessBtn = !isPending
-    ? `<button class="btn btn-ghost btn-sm btn-reprocess" data-mid="${mid}"
-         title="Reprocesar con las reglas actuales (elimina la transacción anterior)"
-         style="font-size:0.7rem;padding:2px 8px;color:var(--color-warning,#f59e0b)">↺ Reprocesar</button>`
+    ? `<button class="btn btn-ghost btn-sm btn-reprocess gi-btn-reprocess text-warning" data-mid="${mid}"
+         title="Reprocesar con las reglas actuales (elimina la transacción anterior)">↺ Reprocesar</button>`
     : '';
 
   const actions = isPending
-    ? `<div style="display:flex;gap:6px;margin-top:6px">
-        <button class="btn btn-primary btn-sm btn-process" data-mid="${mid}" style="font-size:0.75rem;padding:4px 10px">Procesar</button>
-        <button class="btn btn-secondary btn-sm btn-skip" data-mid="${mid}" style="font-size:0.75rem;padding:4px 10px">Omitir</button>
+    ? `<div class="gi-email-actions">
+        <button class="btn btn-primary btn-sm btn-process gi-btn-sm-action" data-mid="${mid}">Procesar</button>
+        <button class="btn btn-secondary btn-sm btn-skip gi-btn-sm-action" data-mid="${mid}">Omitir</button>
         ${previewBtn}
        </div>`
-    : `<div style="display:flex;gap:6px;margin-top:4px">${reprocessBtn}${previewBtn}</div>`;
+    : `<div class="gi-email-actions is-done">${reprocessBtn}${previewBtn}</div>`;
 
+  const isSelected = _selectedMessageId === email.message_id;
   return `
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border-color);${_selectedMessageId === email.message_id ? 'background:var(--bg-elevated);' : ''}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="display:flex;align-items:flex-start;min-width:0;flex:1">
+    <div class="gi-email-row${isSelected ? ' is-selected' : ''}">
+      <div class="gi-email-row-top">
+        <div class="gi-email-row-left">
           ${bulkCheckbox}
-          <div style="min-width:0;flex:1">
-            <div style="font-size:0.8125rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-              ${sanitize(email.subject || '(sin asunto)')}
-            </div>
-            <div style="font-size:0.72rem;color:var(--text-soft);margin-top:2px">
+          <div class="gi-email-row-content">
+            <div class="gi-email-subject">${sanitize(email.subject || '(sin asunto)')}</div>
+            <div class="gi-email-meta text-muted">
               ${fmtDate(email.received_at)} · ${sanitize((email.sender || '').replace(/<.*>/, '').trim())}
             </div>
-            <div style="font-size:0.7rem;color:var(--text-muted,var(--text-soft));margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+            <div class="gi-email-preview text-soft">
               ${sanitize((email.preview || '').substring(0, 120))}
             </div>
           </div>
         </div>
-        <div style="flex-shrink:0">${statusBadge}</div>
+        <div class="gi-email-badge">${statusBadge}</div>
       </div>
       ${actions}
     </div>`;
@@ -274,12 +412,12 @@ async function previewEmail(messageId) {
   try {
     const data = await api.gmailImport.preview(messageId);
     modal.body.innerHTML = `
-      <div style="margin-bottom:12px;font-size:0.8rem;color:var(--text-soft);display:flex;flex-direction:column;gap:4px">
+      <div class="gi-preview-meta text-muted">
         <div><strong>De:</strong> ${sanitize(data.sender || '')}</div>
         <div><strong>Fecha:</strong> ${fmtDate(data.received_at)}</div>
       </div>
-      <hr style="border-color:var(--border-color);margin:0 0 12px">
-      <pre style="white-space:pre-wrap;word-break:break-word;font-size:0.78rem;line-height:1.6;max-height:420px;overflow-y:auto;background:var(--bg-base,#0f172a);padding:12px;border-radius:6px;border:1px solid var(--border-color)">${sanitize(data.body_text)}</pre>`;
+      <hr style="border-color:var(--fin-border);margin:0 0 12px">
+      <pre class="gi-preview-body">${sanitize(data.body_text)}</pre>`;
   } catch (err) {
     modal.body.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
   }
@@ -300,7 +438,7 @@ function toggleBulkMode(container) {
   }
 
   const toolbar = container.querySelector('#gi-bulk-toolbar');
-  if (toolbar) toolbar.style.display = _bulkMode ? 'flex' : 'none';
+  if (toolbar) toolbar.classList.toggle('is-active', _bulkMode);
 
   if (_emails.length) renderEmailList(container);
 }
@@ -411,18 +549,14 @@ async function startBulkProcess(container) {
 function buildProgressHTML(current, total, subject) {
   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
   return `
-    <div style="text-align:center;padding:8px 0">
-      <div class="spinner" style="margin:0 auto 16px"></div>
-      <div style="font-size:0.9rem;font-weight:500;margin-bottom:6px">
-        Procesando ${current + 1} de ${total}
+    <div class="gi-progress-wrap">
+      <div class="spinner gi-spinner-center"></div>
+      <div class="gi-process-label">Procesando ${current + 1} de ${total}</div>
+      <div class="gi-progress-subject text-muted">${sanitize(subject)}</div>
+      <div class="gi-progress-track">
+        <div class="gi-progress-fill" style="width:${pct}%"></div>
       </div>
-      <div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;margin-left:auto;margin-right:auto">
-        ${sanitize(subject)}
-      </div>
-      <div style="background:var(--border-color);border-radius:999px;height:6px;overflow:hidden">
-        <div style="background:var(--color-primary,#3b82f6);width:${pct}%;height:100%;transition:width 0.3s"></div>
-      </div>
-      <div style="font-size:0.72rem;color:var(--text-soft);margin-top:8px">${pct}%</div>
+      <div class="gi-progress-pct text-muted">${pct}%</div>
     </div>`;
 }
 
@@ -482,69 +616,67 @@ function buildReviewHTML(items) {
     const monto = r.monto ?? '';
     const moneda = r.moneda || 'COP';
     const borderColor = hasError
-      ? 'var(--color-danger,#ef4444)'
+      ? 'var(--fin-danger)'
       : (!r.cuenta_id || !r.monto)
-      ? 'var(--color-warning,#f59e0b)'
-      : 'var(--border-color)';
+      ? 'var(--fin-amber)'
+      : 'var(--fin-border)';
 
     return `
-      <div style="border:1px solid ${borderColor};border-radius:8px;padding:14px;margin-bottom:10px;background:var(--bg-card,var(--bg-elevated))">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <input type="checkbox" class="br-include" data-idx="${idx}" ${item.included ? 'checked' : ''} style="cursor:pointer;accent-color:var(--color-primary,#3b82f6)">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:0.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-              ${sanitize(item.email?.subject || item.messageId)}
-            </div>
-            <div style="font-size:0.7rem;color:var(--text-soft)">
+      <div class="gi-review-item" style="border:1px solid ${borderColor}">
+        <div class="gi-review-item-header">
+          <input type="checkbox" class="br-include" data-idx="${idx}" ${item.included ? 'checked' : ''} class="gi-review-check">
+          <div class="gi-review-item-title">
+            <div class="gi-email-subject">${sanitize(item.email?.subject || item.messageId)}</div>
+            <div class="gi-email-meta text-muted">
               ${fmtDate(item.email?.received_at)}
-              ${hasError ? `· <span style="color:var(--color-danger,#ef4444)">Error: ${sanitize(item.error)}</span>` : ''}
+              ${hasError ? `· <span class="text-danger">Error: ${sanitize(item.error)}</span>` : ''}
             </div>
           </div>
         </div>
         ${hasError ? '' : `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="form-group" style="margin:0">
-            <label class="form-label" style="font-size:0.72rem">Fecha</label>
-            <input type="date" class="form-input br-fecha" data-idx="${idx}" value="${fecha}" style="font-size:0.78rem;padding:5px 8px">
+        <div class="gi-review-grid gi-form-sm">
+          <div class="form-group gi-fg-compact">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-input br-fecha" data-idx="${idx}" value="${fecha}">
           </div>
-          <div style="display:grid;grid-template-columns:1fr 80px;gap:6px">
-            <div class="form-group" style="margin:0">
-              <label class="form-label" style="font-size:0.72rem">Monto</label>
-              <input type="number" class="form-input br-monto" data-idx="${idx}" value="${monto}" min="0" step="0.01" style="font-size:0.78rem;padding:5px 8px" placeholder="0.00">
+          <div class="gi-review-monto">
+            <div class="form-group gi-fg-compact">
+              <label class="form-label">Monto</label>
+              <input type="number" class="form-input br-monto" data-idx="${idx}" value="${monto}" min="0" step="0.01" placeholder="0.00">
             </div>
-            <div class="form-group" style="margin:0">
-              <label class="form-label" style="font-size:0.72rem">Moneda</label>
-              <select class="form-input br-moneda" data-idx="${idx}" style="font-size:0.78rem;padding:5px 6px">
+            <div class="form-group gi-fg-compact">
+              <label class="form-label">Moneda</label>
+              <select class="form-input br-moneda" data-idx="${idx}" style="padding:5px 6px">
                 <option value="COP" ${moneda === 'COP' ? 'selected' : ''}>COP</option>
                 <option value="USD" ${moneda === 'USD' ? 'selected' : ''}>USD</option>
               </select>
             </div>
           </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label" style="font-size:0.72rem">Cuenta</label>
-            <select class="form-input br-cuenta" data-idx="${idx}" style="font-size:0.78rem;padding:5px 8px">
+          <div class="form-group gi-fg-compact">
+            <label class="form-label">Cuenta</label>
+            <select class="form-input br-cuenta" data-idx="${idx}">
               <option value="">— seleccionar —</option>${accountOptions(r.cuenta_id)}
             </select>
           </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label" style="font-size:0.72rem">Categoría</label>
-            <select class="form-input br-categoria" data-idx="${idx}" style="font-size:0.78rem;padding:5px 8px">
+          <div class="form-group gi-fg-compact">
+            <label class="form-label">Categoría</label>
+            <select class="form-input br-categoria" data-idx="${idx}">
               ${categoryOptions(r.categoria_id)}
             </select>
           </div>
-          <div class="form-group" style="margin:0;grid-column:1/-1">
-            <label class="form-label" style="font-size:0.72rem">Comentario</label>
-            <input type="text" class="form-input br-comentario" data-idx="${idx}" value="${sanitize(r.comentario || '')}" style="font-size:0.78rem;padding:5px 8px" placeholder="Descripción del gasto">
+          <div class="form-group gi-full-col" style="margin:0">
+            <label class="form-label">Comentario</label>
+            <input type="text" class="form-input br-comentario" data-idx="${idx}" value="${sanitize(r.comentario || '')}" placeholder="Descripción del gasto">
           </div>
         </div>`}
       </div>`;
   });
 
   return `
-    <div style="font-size:0.78rem;color:var(--text-soft);margin-bottom:14px">
+    <div class="text-muted mb-3 gi-review-info-text">
       Revisa y ajusta los campos antes de confirmar. Desmarca los correos que no quieras importar.
     </div>
-    <div style="max-height:520px;overflow-y:auto;padding-right:4px">
+    <div class="gi-review-scroll">
       ${rows.join('')}
     </div>`;
 }
@@ -603,7 +735,7 @@ async function submitBulkReview(container, body, items, modal) {
 }
 
 // ---------------------------------------------------------------------------
-// Individual processing (unchanged behavior)
+// Individual processing
 // ---------------------------------------------------------------------------
 
 async function skipEmail(container, messageId) {
@@ -632,9 +764,9 @@ async function startProcess(container, messageId) {
   const rightPanel = container.querySelector('#gi-right-panel');
   rightPanel.innerHTML = `
     <div class="card">
-      <div class="card-body" style="padding:32px;text-align:center">
-        <div class="spinner" style="margin:0 auto 16px"></div>
-        <p style="color:var(--text-soft)">Analizando con Ollama${selectedModel ? ` (${sanitize(selectedModel)})` : ''}… esto puede tardar 10-20 segundos.</p>
+      <div class="card-body gi-analyzing">
+        <div class="spinner gi-spinner-center"></div>
+        <p class="text-muted">Analizando con Ollama${selectedModel ? ` (${sanitize(selectedModel)})` : ''}… esto puede tardar 10-20 segundos.</p>
       </div>
     </div>`;
 
@@ -651,28 +783,26 @@ function renderConfirmForm(container, messageId, ollama) {
   const email = _emails.find(e => e.message_id === messageId);
 
   const promptSection = ollama._prompt
-    ? `<details style="margin-top:16px">
-        <summary style="font-size:0.75rem;color:var(--text-soft);cursor:pointer;user-select:none;padding:6px 8px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border-color)">
-          Ver prompt enviado al LLM
-        </summary>
-        <pre style="margin-top:6px;white-space:pre-wrap;word-break:break-word;font-size:0.72rem;line-height:1.55;max-height:340px;overflow-y:auto;background:var(--bg-base,#0f172a);padding:12px;border-radius:6px;border:1px solid var(--border-color);color:var(--text-soft)">${sanitize(ollama._prompt)}</pre>
+    ? `<details class="mt-3">
+        <summary class="gi-prompt-summary text-muted">Ver prompt enviado al LLM</summary>
+        <pre class="gi-prompt-pre text-muted">${sanitize(ollama._prompt)}</pre>
       </details>`
     : '';
 
   rightPanel.innerHTML = `
     <div class="card">
       <div class="card-header">
-        <span class="card-title" style="font-size:0.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        <span class="card-title gi-card-title-ellipsis">
           ${sanitize(email?.subject || messageId)}
         </span>
       </div>
-      <div class="card-body" style="padding:20px">
+      <div class="card-body gi-card-body-md">
         ${formFields(ollama)}
         ${promptSection}
-        <div style="display:flex;gap:10px;margin-top:20px">
+        <div class="gi-actions-row">
           <button class="btn btn-primary" id="btnConfirm">Confirmar</button>
           <button class="btn btn-secondary" id="btnManual">Ingresar manual</button>
-          <button class="btn btn-ghost" id="btnCancelRight" style="margin-left:auto">Cancelar</button>
+          <button class="btn btn-ghost gi-cancel-right" id="btnCancelRight">Cancelar</button>
         </div>
       </div>
     </div>`;
@@ -696,14 +826,14 @@ function renderManualForm(container, messageId, warningMsg = null) {
   rightPanel.innerHTML = `
     <div class="card">
       <div class="card-header">
-        <span class="card-title" style="font-size:0.875rem">Ingreso manual</span>
+        <span class="card-title">Ingreso manual</span>
       </div>
-      <div class="card-body" style="padding:20px">
-        ${warningMsg ? `<div class="alert alert-warning" style="margin-bottom:16px;font-size:0.8rem">${sanitize(warningMsg)}</div>` : ''}
+      <div class="card-body gi-card-body-md">
+        ${warningMsg ? `<div class="alert alert-warning mb-3 gi-review-info-text">${sanitize(warningMsg)}</div>` : ''}
         ${formFields({})}
-        <div style="display:flex;gap:10px;margin-top:20px">
+        <div class="gi-actions-row">
           <button class="btn btn-primary" id="btnConfirm">Confirmar</button>
-          <button class="btn btn-ghost" id="btnCancelRight" style="margin-left:auto">Cancelar</button>
+          <button class="btn btn-ghost gi-cancel-right" id="btnCancelRight">Cancelar</button>
         </div>
       </div>
     </div>`;
@@ -743,7 +873,7 @@ function formFields(ollama) {
       <label class="form-label">Fecha</label>
       <input type="date" id="fi-fecha" value="${fecha}" class="form-input">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 120px;gap:12px">
+    <div class="gi-monto-grid">
       <div class="form-group">
         <label class="form-label">Monto</label>
         <input type="number" id="fi-monto" value="${monto}" min="0" step="0.01" class="form-input" placeholder="0.00">
@@ -772,11 +902,9 @@ function formFields(ollama) {
       <label class="form-label">Comentario</label>
       <input type="text" id="fi-comentario" value="${sanitize(comentario)}" class="form-input" placeholder="Descripción del gasto">
     </div>
-    <div style="margin-top:4px;display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-elevated);border-radius:6px;border:1px solid var(--border-color)">
-      <input type="checkbox" id="fi-save-rule" style="cursor:pointer;accent-color:var(--color-primary,#3b82f6)">
-      <label for="fi-save-rule" style="font-size:0.78rem;color:var(--text-soft);cursor:pointer;margin:0">
-        Guardar como regla de comercio para futuras importaciones
-      </label>
+    <div class="gi-save-rule-row">
+      <input type="checkbox" id="fi-save-rule">
+      <label for="fi-save-rule">Guardar como regla de comercio para futuras importaciones</label>
     </div>`;
 }
 
@@ -849,26 +977,27 @@ async function reprocessAll(container) {
   const pending   = _emails.filter(e => !e.processed && !e.skipped);
 
   const warningBlock = processed.length > 0
-    ? `<div style="background:color-mix(in srgb,var(--color-danger,#ef4444) 10%,transparent);border:1px solid color-mix(in srgb,var(--color-danger,#ef4444) 30%,transparent);border-radius:8px;padding:14px 16px;margin-bottom:16px">
-        <div style="font-weight:600;font-size:0.875rem;color:var(--color-danger,#ef4444);margin-bottom:6px">⚠ Transacciones que se eliminarán</div>
-        <div style="font-size:0.82rem;color:var(--text-soft)">
-          <strong style="color:var(--text-primary)">${processed.length} correo${processed.length !== 1 ? 's' : ''}</strong>
+    ? `<div class="gi-warning-block gi-warning-block--danger">
+        <div class="gi-warning-title text-danger">⚠ Transacciones que se eliminarán</div>
+        <div class="text-muted" style="font-size:0.82rem">
+          <strong>${sanitize(String(processed.length))} correo${processed.length !== 1 ? 's' : ''}</strong>
           ya procesado${processed.length !== 1 ? 's' : ''} o${processed.length !== 1 ? '' : ''} omitido${processed.length !== 1 ? 's' : ''}
           tendrán sus transacciones eliminadas de la base de datos.
         </div>
+
       </div>`
-    : `<div style="background:color-mix(in srgb,var(--color-success,#22c55e) 10%,transparent);border:1px solid color-mix(in srgb,var(--color-success,#22c55e) 30%,transparent);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:0.82rem;color:var(--text-soft)">
+    : `<div class="gi-warning-block gi-warning-block--success text-muted">
         Sin transacciones previas en la lista — no se eliminará nada.
       </div>`;
 
   const summaryRows = [
-    { label: 'Correos en lista', value: _emails.length, color: '' },
-    { label: 'Pendientes (se procesarán)', value: pending.length, color: 'var(--color-warning,#f59e0b)' },
-    { label: 'Ya procesados / omitidos', value: processed.length, color: processed.length > 0 ? 'var(--color-danger,#ef4444)' : '' },
+    { label: 'Correos en lista',             value: _emails.length,   cls: '' },
+    { label: 'Pendientes (se procesarán)',   value: pending.length,   cls: 'text-warning' },
+    { label: 'Ya procesados / omitidos',     value: processed.length, cls: processed.length > 0 ? 'text-danger' : '' },
   ].map(r => `
-    <div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:5px 0;border-bottom:1px solid var(--border-color)">
-      <span style="color:var(--text-soft)">${r.label}</span>
-      <strong style="color:${r.color || 'var(--text-primary)'}}">${r.value}</strong>
+    <div class="gi-summary-row">
+      <span class="text-muted">${r.label}</span>
+      <strong class="${r.cls}">${r.value}</strong>
     </div>`).join('');
 
   const modal = openModal({
@@ -876,8 +1005,8 @@ async function reprocessAll(container) {
     size: 'sm',
     content: `
       ${warningBlock}
-      <div style="margin-bottom:16px">${summaryRows}</div>
-      <p style="font-size:0.8rem;color:var(--text-soft);margin:0">
+      <div class="mb-3">${summaryRows}</div>
+      <p class="text-muted" style="font-size:0.8rem;margin:0">
         Solo se afectan los <strong>${_emails.length} correo${_emails.length !== 1 ? 's' : ''}</strong>
         cargados actualmente en la lista. Ollama los analizará uno a uno.
       </p>`,
@@ -921,8 +1050,8 @@ async function _doReprocessAll(container) {
 function rightPanelEmpty() {
   return `
     <div class="card">
-      <div class="card-body" style="padding:32px;text-align:center;color:var(--text-soft)">
-        <div style="font-size:2rem;margin-bottom:12px">✉️</div>
+      <div class="card-body gi-right-empty text-muted">
+        <div class="gi-right-icon">✉️</div>
         <p>Selecciona un correo y presiona <strong>Procesar</strong> para analizarlo con Ollama.</p>
       </div>
     </div>`;
