@@ -191,7 +191,7 @@ async function loadData(container) {
       kpisEl.innerHTML = `
         <div class="kpi-card">
           <div class="kpi-label">Ingresos</div>
-          <div class="kpi-value positive">${fmt(totalInc)}</div>
+          <div class="kpi-value success">${fmt(totalInc)}</div>
           <div class="kpi-sub">${_currencyCode} · ${fmtMonthLabel(_month)}</div>
         </div>
         <div class="kpi-card">
@@ -222,12 +222,12 @@ async function loadData(container) {
         type: 'doughnut',
         data: {
           labels: sorted.map(c => c.category_name ?? c.name),
-          datasets: [{ data: sorted.map(c => c.spent ?? c.amount ?? 0), backgroundColor: COLORS, borderWidth: 2, borderColor: 'var(--fin-surface)' }],
+          datasets: [{ data: sorted.map(c => c.spent ?? c.amount ?? 0), backgroundColor: COLORS, borderWidth: 2, borderColor: '#FFFFFF' }],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'right', labels: { font: { size: 11 }, color: 'var(--fin-ink-2)', padding: 12 } },
+            legend: { position: 'right', labels: { font: { size: 11 }, color: '#475569', padding: 12 } },
             tooltip: { callbacks: { label: (ctx) => ` ${fmt(ctx.raw)}` } },
           },
         },
@@ -244,7 +244,7 @@ async function loadData(container) {
           labels: ['Ingresos', 'Gastos'],
           datasets: [{
             data: [totalInc, totalExp],
-            backgroundColor: ['var(--fin-success)', 'var(--fin-danger)'],
+            backgroundColor: ['#059669', '#DC2626'],
             borderRadius: 6,
           }],
         },
@@ -252,8 +252,8 @@ async function loadData(container) {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            y: { grid: { color: 'var(--fin-border)' }, ticks: { callback: v => fmt(v), font: { size: 10 }, color: 'var(--fin-ink-3)' } },
-            x: { grid: { display: false }, ticks: { color: 'var(--fin-ink-2)' } },
+            y: { grid: { color: 'rgba(15,23,42,0.07)' }, ticks: { callback: v => fmt(v), font: { size: 10 }, color: '#94A3B8' } },
+            x: { grid: { display: false }, ticks: { color: '#64748B' } },
           },
         },
       });
@@ -277,7 +277,7 @@ async function loadData(container) {
               const pct = totalExp > 0 ? (amt / totalExp) * 100 : 0;
               return `
                 <tr>
-                  <td class="text-soft" style="font-weight:500">${sanitize(c.category_name ?? c.name ?? '—')}</td>
+                  <td style="font-weight:500">${sanitize(c.category_name ?? c.name ?? '—')}</td>
                   <td class="td-right"><span class="amount">${fmt(amt)}</span></td>
                   <td class="td-right text-muted">${pct.toFixed(1)}%</td>
                   <td>
@@ -296,10 +296,11 @@ async function loadData(container) {
   }
 }
 
+// Matches --chart-color-* tokens in design-system.css (Daylight palette)
 const LOCAL_COLORS = [
-  '#D97706','#059669','#0891B2','#7C3AED','#DB2777',
-  '#EA580C','#65A30D','#0284C7','#9333EA','#E11D48',
-  '#F59E0B','#10B981','#06B6D4','#8B5CF6','#EC4899',
+  '#6366F1','#10B981','#F59E0B','#EF4444','#8B5CF6',
+  '#06B6D4','#F97316','#EC4899','#059669','#D97706',
+  '#0891B2','#7C3AED','#DB2777','#65A30D','#0284C7',
 ];
 
 function getColor(idx) {
@@ -481,7 +482,7 @@ async function loadOvertimeChart(container) {
 
     const datasets = data.series.map((s, i) => {
       const colorIdx = _availableCategories.indexOf(s.category);
-      const color = CHART_COLORS[(colorIdx >= 0 ? colorIdx : i) % CHART_COLORS.length];
+      const color = LOCAL_COLORS[(colorIdx >= 0 ? colorIdx : i) % LOCAL_COLORS.length];
       return {
         label: s.category,
         data: s.data,
@@ -516,7 +517,7 @@ async function loadOvertimeChart(container) {
             stacked: false,
             grid: { display: false },
             ticks: {
-              color: 'var(--fin-ink-2)',
+              color: '#64748B',
               font: { size: 10 },
               maxRotation: isDaily ? 45 : 0,
               autoSkip: true,
@@ -526,8 +527,8 @@ async function loadOvertimeChart(container) {
           y: {
             stacked: false,
             beginAtZero: true,
-            grid: { color: 'var(--fin-border)' },
-            ticks: { callback: v => fmt(v), font: { size: 10 }, color: 'var(--fin-ink-3)' },
+            grid: { color: 'rgba(15,23,42,0.07)' },
+            ticks: { callback: v => fmt(v), font: { size: 10 }, color: '#94A3B8' },
           },
         },
       },

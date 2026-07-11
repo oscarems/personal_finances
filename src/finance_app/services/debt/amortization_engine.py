@@ -8,7 +8,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
-from finance_app.models import Debt, DebtPayment, MortgagePaymentAllocation, Transaction
+from finance_app.models import Debt, DebtPayment, Transaction
 
 TWOPLACES = Decimal("0.01")
 
@@ -148,17 +148,13 @@ class AmortizationEngine:
         return balance * (monthly_rate * factor) / (factor - 1)
 
     def _collect_real_monthly_payments(self, debt: Debt) -> Dict[Tuple[int, int], Dict[str, float]]:
+        # Only used for credit_loan (mortgages always run in "plan" mode — see generate_schedule).
         result: Dict[Tuple[int, int], Dict[str, float]] = {}
         if not self.db:
             return result
 
-        allocations = self.db.query(MortgagePaymentAllocation).filter_by(loan_id=debt.id).all()
-        allocation_tx_ids = {item.transaction_id for item in allocations if item.transaction_id}
-
         for payment in self.db.query(DebtPayment).filter_by(debt_id=debt.id).all():
             if not payment.payment_date:
-                continue
-            if payment.transaction_id and payment.transaction_id in allocation_tx_ids:
                 continue
             k = (payment.payment_date.year, payment.payment_date.month)
             bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True, "has_transaction": True})
@@ -168,18 +164,6 @@ class AmortizationEngine:
             bucket["total"] += total
             bucket["interest"] += max(0.0, interest)
             bucket["principal"] += max(0.0, principal)
-
-        for alloc in allocations:
-            if not alloc.payment_date:
-                continue
-            k = (alloc.payment_date.year, alloc.payment_date.month)
-            bucket = result.setdefault(k, {"total": 0.0, "principal": 0.0, "interest": 0.0, "real": True, "has_transaction": True})
-            principal = float(alloc.principal_paid or 0.0) + float(alloc.extra_principal_paid or 0.0)
-            interest = float(alloc.interest_paid or 0.0)
-            total = principal + interest + float(alloc.fees_paid or 0.0) + float(alloc.escrow_paid or 0.0)
-            bucket["total"] += total
-            bucket["principal"] += principal
-            bucket["interest"] += interest
 
         # Fallback heurístico por transacciones de categoría/cuenta/texto.
         # Requires matching category + account AND at least one keyword
@@ -213,6 +197,10 @@ class AmortizationEngine:
     def generate_schedule(self, debt: Debt, as_of: Optional[date] = None, mode: str = "plan") -> List[dict]:
         if not debt.start_date:
             return []
+        # Mortgages are always derived purely from original_amount/start_date/rate/term.
+        # Real-payment tracking (actual/hybrid) no longer applies to them.
+        if debt.debt_type == "mortgage":
+            mode = "plan"
         amortization_type = self._resolve_amortization_type(debt)
         monthly_rate = self._monthly_rate(debt)
         term_months = self._term_months(debt)
@@ -221,9 +209,13 @@ class AmortizationEngine:
         cutoff = as_of or date.today()
         max_periods = max(term_months * 2, 600) if term_months else 600
 
-        base_payment = float(debt.monthly_payment or 0.0)
-        if amortization_type == "fixed_payment" and base_payment <= 0:
-            base_payment = self._planned_payment(amortization_type, balance, monthly_rate, max(term_months, 1), 0.0)
+        if debt.debt_type == "mortgage" and amortization_type == "fixed_payment" and term_months > 0:
+            # Always the theoretical French-system payment — never a stored override.
+            base_payment = self._planned_payment(amortization_type, balance, monthly_rate, term_months, 0.0)
+        else:
+            base_payment = float(debt.monthly_payment or 0.0)
+            if amortization_type == "fixed_payment" and base_payment <= 0:
+                base_payment = self._planned_payment(amortization_type, balance, monthly_rate, max(term_months, 1), 0.0)
 
         rows: List[ScheduleEntry] = []
         for idx, month_start in enumerate(self._iter_months(debt.start_date), start=1):

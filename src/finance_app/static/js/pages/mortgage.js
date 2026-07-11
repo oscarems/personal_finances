@@ -69,21 +69,12 @@ function render(container, list) {
     const prefill = sel ? (() => {
       const m = list.find(x => x.id === parseInt(sel.value));
       if (!m) return {};
-      const balance = Math.abs(m.balance ?? m.current_balance ?? 0);
+      // Prefijar siempre desde los 4 campos base: monto inicial, tasa, plazo, fecha.
+      const amount = m.original_amount ?? null;
       const rate = m.interest_rate ?? m.annual_interest_rate ?? null;
-      const monthly = m.monthly_payment ?? null;
+      const years = m.loan_years ?? (m.term_months ? Math.ceil(m.term_months / 12) : null);
       const currency = m.currency?.code ?? m.currency_code ?? 'COP';
-      // Estimate remaining years from balance and monthly payment if available
-      let years = null;
-      if (m.term_months) years = Math.ceil(m.term_months / 12);
-      else if (monthly && rate && balance) {
-        const mr = Math.pow(1 + rate / 100, 1 / 12) - 1;
-        if (mr > 0) {
-          const n = Math.ceil(-Math.log(1 - balance * mr / monthly) / Math.log(1 + mr));
-          years = Math.max(1, Math.ceil(n / 12));
-        }
-      }
-      return { balance, rate, years, currency };
+      return { amount, rate, years, currency };
     })() : {};
     openSimulateModal(prefill);
   });
@@ -106,6 +97,8 @@ async function loadAmortization(container, id, list) {
     const mortgage = list.find(m => m.id === id);
     const currency = mortgage?.currency?.code ?? mortgage?.currency_code ?? 'COP';
 
+    const todayIso = new Date().toISOString().slice(0, 7); // YYYY-MM
+
     amortEl.innerHTML = rows.length ? `
       <div style="max-height:320px;overflow-y:auto">
         <table class="fin-table">
@@ -119,14 +112,19 @@ async function loadAmortization(container, id, list) {
             </tr>
           </thead>
           <tbody>
-            ${rows.slice(0, 60).map(r => `
-              <tr>
-                <td class="td-soft" style="white-space:nowrap">${fmtDate(r.date ?? r.payment_date)}</td>
+            ${rows.slice(0, 60).map(r => {
+              const rowDate = r.date ?? r.payment_date;
+              const isCurrentMonth = (rowDate ?? '').slice(0, 7) === todayIso;
+              const isPaid = r.is_paid ?? false;
+              return `
+              <tr style="${isCurrentMonth ? 'background:rgba(96,165,250,0.12)' : ''}${isPaid && !isCurrentMonth ? 'opacity:0.6' : ''}">
+                <td class="td-soft" style="white-space:nowrap">${fmtDate(rowDate)}${isCurrentMonth ? ' <span class="badge badge-info" style="font-size:0.6rem">hoy</span>' : ''}</td>
                 <td class="amount">${fmtCurrency(r.payment ?? r.total_payment ?? 0, currency)}</td>
                 <td class="amount text-danger">${fmtCurrency(r.interest ?? r.interest_payment ?? 0, currency)}</td>
                 <td class="amount text-success">${fmtCurrency(r.principal ?? r.principal_payment ?? 0, currency)}</td>
                 <td class="amount">${fmtCurrency(r.balance ?? r.remaining_balance ?? 0, currency)}</td>
-              </tr>`).join('')}
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -137,6 +135,7 @@ async function loadAmortization(container, id, list) {
     const ctx = container.querySelector('#mortChart');
     if (ctx && rows.length) {
       const sample = rows.filter((_, i) => i % 6 === 0).slice(0, 20);
+      const todayIndex = sample.findIndex(r => (r.date ?? r.payment_date ?? '').slice(0, 7) >= todayIso);
       _chart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -145,16 +144,18 @@ async function loadAmortization(container, id, list) {
             label: 'Saldo restante',
             data: sample.map(r => r.balance ?? r.remaining_balance ?? 0),
             borderColor: (window.CHART_PALETTE ?? ['#60A5FA'])[0],
-            backgroundColor: 'rgba(96,165,250,0.1)',
+            backgroundColor: 'rgba(79,142,247,0.1)',
             fill: true, tension: 0.3,
+            pointBackgroundColor: sample.map((_, i) => i === todayIndex ? '#F59E0B' : (window.CHART_PALETTE ?? ['#60A5FA'])[0]),
+            pointRadius: sample.map((_, i) => i === todayIndex ? 6 : 2),
           }],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            y: { grid: { color: 'var(--border-muted)' }, ticks: { callback: v => fmtCurrency(v, currency), font: { size: 10 }, color: 'var(--text-soft)' } },
-            x: { grid: { display: false }, ticks: { color: 'var(--text-soft)', font: { size: 10 } } },
+            y: { grid: { color: 'var(--fin-border)' }, ticks: { callback: v => fmtCurrency(v, currency), font: { size: 10 }, color: 'var(--fin-ink-2)' } },
+            x: { grid: { display: false }, ticks: { color: 'var(--fin-ink-2)', font: { size: 10 } } },
           },
         },
       });
@@ -165,13 +166,22 @@ async function loadAmortization(container, id, list) {
 }
 
 function mortgageCard(m) {
+  const currency = m.currency?.code ?? m.currency_code ?? 'COP';
+  const balance = Math.abs(m.balance ?? m.current_balance ?? 0);
+  const years = m.loan_years ?? (m.term_months ? Math.ceil(m.term_months / 12) : null);
+  const paidPct = m.original_amount ? Math.max(0, Math.min(100, ((m.original_amount - balance) / m.original_amount) * 100)) : null;
   return `
     <div class="kpi-card">
       <div class="kpi-label">${sanitize(m.name)}</div>
-      <div class="kpi-value negative">${fmtCurrency(m.balance ?? m.current_balance ?? 0, m.currency?.code ?? m.currency_code ?? 'COP')}</div>
+      <div class="kpi-value negative">${fmtCurrency(balance, currency)}</div>
       <div class="kpi-sub">
         ${m.interest_rate != null ? m.interest_rate.toFixed(2) + '% EA · ' : ''}
-        Cuota: ${fmtCurrency(m.monthly_payment ?? 0, m.currency?.code ?? m.currency_code ?? 'COP')}
+        Cuota: ${fmtCurrency(m.monthly_payment ?? 0, currency)}
+      </div>
+      <div class="text-soft mt-2" style="font-size:0.72rem;line-height:1.6">
+        Monto inicial: <span class="amount">${fmtCurrency(m.original_amount ?? 0, currency)}</span><br>
+        Plazo: ${years ?? '—'} años · Inicio: ${m.loan_start_date ?? '—'}
+        ${paidPct != null ? `<br>Pagado: ${paidPct.toFixed(1)}%` : ''}
       </div>
     </div>`;
 }
@@ -186,8 +196,8 @@ function openSimulateModal(prefill = {}) {
       </p>
       <div class="form-row cols-2">
         <div class="form-group">
-          <label class="form-label required">Saldo actual</label>
-          <input type="number" id="ms-amount" placeholder="200000000" step="1000000" value="${prefill.balance ?? ''}">
+          <label class="form-label required">Monto inicial</label>
+          <input type="number" id="ms-amount" placeholder="200000000" step="1000000" value="${prefill.amount ?? ''}">
         </div>
         <div class="form-group">
           <label class="form-label required">Tasa de interés (% EA)</label>
@@ -196,7 +206,7 @@ function openSimulateModal(prefill = {}) {
       </div>
       <div class="form-row cols-2">
         <div class="form-group">
-          <label class="form-label required">Plazo restante (años)</label>
+          <label class="form-label required">Plazo (años)</label>
           <input type="number" id="ms-years" placeholder="15" step="1" min="1" value="${prefill.years ?? ''}">
         </div>
         <div class="form-group">
@@ -222,7 +232,7 @@ function openSimulateModal(prefill = {}) {
       const years    = parseFloat(body.querySelector('#ms-years').value);
       const extra    = parseFloat(body.querySelector('#ms-extra').value) || 0;
       const currency = body.querySelector('#ms-currency').value;
-      if (!amount || !rate || !years) throw new Error('Saldo, tasa y plazo son obligatorios');
+      if (!amount || !rate || !years) throw new Error('Monto inicial, tasa y plazo son obligatorios');
 
       const resultEl = body.querySelector('#ms-result');
       resultEl.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
@@ -263,7 +273,7 @@ function openSimulateModal(prefill = {}) {
             </div>
           </div>
           ${withExtra ? `
-          <div style="background:rgba(34,197,94,0.08);border:1px solid var(--fin-success);border-radius:8px;padding:14px">
+          <div style="background:rgba(16,185,129,0.08);border:1px solid var(--fin-success);border-radius:8px;padding:14px">
             <div class="text-success mb-2" style="font-size:0.75rem;font-weight:600;text-transform:uppercase">
               Con abono extra · <span class="amount">${fmtCurrency(extra, currency)}</span>/mes
             </div>

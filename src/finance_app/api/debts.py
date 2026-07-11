@@ -16,7 +16,6 @@ from finance_app.models import (
     DebtAmortizationMonthly,
     DebtPayment,
     Account,
-    MortgagePaymentAllocation,
     DebtCategoryAllocation,
     Category,
 )
@@ -31,6 +30,7 @@ from finance_app.services.debt.amortization_service import (
     fetch_amortization_range,
 )
 from finance_app.services.debt.amortization_engine import AmortizationEngine, UnsupportedAmortizationTypeError
+from finance_app.services.mortgage.service import calculate_monthly_payment
 from finance_app.services.debt.helpers import (
     payment_principal_amount,
     calculate_principal_from_components,
@@ -64,10 +64,14 @@ router = APIRouter()
 def debt_simulator(
     extra_payment: float = 0.0,
     strategy: str = "avalanche",
+    debt_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """Simula el pago anticipado de deudas activas con un monto extra mensual."""
-    debts = db.query(Debt).filter(Debt.is_active == True).all()
+    q = db.query(Debt).filter(Debt.is_active == True, Debt.debt_type != "credit_card")
+    if debt_id is not None:
+        q = q.filter(Debt.id == debt_id)
+    debts = q.all()
     if not debts:
         return {
             "payoff_date": None,
@@ -78,7 +82,18 @@ def debt_simulator(
             "months_saved": 0,
             "monthly_breakdown": [],
         }
-    return simulate_payoff(debts, extra_payment, strategy)
+
+    # Use the correct balance for each debt type instead of the raw DB field,
+    # which may be stale or 0 (not yet updated). Credit cards are excluded from
+    # this simulator since revolving balances don't fit the payoff model.
+    balance_overrides: dict[int, float] = {}
+    for debt in debts:
+        if debt.debt_type in ("mortgage", "credit_loan"):
+            calc = calculate_loan_current_balance(debt, db)
+            if calc and calc > 0:
+                balance_overrides[debt.id] = float(calc)
+
+    return simulate_payoff(debts, extra_payment, strategy, balance_overrides=balance_overrides)
 
 
 # Pydantic Schemas
@@ -112,8 +127,13 @@ class DebtUpdate(BaseModel):
     current_balance: Optional[float] = None
     credit_limit: Optional[float] = None
     interest_rate: Optional[float] = None
+    monthly_interest_rate: Optional[float] = None
+    rate_type: Optional[str] = None
     monthly_payment: Optional[float] = None
     minimum_payment: Optional[float] = None
+    min_payment_percentage: Optional[float] = None
+    statement_day: Optional[int] = None
+    payment_due_day: Optional[int] = None
     loan_years: Optional[int] = None
     start_date: Optional[date] = None
     due_date: Optional[date] = None
@@ -194,6 +214,7 @@ def set_debt_category_allocations(
     db.commit()
     return {"success": True, "debt_id": debt_id, "category_ids": category_ids}
 
+@router.get("")
 @router.get("/")
 def get_debts(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
@@ -481,17 +502,30 @@ def get_debt_timeline(
 @router.get("/strategy-comparison")
 def debt_strategy_comparison(
     extra_payment: float = 0.0,
+    debt_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """Compara avalancha, bola de nieve y pago mínimo para todas las deudas activas."""
-    debts = db.query(Debt).filter(Debt.is_active == True).all()
+    q = db.query(Debt).filter(Debt.is_active == True, Debt.debt_type != "credit_card")
+    if debt_id is not None:
+        q = q.filter(Debt.id == debt_id)
+    debts = q.all()
     if not debts:
         return {
             "avalanche": None,
             "snowball": None,
             "minimum_only": None,
         }
-    return compare_strategies(debts, extra_payment)
+
+    # Credit cards are excluded: revolving balances don't fit the payoff model.
+    balance_overrides: dict[int, float] = {}
+    for debt in debts:
+        if debt.debt_type in ("mortgage", "credit_loan"):
+            calc = calculate_loan_current_balance(debt, db)
+            if calc and calc > 0:
+                balance_overrides[debt.id] = float(calc)
+
+    return compare_strategies(debts, extra_payment, balance_overrides=balance_overrides)
 
 
 @router.get("/{debt_id}")
@@ -536,6 +570,13 @@ def confirm_debt_balance(debt_id: int, payload: DebtBalanceConfirm, db: Session 
     if not debt:
         raise HTTPException(status_code=404, detail="Debt not found")
 
+    if debt.debt_type == "mortgage":
+        raise HTTPException(
+            status_code=400,
+            detail="El saldo de una hipoteca se deriva del monto inicial, tasa, "
+                    "plazo y fecha de inicio — no se puede confirmar manualmente."
+        )
+
     debt.confirmed_balance = payload.confirmed_balance
     debt.confirmed_balance_date = payload.confirmed_balance_date
     if payload.notes:
@@ -553,6 +594,7 @@ def confirm_debt_balance(debt_id: int, payload: DebtBalanceConfirm, db: Session 
     return result
 
 
+@router.post("")
 @router.post("/")
 def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
     account = db.query(Account).filter_by(id=debt_data.account_id).first()
@@ -580,17 +622,25 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
                 detail="Se requiere monthly_payment o loan_years para préstamos (credit_loan)."
             )
     elif debt_data.debt_type == "mortgage":
-        if not debt_data.monthly_payment and not debt_data.loan_years:
+        if not debt_data.original_amount or not debt_data.interest_rate or not debt_data.loan_years or not debt_data.start_date:
             raise HTTPException(
                 status_code=400,
-                detail="Se requiere monthly_payment o loan_years para hipotecas."
+                detail="Una hipoteca requiere monto inicial, tasa de interés, plazo (años) y fecha de inicio."
             )
 
+    # Mortgages derive their monthly_payment purely from original_amount/interest_rate/loan_years.
+    monthly_payment = debt_data.monthly_payment
+    if debt_data.debt_type == "mortgage":
+        monthly_payment = calculate_monthly_payment(
+            debt_data.original_amount, debt_data.interest_rate / 100, debt_data.loan_years
+        )
+
     current_balance = debt_data.current_balance
-    if debt_data.debt_type == "mortgage" and current_balance is None:
-        current_balance = debt_data.original_amount
     if debt_data.debt_type != "mortgage" and current_balance is None:
         raise HTTPException(status_code=400, detail="Current balance is required for this debt type.")
+    if debt_data.debt_type == "mortgage":
+        # Placeholder; recalculated below from the pure amortization plan once the Debt exists.
+        current_balance = debt_data.original_amount
 
     new_debt = Debt(
         account_id=debt_data.account_id,
@@ -602,9 +652,11 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
         current_balance=current_balance,
         credit_limit=debt_data.credit_limit,
         interest_rate=debt_data.interest_rate,
-        monthly_payment=debt_data.monthly_payment,
+        annual_interest_rate=debt_data.interest_rate if debt_data.debt_type == "mortgage" else None,
+        monthly_payment=monthly_payment,
         minimum_payment=debt_data.minimum_payment,
         loan_years=debt_data.loan_years,
+        term_months=(debt_data.loan_years * 12) if (debt_data.debt_type == "mortgage" and debt_data.loan_years) else None,
         start_date=debt_data.start_date,
         due_date=debt_data.due_date,
         payment_day=debt_data.payment_day,
@@ -619,11 +671,15 @@ def create_debt(debt_data: DebtCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_debt)
 
+    if new_debt.debt_type == "mortgage":
+        new_debt.current_balance = calculate_scheduled_principal_balance(new_debt, date.today())
+        db.commit()
+
     if account.type in {'credit_loan', 'mortgage'}:
         if debt_data.interest_rate is not None:
             account.interest_rate = debt_data.interest_rate
-        if debt_data.monthly_payment is not None:
-            account.monthly_payment = debt_data.monthly_payment
+        if monthly_payment is not None:
+            account.monthly_payment = monthly_payment
         if debt_data.original_amount is not None:
             account.original_amount = debt_data.original_amount
         if debt_data.loan_years is not None:
@@ -641,20 +697,35 @@ def update_debt(debt_id: int, debt_update: DebtUpdate, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="Debt not found")
 
     update_data = debt_update.dict(exclude_unset=True)
-    if debt.debt_type == "mortgage" and "current_balance" in update_data:
-        # Mortgage balance is derived from the amortization schedule (real payments + projection).
-        # Manual edits would conflict with the engine calculation, so we reject them here.
-        # To adjust the balance, register a payment via POST /{debt_id}/payments instead.
-        update_data.pop("current_balance")
+    if debt.debt_type == "mortgage":
+        # Mortgage balance and monthly_payment are fully derived from
+        # original_amount/start_date/interest_rate/loan_years — manual edits to
+        # either would conflict with the engine calculation, so they're rejected here.
+        update_data.pop("current_balance", None)
+        update_data.pop("monthly_payment", None)
     for field, value in update_data.items():
         setattr(debt, field, value)
+
+    if debt.debt_type == "mortgage":
+        # Re-derive everything from the 4 base fields after applying edits.
+        debt.annual_interest_rate = debt.interest_rate
+        debt.term_months = (debt.loan_years * 12) if debt.loan_years else debt.term_months
+        if debt.original_amount and debt.interest_rate is not None and debt.loan_years:
+            debt.monthly_payment = calculate_monthly_payment(
+                debt.original_amount, debt.interest_rate / 100, debt.loan_years
+            )
+        debt.current_balance = calculate_scheduled_principal_balance(debt, date.today())
 
     if debt.account and debt.account.type in {'credit_loan', 'mortgage'}:
         if debt_update.interest_rate is not None:
             debt.account.interest_rate = debt_update.interest_rate
-        if debt_update.monthly_payment is not None:
+        if debt.debt_type == "mortgage":
+            debt.account.monthly_payment = debt.monthly_payment
+        elif debt_update.monthly_payment is not None:
             debt.account.monthly_payment = debt_update.monthly_payment
-        if debt_update.current_balance is not None:
+        if debt.debt_type == "mortgage":
+            debt.account.balance = debt.current_balance
+        elif debt_update.current_balance is not None:
             debt.account.balance = debt_update.current_balance
         if debt_update.loan_years is not None:
             debt.account.loan_years = debt_update.loan_years
@@ -726,8 +797,8 @@ def get_debt_payments(debt_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Debt not found")
 
     if debt.debt_type in {"mortgage", "credit_loan"}:
-        # Use unified history builder: merges DebtPayment + MortgagePaymentAllocation
-        # (allocations only apply to mortgages, so credit_loan gets plain DebtPayments).
+        # Informational payment history (DebtPayment records). For mortgages this
+        # no longer affects the derived balance — it's purely for display.
         payments = build_loan_payment_history(debt, db)
         return sorted(
             payments,

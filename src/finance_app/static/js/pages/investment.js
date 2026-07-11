@@ -138,12 +138,12 @@ function simulate(container) {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: { labels: { font: { size: 11 }, color: 'var(--text-secondary)' } },
+        legend: { labels: { font: { size: 11 }, color: 'var(--fin-ink-2)' } },
         tooltip: { callbacks: { label: ctx => ` ${fmtCurrency(ctx.raw, currency)}` } },
       },
       scales: {
-        y: { grid: { color: 'var(--fin-border)' }, ticks: { callback: v => fmtCurrency(v, currency), font: { size: 10 }, color: 'var(--text-soft)' } },
-        x: { grid: { display: false }, ticks: { color: 'var(--text-soft)', font: { size: 10 } } },
+        y: { grid: { color: 'var(--fin-border)' }, ticks: { callback: v => fmtCurrency(v, currency), font: { size: 10 }, color: 'var(--fin-ink-3)' } },
+        x: { grid: { display: false }, ticks: { color: 'var(--fin-ink-3)', font: { size: 10 } } },
       },
     },
   });

@@ -46,6 +46,7 @@ from finance_app.api import (
 )
 from finance_app.api import email_sender_rules
 from finance_app.api import merchant_rules as merchant_rules_module
+from finance_app.api import merchant_ignore_rules as merchant_ignore_rules_module
 from finance_app.api import chat as chat_module
 from finance_app.api import portfolio as portfolio_module
 from finance_app.api import fire as fire_module
@@ -71,8 +72,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         from finance_app.services.exchange_rate_service import sync_all_currency_rates
         try:
             sync_all_currency_rates(db)
-        except Exception as exc:
-            logger.warning("Exchange rate sync skipped: %s", exc)
+        except Exception:
+            logger.exception("Exchange rate sync failed on startup")
     finally:
         db.close()
     logger.info("Database initialized")
@@ -118,6 +119,7 @@ app.include_router(goals.router, prefix="/api/goals", tags=["goals"])
 app.include_router(patrimonio.router, prefix="/api/patrimonio", tags=["patrimonio"])
 app.include_router(email_sender_rules.router, prefix="/api/email-sender-rules", tags=["email-sender-rules"])
 app.include_router(merchant_rules_module.router, prefix="/api/merchant-rules", tags=["merchant-rules"])
+app.include_router(merchant_ignore_rules_module.router, prefix="/api/merchant-ignore-rules", tags=["merchant-ignore-rules"])
 app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
 app.include_router(cash_flow.router, prefix="/api/cash-flow", tags=["cash-flow"])
 app.include_router(setup.router, prefix="/api/setup", tags=["setup"])

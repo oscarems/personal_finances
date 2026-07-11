@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 import threading
 import shutil
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -355,7 +356,12 @@ _MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
     ("debts", "min_payment_percentage", "min_payment_percentage FLOAT"),
     ("debts", "monthly_interest_rate", "monthly_interest_rate FLOAT"),
     ("debts", "rate_type", "rate_type VARCHAR(20) DEFAULT 'fixed'"),
+    ("debts", "includes_principal_payment", "includes_principal_payment BOOLEAN DEFAULT 0"),
+    ("debts", "actual_payment_amount", "actual_payment_amount FLOAT"),
     ("accounts", "country", "country VARCHAR(50)"),
+    ("accounts", "actual_payment_amount", "actual_payment_amount FLOAT"),
+    ("accounts", "has_insurance", "has_insurance BOOLEAN DEFAULT 0"),
+    ("accounts", "includes_principal_payment", "includes_principal_payment BOOLEAN DEFAULT 0"),
     ("patrimonio_asset", "depreciation_method", "depreciation_method VARCHAR(40) DEFAULT 'sin_depreciacion'"),
     ("patrimonio_asset", "depreciation_rate", "depreciation_rate FLOAT"),
     ("patrimonio_asset", "depreciation_years", "depreciation_years INTEGER"),
@@ -363,6 +369,8 @@ _MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
     ("patrimonio_asset", "depreciation_start_date", "depreciation_start_date DATE"),
     ("patrimonio_asset", "return_rate", "return_rate FLOAT"),
     ("patrimonio_asset", "return_amount", "return_amount NUMERIC(18,2)"),
+    ("patrimonio_asset", "valor_mercado_manual", "valor_mercado_manual NUMERIC(18,2)"),
+    ("patrimonio_asset", "fecha_valor_mercado", "fecha_valor_mercado DATE"),
     ("goals", "category_id", "category_id INTEGER REFERENCES categories(id)"),
     ("budget_months", "initial_overridden", "initial_overridden BOOLEAN DEFAULT 0"),
     ("budget_months", "assigned_overridden", "assigned_overridden DEFAULT 0"),
@@ -388,6 +396,9 @@ _MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
     ("asset_price_history", "precio", "precio FLOAT NOT NULL DEFAULT 0"),
     ("asset_price_history", "fuente", "fuente VARCHAR(20) NOT NULL DEFAULT 'manual'"),
     ("asset_price_history", "created_at", "created_at DATETIME"),
+    ("merchant_rules", "field", "field VARCHAR(20) NOT NULL DEFAULT 'payee'"),
+    ("merchant_rules", "operator", "operator VARCHAR(20) NOT NULL DEFAULT 'contains'"),
+    ("merchant_rules", "priority", "priority INTEGER NOT NULL DEFAULT 0"),
 ]
 
 _MIGRATION_INDEXES: list[tuple[str, str]] = [
@@ -399,8 +410,34 @@ _MIGRATION_INDEXES: list[tuple[str, str]] = [
 ]
 
 
+def _backup_sqlite_before_migration(active_engine) -> None:
+    """Copy the active SQLite database file to a dated .bak before migrations run.
+
+    Skips silently for non-SQLite engines. If a backup for today already exists,
+    it is left untouched so a pre-migration snapshot from an earlier run today
+    is not overwritten.
+    """
+    try:
+        db_url = str(active_engine.url)
+        if not db_url.startswith("sqlite:///"):
+            return
+        db_path = Path(db_url.replace("sqlite:///", ""))
+        if not db_path.exists():
+            return
+        today = datetime.now().strftime("%Y%m%d")
+        backup_path = db_path.with_name(f"{db_path.name}.bak-{today}")
+        if backup_path.exists():
+            logger.info("Backup pre-migración ya existe: %s", backup_path)
+            return
+        shutil.copy2(db_path, backup_path)
+        logger.info("Backup pre-migración creado: %s", backup_path)
+    except Exception:
+        logger.exception("No se pudo crear el backup pre-migración de %s", active_engine)
+
+
 def _apply_sqlite_migrations(active_engine) -> None:
     """Ensure all migration columns and indexes exist."""
+    _backup_sqlite_before_migration(active_engine)
     for table, column, definition in _MIGRATION_COLUMNS:
         ensure_sqlite_column(
             table_name=table,

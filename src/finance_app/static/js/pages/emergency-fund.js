@@ -4,34 +4,56 @@ import { toast } from '../components/toast.js';
 
 export const title = 'Fondo de Emergencia';
 
-let allCategories = [];
-let coverageData  = null;
+let allCategories      = [];
+let coverageData       = null;
+let readyToAssign      = null;
+let includeRTA         = false;  // ¿incluir "listo para asignar" en el simulador?
 
 export async function mount(container) {
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
   try {
-    const [coverage, cats] = await Promise.all([
+    const [coverage, cats, budgetData] = await Promise.all([
       api.emergencyFund.coverage(),
       api.emergencyFund.categories(),
+      api.budgets.current().catch(() => null),
     ]);
     coverageData  = coverage;
     allCategories = Array.isArray(cats) ? cats : [];
+    readyToAssign = budgetData?.ready_to_assign ?? null;
     render(container);
   } catch (err) {
     container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
   }
 }
 
+function computeSummaryValues() {
+  const baseFund    = coverageData?.emergency_funds_total ?? 0;
+  const monthlyExp  = coverageData?.essential_expenses_total ?? 0;
+  const currency    = coverageData?.currency_code ?? 'COP';
+  const baseFund2   = coverageData?.emergency_funds_total_secondary ?? null;
+  const monthlyExp2 = coverageData?.essential_expenses_total_secondary ?? null;
+  const currency2   = coverageData?.secondary_currency_code ?? null;
+  const rate        = coverageData?.exchange_rate_usd_cop ?? null;  // COP per 1 USD
+
+  const rtaCOP = (includeRTA && readyToAssign !== null) ? readyToAssign : 0;
+  const totalFund = baseFund + rtaCOP;
+
+  // Convert RTA to secondary currency if available
+  let totalFund2 = baseFund2;
+  if (includeRTA && readyToAssign !== null && baseFund2 !== null && rate) {
+    const rtaSecondary = currency === 'COP' ? rtaCOP / rate : rtaCOP * rate;
+    totalFund2 = baseFund2 + rtaSecondary;
+  }
+
+  const months = monthlyExp > 0 ? totalFund / monthlyExp : 0;
+
+  return { months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2 };
+}
+
 function render(container) {
-  const months       = coverageData?.months_coverage ?? 0;
-  const totalFund    = coverageData?.emergency_funds_total ?? 0;
-  const monthlyExp   = coverageData?.essential_expenses_total ?? 0;
-  const currency     = coverageData?.currency_code ?? 'COP';
-  const totalFund2   = coverageData?.emergency_funds_total_secondary ?? null;
-  const monthlyExp2  = coverageData?.essential_expenses_total_secondary ?? null;
-  const currency2    = coverageData?.secondary_currency_code ?? null;
-  const target       = 6;
-  const isGood       = months >= target;
+  const { months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2 } = computeSummaryValues();
+  const target  = 6;
+  const isGood  = months >= target;
 
   const expenseCats = allCategories.filter(c => !c.is_income && c.rollover_type !== 'accumulate');
   const savingsCats = allCategories.filter(c => !c.is_income && c.rollover_type === 'accumulate');
@@ -65,6 +87,7 @@ function render(container) {
           <span class="text-soft" style="font-size:0.75rem">¿Qué ahorros cubren emergencias?</span>
         </div>
         <div class="card-body" style="padding-top:0">
+          ${renderRTACheckbox()}
           ${renderCategoryList(savingsCats, 'is_emergency_fund')}
         </div>
       </div>
@@ -74,6 +97,42 @@ function render(container) {
   container.querySelectorAll('[data-ef-toggle]').forEach(el => {
     el.addEventListener('change', handleToggle.bind(null, container));
   });
+
+  const rtaCheckbox = container.querySelector('#ef-rta-toggle');
+  if (rtaCheckbox) {
+    rtaCheckbox.addEventListener('change', () => {
+      includeRTA = rtaCheckbox.checked;
+      refreshSummary(container);
+    });
+  }
+}
+
+function renderRTACheckbox() {
+  if (readyToAssign === null) return '';
+  const currency = coverageData?.currency_code ?? 'COP';
+  const colorClass = readyToAssign >= 0 ? 'text-success' : 'text-danger';
+
+  return `
+    <div style="border-bottom:1px solid var(--fin-border);margin-bottom:8px;padding-bottom:10px">
+      <label class="flex items-center gap-2" style="padding:6px 8px;border-radius:6px;cursor:pointer;transition:background 0.15s"
+             onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+        <input type="checkbox"
+               id="ef-rta-toggle"
+               ${includeRTA ? 'checked' : ''}
+               style="width:16px;height:16px;accent-color:var(--fin-accent);cursor:pointer;flex-shrink:0">
+        <span style="font-size:0.875rem;flex:1">Listo para asignar</span>
+        <span class="amount ${colorClass}" style="font-size:0.82rem;font-weight:600">${fmtCurrency(readyToAssign, currency)}</span>
+      </label>
+    </div>
+  `;
+}
+
+function refreshSummary(container) {
+  const { months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2 } = computeSummaryValues();
+  const target = 6;
+  const isGood = months >= target;
+  const summary = container.querySelector('#ef-summary');
+  if (summary) summary.innerHTML = renderSummary(months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2, target, isGood);
 }
 
 function renderDualCurrency(primary, primaryCurrency, secondary, secondaryCurrency) {
@@ -161,7 +220,7 @@ function renderCategoryList(cats, flag) {
                  data-flag="${flag}"
                  ${cat[flag] ? 'checked' : ''}
                  style="width:16px;height:16px;accent-color:var(--fin-accent);cursor:pointer;flex-shrink:0">
-          <span style="font-size:0.875rem">${sanitize(cat.name)}</span>
+          <span style="font-size:0.875rem;flex:1">${sanitize(cat.name)}</span>
         </label>
       `).join('')}
     </div>
@@ -172,31 +231,15 @@ async function handleToggle(container, e) {
   const { categoryId, flag } = e.target.dataset;
   const checked = e.target.checked;
   e.target.disabled = true;
-  console.log('[EF] toggle', { categoryId, flag, checked });
 
   try {
-    const patchResult = await api.emergencyFund.updateCategory(parseInt(categoryId), { [flag]: checked });
-    console.log('[EF] patch result', patchResult);
+    await api.emergencyFund.updateCategory(parseInt(categoryId), { [flag]: checked });
 
     const cat = allCategories.find(c => c.id === parseInt(categoryId));
     if (cat) cat[flag] = checked;
 
     coverageData = await api.emergencyFund.coverage();
-    console.log('[EF] coverage', coverageData);
-
-    const months      = coverageData?.months_coverage ?? 0;
-    const totalFund   = coverageData?.emergency_funds_total ?? 0;
-    const monthlyExp  = coverageData?.essential_expenses_total ?? 0;
-    const currency    = coverageData?.currency_code ?? 'COP';
-    const totalFund2  = coverageData?.emergency_funds_total_secondary ?? null;
-    const monthlyExp2 = coverageData?.essential_expenses_total_secondary ?? null;
-    const currency2   = coverageData?.secondary_currency_code ?? null;
-    const target      = 6;
-    const isGood      = months >= target;
-
-    const summary = container.querySelector('#ef-summary');
-    console.log('[EF] summary element', summary, 'months:', months, 'funds:', totalFund);
-    if (summary) summary.innerHTML = renderSummary(months, totalFund, monthlyExp, currency, totalFund2, monthlyExp2, currency2, target, isGood);
+    refreshSummary(container);
   } catch (err) {
     e.target.checked = !checked;
     toast.error('Error al actualizar categoría: ' + err.message);

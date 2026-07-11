@@ -437,8 +437,8 @@ function renderChart(container, trendData) {
     data: {
       labels,
       datasets: [
-        { label:'Ingresos', data:income,  backgroundColor:'var(--fin-success)', borderRadius:4 },
-        { label:'Gastos',   data:expense, backgroundColor:'var(--fin-danger)', borderRadius:4 },
+        { label:'Ingresos', data:income,  backgroundColor:'rgba(56,189,248,0.85)', borderRadius:4 },
+        { label:'Gastos',   data:expense, backgroundColor:'rgba(251,113,133,0.75)', borderRadius:4 },
       ],
     },
     options: {
@@ -466,7 +466,22 @@ function renderChart(container, trendData) {
 function savingsRateSection(sr) {
   if (!sr?.monthly?.length) return '';
   const savedTarget = parseInt(localStorage.getItem('savings_rate_target') ?? '20', 10);
-  const avg = sr.average_savings_rate ?? 0;
+  const months  = sr.monthly;
+  const avg     = sr.average_savings_rate ?? 0;
+  const last    = months[months.length - 1];
+  const prev    = months[months.length - 2];
+  const current = last?.savings_rate ?? 0;
+  const delta   = prev ? current - (prev.savings_rate ?? 0) : null;
+  const best    = Math.max(...months.map(m => m.savings_rate ?? 0));
+  const worst   = Math.min(...months.map(m => m.savings_rate ?? 0));
+  const aboveMeta = months.filter(m => (m.savings_rate ?? 0) >= savedTarget).length;
+
+  const deltaHtml = delta !== null
+    ? `<span style="font-size:0.78rem;margin-left:6px;color:${delta >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}pp vs mes anterior</span>`
+    : '';
+
+  const rateColor = r => r >= savedTarget ? 'var(--fin-success)' : r >= savedTarget * 0.6 ? 'var(--fin-amber)' : 'var(--fin-danger)';
+  const rateLabel = r => r >= savedTarget ? '✓' : r >= savedTarget * 0.6 ? '~' : '⚠';
 
   return `
     <div class="card mt-4">
@@ -479,18 +494,60 @@ function savingsRateSection(sr) {
           <span class="text-muted" style="font-size:0.78rem">%</span>
         </div>
       </div>
-      <div class="card-body"><canvas id="savingsRateChart" style="width:100%;height:220px"></canvas></div>
-      <div class="card-body flex" style="flex-wrap:wrap;gap:12px;padding-top:0">
-        <div class="text-muted" style="font-size:0.8rem">
-          Promedio (${sr.monthly.length} meses):
-          <strong class="${avg >= savedTarget ? 'amount text-success' : 'amount text-danger'}" style="margin-left:4px">${avg.toFixed(1)}%</strong>
+
+      <div class="card-body" style="padding-bottom:8px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px">
+          <div style="background:var(--fin-bg-2);border-radius:8px;padding:12px 14px">
+            <div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Mes actual</div>
+            <div style="font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;color:${rateColor(current)}">${current.toFixed(1)}%</div>
+            <div style="font-size:0.75rem;margin-top:2px">${deltaHtml || '&nbsp;'}</div>
+          </div>
+          <div style="background:var(--fin-bg-2);border-radius:8px;padding:12px 14px">
+            <div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Promedio</div>
+            <div style="font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;color:${rateColor(avg)}">${avg.toFixed(1)}%</div>
+            <div style="font-size:0.75rem;color:var(--fin-ink-3);margin-top:2px">${months.length} meses</div>
+          </div>
+          <div style="background:var(--fin-bg-2);border-radius:8px;padding:12px 14px">
+            <div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Mejor mes</div>
+            <div style="font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--fin-success)">${best.toFixed(1)}%</div>
+          </div>
+          <div style="background:var(--fin-bg-2);border-radius:8px;padding:12px 14px">
+            <div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Meta cumplida</div>
+            <div style="font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums;color:${aboveMeta >= months.length * 0.7 ? 'var(--fin-success)' : 'var(--fin-amber)'}">${aboveMeta}/${months.length}</div>
+            <div style="font-size:0.75rem;color:var(--fin-ink-3);margin-top:2px">meses sobre ${savedTarget}%</div>
+          </div>
         </div>
-        <div class="text-muted" style="font-size:0.8rem">
-          Meta: <strong style="margin-left:4px">${savedTarget}%</strong>
-          ${avg >= savedTarget
-            ? '<span class="text-success" style="font-size:0.75rem;margin-left:4px">✓ Cumplida</span>'
-            : '<span class="text-danger" style="font-size:0.75rem;margin-left:4px">⚠ Por debajo</span>'}
-        </div>
+
+        <canvas id="savingsRateChart" style="width:100%;height:200px"></canvas>
+      </div>
+
+      <div style="overflow-x:auto;border-top:1px solid var(--fin-border)">
+        <table class="fin-table" style="font-size:0.8rem">
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th class="td-right">Ingresos</th>
+              <th class="td-right">Gastos</th>
+              <th class="td-right">Ahorro</th>
+              <th class="td-right">Tasa</th>
+              <th style="width:36px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${[...months].reverse().map(m => {
+              const r = m.savings_rate ?? 0;
+              const sav = (m.income ?? 0) - (m.expenses ?? 0);
+              return `<tr>
+                <td class="text-soft">${m.month_name ?? m.month}</td>
+                <td class="td-right" style="color:rgba(56,189,248,0.9)">${fmt(m.income ?? 0)}</td>
+                <td class="td-right" style="color:rgba(251,113,133,0.9)">${fmt(m.expenses ?? 0)}</td>
+                <td class="td-right" style="color:${sav >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">${fmt(sav)}</td>
+                <td class="td-right amount" style="font-weight:600;color:${rateColor(r)}">${r.toFixed(1)}%</td>
+                <td style="text-align:center;color:${rateColor(r)};font-size:0.7rem">${rateLabel(r)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     </div>`;
 }

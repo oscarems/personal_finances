@@ -90,7 +90,7 @@ async function runQuery(sql, resultEl) {
 
     resultEl.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:0.8rem;color:var(--text-secondary)">${rows.length} fila${rows.length !== 1 ? 's' : ''}${elapsed != null ? ` · ${elapsed}ms` : ''}</span>
+        <span style="font-size:0.8rem;color:var(--fin-ink-2)">${rows.length} fila${rows.length !== 1 ? 's' : ''}${elapsed != null ? ` · ${elapsed}ms` : ''}</span>
       </div>
       <div class="table-wrap">
         <table>

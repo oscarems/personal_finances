@@ -66,14 +66,16 @@ Pass `mode` to `generate_schedule()`:
 
 | Mode | Behavior |
 |---|---|
-| `plan` | Entire schedule is theoretical. Real payments are ignored. |
-| `actual` | Uses recorded `DebtPayment` / `MortgagePaymentAllocation` rows. Stops after `as_of`. |
-| `hybrid` | Real payments for past months, planned payments for future months. **This is the default for most callers.** |
+| `plan` | Entire schedule is theoretical. Real payments are ignored. **Mortgages always use this mode** — they are derived exclusively from `original_amount`/`start_date`/rate/term, regardless of the `mode` argument passed in. |
+| `actual` | Uses recorded `DebtPayment` rows. Stops after `as_of`. **credit_loan only.** |
+| `hybrid` | Real payments for past months, planned payments for future months. **credit_loan only.** |
 
-Real payments are collected from three sources (in priority order):
-1. `MortgagePaymentAllocation` records
-2. `DebtPayment` records (excluding those already covered by allocations)
-3. Heuristic transaction matching by category + account + memo keywords
+For `credit_loan`, real payments are collected from two sources (in priority order):
+1. `DebtPayment` records
+2. Heuristic transaction matching by category + account + memo keywords
+
+Mortgages no longer track real-payment allocations (the old `MortgagePaymentAllocation`
+model/table is deprecated and unused — see the mortgage redesign).
 
 ## Interest Rate Conventions
 

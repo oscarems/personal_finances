@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
 from typing import Dict
 
 from dateutil.relativedelta import relativedelta
@@ -57,10 +56,13 @@ def calculate_mortgage_principal_balance(
     debt: Debt,
     as_of_date: date | None = None,
 ) -> float:
-    """Calculate mortgage principal balance using hybrid mode (real + projected).
+    """Calculate mortgage principal balance using the pure amortization plan.
+
+    Mortgages are derived exclusively from original_amount/start_date/rate/term —
+    no real-payment tracking is considered.
 
     Args:
-        db: Database session.
+        db: Database session (unused for mortgages, kept for signature compatibility).
         debt: Debt model instance.
         as_of_date: Date to calculate at. Defaults to today.
 
@@ -68,8 +70,7 @@ def calculate_mortgage_principal_balance(
         Mortgage principal balance.
     """
     target = as_of_date or date.today()
-    engine = AmortizationEngine(db=db)
-    return engine.balance_as_of(debt, target, mode="hybrid")
+    return calculate_scheduled_principal_balance(debt, target)
 
 
 def refresh_mortgage_current_balance(
@@ -77,9 +78,11 @@ def refresh_mortgage_current_balance(
     debt: Debt,
     as_of_date: date | None = None,
 ) -> float:
-    """Recalculate and persist the mortgage's current balance.
+    """Recalculate and cache the mortgage's current balance.
 
-    Updates ``debt.current_balance`` and ``debt.principal_balance`` in place.
+    Updates ``debt.current_balance`` in place from the pure amortization plan.
+    ``principal_balance`` is no longer written — it belonged to the removed
+    real-payment tracking system.
 
     Args:
         db: Database session.
@@ -91,8 +94,6 @@ def refresh_mortgage_current_balance(
     """
     balance = calculate_mortgage_principal_balance(db, debt, as_of_date=as_of_date)
     debt.current_balance = balance
-    if debt.debt_type == "mortgage":
-        debt.principal_balance = Decimal(str(balance))
     return balance
 
 

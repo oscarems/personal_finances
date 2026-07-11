@@ -65,8 +65,10 @@ def test_zero_rate():
 
 
 def test_extra_payments_reduce_term():
+    # credit_loan (not mortgage): mortgages always run in plan mode now — real
+    # extra payments no longer shorten their schedule (see amortization_engine.generate_schedule).
     db = _session()
-    debt = _base_debt(annual_interest_rate=0.12)
+    debt = _base_debt(annual_interest_rate=0.12, debt_type="credit_loan")
     db.add(debt)
     db.flush()
 

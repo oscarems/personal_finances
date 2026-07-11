@@ -14,11 +14,13 @@ from datetime import date
 from finance_app.database import get_db
 from finance_app.models import Currency
 from finance_app.models.transaction import Transaction
+from finance_app.models.merchant_rule import MerchantRule
 from finance_app.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
     update_transaction, delete_transaction, create_transfer, create_adjustment,
     get_last_manual_transactions_by_account, amounts_in_cop_and_usd,
 )
+from finance_app.services.merchant_rule_engine import find_matching_rule
 
 router = APIRouter()
 
@@ -253,6 +255,15 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
 def create_new_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     """Create a new transaction"""
     data = transaction.dict()
+
+    # Si el usuario no especificó categoría, intenta sugerirla automáticamente
+    # con las reglas de comercio configuradas (no sobreescribe una elección explícita).
+    if not data.get("category_id"):
+        rules = db.query(MerchantRule).order_by(MerchantRule.id).all()
+        matched = find_matching_rule(rules, data.get("payee_name"), data.get("memo"))
+        if matched:
+            data["category_id"] = matched.category_id
+
     try:
         new_transaction = create_transaction(db, data)
     except ValueError as exc:

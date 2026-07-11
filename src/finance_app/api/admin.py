@@ -2,7 +2,9 @@
 API endpoints for administrative operations
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from datetime import datetime
 from finance_app.database import (
     get_db,
     list_databases,
@@ -14,6 +16,8 @@ from finance_app.database import (
     rename_database,
     ensure_database_initialized,
     default_database_name,
+    resolve_db_name,
+    database_path_for,
     PRIMARY_DB_ALIAS,
     DEMO_DB_ALIAS
 )
@@ -175,6 +179,25 @@ def reset_database(options: ResetOptions, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error resetting database: {str(e)}")
+
+
+@router.get("/backup")
+def download_backup(request: Request):
+    """Download a full copy of the currently active SQLite database file."""
+    name = resolve_db_name(request)
+    if not database_exists(name):
+        name = default_database_name()
+    db_path = database_path_for(name)
+    if db_path is None or not db_path.exists():
+        raise HTTPException(status_code=404, detail="No se encontró el archivo de la base de datos activa.")
+
+    filename = f"finanzas-backup-{datetime.now().strftime('%Y%m%d')}.sqlite"
+    return FileResponse(
+        path=str(db_path),
+        media_type="application/octet-stream",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @router.get("/stats")

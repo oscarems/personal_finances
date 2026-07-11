@@ -1,28 +1,22 @@
 """
 Financial health endpoint.
 
-Evaluates the monthly BUDGET against a configurable 50/30/20 allocation rule
-and produces an adherence score measuring how closely actual spending tracks
-what was budgeted.
+Evaluates the CURRENT MONTH's budget against a configurable 50/30/20 allocation
+rule and produces an adherence score measuring how closely actual spending
+tracks what was budgeted. Everything is scoped to the selected month only —
+past months' leftover balances, rollovers or debt history are not factored
+into the score.
 
 Categorization:
 - savings : rollover_type == 'accumulate'
 - needs   : is_essential
 - wants   : everything else (non-income)
 
-Savings adherence rule
-----------------------
-Savings categories accumulate balance across months (rollover_type='accumulate').
-A user can spend more than what was *assigned* this month as long as the cumulative
-`available` balance stays >= 0.  Therefore:
-  - Adherence for savings  → scored against `available` (cumulative balance)
-  - Over-budget for savings → available < 0
-  - Display metric         → available (not assigned - spent)
-
-Expense adherence rule (needs / wants)
----------------------------------------
-  - Adherence → scored against `assigned` (monthly budget)
-  - Over-budget → spent > assigned
+Adherence rule (all buckets, including savings)
+-------------------------------------------------
+  - Adherence → scored against `assigned` for this month only
+  - Over-budget → spent > assigned this month
+  - Cumulative/rollover balances from prior months are ignored for scoring.
 """
 from datetime import date
 from typing import Optional
@@ -76,18 +70,6 @@ def _adherence_score_expense(assigned: float, spent: float) -> float:
     return max(0.0, 100.0 - over_ratio * 100.0)
 
 
-def _adherence_score_savings(available: float, spent: float) -> float:
-    """Savings adherence: penalise only when cumulative available < 0.
-    Spending more than *assigned* this month is fine as long as the
-    accumulated balance covers it.
-    """
-    if available >= 0:
-        return 100.0
-    # available is negative → overspent the accumulated balance
-    # reference = what was spent (best proxy for the total that was available)
-    ref = spent if spent > 0 else 1.0
-    over_ratio = (-available) / ref
-    return max(0.0, 100.0 - over_ratio * 100.0)
 
 
 # ── Main endpoint ─────────────────────────────────────────────────────────────
@@ -166,47 +148,24 @@ def get_financial_health(
 
             # ── Adherence score per category ──────────────────────────────
             is_savings = bucket_name == "savings"
-            if is_savings:
-                cat_score = _adherence_score_savings(available, spent)
-                weight = spent if spent > 0 else assigned
-            else:
-                cat_score = _adherence_score_expense(assigned, spent)
-                weight = assigned if assigned > 0 else spent
+            cat_score = _adherence_score_expense(assigned, spent)
+            weight = assigned if assigned > 0 else spent
 
             weighted_adherence_num += cat_score * weight
             weighted_adherence_den += weight
 
-            # ── Over-budget detection ─────────────────────────────────────
-            if is_savings:
-                if available < 0:
-                    # base = what they had available before spending this month
-                    # available = prior_rollover + assigned - spent
-                    # => prior_rollover = available - assigned + spent
-                    prior_rollover = available - assigned + spent
-                    base = prior_rollover + assigned  # = spent + available
-                    ref  = base if base > 0 else spent if spent > 0 else 1.0
-                    over_budget_categories.append({
-                        "category_name": cat.get("category_name"),
-                        "group_name":    group.get("name"),
-                        "assigned":      assigned,
-                        "spent":         spent,
-                        "available":     available,
-                        "overspend":     -available,
-                        "overspend_pct": (-available / ref * 100.0),
-                        "is_savings":    True,
-                    })
-            else:
-                if assigned > 0 and spent > assigned:
-                    over_budget_categories.append({
-                        "category_name": cat.get("category_name"),
-                        "group_name":    group.get("name"),
-                        "assigned":      assigned,
-                        "spent":         spent,
-                        "available":     available,
-                        "overspend":     spent - assigned,
-                        "overspend_pct": (spent - assigned) / assigned * 100.0,
-                        "is_savings":    False,
-                    })
+            # ── Over-budget detection (this month only) ────────────────────
+            if assigned > 0 and spent > assigned:
+                over_budget_categories.append({
+                    "category_name": cat.get("category_name"),
+                    "group_name":    group.get("name"),
+                    "assigned":      assigned,
+                    "spent":         spent,
+                    "available":     available,
+                    "overspend":     spent - assigned,
+                    "overspend_pct": (spent - assigned) / assigned * 100.0,
+                    "is_savings":    is_savings,
+                })
 
     # ── Percentages of total assigned ─────────────────────────────────────────
     def _pct(v: float) -> float:
@@ -275,6 +234,12 @@ def get_financial_health(
         if s >= 60: return "D"
         return "F"
 
+    def _estado(s: float) -> str:
+        """Semáforo simple derivado del score general (verde/ámbar/rojo)."""
+        if s >= 75: return "bueno"
+        if s >= 60: return "regular"
+        return "critico"
+
     # ── Insights (good / bad signals for the notifications panel) ────────────
     insights: list[dict] = []
 
@@ -299,15 +264,15 @@ def get_financial_health(
         _ins("bad", f"{n_over} categoría{'s' if n_over != 1 else ''} de gasto se excedieron del presupuesto",
              f"Cumplimiento: {adherence_score}/100")
 
-    # Savings adherence
+    # Savings adherence (este mes únicamente)
     n_savings_over = sum(1 for c in over_budget_categories if c["is_savings"])
     if n_savings_over == 0 and buckets["savings"]["spent"] > 0:
-        _ins("good", "Ninguna categoría de ahorro consumió más de lo acumulado",
-             "El saldo disponible de todos tus ahorros es positivo")
+        _ins("good", "Ninguna categoría de ahorro gastó más de lo asignado este mes",
+             "Te mantuviste dentro de lo presupuestado para ahorro")
     elif n_savings_over > 0:
         _ins("bad",
-             f"{n_savings_over} categoría{'s' if n_savings_over != 1 else ''} de ahorro gastaron más de lo disponible",
-             "El saldo acumulado quedó negativo — revisa si hubo un retiro no planeado")
+             f"{n_savings_over} categoría{'s' if n_savings_over != 1 else ''} de ahorro gastaron más de lo asignado este mes",
+             "Revisa si hubo un gasto imprevisto en esa meta de ahorro")
 
     # Savings allocation
     sav_pct = buckets["savings"]["pct_of_assigned"]
@@ -376,6 +341,7 @@ def get_financial_health(
         "scores": {
             "overall":   overall_score,
             "grade":     _grade(overall_score),
+            "estado":    _estado(overall_score),
             "rule":      rule_score,
             "adherence": adherence_score,
         },

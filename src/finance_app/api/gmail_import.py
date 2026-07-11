@@ -9,8 +9,10 @@ from finance_app.database import get_db
 from finance_app.models import Account, Category, Currency, Transaction
 from finance_app.models.gmail_message import GmailProcessedMessage
 from finance_app.models.merchant_rule import MerchantRule
+from finance_app.models.merchant_ignore_rule import MerchantIgnoreRule
 from finance_app.services import gmail_ollama_service as ollama_svc
 from finance_app.services.transaction_service import create_transaction
+from finance_app.services.merchant_rule_engine import find_matching_rule
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -38,6 +40,16 @@ class BulkConfirmItem(BaseModel):
 
 class BulkConfirmPayload(BaseModel):
     items: list[BulkConfirmItem]
+
+
+def _match_ignore_rule(db: Session, record: GmailProcessedMessage) -> str | None:
+    """Return the matched merchant name if the email's subject/body contains an ignored merchant."""
+    search_text = f"{record.subject or ''} {record.body_text or ''}".upper()
+    rules = db.query(MerchantIgnoreRule).all()
+    for rule in rules:
+        if rule.merchant_name and rule.merchant_name in search_text:
+            return rule.merchant_name
+    return None
 
 
 @router.get("/models")
@@ -79,18 +91,31 @@ def process_email(
     if not record:
         raise HTTPException(status_code=404, detail="Correo no encontrado. Sincroniza primero.")
 
+    matched_merchant = _match_ignore_rule(db, record)
+    if matched_merchant:
+        record.skipped = True
+        db.commit()
+        return {"ignored": True, "matched_merchant": matched_merchant}
+
     accounts = [a.to_dict() for a in db.query(Account).filter_by(is_closed=False).all()]
     categories = [
         {"id": c.id, "name": c.name, "group": c.category_group.name if c.category_group else ""}
         for c in db.query(Category).filter_by(is_hidden=False).order_by(Category.name).all()
     ]
-    merchant_rules = [r.to_dict() for r in db.query(MerchantRule).order_by(MerchantRule.merchant_name).all()]
+    rule_rows = db.query(MerchantRule).order_by(MerchantRule.id).all()
+    merchant_rules = [r.to_dict() for r in rule_rows]
 
     try:
         result = ollama_svc.call_ollama(record.body_text or "", accounts, categories, merchant_rules=merchant_rules, model=model)
     except Exception as exc:
         logger.exception("Error llamando a Ollama (model=%s, message_id=%s)", model, message_id)
         raise HTTPException(status_code=503, detail=f"Error llamando a Ollama: {exc}")
+
+    # Aplicación determinística: si el comercio detectado (o el cuerpo del correo)
+    # coincide con una regla configurada, esa categoría gana sin depender del LLM.
+    matched = find_matching_rule(rule_rows, result.get("comentario"), record.body_text)
+    if matched:
+        result["categoria_id"] = matched.category_id
 
     return result
 

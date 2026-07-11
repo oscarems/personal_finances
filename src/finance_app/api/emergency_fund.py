@@ -14,6 +14,7 @@ from finance_app.services.emergency_fund_service import (
     get_monthly_essential_expenses,
     get_emergency_funds
 )
+from finance_app.services.exchange_rate_service import get_current_exchange_rate
 
 router = APIRouter()
 
@@ -79,6 +80,8 @@ def get_emergency_coverage(
         coverage['secondary_currency_code'] = None
         coverage['emergency_funds_total_secondary'] = None
         coverage['essential_expenses_total_secondary'] = None
+
+    coverage['exchange_rate_usd_cop'] = get_current_exchange_rate(db)
 
     return coverage
 

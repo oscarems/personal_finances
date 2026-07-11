@@ -55,7 +55,7 @@ function render(container, rates, currencies) {
       <div class="card">
         <div class="card-header"><span class="card-title">Categorías</span></div>
         <div class="card-body">
-          <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:16px">
+          <p style="font-size:0.875rem;color:var(--fin-ink-2);margin-bottom:16px">
             Si no tienes categorías configuradas, puedes sembrar el set predeterminado.
           </p>
           <button class="btn btn-secondary" id="btnSeedCats">🌱 Sembrar categorías por defecto</button>
@@ -66,7 +66,7 @@ function render(container, rates, currencies) {
       <div class="card">
         <div class="card-header"><span class="card-title">Sincronización de Email</span></div>
         <div class="card-body">
-          <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:16px">
+          <p style="font-size:0.875rem;color:var(--fin-ink-2);margin-bottom:16px">
             Lee los correos de Gmail y crea transacciones automáticamente según las reglas configuradas.
           </p>
           <div style="display:flex;gap:8px">
@@ -76,22 +76,33 @@ function render(container, rates, currencies) {
         </div>
       </div>
 
+      <!-- Backup -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Respaldo</span></div>
+        <div class="card-body">
+          <p style="font-size:0.875rem;color:var(--fin-ink-2);margin-bottom:16px">
+            Descarga una copia completa del archivo de base de datos activo.
+          </p>
+          <button class="btn btn-secondary" id="btnExportBackup">💾 Exportar backup completo</button>
+        </div>
+      </div>
+
       <!-- App Info -->
       <div class="card">
         <div class="card-header"><span class="card-title">Información</span></div>
         <div class="card-body">
           <div style="display:flex;flex-direction:column;gap:10px">
             <div style="display:flex;justify-content:space-between;font-size:0.875rem">
-              <span style="color:var(--text-secondary)">Versión</span>
+              <span style="color:var(--fin-ink-2)">Versión</span>
               <span style="font-family:var(--font-mono)">2.0.0</span>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:0.875rem">
-              <span style="color:var(--text-secondary)">Monedas soportadas</span>
+              <span style="color:var(--fin-ink-2)">Monedas soportadas</span>
               <span>${currencies.map(c => c.code).join(', ')}</span>
             </div>
           </div>
           <hr class="divider">
-          <p style="font-size:0.8rem;color:var(--text-soft)">
+          <p style="font-size:0.8rem;color:var(--fin-ink-3)">
             Aplicación de finanzas personales local. Los datos se almacenan en SQLite en tu máquina.
           </p>
         </div>
@@ -103,8 +114,11 @@ function render(container, rates, currencies) {
     try {
       await api.exchangeRates.sync();
       toast.success('Tasas actualizadas');
-      const rates = await optional(api.exchangeRates.list(), [], 'Tasas de Cambio');
-      container.querySelector('#ratesBody').innerHTML = rates.length ? 'Actualizado — recarga la página' : 'Sin datos';
+      const [rates, currencies] = await Promise.all([
+        optional(api.exchangeRates.list(), [], 'Tasas de Cambio'),
+        api.currencies.list(),
+      ]);
+      render(container, rates, currencies);
     } catch (err) { toast.error(err.message); }
   });
 
@@ -114,6 +128,10 @@ function render(container, rates, currencies) {
       await api.categories.seed();
       toast.success('Categorías sembradas');
     } catch (err) { toast.error(err.message); }
+  });
+
+  container.querySelector('#btnExportBackup')?.addEventListener('click', () => {
+    window.location = api.admin.backupUrl;
   });
 
   container.querySelector('#btnSyncEmail')?.addEventListener('click', async () => {

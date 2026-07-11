@@ -22,6 +22,8 @@ class PatrimonioAsset(Base):
     depreciation_start_date = Column(Date, nullable=True)
     return_rate = Column(Float, nullable=True)  # rendimiento (ej. arriendo como % anual)
     return_amount = Column(Numeric(18, 2), nullable=True)  # ingreso fijo mensual
+    valor_mercado_manual = Column(Numeric(18, 2), nullable=True)  # precio ingresado por el usuario (avalúo, tasación)
+    fecha_valor_mercado = Column(Date, nullable=True)  # fecha en que se registró ese precio
     moneda_id = Column(Integer, ForeignKey("currencies.id"), nullable=False)
     notas = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
@@ -44,6 +46,8 @@ class PatrimonioAsset(Base):
             "depreciation_start_date": self.depreciation_start_date.isoformat() if self.depreciation_start_date else None,
             "return_rate": self.return_rate,
             "return_amount": float(self.return_amount) if self.return_amount is not None else None,
+            "valor_mercado_manual": float(self.valor_mercado_manual) if self.valor_mercado_manual is not None else None,
+            "fecha_valor_mercado": self.fecha_valor_mercado.isoformat() if self.fecha_valor_mercado else None,
             "moneda_id": self.moneda_id,
             "currency": self.currency.to_dict() if self.currency else None,
             "notas": self.notas,

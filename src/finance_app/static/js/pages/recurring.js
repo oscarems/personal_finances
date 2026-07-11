@@ -63,7 +63,7 @@ function render(container, list) {
 
     ${inactive.length ? `
       <details style="margin-top:16px">
-        <summary style="cursor:pointer;font-size:0.875rem;color:var(--text-secondary);margin-bottom:12px">
+        <summary style="cursor:pointer;font-size:0.875rem;color:var(--fin-ink-2);margin-bottom:12px">
           Inactivas (${inactive.length})
         </summary>
         <div class="table-wrap">
@@ -114,7 +114,7 @@ function recurringRow(r) {
       <td class="td-soft" style="font-size:0.8rem">${r.next_occurrence_date ? fmtDate(r.next_occurrence_date) : '—'}</td>
       <td style="text-align:right">
         <button class="btn btn-ghost btn-xs" data-edit-rec="${r.id}">✏</button>
-        <button class="btn btn-ghost btn-xs" style="color:var(--color-danger)" data-delete-rec="${r.id}">✕</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--fin-danger)" data-delete-rec="${r.id}">✕</button>
       </td>
     </tr>`;
 }

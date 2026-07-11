@@ -34,6 +34,11 @@ class Account(Base):
     payment_due_day = Column(Integer)  # Día del mes de pago (1-31)
     maturity_date = Column(Date)  # Fecha de vencimiento (CDT)
 
+    # Cuota real vs. cuota calculada (créditos e hipotecas)
+    actual_payment_amount = Column(Float)  # Lo que el usuario realmente paga cada mes
+    has_insurance = Column(Boolean, default=False)  # La cuota real incluye seguros
+    includes_principal_payment = Column(Boolean, default=False)  # La cuota real incluye abono a capital extra
+
     # Relationships
     currency = relationship('Currency', back_populates='accounts')
     transactions = relationship('Transaction',
@@ -81,5 +86,11 @@ class Account(Base):
             result['payment_due_day'] = self.payment_due_day
         if self.maturity_date is not None:
             result['maturity_date'] = self.maturity_date.isoformat()
+        if self.actual_payment_amount is not None:
+            result['actual_payment_amount'] = self.actual_payment_amount
+        if self.has_insurance is not None:
+            result['has_insurance'] = self.has_insurance
+        if self.includes_principal_payment is not None:
+            result['includes_principal_payment'] = self.includes_principal_payment
 
         return result

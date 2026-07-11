@@ -21,712 +21,907 @@ async function load(container) {
     container.innerHTML = `
       <div class="page-header"><div class="page-header-text"><h1>Salud Financiera</h1></div></div>
       <div class="alert alert-danger">${sanitize(err.message)}</div>
-      <div class="fh-retry-wrap">
+      <div style="text-align:center;margin-top:16px">
         <button class="btn btn-ghost btn-sm fh-retry">Reintentar</button>
       </div>`;
+    container.querySelector('.fh-retry')?.addEventListener('click', () => load(container));
   }
 }
 
 function render(container, data) {
-  const scores   = data.scores ?? {};
-  const buckets  = data.buckets ?? {};
-  const targets  = data.targets ?? { needs: 50, wants: 30, savings: 20 };
-  const insights = data.insights ?? [];
+  const scores     = data.scores ?? {};
+  const buckets    = data.buckets ?? {};
+  const targets    = data.targets ?? { needs: 50, wants: 30, savings: 20 };
+  const insights   = data.insights ?? [];
   const overBudget = data.over_budget_categories ?? [];
-  const income   = data.income_analysis ?? {};
-  const currency = data.currency?.code ?? 'COP';
+  const income     = data.income_analysis ?? {};
+  const totals     = data.totals ?? {};
+  const currency   = data.currency?.code ?? 'COP';
 
-  const overall = scores.overall ?? null;
-  const grade   = scores.grade ?? '—';
-  const adherence = scores.adherence ?? 0;
-  const rule      = scores.rule ?? 0;
-
+  const overall  = scores.overall ?? null;
   const gradeInfo = getGradeInfo(overall);
 
+  const goods    = insights.filter(i => i.kind === 'good');
+  const actions  = buildActions(buckets, targets, overBudget, totals, income, currency);
+
   container.innerHTML = `
-    <div class="page-header">
-      <div class="page-header-text">
-        <h1>Salud Financiera</h1>
-        <p>Regla ${targets.needs}/${targets.wants}/${targets.savings} · ${fmtMonthLabel(_month)}</p>
+    ${fhStyles()}
+
+    <div class="fh-page">
+
+      <!-- NAVEGACIÓN DE MES -->
+      <div class="fh-nav">
+        <button class="fh-nav-btn" id="fhPrev">‹</button>
+        <span class="fh-nav-month">${fmtMonthLabel(_month)}</span>
+        <button class="fh-nav-btn" id="fhNext">›</button>
       </div>
-      <div class="page-header-actions">
-        <button class="btn btn-ghost btn-sm" id="fhPrev">‹ Anterior</button>
-        <button class="btn btn-ghost btn-sm" id="fhNext">Siguiente ›</button>
-      </div>
+
+      ${overall == null ? emptyState() : `
+        <!-- BLOQUE 1: CÓMO ESTÁS -->
+        ${heroSection(overall, gradeInfo, totals, income, currency)}
+
+        <!-- BLOQUE 2: QUÉ HACER AHORA -->
+        ${actions.length ? actionsSection(actions) : goodJobSection(goods)}
+
+        <!-- BLOQUE 3: TUS 3 BALDES -->
+        ${bucketsSection(buckets, targets, income, currency)}
+
+        <!-- BLOQUE 4: CATEGORÍAS PASADAS -->
+        ${overBudget.length ? overBudgetSection(overBudget, currency) : ''}
+
+        <!-- BLOQUE 5: LO QUE SÍ ESTÁ BIEN -->
+        ${!actions.length && goods.length === 0 ? '' : goods.length ? goodsSection(goods) : ''}
+
+        <!-- BLOQUE 6: DETALLE (colapsado) -->
+        ${detailSection(buckets, currency)}
+      `}
+
     </div>
-
-    <!-- ── SCORE HERO ──────────────────────────────────────────────────── -->
-    <div class="fh-hero-grid mb-4">
-
-      <!-- Overall score -->
-      <div class="card fh-score-hero flex flex-col fh-no-gap">
-        <div class="fh-card-top">
-          <div class="fh-label-chip">Puntaje General</div>
-          ${overall != null ? `
-            <div class="flex gap-2 mt-2 fh-score-row">
-              <div class="fh-big-score" style="color:${gradeInfo.color}">${overall.toFixed(0)}</div>
-              <div class="fh-grade-info">
-                <div class="fh-grade-badge" style="background:${gradeInfo.bg};color:${gradeInfo.color}">Grado ${grade}</div>
-                <div class="fh-sub-note mt-1">${gradeInfo.label}</div>
-              </div>
-            </div>
-            ${scoreGauge(overall, gradeInfo.color)}
-          ` : '<div class="text-soft fh-no-data">Sin datos suficientes este mes</div>'}
-        </div>
-        <!-- How is it calculated -->
-        <div class="fh-explain-box fh-explain-box--no-top fh-explain-box--spaced">
-          <div class="fh-explain-title">¿Cómo se calcula?</div>
-          <p class="fh-explain-text">El puntaje general es el <strong>promedio de dos sub-puntajes</strong>, cada uno de 0 a 100:</p>
-          <div class="flex flex-col gap-2 mt-2">
-            ${miniScoreExplain('Cumplimiento', adherence, 'Qué tan bien ejecutaste el presupuesto asignado (gastado vs. asignado por categoría).')}
-            ${miniScoreExplain('Distribución', rule, `Qué tan cerca está tu gasto de la regla ${targets.needs}/${targets.wants}/${targets.savings}.`)}
-          </div>
-        </div>
-      </div>
-
-      <!-- Adherence explanation -->
-      <div class="card flex flex-col">
-        <div class="fh-card-top">
-          <div class="fh-label-chip fh-label-chip--indigo">Sub-puntaje 1</div>
-          <div class="flex items-center gap-2 mt-2 mb-1">
-            <span class="fh-sub-heading">Cumplimiento</span>
-            ${scorePill(adherence)}
-          </div>
-          <div class="fh-mini-gauge mb-0">
-            <div style="height:100%;width:${adherence}%;background:${scoreColor(adherence)};border-radius:inherit;transition:width .5s"></div>
-          </div>
-        </div>
-        <div class="fh-explain-box fh-explain-box--spaced">
-          <div class="fh-explain-title">¿Qué mide?</div>
-          <p class="fh-explain-text">Evalúa si <strong>gastaste dentro de lo que planeaste</strong>. Para cada categoría compara el gasto real contra el monto asignado en el presupuesto.</p>
-          <div class="fh-formula-box">
-            <code>Por categoría: min(1, asignado / gastado)</code><br>
-            <code>Puntaje = promedio × 100</code>
-          </div>
-          <div class="fh-scale">
-            <span class="text-success">≥ 80 Excelente</span>
-            <span class="text-warning">60–79 Regular</span>
-            <span class="text-danger">< 60 Crítico</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Rule explanation -->
-      <div class="card flex flex-col">
-        <div class="fh-card-top">
-          <div class="fh-label-chip fh-label-chip--green">Sub-puntaje 2</div>
-          <div class="flex items-center gap-2 mt-2 mb-1">
-            <span class="fh-sub-heading">Distribución</span>
-            ${scorePill(rule)}
-          </div>
-          <div class="fh-mini-gauge mb-0">
-            <div style="height:100%;width:${rule}%;background:${scoreColor(rule)};border-radius:inherit;transition:width .5s"></div>
-          </div>
-        </div>
-        <div class="fh-explain-box fh-explain-box--spaced">
-          <div class="fh-explain-title">¿Qué mide?</div>
-          <p class="fh-explain-text">Evalúa si tu <strong>distribución del gasto sigue la regla ${targets.needs}/${targets.wants}/${targets.savings}</strong>. Penaliza cuando una categoría se aleja mucho de su objetivo.</p>
-          <div class="fh-formula-box">
-            <code>Desviación = |real% − objetivo%| / objetivo%</code><br>
-            <code>Puntaje = (1 − desviación) × 100</code>
-          </div>
-          <div class="fh-scale">
-            <span class="text-success">≥ 80 En meta</span>
-            <span class="text-warning">60–79 Cerca</span>
-            <span class="text-danger">< 60 Lejos</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── REGLA 50/30/20 EXPLANATION ──────────────────────────────────── -->
-    <div class="fh-rule-banner mb-4">
-      <div class="fh-rule-banner-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        ¿Qué es la Regla ${targets.needs}/${targets.wants}/${targets.savings}?
-      </div>
-      <p class="fh-rule-banner-text">Una guía de distribución del ingreso mensual. Divide tu sueldo en tres grandes grupos según su propósito:</p>
-      <div class="fh-rule-pills">
-        <div class="fh-rule-pill fh-rule-pill--cyan">
-          <span class="fh-rule-pill-pct fh-rule-pill-pct--cyan">${targets.needs}%</span>
-          <span class="fh-rule-pill-label">Necesidades</span>
-          <span class="fh-rule-pill-desc">Gastos fijos e ineludibles: vivienda, comida, transporte, servicios públicos.</span>
-        </div>
-        <div class="fh-rule-pill fh-rule-pill--amber">
-          <span class="fh-rule-pill-pct fh-rule-pill-pct--amber">${targets.wants}%</span>
-          <span class="fh-rule-pill-label">Deseos</span>
-          <span class="fh-rule-pill-desc">Gastos opcionales: entretenimiento, salidas, suscripciones, ropa no esencial.</span>
-        </div>
-        <div class="fh-rule-pill fh-rule-pill--green">
-          <span class="fh-rule-pill-pct fh-rule-pill-pct--green">${targets.savings}%</span>
-          <span class="fh-rule-pill-label">Ahorro / Deudas</span>
-          <span class="fh-rule-pill-desc">Fondo de emergencia, inversión y pago de deudas por encima del mínimo.</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── BUCKET CARDS ────────────────────────────────────────────────── -->
-    <div class="grid-3 mb-4">
-      ${bucketCard('Necesidades', 'needs', buckets.needs, targets.needs, currency,
-        '#22d3ee', 'rgba(8,145,178,0.8)',
-        'Vivienda, servicios, comida, transporte y cualquier gasto que no puedas eliminar.')}
-      ${bucketCard('Deseos', 'wants', buckets.wants, targets.wants, currency,
-        '#fbbf24', 'rgba(217,119,6,0.8)',
-        'Entretenimiento, restaurantes, ropa extra, suscripciones opcionales y hobbies.')}
-      ${bucketCard('Ahorro', 'savings', buckets.savings, targets.savings, currency,
-        '#34d399', 'rgba(5,150,105,0.8)',
-        'Ahorros, inversiones, pago de deudas y fondo de emergencia.')}
-    </div>
-
-    <!-- ── INCOME SECTION ──────────────────────────────────────────────── -->
-    ${income.total_income > 0 ? incomeSection(income, targets, currency) : ''}
-
-    <!-- ── INSIGHTS ────────────────────────────────────────────────────── -->
-    ${insights.length ? insightsSection(insights) : ''}
-
-    <!-- ── OVER-BUDGET ─────────────────────────────────────────────────── -->
-    ${overBudget.length ? overBudgetSection(overBudget, currency) : ''}
-
-    <!-- ── SEMÁFORO POR CATEGORÍA ────────────────────────────────────── -->
-    ${semaphoreSection(buckets, currency)}
-
-    <!-- ── CHART ───────────────────────────────────────────────────────── -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <span class="card-title">${income.total_income > 0 ? 'Distribución Real vs. Objetivo (% del ingreso)' : 'Distribución del Presupuesto Asignado'}</span>
-        <span class="fh-chart-note">Barras claras = objetivo</span>
-      </div>
-      <div class="card-body fh-chart-container">
-        <canvas id="fhChart"></canvas>
-      </div>
-    </div>
-
-    <style>
-      .fh-hero-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px }
-      .fh-no-gap { gap:0 }
-      .fh-score-row { align-items:flex-end }
-      .fh-grade-info { padding-bottom:8px }
-      .fh-retry-wrap { text-align:center;margin-top:16px }
-      .fh-explain-box--spaced { margin:16px }
-      .fh-explain-box--overbudget { margin:0 20px 16px;margin-top:-4px }
-      .fh-progress-track { height:6px;background:var(--border-muted);border-radius:3px;overflow:hidden }
-      .fh-progress-track--sm { height:5px }
-      .fh-bucket-def--spaced { margin:12px 20px 16px }
-      .fh-card-body--flush { padding-top:0 }
-      .fh-td-bold { font-weight:600 }
-      .fh-card-top { padding:20px 20px 0 }
-      .fh-big-score { font-family:var(--font-display);font-size:3.75rem;font-weight:800;line-height:1;letter-spacing:-0.03em }
-      .fh-grade-badge { display:inline-block;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px }
-      .fh-label-chip { display:inline-block;font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;padding:3px 8px;border-radius:20px;background:rgba(255,255,255,0.07);color:var(--text-soft) }
-      .fh-label-chip--indigo { background:rgba(99,102,241,0.15);color:#818cf8 }
-      .fh-label-chip--green  { background:rgba(16,185,129,0.15);color:#34d399 }
-      .fh-sub-heading { font-size:1.0625rem;font-weight:700;color:var(--text-primary) }
-      .fh-sub-note { font-size:0.7rem;color:var(--text-soft) }
-      .fh-no-data { font-size:0.875rem;padding:16px 0 }
-      .fh-explain-box { background:rgba(255,255,255,0.03);border:1px solid var(--border-muted);border-radius:10px;padding:12px 14px }
-      .fh-explain-box--no-top { border-top:none }
-      .fh-explain-title { font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-soft);margin-bottom:6px }
-      .fh-explain-text { font-size:0.7875rem;color:var(--text-secondary);line-height:1.5;margin:0 }
-      .fh-explain-text strong { color:var(--text-primary);font-weight:600 }
-      .fh-formula-box { background:rgba(0,0,0,0.25);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:0.7rem;color:var(--text-soft);line-height:1.7 }
-      .fh-formula-box code { font-family:var(--font-mono);color:var(--text-secondary) }
-      .fh-scale { display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:0.65rem;font-weight:600 }
-      .fh-mini-gauge { height:5px;background:var(--border-muted);border-radius:3px;overflow:hidden;margin-top:8px;margin-bottom:16px }
-      .fh-rule-banner { background:rgba(255,255,255,0.03);border:1px solid var(--border-muted);border-radius:12px;padding:16px 20px }
-      .fh-rule-banner-title { display:flex;align-items:center;gap:6px;font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:6px }
-      .fh-rule-banner-text { font-size:0.7875rem;color:var(--text-secondary);margin:0 0 12px }
-      .fh-rule-pills { display:grid;grid-template-columns:repeat(3,1fr);gap:12px }
-      .fh-rule-pill { border:1px solid;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:3px }
-      .fh-rule-pill--cyan  { border-color:rgba(8,145,178,0.4);background:rgba(8,145,178,0.08) }
-      .fh-rule-pill--amber { border-color:rgba(217,119,6,0.4);background:rgba(217,119,6,0.08) }
-      .fh-rule-pill--green { border-color:rgba(5,150,105,0.4);background:rgba(5,150,105,0.08) }
-      .fh-rule-pill-pct { font-family:var(--font-mono);font-size:1.5rem;font-weight:800;line-height:1 }
-      .fh-rule-pill-pct--cyan  { color:#22d3ee }
-      .fh-rule-pill-pct--amber { color:#fbbf24 }
-      .fh-rule-pill-pct--green { color:#34d399 }
-      .fh-rule-pill-label { font-size:0.75rem;font-weight:700;color:var(--text-primary) }
-      .fh-rule-pill-desc { font-size:0.7rem;color:var(--text-soft);line-height:1.45;margin-top:2px }
-      .fh-bucket-def { margin-top:10px;padding-top:10px;border-top:1px solid var(--border-muted) }
-      .fh-bucket-def-text { font-size:0.7rem;color:var(--text-soft);line-height:1.45 }
-      .fh-insights-grid { display:flex;flex-direction:column;gap:10px }
-      .fh-insight-row { display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;border:1px solid }
-      .fh-insight-row--good { background:rgba(5,150,105,0.06);border-color:rgba(5,150,105,0.2) }
-      .fh-insight-row--warn { background:rgba(217,119,6,0.06);border-color:rgba(217,119,6,0.2) }
-      .fh-insight-row--bad  { background:rgba(220,38,38,0.06);border-color:rgba(220,38,38,0.2) }
-      .fh-insight-icon { width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;flex-shrink:0;margin-top:1px }
-      .fh-insight-icon--good { background:rgba(5,150,105,0.15);color:var(--color-success) }
-      .fh-insight-icon--warn { background:rgba(217,119,6,0.15);color:var(--color-warning) }
-      .fh-insight-icon--bad  { background:rgba(220,38,38,0.15);color:var(--color-danger) }
-      .fh-insight-msg  { font-size:0.8125rem;font-weight:600;color:var(--text-primary) }
-      .fh-insight-detail { font-size:0.75rem;color:var(--text-soft);margin-top:2px;line-height:1.4 }
-      .fh-stat-box { text-align:center;padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid var(--border-muted) }
-      .fh-stat-label { font-size:0.65rem;color:var(--text-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em }
-      .fh-stat-value { font-family:var(--font-mono);font-size:0.9375rem;font-weight:700 }
-      .fh-score-box { text-align:center }
-      .fh-score-box-label { font-size:0.65rem;color:var(--text-soft);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em }
-      .fh-score-box-grade { font-size:0.65rem;color:var(--text-soft) }
-      .fh-income-bucket { background:rgba(255,255,255,0.03);border:1px solid var(--border-muted);border-radius:10px;padding:12px 14px }
-      .fh-income-bucket-label { font-size:0.8125rem;font-weight:600 }
-      .fh-income-bucket-footer { font-size:0.7rem;color:var(--text-soft);margin-top:4px }
-      .fh-sema-row { display:grid;grid-template-columns:1.2rem 1fr auto;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-muted) }
-      .fh-sema-icon { font-size:0.85rem }
-      .fh-sema-name { font-size:0.8rem;font-weight:500 }
-      .fh-sema-bar-track { height:4px;background:var(--border-muted);border-radius:2px;margin-top:4px }
-      .fh-sema-right { text-align:right;min-width:110px }
-      .fh-sema-amount { font-size:0.75rem;font-family:var(--font-mono);color:var(--text-secondary) }
-      .fh-sema-pct { font-size:0.68rem;color:var(--text-soft) }
-      .fh-semaphore-note { font-size:0.72rem;color:var(--text-soft) }
-      .fh-chart-note { font-size:0.75rem;color:var(--text-soft) }
-      .fh-chart-container { height:260px;position:relative }
-      .fh-cat-list { border-top:1px solid var(--border-muted);padding:10px 20px 16px;display:flex;flex-direction:column;gap:5px }
-      .fh-cat-row { display:flex;justify-content:space-between;align-items:center }
-      .fh-cat-name { font-size:0.75rem;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60% }
-      .fh-cat-amount { font-family:var(--font-mono);font-size:0.75rem;color:var(--text-secondary) }
-      .fh-cat-more { font-size:0.65rem;color:var(--text-soft);text-align:right;margin-top:2px }
-      .fh-bucket-header { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px }
-      .fh-bucket-pct { font-family:var(--font-mono);font-size:2rem;font-weight:800;line-height:1 }
-      .fh-bucket-pct-unit { font-size:1rem;opacity:0.7 }
-      .fh-bucket-note { font-size:0.7rem;color:var(--text-soft);margin-top:2px }
-      .fh-bucket-right { text-align:right }
-      .fh-bucket-obj { font-size:0.65rem;color:var(--text-soft);margin-top:4px }
-      .fh-bucket-score { font-size:0.7rem;font-family:var(--font-mono);font-weight:700;margin-top:2px }
-      .fh-progress-labels { display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-soft);margin-top:3px }
-      .fh-gauge-labels { display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text-soft);margin-top:4px }
-      .fh-mini-block { padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:8px }
-      .fh-mini-block-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:4px }
-      .fh-mini-block-label { font-size:0.7875rem;font-weight:600;color:var(--text-primary) }
-      .fh-mini-block-desc { font-size:0.7rem;color:var(--text-soft);line-height:1.4 }
-      .fh-mini-block-bar { margin-top:5px;height:3px;background:var(--border-muted);border-radius:2px;overflow:hidden }
-      .fh-gauge-track { height:8px;background:var(--border-muted);border-radius:4px;overflow:hidden }
-      .fh-gauge-wrap { margin:12px 0 6px }
-      .fh-badge-font { font-size:0.65rem }
-      .fh-overbudget-title { color:var(--color-danger) }
-      .fh-td-sm { font-size:0.8rem }
-      .fh-td-name { font-size:0.8125rem;font-weight:500 }
-      .fh-td-group { font-size:0.75rem;color:var(--text-soft) }
-      .fh-score-pill-value { font-family:var(--font-mono);font-size:1.25rem;font-weight:700 }
-      .fh-score-pill-denom { font-size:0.75rem;opacity:0.6 }
-      @media (max-width:768px) {
-        .fh-hero-grid { grid-template-columns:1fr }
-        .fh-rule-pills { grid-template-columns:1fr }
-      }
-    </style>
   `;
 
   container.querySelector('#fhPrev')?.addEventListener('click', async () => {
-    _month = prevMonth(_month);
-    await load(container);
+    _month = prevMonth(_month); await load(container);
   });
   container.querySelector('#fhNext')?.addEventListener('click', async () => {
-    _month = nextMonth(_month);
-    await load(container);
+    _month = nextMonth(_month); await load(container);
+  });
+  container.querySelector('#fhDetailToggle')?.addEventListener('click', () => {
+    const body = container.querySelector('#fhDetailBody');
+    const btn  = container.querySelector('#fhDetailToggle');
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    btn.textContent = open ? 'Ver todas las categorías ▾' : 'Ocultar ▴';
   });
 
-  // Reintentar button wiring (for error state)
-  container.querySelector('.fh-retry')?.addEventListener('click', () => load(container));
+  if (overall != null) mountBucketsChart(container, buckets, targets, income, currency);
+}
 
-  const ctx = container.querySelector('#fhChart');
-  if (ctx) {
-    _chart?.destroy();
-    // Bucket colors are semantic (not positional) — using defined palette per bucket type
-    const cNeedsBar = 'rgba(8,145,178,0.85)';
-    const cWantsBar = 'rgba(217,119,6,0.85)';
-    const cSavBar   = 'rgba(5,150,105,0.85)';
-    const cNeedsObj = 'rgba(8,145,178,0.15)';
-    const cWantsObj = 'rgba(217,119,6,0.15)';
-    const cSavObj   = 'rgba(5,150,105,0.15)';
-    const cNeedsBdr = 'rgba(8,145,178,0.5)';
-    const cWantsBdr = 'rgba(217,119,6,0.5)';
-    const cSavBdr   = 'rgba(5,150,105,0.5)';
+// ── GRÁFICO DE TORTA (BLOQUE 3) ─────────────────────────────────────────────
 
-    if (income.total_income > 0) {
-      const ib = income.buckets ?? {};
-      _chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Necesidades', 'Deseos', 'Ahorro'],
-          datasets: [
-            {
-              label: 'Real (%)',
-              data: [ib.needs?.pct_of_income ?? 0, ib.wants?.pct_of_income ?? 0, ib.savings?.pct_of_income ?? 0],
-              backgroundColor: [cNeedsBar, cWantsBar, cSavBar],
-              borderRadius: 6,
+function mountBucketsChart(container, buckets, targets, income, currency) {
+  const canvas = container.querySelector('#fhBucketsChart');
+  _chart?.destroy();
+  _chart = null;
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  const hasIncome = (income.total_income ?? 0) > 0;
+  const keys = ['needs', 'wants', 'savings'];
+  const values = keys.map(k => {
+    const b = buckets[k];
+    const ib = income.buckets?.[k];
+    return hasIncome && ib ? (ib.pct_of_income ?? 0) : (b?.pct_of_assigned ?? 0);
+  });
+  const labels = keys.map(k => `${BUCKET_META[k].emoji} ${BUCKET_META[k].label}`);
+  const colors = keys.map(k => BUCKET_META[k].color);
+
+  _chart = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors,
+        borderWidth: 3,
+        borderColor: 'var(--fin-surface)',
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const k = keys[ctx.dataIndex];
+              const target = targets[k] ?? 0;
+              const b = buckets[k];
+              const amount = k === 'savings' ? (b?.assigned ?? 0) : (b?.spent ?? 0);
+              return [
+                ` ${ctx.parsed.toFixed(1)}% (meta: ${target.toFixed(0)}%)`,
+                ` ${fmtCurrency(amount, currency)}`,
+              ];
             },
-            {
-              label: 'Objetivo (%)',
-              data: [targets.needs, targets.wants, targets.savings],
-              backgroundColor: [cNeedsObj, cWantsObj, cSavObj],
-              borderColor:     [cNeedsBdr, cWantsBdr, cSavBdr],
-              borderWidth: 1.5,
-              borderRadius: 6,
-            },
-          ],
+          },
         },
-        options: chartOptions(),
-      });
-    } else {
-      _chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Necesidades', 'Deseos', 'Ahorro'],
-          datasets: [
-            {
-              label: '% del presupuesto asignado',
-              data: [
-                buckets.needs?.pct_of_assigned ?? 0,
-                buckets.wants?.pct_of_assigned ?? 0,
-                buckets.savings?.pct_of_assigned ?? 0,
-              ],
-              backgroundColor: [cNeedsBar, cWantsBar, cSavBar],
-              borderRadius: 6,
-            },
-            {
-              label: 'Objetivo (%)',
-              data: [targets.needs, targets.wants, targets.savings],
-              backgroundColor: [cNeedsObj, cWantsObj, cSavObj],
-              borderColor:     [cNeedsBdr, cWantsBdr, cSavBdr],
-              borderWidth: 1.5,
-              borderRadius: 6,
-            },
-          ],
-        },
-        options: chartOptions(),
+      },
+    },
+  });
+}
+
+// ── EMPTY STATE ───────────────────────────────────────────────────────────────
+
+function emptyState() {
+  return `
+    <div class="fh-empty">
+      <div class="fh-empty-emoji">📊</div>
+      <div class="fh-empty-title">No hay datos este mes</div>
+      <div class="fh-empty-sub">Registra transacciones o asigna montos en el presupuesto para ver tu diagnóstico.</div>
+    </div>`;
+}
+
+// ── BLOQUE 1: HERO ────────────────────────────────────────────────────────────
+
+function heroSection(overall, gradeInfo, totals, income, currency) {
+  const surplus     = (income.total_income ?? 0) - (income.total_spent ?? 0);
+  const hasIncome   = (income.total_income ?? 0) > 0;
+  const surplusOk   = surplus >= 0;
+
+  // Gauge SVG en círculo
+  const radius = 54;
+  const circ   = 2 * Math.PI * radius;
+  const fill   = circ * (1 - Math.min(1, overall / 100));
+
+  return `
+    <div class="fh-hero">
+
+      <!-- Gauge circular -->
+      <div class="fh-gauge-wrap">
+        <svg class="fh-gauge-svg" viewBox="0 0 140 140" width="140" height="140">
+          <circle cx="70" cy="70" r="${radius}" fill="none" stroke="var(--fin-border)" stroke-width="10"/>
+          <circle cx="70" cy="70" r="${radius}" fill="none"
+            stroke="${gradeInfo.color}" stroke-width="10"
+            stroke-dasharray="${circ}"
+            stroke-dashoffset="${fill}"
+            stroke-linecap="round"
+            transform="rotate(-90 70 70)"
+            style="transition: stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)"
+          />
+          <text x="70" y="62" text-anchor="middle" fill="${gradeInfo.color}"
+            font-size="30" font-weight="800" font-family="var(--font-display)">${Math.round(overall)}</text>
+          <text x="70" y="80" text-anchor="middle" fill="var(--fin-ink-3)"
+            font-size="10">/100</text>
+        </svg>
+        <div class="fh-gauge-face">${gradeInfo.face}</div>
+      </div>
+
+      <!-- Texto del veredicto -->
+      <div class="fh-hero-text">
+        <div class="fh-hero-label" style="color:${gradeInfo.color}">${gradeInfo.label}</div>
+        <div class="fh-hero-msg">${gradeInfo.message}</div>
+      </div>
+
+      <!-- KPIs simples -->
+      <div class="fh-kpis">
+        <div class="fh-kpi">
+          <div class="fh-kpi-icon">💸</div>
+          <div class="fh-kpi-val">${fmtCurrency(totals.spent ?? 0, currency)}</div>
+          <div class="fh-kpi-lbl">Gastado</div>
+        </div>
+        <div class="fh-kpi">
+          <div class="fh-kpi-icon">📋</div>
+          <div class="fh-kpi-val">${fmtCurrency(totals.assigned ?? 0, currency)}</div>
+          <div class="fh-kpi-lbl">Presupuestado</div>
+        </div>
+        <div class="fh-kpi">
+          <div class="fh-kpi-icon">${(totals.remaining ?? 0) >= 0 ? '✅' : '🚨'}</div>
+          <div class="fh-kpi-val" style="color:${(totals.remaining ?? 0) >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">
+            ${fmtCurrency(totals.remaining ?? 0, currency)}
+          </div>
+          <div class="fh-kpi-lbl">Disponible</div>
+        </div>
+        ${hasIncome ? `
+        <div class="fh-kpi">
+          <div class="fh-kpi-icon">${surplusOk ? '💰' : '🔴'}</div>
+          <div class="fh-kpi-val" style="color:${surplusOk ? 'var(--fin-success)' : 'var(--fin-danger)'}">
+            ${fmtCurrency(surplus, currency)}
+          </div>
+          <div class="fh-kpi-lbl">${surplusOk ? 'Superávit' : 'Déficit'}</div>
+        </div>` : ''}
+      </div>
+
+    </div>`;
+}
+
+// ── BLOQUE 2A: ACCIONES ───────────────────────────────────────────────────────
+
+function buildActions(buckets, targets, overBudget, totals, income, currency) {
+  const actions = [];
+  const hasIncome = (income.total_income ?? 0) > 0;
+
+  // 1. Déficit del mes: gastaste más de lo que ingresó → lo más urgente posible
+  if (hasIncome) {
+    const deficit = (income.total_spent ?? 0) - (income.total_income ?? 0);
+    if (deficit > 0) {
+      actions.push({
+        icon: '🆘',
+        title: `Cerraste el mes en déficit: gastaste ${fmtCurrency(deficit, currency)} más de lo que ganaste`,
+        detail: 'Revisa qué categorías dispararon el gasto y ajusta el presupuesto del próximo mes para que no se repita.',
+        urgent: true,
       });
     }
   }
+
+  // 2. Categorías de gasto excedidas → decir cuánto recortar y en qué
+  const expenseOver = overBudget.filter(c => !c.is_savings);
+  if (expenseOver.length) {
+    const top = expenseOver[0];
+    const extraTotal = expenseOver.reduce((s, c) => s + (c.overspend ?? 0), 0);
+    const rest = expenseOver.length - 1;
+    actions.push({
+      icon: '✂️',
+      title: `Recorta ${fmtCurrency(top.overspend ?? 0, currency)} en "${top.category_name}"`,
+      detail: rest > 0
+        ? `Te pasaste del presupuesto ahí, y en ${rest} categoría${rest > 1 ? 's' : ''} más — en total ${fmtCurrency(extraTotal, currency)} por encima de lo planeado. Baja el gasto o ajusta lo asignado el próximo mes.`
+        : `Te pasaste del presupuesto en esta categoría. Baja el gasto los días que quedan o ajusta lo asignado el próximo mes.`,
+      urgent: true,
+    });
+  }
+
+  // 3. Categorías de ahorro que gastaron más de lo asignado este mes
+  const savingsOver = overBudget.filter(c => c.is_savings);
+  if (savingsOver.length) {
+    const names = savingsOver.slice(0, 2).map(c => c.category_name).join(' y ');
+    const extraTotal = savingsOver.reduce((s, c) => s + (c.overspend ?? 0), 0);
+    actions.push({
+      icon: '🏦',
+      title: `Ajusta lo asignado a ${names} — gastaste ${fmtCurrency(extraTotal, currency)} de más este mes`,
+      detail: 'Si fue un gasto puntual está bien, pero si se repite sube el monto asignado a esta meta el próximo mes.',
+      urgent: true,
+    });
+  }
+
+  // 4. Ahorro por debajo de la meta → decir cuánto asignar de más
+  const sav = buckets.savings;
+  const savPct = sav?.pct_of_assigned ?? 0;
+  const savTarget = targets.savings ?? 20;
+  if (sav && savPct < savTarget - 5 && totals.assigned > 0) {
+    const gapAmount = (savTarget - savPct) / 100 * totals.assigned;
+    actions.push({
+      icon: '💰',
+      title: (sav.assigned ?? 0) === 0
+        ? `Asigna al menos ${fmtCurrency(gapAmount, currency)} a ahorro este mes`
+        : `Sube tu ahorro en unos ${fmtCurrency(gapAmount, currency)} para llegar a tu meta de ${savTarget.toFixed(0)}%`,
+      detail: `Ahora mismo estás ahorrando el ${savPct.toFixed(0)}% del presupuesto, y tu meta es ${savTarget.toFixed(0)}%.`,
+      urgent: false,
+    });
+  }
+
+  // 5. Necesidades por encima de la meta
+  const needs = buckets.needs;
+  const needsPct = needs?.pct_of_assigned ?? 0;
+  const needsTarget = targets.needs ?? 50;
+  if (needs && needsPct > needsTarget + 5 && totals.assigned > 0) {
+    const overAmount = (needsPct - needsTarget) / 100 * totals.assigned;
+    actions.push({
+      icon: '🏠',
+      title: `Tus gastos esenciales están ${fmtCurrency(overAmount, currency)} por encima de tu meta`,
+      detail: `Estás en ${needsPct.toFixed(0)}% del presupuesto (meta: ${needsTarget.toFixed(0)}%). Revisa si hay gastos fijos (suscripciones, planes) que puedas renegociar o cancelar.`,
+      urgent: false,
+    });
+  }
+
+  // 6. Deseos por encima de la meta
+  const wants = buckets.wants;
+  const wantsPct = wants?.pct_of_assigned ?? 0;
+  const wantsTarget = targets.wants ?? 30;
+  if (wants && wantsPct > wantsTarget + 5 && totals.assigned > 0) {
+    const overAmount = (wantsPct - wantsTarget) / 100 * totals.assigned;
+    actions.push({
+      icon: '🎉',
+      title: `Recorta unos ${fmtCurrency(overAmount, currency)} en gastos de deseos este mes`,
+      detail: `Estás en ${wantsPct.toFixed(0)}% del presupuesto (meta: ${wantsTarget.toFixed(0)}%). Elige 1-2 categorías de antojo/ocio para bajarle el ritmo.`,
+      urgent: false,
+    });
+  }
+
+  return actions.slice(0, 5);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getGradeInfo(score) {
-  if (score == null) return { color: 'var(--text-soft)', bg: 'rgba(255,255,255,0.07)', label: '—' };
-  if (score >= 90) return { color: '#34d399', bg: 'rgba(5,150,105,0.15)', label: 'Excelente' };
-  if (score >= 80) return { color: '#4ade80', bg: 'rgba(74,222,128,0.12)', label: 'Muy bien' };
-  if (score >= 70) return { color: '#fbbf24', bg: 'rgba(217,119,6,0.15)', label: 'Bien' };
-  if (score >= 60) return { color: '#fb923c', bg: 'rgba(234,88,12,0.15)', label: 'Regular' };
-  return { color: '#f87171', bg: 'rgba(220,38,38,0.12)', label: 'Crítico' };
-}
-
-function scoreColor(v) {
-  return v >= 80 ? 'var(--color-success)' : v >= 60 ? 'var(--color-warning)' : 'var(--color-danger)';
-}
-
-function scorePill(v) {
-  const color = scoreColor(v);
-  return `<span class="fh-score-pill-value" style="color:${color}">${(v ?? 0).toFixed(0)}<span class="fh-score-pill-denom">/100</span></span>`;
-}
-
-function scoreGauge(value, color) {
-  const pct = Math.min(100, Math.max(0, value));
+function actionsSection(actions) {
   return `
-    <div class="fh-gauge-wrap">
-      <div class="fh-gauge-track">
-        <div style="height:100%;width:${pct}%;background:${color};border-radius:inherit;transition:width .6s cubic-bezier(.4,0,.2,1)"></div>
-      </div>
-      <div class="fh-gauge-labels">
-        <span>0</span><span>Crítico</span><span>Regular</span><span>Excelente</span><span>100</span>
+    <div class="fh-section">
+      <div class="fh-section-title">🎯 ¿Qué hacer ahora?</div>
+      <div class="fh-actions-list">
+        ${actions.map((a, i) => `
+          <div class="fh-action ${a.urgent ? 'fh-action--urgent' : 'fh-action--warn'}">
+            <div class="fh-action-num">${i + 1}</div>
+            <div class="fh-action-icon">${a.icon}</div>
+            <div class="fh-action-body">
+              <div class="fh-action-title">${sanitize(a.title)}</div>
+              ${a.detail ? `<div class="fh-action-detail">${sanitize(a.detail)}</div>` : ''}
+            </div>
+          </div>`).join('')}
       </div>
     </div>`;
 }
 
-function miniScoreExplain(label, value, description) {
-  const v = value ?? 0;
-  const color = scoreColor(v);
+function goodJobSection(goods) {
   return `
-    <div class="fh-mini-block">
-      <div class="fh-mini-block-header">
-        <span class="fh-mini-block-label">${label}</span>
-        <span class="fh-score-pill-value" style="font-size:0.875rem;color:${color}">${v.toFixed(0)}</span>
-      </div>
-      <div class="fh-mini-block-desc">${description}</div>
-      <div class="fh-mini-block-bar">
-        <div style="height:100%;width:${v}%;background:${color};border-radius:inherit"></div>
-      </div>
-    </div>`;
-}
-
-function bucketCard(label, key, b, targetPct, currency, accentColor, barColor, description) {
-  if (!b) return '';
-  const actual    = b.pct_of_assigned ?? 0;
-  const diff      = actual - targetPct;
-  const isGood    = Math.abs(diff) <= 5;
-  const isWarning = !isGood && Math.abs(diff) <= 15;
-  const badgeClass = isGood ? 'badge-success' : isWarning ? 'badge-warning' : 'badge-danger';
-  const badgeLabel = isGood ? '✓ En meta' : (diff > 0 ? `+${diff.toFixed(1)}% exceso` : `${diff.toFixed(1)}% bajo`);
-  const ruleScore  = b.rule_score ?? 0;
-  const fillPct    = Math.min(100, actual / (targetPct || 1) * 100);
-  const ruleScoreColor = scoreColor(ruleScore);
-
-  return `
-    <div class="card flex flex-col">
-      <div class="fh-card-top">
-        <div class="fh-bucket-header">
-          <div>
-            <div class="fh-label-chip mb-2" style="background:${barColor.replace('0.8', '0.15')};color:${accentColor}">${label}</div>
-            <div class="fh-bucket-pct" style="color:${accentColor}">${actual.toFixed(1)}<span class="fh-bucket-pct-unit">%</span></div>
-            <div class="fh-bucket-note">del presupuesto asignado</div>
-          </div>
-          <div class="fh-bucket-right">
-            <span class="badge ${badgeClass} fh-badge-font">${badgeLabel}</span>
-            <div class="fh-bucket-obj">Objetivo: ${targetPct}%</div>
-            <div class="fh-bucket-score" style="color:${ruleScoreColor}">${ruleScore}/100</div>
-          </div>
-        </div>
-
-        <!-- Progress -->
-        <div class="mb-2">
-          <div class="fh-progress-track">
-            <div style="height:100%;width:${fillPct}%;background:${barColor};border-radius:inherit;transition:width .5s"></div>
-          </div>
-          <div class="fh-progress-labels">
-            <span>Gastado: <span class="amount">${fmtCurrency(b.spent, currency)}</span></span>
-            <span>Asignado: <span class="amount">${fmtCurrency(b.assigned, currency)}</span></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Definition box -->
-      <div class="fh-bucket-def fh-bucket-def--spaced">
-        <div class="fh-explain-title">¿Qué incluye?</div>
-        <p class="fh-bucket-def-text">${description}</p>
-      </div>
-
-      <!-- Category breakdown -->
-      ${b.categories?.length ? categoriesList(b.categories, currency, accentColor) : ''}
-    </div>`;
-}
-
-function categoriesList(cats, currency, accentColor) {
-  return `
-    <div class="fh-cat-list">
-      <div class="fh-explain-title mb-1">Detalle por categoría</div>
-      ${cats.slice(0, 6).map(c => `
-        <div class="fh-cat-row">
-          <span class="fh-cat-name">${sanitize(c.category_name ?? '—')}</span>
-          <span class="fh-cat-amount">${fmtCurrency(c.spent, currency)}</span>
-        </div>`).join('')}
-      ${cats.length > 6 ? `<div class="fh-cat-more">+${cats.length - 6} más</div>` : ''}
-    </div>`;
-}
-
-function insightsSection(insights) {
-  const good = insights.filter(i => i.kind === 'good');
-  const warn = insights.filter(i => i.kind === 'warn');
-  const bad  = insights.filter(i => i.kind === 'bad');
-
-  return `
-    <div class="card mb-4">
-      <div class="card-header">
-        <span class="card-title">Señales del mes</span>
-        <span class="fh-chart-note">${insights.length} observación${insights.length !== 1 ? 'es' : ''}</span>
-      </div>
-      <div class="card-body">
-        <div class="fh-insights-grid">
-          ${[...bad, ...warn, ...good].map(ins => insightRow(ins)).join('')}
-        </div>
-      </div>
-    </div>`;
-}
-
-function insightRow(ins) {
-  const isGood = ins.kind === 'good';
-  const isWarn = ins.kind === 'warn';
-  const rowCls  = isGood ? 'fh-insight-row--good' : isWarn ? 'fh-insight-row--warn' : 'fh-insight-row--bad';
-  const iconCls = isGood ? 'fh-insight-icon--good' : isWarn ? 'fh-insight-icon--warn' : 'fh-insight-icon--bad';
-  const icon    = isGood ? '✓' : isWarn ? '!' : '✗';
-  return `
-    <div class="fh-insight-row ${rowCls}">
-      <div class="fh-insight-icon ${iconCls}">${icon}</div>
+    <div class="fh-all-good">
+      <div class="fh-all-good-emoji">🎉</div>
       <div>
-        <div class="fh-insight-msg">${sanitize(ins.message)}</div>
-        ${ins.detail ? `<div class="fh-insight-detail">${sanitize(ins.detail)}</div>` : ''}
+        <div class="fh-all-good-title">¡Todo en orden este mes!</div>
+        <div class="fh-all-good-sub">Sigue así. No tienes alertas ni categorías excedidas.</div>
       </div>
     </div>`;
 }
 
-function incomeSection(income, targets, currency) {
-  const ib    = income.buckets ?? {};
-  const score = income.score ?? 0;
-  const gradeColor = scoreColor(score);
+// ── BLOQUE 3: BALDES 50/30/20 ─────────────────────────────────────────────────
+
+const BUCKET_META = {
+  needs:   { label: 'Necesidades',  emoji: '🏠', color: '#22d3ee', desc: 'Vivienda · Comida · Transporte', target_tip: 'max 50% de tus ingresos' },
+  wants:   { label: 'Deseos',       emoji: '🎉', color: '#fbbf24', desc: 'Entretenimiento · Restaurantes', target_tip: 'max 30% de tus ingresos' },
+  savings: { label: 'Ahorro',       emoji: '💰', color: '#34d399', desc: 'Inversión · Emergencias · Deudas', target_tip: 'mínimo 20% de tus ingresos' },
+};
+
+function bucketsSection(buckets, targets, income, currency) {
+  const hasIncome = (income.total_income ?? 0) > 0;
+  const base = hasIncome ? (income.total_income ?? 0) : null;
 
   return `
-    <div class="card mb-4">
-      <div class="card-header">
-        <span class="card-title">Análisis por Ingreso Real</span>
-        <span class="fh-chart-note">Ingreso total: <span class="amount">${fmtCurrency(income.total_income, currency)}</span></span>
+    <div class="fh-section">
+      <div class="fh-section-title">📊 ¿Cómo distribuyes tu plata?</div>
+      <div class="fh-section-sub">
+        La torta muestra en qué se va cada peso ${hasIncome ? 'de tu ingreso' : 'de tu presupuesto'} este mes,
+        comparado contra la regla ${targets.needs.toFixed(0)}/${targets.wants.toFixed(0)}/${targets.savings.toFixed(0)}
+        (necesidades / deseos / ahorro).
       </div>
-      <div class="card-body">
-        <div class="fh-explain-box mb-4">
-          <div class="fh-explain-title">¿Cómo se lee esta sección?</div>
-          <p class="fh-explain-text">Aquí el análisis usa tu <strong>ingreso real del mes</strong> (en lugar del presupuesto asignado) para medir qué porcentaje de tu sueldo fue a cada grupo. Esto permite comparar contra la regla ${targets.needs}/${targets.wants}/${targets.savings} de forma más precisa.</p>
+
+      <div class="fh-pie-wrap">
+        <div class="fh-pie-chart">
+          <canvas id="fhBucketsChart"></canvas>
+          ${base != null ? `
+          <div class="fh-pie-center">
+            <div class="fh-pie-center-lbl">Ingreso</div>
+            <div class="fh-pie-center-val">${fmtCurrency(base, currency)}</div>
+          </div>` : ''}
         </div>
-        <div class="grid-4 mb-4">
-          ${incomeStatBox('Ingreso', income.total_income, currency, 'var(--color-success)')}
-          ${incomeStatBox('Gastado', income.total_spent, currency, 'var(--color-danger)')}
-          ${incomeStatBox('Sin usar', income.total_income - income.total_spent, currency,
-            (income.total_income - income.total_spent) >= 0 ? 'var(--color-success)' : 'var(--color-danger)')}
-          <div class="fh-score-box">
-            <div class="fh-score-box-label">Puntaje regla</div>
-            <div class="amount fh-big-score" style="font-size:1.75rem;color:${gradeColor}">${score.toFixed(0)}</div>
-            <div class="fh-score-box-grade">Grado ${income.grade ?? '—'}</div>
-          </div>
+
+        <div class="fh-pie-legend">
+          ${['needs', 'wants', 'savings'].map(k => pieLegendRow(k, buckets[k], targets[k], income.buckets?.[k], hasIncome, currency)).join('')}
         </div>
-        <div class="grid-3">
-          ${incomeBucketRow('Necesidades', ib.needs, targets.needs, 'rgba(8,145,178,0.8)', '#22d3ee')}
-          ${incomeBucketRow('Deseos', ib.wants, targets.wants, 'rgba(217,119,6,0.8)', '#fbbf24')}
-          ${incomeBucketRow('Ahorro', ib.savings, targets.savings, 'rgba(5,150,105,0.8)', '#34d399')}
-        </div>
+      </div>
+
+      <div class="fh-buckets">
+        ${['needs', 'wants', 'savings'].map(k => bucketCard(k, buckets[k], targets[k], income.buckets?.[k], hasIncome, currency)).join('')}
       </div>
     </div>`;
 }
 
-function incomeStatBox(label, value, currency, color) {
-  return `
-    <div class="fh-stat-box">
-      <div class="fh-stat-label">${label}</div>
-      <div class="fh-stat-value" style="color:${color}">${fmtCurrency(value, currency)}</div>
-    </div>`;
-}
-
-function incomeBucketRow(label, b, targetPct, barColor, accentColor) {
+function pieLegendRow(key, b, targetPct, ib, hasIncome, currency) {
+  const meta = BUCKET_META[key];
   if (!b) return '';
-  const pct  = b.pct_of_income ?? 0;
-  const diff = pct - targetPct;
-  const isGood = Math.abs(diff) <= 5;
-  const isWarn = !isGood && Math.abs(diff) <= 15;
+
+  const actualPct = hasIncome && ib ? (ib.pct_of_income ?? 0) : (b.pct_of_assigned ?? 0);
+  const amount    = key === 'savings' ? (b.assigned ?? 0) : (b.spent ?? 0);
+  const diff      = actualPct - targetPct;
+  const absDiff   = Math.abs(diff);
+  const isGood    = absDiff <= 5;
+  const isWarn    = !isGood && absDiff <= 15;
+  const statusColor = isGood ? 'var(--fin-success)' : isWarn ? 'var(--fin-amber)' : 'var(--fin-danger)';
+  const statusText = isGood
+    ? 'en meta'
+    : `${diff > 0 ? '+' : '-'}${absDiff.toFixed(0)}pp vs meta`;
+
   return `
-    <div class="fh-income-bucket">
-      <div class="flex justify-between items-center mb-2">
-        <span class="fh-income-bucket-label" style="color:${accentColor}">${label}</span>
-        <span class="badge ${isGood ? 'badge-success' : isWarn ? 'badge-warning' : 'badge-danger'} fh-badge-font">
-          ${pct.toFixed(1)}% / ${targetPct}%
-        </span>
+    <div class="fh-pie-leg-row">
+      <span class="fh-pie-leg-dot" style="background:${meta.color}"></span>
+      <div class="fh-pie-leg-body">
+        <div class="fh-pie-leg-top">
+          <span class="fh-pie-leg-name">${meta.emoji} ${meta.label}</span>
+          <span class="fh-pie-leg-pct">${actualPct.toFixed(0)}%</span>
+        </div>
+        <div class="fh-pie-leg-sub">
+          ${fmtCurrency(amount, currency)} · meta ${targetPct.toFixed(0)}% ·
+          <span style="color:${statusColor};font-weight:600">${statusText}</span>
+        </div>
       </div>
-      <div class="fh-progress-track fh-progress-track--sm">
-        <div style="height:100%;width:${Math.min(100, pct / (targetPct || 1) * 100)}%;background:${barColor};border-radius:inherit;transition:width .4s"></div>
-      </div>
-      <div class="fh-income-bucket-footer"><span class="amount">${fmtCurrency(b.amount ?? 0, 'COP')}</span> este mes</div>
     </div>`;
 }
+
+function bucketCard(key, b, targetPct, ib, hasIncome, currency) {
+  const meta = BUCKET_META[key];
+  if (!b) return '';
+
+  const actualPct = hasIncome && ib ? (ib.pct_of_income ?? 0) : (b.pct_of_assigned ?? 0);
+  const spent     = b.spent ?? 0;
+  const assigned  = b.assigned ?? 0;
+  const isSaving  = key === 'savings';
+  const available = assigned - spent;
+
+  const diff     = actualPct - targetPct;
+  const absDiff  = Math.abs(diff);
+  const isGood   = absDiff <= 5;
+  const isWarn   = !isGood && absDiff <= 15;
+
+  let statusEmoji, statusText, statusColor;
+  if (isGood) {
+    statusEmoji = '✅'; statusText = 'En meta'; statusColor = 'var(--fin-success)';
+  } else if (isWarn) {
+    statusEmoji = '⚠️'; statusText = diff > 0 ? `${diff.toFixed(0)}% de más` : `${Math.abs(diff).toFixed(0)}% de menos`; statusColor = 'var(--fin-amber)';
+  } else {
+    statusEmoji = '🚨'; statusText = diff > 0 ? `${diff.toFixed(0)}% de más` : `${Math.abs(diff).toFixed(0)}% de menos`; statusColor = 'var(--fin-danger)';
+  }
+
+  // Barra: qué tan lleno está el balde
+  const fillRatio = targetPct > 0 ? Math.min(1.3, actualPct / targetPct) : 0;
+  const fillWidth = Math.min(100, fillRatio * 100);
+  const isOver    = fillRatio > 1;
+  const barColor  = isGood ? meta.color : isWarn ? 'var(--fin-amber)' : 'var(--fin-danger)';
+
+  return `
+    <div class="fh-bucket">
+      <!-- Encabezado -->
+      <div class="fh-bucket-top">
+        <span class="fh-bucket-emoji">${meta.emoji}</span>
+        <div class="fh-bucket-info">
+          <div class="fh-bucket-name">${meta.label}</div>
+          <div class="fh-bucket-desc">${meta.desc}</div>
+        </div>
+        <div class="fh-bucket-badge" style="color:${statusColor}">${statusEmoji} ${statusText}</div>
+      </div>
+
+      <!-- Barra de balde con % grande -->
+      <div class="fh-balde-wrap">
+        <div class="fh-balde-pct" style="color:${meta.color}">${actualPct.toFixed(0)}<span class="fh-balde-unit">%</span></div>
+        <div class="fh-balde-target">meta: ${targetPct.toFixed(0)}%</div>
+      </div>
+
+      <div class="fh-balde-bar-bg">
+        <div class="fh-balde-bar-fg" style="width:${fillWidth}%;background:${barColor}${isOver ? ';animation:fh-pulse 1.5s infinite' : ''}"></div>
+        ${isOver ? `<div class="fh-balde-overflow-marker" style="left:${(1/fillRatio)*100}%"></div>` : ''}
+      </div>
+      <div class="fh-balde-tip" style="color:${meta.color}">${meta.target_tip}</div>
+
+      <!-- Montos -->
+      <div class="fh-balde-amounts">
+        <div class="fh-ba">
+          <div class="fh-ba-val">${fmtCurrency(spent, currency)}</div>
+          <div class="fh-ba-lbl">Gastado</div>
+        </div>
+        <div class="fh-ba">
+          <div class="fh-ba-val">${fmtCurrency(assigned, currency)}</div>
+          <div class="fh-ba-lbl">Asignado</div>
+        </div>
+        <div class="fh-ba">
+          <div class="fh-ba-val" style="color:${available >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">
+            ${fmtCurrency(available, currency)}
+          </div>
+          <div class="fh-ba-lbl">Disponible</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── BLOQUE 4: CATEGORÍAS EXCEDIDAS ───────────────────────────────────────────
 
 function overBudgetSection(items, currency) {
   return `
-    <div class="card mb-4">
-      <div class="card-header">
-        <span class="card-title fh-overbudget-title">⚠ Categorías Excedidas</span>
-        <span class="badge badge-danger">${items.length}</span>
-      </div>
-      <div class="fh-explain-box fh-explain-box--overbudget">
-        <p class="fh-explain-text">Estas categorías gastaron <strong>más de lo asignado</strong> este mes. Cada una resta puntos al puntaje de Cumplimiento.</p>
-      </div>
-      <div class="card-body fh-card-body--flush">
-        <table class="fin-table">
-          <thead>
-            <tr>
-              <th>Categoría</th>
-              <th>Grupo</th>
-              <th class="amount">Asignado</th>
-              <th class="amount">Gastado</th>
-              <th class="amount">Exceso</th>
-              <th class="amount">%</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(c => `
-              <tr>
-                <td class="fh-td-name">${sanitize(c.category_name ?? '—')}</td>
-                <td class="fh-td-group">${sanitize(c.group_name ?? '—')}</td>
-                <td class="amount fh-td-sm">${fmtCurrency(c.assigned, currency)}</td>
-                <td class="amount fh-td-sm">${fmtCurrency(c.spent, currency)}</td>
-                <td class="amount fh-td-sm text-danger fh-td-bold">${fmtCurrency(c.overspend, currency)}</td>
-                <td class="amount fh-td-sm text-danger">${c.overspend_pct?.toFixed(1) ?? '—'}%</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
+    <div class="fh-section">
+      <div class="fh-section-title" style="color:var(--fin-danger)">🚨 Te pasaste del presupuesto</div>
+      <div class="fh-section-sub">En estas categorías gastaste más de lo que habías planeado.</div>
+      <div class="fh-over-cards">
+        ${items.map(c => {
+          const pct = c.assigned > 0 ? ((c.spent / c.assigned) * 100) : 0;
+          const extra = c.overspend ?? (c.spent - c.assigned);
+          return `
+            <div class="fh-over-card">
+              <div class="fh-over-card-top">
+                <div>
+                  <div class="fh-over-card-name">${sanitize(c.category_name ?? '—')}</div>
+                  <div class="fh-over-card-group">${sanitize(c.group_name ?? '—')}</div>
+                </div>
+                <div class="fh-over-card-extra">+${fmtCurrency(extra, currency)}</div>
+              </div>
+              <div class="fh-over-bar-bg">
+                <div class="fh-over-bar-plan" style="width:${c.assigned > 0 ? Math.min(100,(c.assigned/c.spent)*100) : 0}%"></div>
+              </div>
+              <div class="fh-over-card-sub">
+                Gastaste <strong>${fmtCurrency(c.spent, currency)}</strong> de <strong>${fmtCurrency(c.assigned, currency)}</strong> asignados
+                (${pct.toFixed(0)}%)
+              </div>
+            </div>`;
+        }).join('')}
       </div>
     </div>`;
 }
 
-function semaphoreSection(buckets, currency) {
-  const bucketDefs = [
-    { key: 'needs',   label: 'Necesidades', color: '#22d3ee' },
-    { key: 'wants',   label: 'Deseos',      color: '#fbbf24' },
-    { key: 'savings', label: 'Ahorro',      color: '#34d399' },
-  ];
+// ── BLOQUE 5: LO QUE SÍ ESTÁ BIEN ────────────────────────────────────────────
 
-  const allCats = [];
-  for (const { key, label, color } of bucketDefs) {
-    const cats = (buckets[key]?.categories ?? []).filter(c => (c.assigned ?? 0) > 0 || (c.spent ?? 0) > 0);
-    cats.forEach(c => allCats.push({ ...c, bucket: label, bucketColor: color, isSavings: key === 'savings' }));
+function goodsSection(goods) {
+  return `
+    <div class="fh-section">
+      <div class="fh-section-title">⭐ Lo que estás haciendo bien</div>
+      <div class="fh-goods">
+        ${goods.map(g => `
+          <div class="fh-good-item">
+            <span class="fh-good-check">✓</span>
+            <span>${sanitize(g.message)}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ── BLOQUE 6: DETALLE ─────────────────────────────────────────────────────────
+
+function detailSection(buckets, currency) {
+  const rows = [];
+  for (const { key, color } of [
+    { key: 'needs',   color: '#22d3ee' },
+    { key: 'wants',   color: '#fbbf24' },
+    { key: 'savings', color: '#34d399' },
+  ]) {
+    const b    = buckets[key];
+    const cats = (b?.categories ?? []).filter(c => (c.assigned ?? 0) > 0 || (c.spent ?? 0) > 0);
+    if (!cats.length) continue;
+
+    rows.push(`<div class="fh-dcat-group" style="color:${color}">${BUCKET_META[key].emoji} ${BUCKET_META[key].label}</div>`);
+    cats.forEach(c => {
+      const assigned = c.assigned ?? 0;
+      const spent    = c.spent ?? 0;
+      const pct      = assigned > 0 ? (spent / assigned) * 100 : 0;
+      const ok       = pct <= 80;
+      const warn     = pct > 80 && pct <= 100;
+      const dotColor = ok ? 'var(--fin-success)' : warn ? 'var(--fin-amber)' : 'var(--fin-danger)';
+
+      rows.push(`
+        <div class="fh-dcat-row">
+          <span class="fh-dcat-dot" style="background:${dotColor}"></span>
+          <span class="fh-dcat-name">${sanitize(c.category_name)}</span>
+          <div class="fh-dcat-bar-bg">
+            <div class="fh-dcat-bar-fg" style="width:${Math.min(100, pct)}%;background:${dotColor}"></div>
+          </div>
+          <span class="fh-dcat-pct">${assigned > 0 ? pct.toFixed(0) + '%' : '—'}</span>
+          <span class="fh-dcat-amt">${fmtCurrency(spent, currency)}</span>
+        </div>`);
+    });
   }
 
-  if (allCats.length === 0) return '';
-
-  const rows = allCats.map(c => {
-    const assigned = c.assigned ?? 0;
-    const spent    = c.spent ?? 0;
-    const pct      = assigned > 0 ? (spent / assigned) * 100 : 0;
-
-    let light, status;
-    if (c.isSavings) {
-      const available = c.available ?? 0;
-      if (available >= 0) { light = '🟢'; status = 'ok'; }
-      else { light = '🔴'; status = 'danger'; }
-    } else {
-      if (pct <= 80)      { light = '🟢'; status = 'ok'; }
-      else if (pct <= 100){ light = '🟡'; status = 'warning'; }
-      else                { light = '🔴'; status = 'danger'; }
-    }
-
-    const barWidth = Math.min(100, pct);
-    const barColor = status === 'ok' ? 'var(--color-success)' : status === 'warning' ? 'var(--color-warning)' : 'var(--color-danger)';
-
-    return `
-      <div class="fh-sema-row">
-        <span class="fh-sema-icon">${light}</span>
-        <div>
-          <div class="fh-sema-name">${sanitize(c.category_name)}</div>
-          <div class="fh-sema-bar-track">
-            <div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:2px;transition:width .3s"></div>
-          </div>
-        </div>
-        <div class="fh-sema-right">
-          <div class="fh-sema-amount">${fmtCurrency(spent, currency)}</div>
-          <div class="fh-sema-pct">${assigned > 0 ? pct.toFixed(0) + '% de ' + fmtCurrency(assigned, currency) : 'sin asignar'}</div>
-        </div>
-      </div>`;
-  }).join('');
+  if (!rows.length) return '';
 
   return `
-    <div class="card mb-4">
-      <div class="card-header">
-        <span class="card-title">Semáforo por Categoría</span>
-        <span class="fh-semaphore-note">🟢 OK · 🟡 Precaución · 🔴 Excedido</span>
+    <div class="fh-section fh-detail-section">
+      <div class="fh-detail-toggle-bar">
+        <div class="fh-section-title" style="margin:0">📂 Detalle por categoría</div>
+        <button class="fh-toggle-btn" id="fhDetailToggle">Ver todas las categorías ▾</button>
       </div>
-      <div class="card-body fh-card-body--flush">${rows}</div>
+      <div id="fhDetailBody" style="display:none">
+        <div class="fh-dcat-legend">
+          <span><span class="fh-leg-dot" style="background:var(--fin-success)"></span>OK</span>
+          <span><span class="fh-leg-dot" style="background:var(--fin-amber)"></span>Precaución</span>
+          <span><span class="fh-leg-dot" style="background:var(--fin-danger)"></span>Excedido</span>
+        </div>
+        <div class="fh-dcat-list">${rows.join('')}</div>
+      </div>
     </div>`;
 }
 
-function chartOptions() {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { labels: { font: { size: 11 }, color: 'var(--text-secondary)', padding: 16 } },
-      tooltip: {
-        callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%` },
-      },
-    },
-    scales: {
-      y: {
-        grid: { color: 'var(--border-muted)' },
-        ticks: { callback: v => v + '%', color: 'var(--text-soft)', font: { size: 10 } },
-        beginAtZero: true,
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: 'var(--text-secondary)', font: { size: 12 } },
-      },
-    },
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+
+function getGradeInfo(score) {
+  if (score == null) return { color: '#94A3B8', face: '😶', label: '—', message: '' };
+  if (score >= 90) return {
+    color: '#34d399', face: '🤩', label: '¡Excelente!',
+    message: 'Tus finanzas están en forma. Sigue así y llegarás a tus metas.',
   };
+  if (score >= 80) return {
+    color: '#4ade80', face: '😄', label: '¡Muy bien!',
+    message: 'Vas por buen camino. Hay pequeñas cosas que afinar.',
+  };
+  if (score >= 70) return {
+    color: '#fbbf24', face: '😊', label: 'Bien',
+    message: 'Estás bien, pero hay oportunidades claras de mejorar.',
+  };
+  if (score >= 60) return {
+    color: '#fb923c', face: '😐', label: 'Regular',
+    message: 'Algunas cosas necesitan atención. Lee las acciones de abajo.',
+  };
+  if (score >= 40) return {
+    color: '#f87171', face: '😟', label: 'Atención',
+    message: 'Tu salud financiera necesita trabajo. No te preocupes, hay pasos claros.',
+  };
+  return {
+    color: '#ef4444', face: '😨', label: '¡Alerta!',
+    message: 'Situación crítica. Enfócate en las acciones de abajo hoy mismo.',
+  };
+}
+
+// ── ESTILOS ───────────────────────────────────────────────────────────────────
+
+function fhStyles() {
+  return `<style>
+    .fh-page { display: flex; flex-direction: column; gap: 24px; padding-bottom: 40px }
+
+    /* Navegación */
+    .fh-nav {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+    }
+    .fh-nav-btn {
+      background: var(--fin-surface); border: 1px solid var(--fin-border);
+      color: var(--fin-ink-2); border-radius: 8px; width: 36px; height: 36px;
+      font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .fh-nav-btn:hover { background: var(--fin-border) }
+    .fh-nav-month { font-size: 1rem; font-weight: 600; color: var(--fin-ink) }
+
+    /* Empty */
+    .fh-empty {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 12px; padding: 80px 24px; text-align: center;
+    }
+    .fh-empty-emoji { font-size: 3rem }
+    .fh-empty-title { font-size: 1.1rem; font-weight: 700; color: var(--fin-ink) }
+    .fh-empty-sub   { font-size: 0.875rem; color: var(--fin-ink-3); max-width: 360px }
+
+    /* Hero */
+    .fh-hero {
+      background: var(--fin-surface);
+      border: 1px solid var(--fin-border);
+      border-radius: 18px;
+      padding: 28px 28px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      text-align: center;
+    }
+    .fh-gauge-wrap { position: relative; display: inline-block }
+    .fh-gauge-svg  { display: block }
+    .fh-gauge-face {
+      position: absolute; bottom: -2px; right: -2px;
+      font-size: 1.8rem; line-height: 1;
+    }
+    .fh-hero-text { display: flex; flex-direction: column; gap: 4px }
+    .fh-hero-label { font-size: 1.5rem; font-weight: 800 }
+    .fh-hero-msg   { font-size: 0.9rem; color: var(--fin-ink-2); max-width: 380px; line-height: 1.5 }
+
+    .fh-kpis {
+      display: flex; width: 100%;
+      border-top: 1px solid var(--fin-border); margin-top: 8px;
+    }
+    .fh-kpi {
+      flex: 1; padding: 16px 8px; text-align: center;
+      border-right: 1px solid var(--fin-border);
+    }
+    .fh-kpi:last-child { border-right: none }
+    .fh-kpi-icon { font-size: 1.3rem; margin-bottom: 4px }
+    .fh-kpi-val  { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; color: var(--fin-ink); margin-bottom: 2px }
+    .fh-kpi-lbl  { font-size: 0.68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--fin-ink-3) }
+
+    /* Secciones genéricas */
+    .fh-section {
+      background: var(--fin-surface);
+      border: 1px solid var(--fin-border);
+      border-radius: 14px;
+      padding: 20px 20px;
+    }
+    .fh-section-title {
+      font-size: 0.95rem; font-weight: 700; color: var(--fin-ink);
+      margin-bottom: 4px;
+    }
+    .fh-section-sub {
+      font-size: 0.78rem; color: var(--fin-ink-3); margin-bottom: 16px; line-height: 1.4;
+    }
+
+    /* All good */
+    .fh-all-good {
+      display: flex; align-items: center; gap: 16px;
+      background: rgba(5,150,105,0.07);
+      border: 1px solid rgba(5,150,105,0.2);
+      border-radius: 14px; padding: 20px 24px;
+    }
+    .fh-all-good-emoji { font-size: 2rem; flex-shrink: 0 }
+    .fh-all-good-title { font-size: 1rem; font-weight: 700; color: var(--fin-success); margin-bottom: 2px }
+    .fh-all-good-sub   { font-size: 0.82rem; color: var(--fin-ink-2) }
+
+    /* Acciones */
+    .fh-actions-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px }
+    .fh-action {
+      display: flex; align-items: flex-start; gap: 12px;
+      border-radius: 10px; padding: 14px 16px;
+      border-left: 3px solid;
+    }
+    .fh-action--urgent {
+      background: rgba(220,38,38,0.06);
+      border-color: var(--fin-danger);
+    }
+    .fh-action--warn {
+      background: rgba(217,119,6,0.06);
+      border-color: var(--fin-amber);
+    }
+    .fh-action-num {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+      background: var(--fin-border); color: var(--fin-ink-3);
+      font-size: 0.7rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .fh-action-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px }
+    .fh-action-body { flex: 1 }
+    .fh-action-title  { font-size: 0.875rem; font-weight: 600; color: var(--fin-ink); line-height: 1.4 }
+    .fh-action-detail { font-size: 0.78rem; color: var(--fin-ink-3); margin-top: 3px; line-height: 1.4 }
+
+    /* Torta de distribución */
+    .fh-pie-wrap {
+      display: flex; align-items: center; gap: 28px;
+      margin-top: 18px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .fh-pie-chart {
+      position: relative; flex-shrink: 0;
+      width: 200px; height: 200px;
+    }
+    .fh-pie-center {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      text-align: center; pointer-events: none;
+    }
+    .fh-pie-center-lbl { font-size: 0.66rem; color: var(--fin-ink-3); text-transform: uppercase; letter-spacing: .05em }
+    .fh-pie-center-val { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--fin-ink); margin-top: 2px }
+
+    .fh-pie-legend { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 12px }
+    .fh-pie-leg-row { display: flex; align-items: flex-start; gap: 10px }
+    .fh-pie-leg-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; margin-top: 3px }
+    .fh-pie-leg-body { flex: 1 }
+    .fh-pie-leg-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px }
+    .fh-pie-leg-name { font-size: 0.85rem; font-weight: 600; color: var(--fin-ink) }
+    .fh-pie-leg-pct  { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; color: var(--fin-ink) }
+    .fh-pie-leg-sub  { font-size: 0.74rem; color: var(--fin-ink-3); margin-top: 2px }
+
+    @media (max-width: 560px) {
+      .fh-pie-wrap { justify-content: center }
+      .fh-pie-chart { margin: 0 auto }
+    }
+
+    /* Baldes */
+    .fh-buckets { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 4px }
+
+    .fh-bucket {
+      background: var(--fin-bg);
+      border: 1px solid var(--fin-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .fh-bucket-top {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .fh-bucket-emoji { font-size: 1.6rem; flex-shrink: 0; margin-top: 2px }
+    .fh-bucket-info  { flex: 1 }
+    .fh-bucket-name  { font-size: 0.85rem; font-weight: 700; color: var(--fin-ink) }
+    .fh-bucket-desc  { font-size: 0.68rem; color: var(--fin-ink-3); margin-top: 2px }
+    .fh-bucket-badge { font-size: 0.72rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; padding-top: 2px }
+
+    .fh-balde-wrap { display: flex; align-items: baseline; gap: 8px }
+    .fh-balde-pct  { font-family: var(--font-display); font-size: 2.4rem; font-weight: 800; line-height: 1; letter-spacing: -.03em }
+    .fh-balde-unit { font-size: 1rem; opacity: .5 }
+    .fh-balde-target {
+      font-size: 0.68rem; color: var(--fin-ink-3);
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--fin-border);
+      border-radius: 6px; padding: 2px 8px;
+    }
+
+    .fh-balde-bar-bg {
+      height: 8px; background: var(--fin-border);
+      border-radius: 4px; overflow: hidden; position: relative;
+    }
+    .fh-balde-bar-fg { height: 100%; border-radius: inherit; transition: width .6s ease }
+    .fh-balde-overflow-marker {
+      position: absolute; top: 0; height: 100%; width: 2px;
+      background: rgba(255,255,255,0.4);
+    }
+    .fh-balde-tip { font-size: 0.66rem; color: var(--fin-ink-3) }
+
+    .fh-balde-amounts {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      border-top: 1px solid var(--fin-border);
+      padding-top: 10px;
+    }
+    .fh-ba { display: flex; flex-direction: column; gap: 2px; text-align: center }
+    .fh-ba:first-child { text-align: left }
+    .fh-ba:last-child  { text-align: right }
+    .fh-ba-val { font-family: var(--font-mono); font-size: 0.76rem; font-weight: 600; color: var(--fin-ink) }
+    .fh-ba-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: .06em; color: var(--fin-ink-3) }
+
+    /* Categorías excedidas */
+    .fh-over-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 12px }
+    .fh-over-card {
+      border: 1px solid rgba(220,38,38,0.2);
+      border-radius: 10px; padding: 14px 16px;
+      background: rgba(220,38,38,0.04);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .fh-over-card-top { display: flex; justify-content: space-between; align-items: flex-start }
+    .fh-over-card-name  { font-size: 0.875rem; font-weight: 600; color: var(--fin-ink) }
+    .fh-over-card-group { font-size: 0.7rem; color: var(--fin-ink-3); margin-top: 2px }
+    .fh-over-card-extra { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: var(--fin-danger) }
+    .fh-over-bar-bg {
+      height: 6px; background: rgba(220,38,38,0.15);
+      border-radius: 3px; overflow: hidden;
+    }
+    .fh-over-bar-plan { height: 100%; background: rgba(220,38,38,0.5); border-radius: inherit }
+    .fh-over-card-sub { font-size: 0.75rem; color: var(--fin-ink-3) }
+
+    /* Lo que está bien */
+    .fh-goods { display: flex; flex-direction: column; gap: 8px; margin-top: 12px }
+    .fh-good-item {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.85rem; color: var(--fin-ink-2);
+    }
+    .fh-good-check {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(5,150,105,0.15);
+      color: var(--fin-success); font-weight: 700; font-size: 0.8rem;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    /* Detalle */
+    .fh-detail-section { padding-bottom: 0 }
+    .fh-detail-toggle-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 16px;
+    }
+    .fh-toggle-btn {
+      background: var(--fin-bg); border: 1px solid var(--fin-border);
+      color: var(--fin-ink-2); border-radius: 8px; padding: 6px 14px;
+      font-size: 0.78rem; cursor: pointer; transition: background .15s;
+    }
+    .fh-toggle-btn:hover { background: var(--fin-border) }
+
+    .fh-dcat-legend {
+      display: flex; gap: 16px; margin-bottom: 12px;
+      font-size: 0.72rem; color: var(--fin-ink-3);
+    }
+    .fh-dcat-legend span { display: flex; align-items: center; gap: 5px }
+    .fh-leg-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block }
+
+    .fh-dcat-list { display: flex; flex-direction: column; gap: 5px; padding-bottom: 16px }
+    .fh-dcat-group {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; margin-top: 10px; margin-bottom: 4px;
+    }
+    .fh-dcat-group:first-child { margin-top: 0 }
+    .fh-dcat-row {
+      display: grid; grid-template-columns: 8px 1fr 90px 50px 90px;
+      align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 7px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--fin-border);
+    }
+    .fh-dcat-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0 }
+    .fh-dcat-name { font-size: 0.78rem; font-weight: 500; color: var(--fin-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+    .fh-dcat-bar-bg { height: 3px; background: var(--fin-border); border-radius: 2px; overflow: hidden }
+    .fh-dcat-bar-fg { height: 100%; border-radius: inherit }
+    .fh-dcat-pct { font-size: 0.68rem; color: var(--fin-ink-3); text-align: right }
+    .fh-dcat-amt { font-family: var(--font-mono); font-size: 0.75rem; color: var(--fin-ink-2); text-align: right }
+
+    /* Animación barra excedida */
+    @keyframes fh-pulse {
+      0%,100% { opacity: 1 } 50% { opacity: .6 }
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .fh-buckets { grid-template-columns: 1fr 1fr }
+    }
+    @media (max-width: 640px) {
+      .fh-hero { padding: 20px 16px 0 }
+      .fh-buckets { grid-template-columns: 1fr }
+      .fh-kpis { flex-wrap: wrap }
+      .fh-kpi { flex: 1 1 50%; border-bottom: 1px solid var(--fin-border) }
+      .fh-section { padding: 16px }
+      .fh-dcat-row { grid-template-columns: 8px 1fr 60px 40px }
+      .fh-dcat-amt { display: none }
+    }
+  </style>`;
 }

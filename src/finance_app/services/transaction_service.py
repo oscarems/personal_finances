@@ -8,13 +8,9 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Optional, Literal
 from finance_app.models import (
     Transaction, Account, Category, Payee, Currency, Debt, DebtPayment,
-    MortgagePaymentAllocation, TransactionSplit
+    TransactionSplit
 )
 from finance_app.services.debt.balance_service import refresh_mortgage_current_balance
-from finance_app.services.mortgage.allocation_service import (
-    apply_mortgage_payment_allocation,
-    rebuild_mortgage_balances
-)
 from finance_app.services.exchange_rate_service import convert_currency, get_rate_for_date
 from finance_app.services.transaction_allocation_service import (
     validate_splits_sum,
@@ -326,7 +322,7 @@ def create_transaction(db: Session, data):
     Returns:
         Transaction object
     """
-    mortgage_allocation = data.pop('mortgage_allocation', None)
+    data.pop('mortgage_allocation', None)  # Deprecated: mortgages no longer track real-payment allocations.
     transaction_type = data.pop('type', None)
     tag_ids = data.pop('tag_ids', None)
     splits = data.pop('splits', None)
@@ -393,10 +389,7 @@ def create_transaction(db: Session, data):
         if account and transaction_affects_balance(account, transaction_date):
             account.balance += normalized_amount
 
-        if mortgage_allocation:
-            apply_mortgage_payment_allocation(db, transaction, mortgage_allocation)
-        else:
-            _apply_debt_impact(db, transaction, account)
+        _apply_debt_impact(db, transaction, account)
 
     return transaction
 
@@ -494,21 +487,13 @@ def update_transaction(db: Session, transaction_id, data):
     if not transaction:
         return None
 
-    has_mortgage_allocation = db.query(MortgagePaymentAllocation).filter_by(
-        transaction_id=transaction.id
-    ).first() is not None
-    if has_mortgage_allocation:
-        if any(field in data for field in {"amount", "currency_id", "date", "account_id"}):
-            raise ValueError("Cannot update mortgage-linked transaction amount or date.")
-
     # Store old amount to update balance
     old_amount = transaction.amount
     old_account_id = transaction.account_id
     old_date = transaction.date
     old_account = db.get(Account, old_account_id)
 
-    if not has_mortgage_allocation:
-        _reverse_debt_impact(db, transaction, old_account)
+    _reverse_debt_impact(db, transaction, old_account)
 
     transaction_type = data.pop('type', None)
 
@@ -569,8 +554,7 @@ def update_transaction(db: Session, transaction_id, data):
     _apply_tags_to_transaction(db, transaction, tag_ids)
     _apply_splits_to_transaction(db, transaction, splits)
 
-    if not has_mortgage_allocation:
-        _apply_debt_impact(db, transaction, new_account)
+    _apply_debt_impact(db, transaction, new_account)
 
     db.commit()
     return transaction
@@ -605,19 +589,11 @@ def delete_transaction(db: Session, transaction_id):
             _reverse_debt_impact(db, linked_transaction, linked_account)
             db.delete(linked_transaction)
 
-    mortgage_allocation = db.query(MortgagePaymentAllocation).filter_by(transaction_id=transaction.id).first()
-
     # Update account balance
     account = db.get(Account, transaction.account_id)
     if account and transaction_affects_balance(account, transaction.date):
         account.balance -= transaction.amount
-    if mortgage_allocation:
-        loan = db.query(Debt).filter_by(id=mortgage_allocation.loan_id).with_for_update().one_or_none()
-        db.delete(mortgage_allocation)
-        if loan:
-            rebuild_mortgage_balances(db, loan)
-    else:
-        _reverse_debt_impact(db, transaction, account)
+    _reverse_debt_impact(db, transaction, account)
 
     db.delete(transaction)
     db.commit()

@@ -51,6 +51,8 @@ class Debt(Base):
     is_active = Column(Boolean, default=True)  # Whether the debt is active
     is_consolidated = Column(Boolean, default=False)  # Whether consolidated into another debt
     has_insurance = Column(Boolean, default=False)  # Whether the payment includes insurance
+    includes_principal_payment = Column(Boolean, default=False)  # Whether the actual payment includes extra principal paydown
+    actual_payment_amount = Column(Float)  # What the user actually pays each month (may exceed monthly_payment)
 
     # Detailed balances (optional for loans/mortgages)
     principal_balance = Column(Numeric(18, 6))
@@ -113,6 +115,8 @@ class Debt(Base):
             'is_active': self.is_active,
             'is_consolidated': self.is_consolidated,
             'has_insurance': self.has_insurance,
+            'includes_principal_payment': self.includes_principal_payment,
+            'actual_payment_amount': self.actual_payment_amount,
             'confirmed_balance': float(self.confirmed_balance) if self.confirmed_balance is not None else None,
             'confirmed_balance_date': self.confirmed_balance_date.isoformat() if self.confirmed_balance_date else None,
             'statement_day': self.statement_day,

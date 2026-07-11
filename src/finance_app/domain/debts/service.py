@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from finance_app.domain.debts.repository import fetch_debts
 from finance_app.domain.debts.types import DebtPrincipalRecord
 from finance_app.domain.fx.service import convert_to_cop
-from finance_app.services.debt.balance_service import calculate_debt_balance_as_of
+from finance_app.services.debt.balance_service import calculate_scheduled_principal_balance
 
 
 def _decimalize(value: float | int | Decimal | None) -> Decimal:
@@ -32,8 +32,9 @@ def _decimalize(value: float | int | Decimal | None) -> Decimal:
 def get_debts_principal(db: Session, as_of_date: date) -> List[DebtPrincipalRecord]:
     """Get principal balances for all debts as of a given date.
 
-    For mortgages the balance is computed via the amortization engine;
-    for other debt types the stored ``current_balance`` is used.
+    For mortgages the balance is derived purely from original_amount/start_date/
+    rate/term via the amortization plan (no real-payment tracking); for other
+    debt types the stored ``current_balance`` is used.
 
     Args:
         db: Database session.
@@ -47,13 +48,7 @@ def get_debts_principal(db: Session, as_of_date: date) -> List[DebtPrincipalReco
 
     for debt in debts:
         if debt.debt_type == "mortgage":
-            principal_value = calculate_debt_balance_as_of(
-                db=db,
-                debt=debt,
-                as_of_date=as_of_date,
-                today=as_of_date,
-                include_projection=False,
-            )
+            principal_value = calculate_scheduled_principal_balance(debt, as_of_date)
         else:
             principal_value = debt.current_balance or 0.0
 

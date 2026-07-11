@@ -14,7 +14,6 @@ from finance_app.models import (
     Debt,
     DebtAmortizationMonthly,
     DebtPayment,
-    MortgagePaymentAllocation,
 )
 
 from finance_app.services.debt.balance_service import (
@@ -254,7 +253,7 @@ def get_credit_card_current_balance(debt: Debt) -> float:
 
 
 def _build_debt_payment_entries(debt: Debt, db: Session) -> list[dict]:
-    """Collect DebtPayment records that are not already covered by allocations.
+    """Collect DebtPayment records for a mortgage or credit_loan debt.
 
     Args:
         debt: Debt model instance.
@@ -263,15 +262,6 @@ def _build_debt_payment_entries(debt: Debt, db: Session) -> list[dict]:
     Returns:
         List of payment entry dicts.
     """
-    allocations = db.query(MortgagePaymentAllocation).filter_by(loan_id=debt.id).order_by(
-        MortgagePaymentAllocation.payment_date.asc(),
-        MortgagePaymentAllocation.id.asc()
-    ).all()
-
-    allocation_transaction_ids = {
-        allocation.transaction_id for allocation in allocations if allocation.transaction_id
-    }
-
     debt_payments = db.query(DebtPayment).filter_by(debt_id=debt.id).order_by(
         DebtPayment.payment_date.asc(),
         DebtPayment.id.asc()
@@ -280,8 +270,6 @@ def _build_debt_payment_entries(debt: Debt, db: Session) -> list[dict]:
     payments: list[dict] = []
 
     for payment in debt_payments:
-        if payment.transaction_id and payment.transaction_id in allocation_transaction_ids:
-            continue
         principal = payment_principal_amount(payment)
         payments.append({
             "id": payment.id,
@@ -297,38 +285,6 @@ def _build_debt_payment_entries(debt: Debt, db: Session) -> list[dict]:
             "payment_source": payment_source_label(payment.transaction_id),
         })
 
-    return payments, allocations
-
-
-def _build_allocation_entries(allocations: list) -> list[dict]:
-    """Convert MortgagePaymentAllocation rows into payment entry dicts.
-
-    Args:
-        allocations: List of MortgagePaymentAllocation instances.
-
-    Returns:
-        List of payment entry dicts.
-    """
-    payments: list[dict] = []
-    for allocation in allocations:
-        principal_paid = float(allocation.principal_paid or 0.0) + float(allocation.extra_principal_paid or 0.0)
-        interest_paid = float(allocation.interest_paid or 0.0)
-        fees_paid = float(allocation.fees_paid or 0.0)
-        escrow_paid = float(allocation.escrow_paid or 0.0)
-        amount = principal_paid + interest_paid + fees_paid + escrow_paid
-        payments.append({
-            "id": allocation.id,
-            "debt_id": allocation.loan_id,
-            "transaction_id": allocation.transaction_id,
-            "payment_date": allocation.payment_date.isoformat() if allocation.payment_date else None,
-            "amount": amount,
-            "principal": principal_paid,
-            "interest": interest_paid,
-            "fees": fees_paid + escrow_paid,
-            "balance_after": None,
-            "notes": allocation.notes,
-            "payment_source": "transaccion",
-        })
     return payments
 
 
@@ -362,10 +318,11 @@ def _apply_running_balance(payments: list[dict], original_amount: float) -> list
 
 
 def build_mortgage_payment_history(debt: Debt, db: Session) -> list[dict]:
-    """Build a unified, chronologically sorted payment history for a mortgage or credit_loan.
+    """Build a chronologically sorted payment history for a mortgage or credit_loan.
 
-    Merges DebtPayment records and MortgagePaymentAllocation records (for mortgages),
-    deduplicating by transaction_id, then computes a running balance.
+    Mortgages no longer track real-payment allocations — this is purely the
+    recorded DebtPayment entries (informational; they do not affect the
+    mortgage's derived balance) with a running balance computed for display.
 
     Works for both ``mortgage`` and ``credit_loan`` debt types.
 
@@ -376,12 +333,7 @@ def build_mortgage_payment_history(debt: Debt, db: Session) -> list[dict]:
     Returns:
         List of payment dicts with running ``balance_after``.
     """
-    debt_entries, allocations = _build_debt_payment_entries(debt, db)
-    # MortgagePaymentAllocation is only populated for mortgages; for credit_loan
-    # allocation_entries will be empty, which is correct.
-    allocation_entries = _build_allocation_entries(allocations)
-
-    payments = debt_entries + allocation_entries
+    payments = _build_debt_payment_entries(debt, db)
     if not payments:
         return []
 
@@ -459,8 +411,10 @@ def debt_to_dict_with_calculated_balance(
     if debt.original_amount and debt.original_amount > 0:
         data["paid_percentage"] = ((debt.original_amount - calculated_balance) / debt.original_amount) * 100
 
-    # Reconciliation: compare confirmed balance (from bank statement) with calculated
-    if debt.confirmed_balance is not None:
+    # Reconciliation: compare confirmed balance (from bank statement) with calculated.
+    # Mortgages are fully derived from original_amount/start_date/rate/term, so
+    # manual balance confirmation no longer applies to them.
+    if debt.debt_type != "mortgage" and debt.confirmed_balance is not None:
         confirmed = float(debt.confirmed_balance)
         data["balance_discrepancy"] = round(confirmed - float(calculated_balance), 2)
     else:

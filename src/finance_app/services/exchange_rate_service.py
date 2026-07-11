@@ -38,13 +38,18 @@ def _fetch_usd_rates_from_api(api_url: str, timeout: int = 5) -> Optional[dict[s
     try:
         response = requests.get(api_url, timeout=timeout)
         if response.status_code != 200:
+            logger.warning(
+                "Exchange rate API %s returned status %d: %s",
+                api_url, response.status_code, response.text[:200],
+            )
             return None
         data = response.json()
         for key in ('rates', 'conversion_rates'):
             if key in data and isinstance(data[key], dict):
                 return {k: float(v) for k, v in data[key].items() if isinstance(v, (int, float))}
-    except Exception as e:
-        logger.warning("Error fetching rates from %s: %s", api_url, e)
+        logger.warning("Exchange rate API %s response missing rates keys: %s", api_url, list(data.keys()))
+    except Exception:
+        logger.exception("Error fetching rates from %s", api_url)
     return None
 
 

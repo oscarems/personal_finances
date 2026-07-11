@@ -18,6 +18,7 @@ from finance_app.services.budget_service import (
     get_category_budget_history,
     recalculate_month,
     initialize_month,
+    audit_ready_to_assign,
 )
 from finance_app.models import BudgetMonth, Currency, Category
 
@@ -369,3 +370,32 @@ def initialize_budget_month(year: int, month: int, db: Session = Depends(get_db)
     """
     result = initialize_month(db, year, month)
     return {"success": True, **result}
+
+
+@router.get("/audit/ready-to-assign/{year}/{month}")
+def audit_ready_to_assign_endpoint(
+    year: int,
+    month: int,
+    currency: str = "COP",
+    db: Session = Depends(get_db),
+):
+    """
+    Auditoría detallada del valor 'Listo para asignar'.
+
+    Desglosa:
+    - Cuentas presupuestadas incluidas (con saldo y conversión)
+    - Cuentas excluidas (deudas)
+    - Disponible por categoría
+    - Categorías de ingreso omitidas
+    - Resultado final y sus componentes
+
+    Útil para diagnosticar discrepancias entre lo que muestra el dashboard
+    y lo que esperaría el usuario.
+    """
+    currency_obj = db.query(Currency).filter_by(code=currency.upper()).first()
+    if not currency_obj:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Moneda '{currency}' no encontrada")
+
+    month_date = date(year, month, 1)
+    return audit_ready_to_assign(db, month_date, currency_obj.id)

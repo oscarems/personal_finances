@@ -70,27 +70,42 @@ def aplicar_depreciacion(
 def calcular_valor_activo_en_mes(activo: Any, año: int, mes: int) -> float:
     """Calculate asset value for a given year/month.
 
-    Valuation happens on January 1st each year. Value is constant Jan-Dec.
-    Formula: valor_adquisicion * (1 + tasa_anual) ^ max(0, year - year_acquisition - 1)
-    If queried year == acquisition year -> return valor_adquisicion.
-    If queried date < acquisition date -> return 0.
+    Valuation happens on January 1st each year (value is constant Jan-Dec).
 
-    Then applies depreciation if configured.
+    If the asset has a manual market value (valor_mercado_manual + fecha_valor_mercado):
+      - For months before that date: uses valor_adquisicion as base from acquisition year.
+      - For months >= that date: uses valor_mercado_manual as base from the year it was set.
+    Otherwise uses valor_adquisicion from acquisition year.
+
+    Formula: base * (1 + tasa_anual) ^ max(0, queried_year - base_year - 1)
+    (value stays flat through the acquisition year and the following year,
+    then appreciates from the second year onward). Then applies depreciation
+    if configured.
     """
     fecha_adq = activo.fecha_adquisicion
     query_date = date(año, mes, 1)
     if query_date < date(fecha_adq.year, fecha_adq.month, 1):
         return 0.0
 
-    valor = float(activo.valor_adquisicion)
     tasa = float(activo.tasa_anual)
-    year_acq = fecha_adq.year
 
-    if año == year_acq:
-        appreciated = valor
+    # Determine base value and reference year
+    valor_mercado = getattr(activo, "valor_mercado_manual", None)
+    fecha_mercado = getattr(activo, "fecha_valor_mercado", None)
+
+    if valor_mercado is not None and fecha_mercado is not None and query_date >= date(fecha_mercado.year, fecha_mercado.month, 1):
+        # Appreciate from the year the manual price was recorded
+        base = float(valor_mercado)
+        base_year = fecha_mercado.year
     else:
-        exponent = max(0, año - year_acq - 1)
-        appreciated = valor * ((1 + tasa) ** exponent)
+        base = float(activo.valor_adquisicion)
+        base_year = fecha_adq.year
+
+    if año <= base_year:
+        appreciated = base
+    else:
+        exponent = año - base_year - 1
+        appreciated = base * ((1 + tasa) ** exponent)
 
     # Apply depreciation if configured
     method = getattr(activo, "depreciation_method", None)
@@ -115,9 +130,13 @@ def calcular_valor_activo_en_mes(activo: Any, año: int, mes: int) -> float:
 def saldo_deuda_en_mes(deuda: Any, año: int, mes: int, db: Optional[Session] = None) -> float:
     """Get debt outstanding balance at a specific year/month.
 
-    Uses AmortizationEngine hybrid mode (real payments + projected future)
-    when a db session is provided. Otherwise falls back to pure math.
+    Mortgages are always derived from pure math (original_amount/start_date/
+    rate/term) — real-payment tracking no longer applies to them. credit_loan
+    debts use the AmortizationEngine hybrid mode (real payments + projected
+    future) when a db session is provided.
     """
+    if getattr(deuda, "debt_type", None) == "mortgage":
+        return _saldo_puro(deuda, año, mes)
     if db:
         return _saldo_via_engine(deuda, año, mes, db)
     return _saldo_puro(deuda, año, mes)

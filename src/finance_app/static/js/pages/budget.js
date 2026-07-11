@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional, progressBar } from '../utils.js';
+import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional, progressBar, progressPct } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -43,6 +43,7 @@ function flattenBudgetCats(data) {
         category_type: group.is_income ? 'income' : (cat.rollover_type === 'accumulate' ? 'savings' : 'expense'),
         spent: Math.abs(cat.activity ?? 0),
         available: cat.available ?? 0,
+        covered: cat.covered ?? 0,
       });
     }
   }
@@ -72,6 +73,8 @@ function renderPage(container) {
   const readyToAssign    = _data?.ready_to_assign ?? 0;
 
   const groups = groupByGroup(cats);
+  _isFirstGroup = true;
+  _groupIndex   = 0;
 
   container.innerHTML = `
     <div class="page-header">
@@ -115,7 +118,7 @@ function renderPage(container) {
       ${totalSavings > 0 ? `
         <div class="stat-chip">
           <span class="stat-chip-label">Ahorros acumulados</span>
-          <span class="stat-chip-value amount" style="color:var(--color-accent)">${fmtCurrency(totalSavings, 'COP')}</span>
+          <span class="stat-chip-value amount" style="color:var(--fin-accent)">${fmtCurrency(totalSavings, 'COP')}</span>
           <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalSavings / _rate, 'USD')}</span>
         </div>` : ''}
       <div class="stat-chip" style="border-color:${readyToAssign >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">
@@ -143,11 +146,22 @@ function renderPage(container) {
       <table>
         <thead>
           <tr>
-            <th style="width:34%">Categoría</th>
-            <th class="td-right" style="width:16%">Asignado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
-            <th class="td-right" style="width:16%">Gastado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
-            <th class="td-right" style="width:16%">Disponible<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
-            <th style="width:13%">Uso</th>
+            <th style="width:24%">Categoría</th>
+            <th class="td-right" style="width:13%">Asignado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
+            <th class="td-right" style="width:13%">Gastado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
+            <th class="td-right" style="width:13%">Cubierto
+              <span class="info-tooltip" tabindex="0" aria-label="Explicación de Cubierto" style="font-size:0.75rem;font-weight:400">
+                &#9432;
+                <span class="tooltip-text">
+                  Movimientos internos de cobertura.<br><br>
+                  <strong>Positivo:</strong> recibió dinero de otra categoría para cubrir su déficit.<br>
+                  <strong>Negativo:</strong> cedió dinero a otra categoría.
+                </span>
+              </span>
+              <br><small class="text-soft" style="font-weight:400">COP / USD</small>
+            </th>
+            <th class="td-right" style="width:13%">Disponible<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
+            <th style="width:19%">Uso</th>
             <th style="width:5%"></th>
           </tr>
         </thead>
@@ -213,49 +227,127 @@ function renderPage(container) {
     const cat = cats.find(c => c.category_id === parseInt(btn.dataset.editCat));
     btn.addEventListener('click', () => openCategoryModal(cat, container));
   });
+
+  // Cover overspending
+  container.querySelectorAll('[data-cover-cat]').forEach(btn => {
+    const cat = cats.find(c => c.category_id === parseInt(btn.dataset.coverCat));
+    btn.addEventListener('click', () => openCoverModal(cat, cats, container));
+  });
 }
 
+const GROUP_ACCENTS = ['#E07B54','#4E9D8F','#7B68C8','#C4883A','#4A90C4','#C45E8A','#5DA06A','#8E6BBF'];
+let _isFirstGroup = true;
+let _groupIndex   = 0;
+
 function groupRows(group, cats) {
-  const grpId      = cats[0]?.group_id ?? '';
-  const grpName    = sanitize(group || 'Sin grupo');
+  const grpId       = cats[0]?.group_id ?? '';
+  const grpName     = sanitize(group || 'Sin grupo');
   const totAssigned  = cats.reduce((s, c) => s + (c.assigned  ?? 0), 0);
   const totSpent     = cats.reduce((s, c) => s + (c.spent     ?? 0), 0);
   const totAvailable = cats.reduce((s, c) => s + (c.available ?? 0), 0);
+  const totCovered   = cats.reduce((s, c) => s + (c.covered   ?? 0), 0);
 
-  const availColorClass = totAvailable >= 0 ? 'text-success' : 'text-danger';
+  const accent      = GROUP_ACCENTS[_groupIndex % GROUP_ACCENTS.length];
+  _groupIndex++;
+
+  const pct         = progressPct(totSpent, totAssigned);
+  const pctColor    = pct >= 100 ? '#DC2626' : pct >= 80 ? '#D97706' : '#059669';
+  const pctLabel    = totAssigned > 0 ? `${Math.round(pct)}%` : '—';
+  const availSign   = totAvailable >= 0 ? '+' : '';
+  const availColor  = totAvailable >= 0 ? '#059669' : '#DC2626';
+
+  const coveredSign  = totCovered >= 0 ? '+' : '';
+  const coveredColor = totCovered > 0 ? '#4A90C4' : totCovered < 0 ? '#D97706' : 'var(--fin-ink-3)';
+
+  const spacer = _isFirstGroup ? '' : `<tr><td colspan="7" style="height:20px;padding:0;border:none;background:transparent"></td></tr>`;
+  _isFirstGroup = false;
 
   const header = `
-    <tr style="background:var(--fin-surface-2)">
-      <td style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:8px 16px" class="text-soft">
-        <span ${grpId ? `data-edit-group="${grpId}" style="cursor:pointer;border-bottom:1px dashed currentColor" title="Editar grupo"` : ''}>${grpName}</span>
+    ${spacer}
+    <tr class="budget-group-header" style="background:var(--fin-surface-2)">
+      <td colspan="7" style="padding:0;border:none">
+        <div style="
+          border-left: 4px solid ${accent};
+          border-top: 1px solid var(--fin-border);
+          background: linear-gradient(90deg, ${accent}0d 0%, transparent 40%);
+          padding: 10px 16px 8px 18px;
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 8px;
+          align-items: center;
+        ">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.09em;color:${accent};${grpId ? 'cursor:pointer' : ''}"
+              ${grpId ? `data-edit-group="${grpId}" title="Editar grupo"` : ''}>${grpName}</span>
+            <span style="
+              font-size:0.67rem;font-weight:700;
+              background:${pctColor}1a;color:${pctColor};
+              border:1px solid ${pctColor}33;
+              border-radius:999px;padding:1px 7px;
+              font-variant-numeric:tabular-nums;
+            ">${pctLabel} usado</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="font-size:0.72rem;color:var(--fin-ink-3)">
+              <span style="font-variant-numeric:tabular-nums">${fmtCurrency(totSpent,'COP')}</span>
+              <span style="margin:0 3px;opacity:0.4">/</span>
+              <span style="font-variant-numeric:tabular-nums">${fmtCurrency(totAssigned,'COP')}</span>
+            </span>
+            ${totCovered !== 0 ? `<span style="font-size:0.72rem;font-weight:700;color:${coveredColor};font-variant-numeric:tabular-nums">${coveredSign}${fmtCurrency(totCovered,'COP')}</span>` : ''}
+            <span style="font-size:0.72rem;font-weight:700;color:${availColor};font-variant-numeric:tabular-nums;min-width:72px;text-align:right">${availSign}${fmtCurrency(totAvailable,'COP')}</span>
+          </div>
+        </div>
+        <div style="height:3px;background:var(--fin-border)">
+          <div style="height:100%;width:${Math.min(pct,100)}%;background:${pctColor};transition:width 0.4s ease"></div>
+        </div>
       </td>
-      <td class="td-right td-mono text-soft amount" style="font-size:0.72rem;font-weight:700;padding:8px 4px">${fmtCurrency(totAssigned, 'COP')}</td>
-      <td class="td-right td-mono text-soft amount" style="font-size:0.72rem;font-weight:700;padding:8px 4px">${fmtCurrency(totSpent, 'COP')}</td>
-      <td class="td-right td-mono amount ${availColorClass}" style="font-size:0.72rem;font-weight:700;padding:8px 4px">${fmtCurrency(totAvailable, 'COP')}</td>
-      <td colspan="2"></td>
     </tr>`;
-  const rows = cats.map(c => categoryRow(c)).join('');
+  const rows = cats.map(c => categoryRow(c, accent)).join('');
   return header + rows;
 }
 
-function categoryRow(c) {
+function categoryRow(c, groupAccent = 'var(--fin-border)') {
   const assigned        = c.assigned        ?? 0;
   const assigned_native = c.assigned_native ?? null;
   const currency_code   = c.currency_code   ?? 'COP';
   const spent           = c.spent           ?? 0;
   const available       = c.available       ?? 0;
+  const covered         = c.covered         ?? 0;
   const initial_amount  = c.initial_amount  ?? 0;
   const isSavings       = c.category_type   === 'savings';
 
   const assignedHtml = isSavings && initial_amount > 0
-    ? `${fmtDual(assigned, currency_code, assigned_native)}<br><small class="amount" style="color:var(--color-accent);font-size:0.68rem;white-space:nowrap">+ ${fmtCurrency(initial_amount, 'COP')} guardado</small>`
+    ? `${fmtDual(assigned, currency_code, assigned_native)}<br><small class="amount" style="color:var(--fin-accent);font-size:0.68rem;white-space:nowrap">+ ${fmtCurrency(initial_amount, 'COP')} guardado</small>`
     : fmtDual(assigned, currency_code, assigned_native);
 
   const availClass = available >= 0 ? 'text-success' : 'text-danger';
 
+  const pct      = progressPct(spent, assigned);
+  const pctColor = pct >= 100 ? '#DC2626' : pct >= 80 ? '#D97706' : '#059669';
+  const pctLabel = assigned > 0 ? `${Math.round(pct)}%` : '—';
+
+  const usoCel = assigned > 0
+    ? `<div style="display:flex;align-items:center;gap:6px">
+         <div style="flex:1;height:6px;background:var(--fin-surface-3);border-radius:999px;overflow:hidden">
+           <div style="height:100%;width:${Math.min(pct,100)}%;background:${pctColor};border-radius:999px;transition:width 0.35s ease"></div>
+         </div>
+         <span style="font-size:0.72rem;font-weight:700;color:${pctColor};font-variant-numeric:tabular-nums;min-width:32px;text-align:right">${pctLabel}</span>
+       </div>`
+    : `<span style="font-size:0.72rem;color:var(--fin-ink-3)">—</span>`;
+
+  const coverBtn = (spent > assigned && assigned > 0) || available < 0
+    ? `<button class="btn btn-xs" data-cover-cat="${c.category_id}" title="Cubrir exceso con otra categoría" style="background:var(--fin-danger);color:#fff;opacity:0.85;font-size:0.65rem;padding:2px 6px;margin-right:4px">Cubrir</button>`
+    : '';
+
+  const coveredClass = covered > 0 ? '' : covered < 0 ? 'text-warning' : 'td-soft';
+  const coveredSign  = covered > 0 ? '+' : '';
+  const coveredHtml  = covered !== 0
+    ? `<span style="color:${covered > 0 ? '#4A90C4' : '#D97706'};font-weight:600">${coveredSign}${fmtDual(covered)}</span>`
+    : `<span class="td-soft">—</span>`;
+
   return `
     <tr>
-      <td style="font-size:0.8125rem;font-weight:500">
+      <td style="font-size:0.8125rem;font-weight:500;padding-left:28px;border-left:3px solid ${groupAccent}33">
         ${sanitize(c.category_name)}
         ${isSavings ? '<span class="badge badge-accent" style="margin-left:6px;font-size:0.6rem">Ahorro</span>' : ''}
       </td>
@@ -263,14 +355,13 @@ function categoryRow(c) {
         ${assignedHtml}
       </td>
       <td class="td-right td-mono td-soft" style="font-size:0.8125rem;line-height:1.4">${fmtDual(spent)}</td>
+      <td class="td-right td-mono" style="font-size:0.8125rem;line-height:1.4">${coveredHtml}</td>
       <td class="td-right td-mono ${availClass}" style="font-size:0.8125rem;line-height:1.4">
         ${fmtDual(available)}
       </td>
-      <td>
-        ${progressBar(spent, assigned, { danger: 100, warning: 80 })}
-      </td>
-      <td>
-        <button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría">⋯</button>
+      <td style="padding-right:12px">${usoCel}</td>
+      <td style="white-space:nowrap">
+        ${coverBtn}<button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría">⋯</button>
       </td>
     </tr>`;
 }
@@ -488,6 +579,66 @@ function openCategoryModal(cat, container) {
       }
     });
   }
+}
+
+function openCoverModal(cat, allCats, container) {
+  const deficit   = Math.abs(cat.available ?? 0);
+  const currency  = cat.currency_code ?? 'COP';
+  const readyToAssign = _data?.ready_to_assign ?? 0;
+
+  // Categories with positive available (exclude the target itself)
+  const sources = allCats.filter(c => c.category_id !== cat.category_id && (c.available ?? 0) > 0);
+
+  const sourcesHtml = [
+    `<option value="__rta__">Listo para asignar (${fmtCurrency(readyToAssign, 'COP')})</option>`,
+    ...sources.map(s => `<option value="${s.category_id}">${sanitize(s.category_name)} (disponible: ${fmtCurrency(s.available, 'COP')})</option>`),
+  ].join('');
+
+  openModal({
+    title: `Cubrir exceso: ${cat.category_name}`,
+    size: 'sm',
+    content: `
+      <p style="font-size:0.875rem;margin-bottom:16px">
+        Exceso en <strong>${sanitize(cat.category_name)}</strong>:
+        <span class="text-danger amount" style="font-weight:700">${fmtCurrency(deficit, currency)}</span>
+      </p>
+      <div class="form-group mb-3">
+        <label class="form-label required">Tomar dinero de</label>
+        <select id="cv-source">${sourcesHtml}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Monto a cubrir (${currency})</label>
+        <input type="number" id="cv-amount" value="${currency === 'USD' ? deficit.toFixed(2) : Math.round(deficit)}" step="${currency === 'USD' ? '0.01' : '1000'}" min="0.01" autofocus>
+      </div>
+      <p id="cv-preview" class="text-soft" style="font-size:0.8rem;margin-top:4px"></p>
+    `,
+    submitLabel: 'Cubrir exceso',
+    onSubmit: async (body) => {
+      const sourceVal = body.querySelector('#cv-source').value;
+      const amount    = parseFloat(body.querySelector('#cv-amount').value);
+      if (isNaN(amount) || amount <= 0) throw new Error('Monto inválido');
+
+      if (sourceVal === '__rta__') {
+        // Tomar de listo para asignar → aumentar asignado de la categoría destino
+        const currentAssigned = cat.assigned ?? 0;
+        const newAssigned = currency === 'USD'
+          ? (cat.assigned_native ?? currentAssigned / _rate) + amount
+          : currentAssigned + amount;
+        await api.budgets.update(_month, cat.category_id, { assigned: newAssigned, currency_code: currency });
+      } else {
+        await api.budgets.coverExcess({
+          source_category_id: parseInt(sourceVal),
+          target_category_id: cat.category_id,
+          amount,
+          currency_code: currency,
+          month: _month + '-01',
+        });
+      }
+
+      toast.success('Exceso cubierto');
+      await loadAndRender(container);
+    },
+  });
 }
 
 function openGroupModal(group, container) {

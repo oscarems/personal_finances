@@ -120,7 +120,6 @@ export const goals = {
 export const mortgage = {
   accounts:    ()     => get('/mortgage/accounts'),
   schedule:    (id)   => get(`/mortgage/${id}/schedule`),
-  payment:     (id,d) => post(`/mortgage/${id}/payments`, d),
   calculate:   (data) => post('/mortgage/calculate', data),
 };
 
@@ -177,10 +176,17 @@ export const gmailImport = {
 };
 
 export const merchantRules = {
-  list:   ()           => get('/merchant-rules'),
-  create: (data)       => post('/merchant-rules', data),
-  update: (id, data)   => put(`/merchant-rules/${id}`, data),
-  delete: (id)         => del(`/merchant-rules/${id}`),
+  list:    ()           => get('/merchant-rules'),
+  create:  (data)       => post('/merchant-rules', data),
+  update:  (id, data)   => put(`/merchant-rules/${id}`, data),
+  delete:  (id)         => del(`/merchant-rules/${id}`),
+  preview: (data)       => post('/merchant-rules/preview', data),
+};
+
+export const merchantIgnoreRules = {
+  list:   ()           => get('/merchant-ignore-rules'),
+  create: (data)       => post('/merchant-ignore-rules', data),
+  delete: (id)         => del(`/merchant-ignore-rules/${id}`),
 };
 
 export const chat = {
@@ -230,4 +236,5 @@ export const currencies = {
 export const admin = {
   health: () => get('/admin/health'),
   syncEmail: () => post('/admin/sync-email'),
+  backupUrl: '/api/admin/backup',
 };

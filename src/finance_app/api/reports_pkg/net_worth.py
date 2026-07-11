@@ -16,6 +16,7 @@ from finance_app.models.patrimonio_asset import PatrimonioAsset
 from finance_app.models.investment_asset import InvestmentAsset
 from finance_app.models.asset_price_history import AssetPriceHistory
 from finance_app.services.exchange_rate_service import get_current_exchange_rate
+from finance_app.services.debt.balance_service import calculate_scheduled_principal_balance
 
 router = APIRouter()
 
@@ -67,8 +68,14 @@ def _compute_current_net_worth(db: Session) -> dict:
 
     # ── Liabilities (all active debts)
     debts = db.query(Debt).filter(Debt.is_active == True).all()
+
+    def _debt_balance(d: Debt) -> float:
+        if d.debt_type == "mortgage":
+            return calculate_scheduled_principal_balance(d, today)
+        return d.current_balance or 0.0
+
     liabilities_cop = sum(
-        to_cop(d.current_balance or 0.0, d.currency_code or "COP")
+        to_cop(_debt_balance(d), d.currency_code or "COP")
         for d in debts
     )
 

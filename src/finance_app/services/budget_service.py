@@ -518,11 +518,13 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
     }
 
     budgets_by_category = _index_budgets_by_category(db, month_date)
+    coverage_by_category = _get_coverage_by_category(db, month_date)
 
     for group in groups:
         group_data = _build_group_budget(
             db, group, month_date, currency, all_currencies,
             convert, budgets_by_category, budget_data['totals'],
+            coverage_by_category,
         )
         budget_data['groups'].append(group_data)
 
@@ -558,6 +560,7 @@ def _build_group_budget(
     convert: Callable,
     budgets_by_category: dict[int, list[BudgetMonth]],
     running_totals: dict,
+    coverage_by_category: dict[int, float] | None = None,
 ) -> dict:
     """Build the budget dict for a single category group."""
     group_data: dict = {
@@ -573,7 +576,7 @@ def _build_group_budget(
 
         cat_data = _build_category_budget(
             db, category, month_date, currency, all_currencies,
-            convert, budgets_by_category,
+            convert, budgets_by_category, coverage_by_category,
         )
         group_data['categories'].append(cat_data)
 
@@ -585,6 +588,36 @@ def _build_group_budget(
     return group_data
 
 
+def _get_coverage_by_category(db: Session, month_date: date) -> dict[int, float]:
+    """Return a dict {category_id: covered_amount} for the given month.
+
+    Sums all is_adjustment transactions whose memo starts with "Cubrir exceso:"
+    (negative → money taken out) or "Cubierto desde:" (positive → money received).
+    """
+    from calendar import monthrange
+    last_day = monthrange(month_date.year, month_date.month)[1]
+    month_start = date(month_date.year, month_date.month, 1)
+    month_end   = date(month_date.year, month_date.month, last_day)
+
+    txs = db.query(Transaction).filter(
+        Transaction.is_adjustment == True,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
+        or_(
+            Transaction.memo.like('Cubrir exceso:%'),
+            Transaction.memo.like('Cubierto desde:%'),
+        ),
+    ).all()
+
+    result: dict[int, float] = {}
+    for tx in txs:
+        cat_id = tx.category_id
+        if cat_id is None:
+            continue
+        result[cat_id] = result.get(cat_id, 0.0) + float(tx.amount or 0.0)
+    return result
+
+
 def _build_category_budget(
     db: Session,
     category: Category,
@@ -593,6 +626,7 @@ def _build_category_budget(
     all_currencies: dict,
     convert: Callable,
     budgets_by_category: dict[int, list[BudgetMonth]],
+    coverage_by_category: dict[int, float] | None = None,
 ) -> dict:
     """Build the budget dict for a single category within a group."""
     all_budgets = budgets_by_category.get(category.id, [])
@@ -629,6 +663,11 @@ def _build_category_budget(
     if category.rollover_type == 'accumulate' and primary_budget and pbcur:
         total_initial = convert(primary_budget.initial_amount or 0.0, pbcur.code, currency.code)
 
+    raw_covered = (coverage_by_category or {}).get(category.id, 0.0)
+    # Convert covered amount from COP (transactions are always stored in their own currency;
+    # use primary_currency_code if known, else assume COP).
+    covered_converted = convert(raw_covered, primary_currency_code, currency.code) if raw_covered != 0.0 else 0.0
+
     return {
         'category_id': category.id,
         'category_name': category.name,
@@ -642,6 +681,7 @@ def _build_category_budget(
         'notes': category.notes or '',
         'currency_code': primary_currency_code,
         'assigned_native': assigned_native,
+        'covered': covered_converted,
     }
 
 
@@ -865,6 +905,141 @@ def get_spent_transactions_to_date(db: Session, month_date, currency_id):
         "currency_code": target_currency.code,
         "total_spent": total_spent,
         "transactions": detailed
+    }
+
+
+# ---------------------------------------------------------------------------
+# Auditoría: Listo para asignar
+# ---------------------------------------------------------------------------
+
+def audit_ready_to_assign(db: Session, month_date: date, currency_id: int) -> dict:
+    """
+    Desglose auditado del valor 'Listo para asignar'.
+
+    Formula:
+        Listo para asignar = Total en cuentas - Total disponible en categorías
+
+    Retorna todos los componentes intermedios para verificar la coherencia.
+    """
+    target_currency = db.get(Currency, currency_id)
+    if not target_currency:
+        return {"error": f"Moneda id={currency_id} no encontrada"}
+
+    exchange_rate = get_current_exchange_rate(db)
+    convert = _make_currency_converter(target_currency.code, exchange_rate)
+
+    # --- Bloque 1: cuentas presupuestadas (excluye deudas) ---
+    excluded_types = {"credit_card", "credit_loan", "mortgage"}
+    budget_accounts = db.query(Account).options(
+        joinedload(Account.currency)
+    ).filter(
+        Account.is_closed == False,
+        Account.is_budget == True,
+        ~Account.type.in_(excluded_types),
+    ).all()
+
+    account_lines = []
+    total_in_accounts = 0.0
+    for acc in budget_accounts:
+        original = acc.balance
+        converted = convert(original, acc.currency.code)
+        total_in_accounts += converted
+        account_lines.append({
+            "id": acc.id,
+            "name": acc.name,
+            "type": acc.type,
+            "currency": acc.currency.code,
+            "balance_original": original,
+            "balance_converted": converted,
+        })
+
+    # --- Bloque 2: deudas excluidas ---
+    debt_accounts = db.query(Account).options(
+        joinedload(Account.currency)
+    ).filter(
+        Account.is_closed == False,
+        Account.is_budget == True,
+        Account.type.in_(excluded_types),
+    ).all()
+
+    excluded_account_lines = [{
+        "id": acc.id,
+        "name": acc.name,
+        "type": acc.type,
+        "currency": acc.currency.code,
+        "balance_original": acc.balance,
+        "reason": "excluida (deuda)",
+    } for acc in debt_accounts]
+
+    # --- Bloque 3: disponible por categoría ---
+    all_budgets = db.query(BudgetMonth).options(
+        joinedload(BudgetMonth.category).joinedload(Category.category_group),
+        joinedload(BudgetMonth.currency),
+    ).filter_by(month=month_date).all()
+
+    currency_cache = {c.id: c for c in db.query(Currency).all()}
+    cat_currencies: dict[int, set[int]] = {}
+    for b in all_budgets:
+        cat_currencies.setdefault(b.category_id, set()).add(b.currency_id)
+
+    category_lines = []
+    total_available = 0.0
+    income_skipped = []
+
+    for budget in all_budgets:
+        if not budget.category or not budget.category.category_group:
+            continue
+        if budget.category.category_group.is_income:
+            income_skipped.append({
+                "category": budget.category.name,
+                "group": budget.category.category_group.name,
+                "reason": "excluida (ingreso)",
+            })
+            continue
+
+        has_multi = len(cat_currencies.get(budget.category_id, set())) > 1
+        recalculate_budget_available(db, budget, include_all_currencies=not has_multi)
+
+        bcur = currency_cache.get(budget.currency_id)
+        if not bcur:
+            continue
+
+        converted_available = convert(budget.available, bcur.code)
+        total_available += converted_available
+
+        category_lines.append({
+            "category_id": budget.category_id,
+            "category": budget.category.name,
+            "group": budget.category.category_group.name,
+            "target_type": budget.category.target_type,
+            "currency": bcur.code,
+            "assigned": budget.assigned,
+            "activity": budget.activity,
+            "available_original": budget.available,
+            "available_converted": converted_available,
+        })
+
+    ready_to_assign = total_in_accounts - total_available
+
+    return {
+        "month": month_date.isoformat(),
+        "currency": target_currency.code,
+        "exchange_rate_usd_cop": exchange_rate,
+        "summary": {
+            "total_in_accounts": total_in_accounts,
+            "total_available_in_categories": total_available,
+            "ready_to_assign": ready_to_assign,
+        },
+        "accounts": account_lines,
+        "accounts_excluded": excluded_account_lines,
+        "categories": sorted(category_lines, key=lambda c: c["group"]),
+        "categories_income_skipped": income_skipped,
+        "counts": {
+            "budget_accounts": len(account_lines),
+            "excluded_accounts": len(excluded_account_lines),
+            "categories_included": len(category_lines),
+            "categories_income_skipped": len(income_skipped),
+        },
     }
 
 

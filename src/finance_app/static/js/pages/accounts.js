@@ -141,13 +141,17 @@ function accountCard(a) {
           ${fmtCurrency(balance, currCode)}
         </div>
         ${utilization}
+        ${isDebt && a.loan_start_date ? `
+          <div class="text-soft mt-2" style="font-size:0.72rem">
+            Inicio: <span class="amount">${a.loan_start_date}</span>
+          </div>` : ''}
         ${a.notes ? `
           <div class="text-soft mt-2" style="font-size:0.72rem;font-style:italic">
             ${sanitize(a.notes)}
           </div>` : ''}
       </div>
       <div class="flex gap-1" style="padding:10px 20px;border-top:1px solid var(--fin-border);background:var(--fin-surface-2)">
-        <button class="btn btn-ghost btn-xs" data-adjust-account="${a.id}">Ajustar saldo</button>
+        ${a.type !== 'mortgage' ? `<button class="btn btn-ghost btn-xs" data-adjust-account="${a.id}">Ajustar saldo</button>` : ''}
         <button class="btn btn-ghost btn-xs" data-edit-account="${a.id}">Editar</button>
       </div>
     </div>`;
@@ -172,9 +176,13 @@ function accountFormHtml(acct) {
       </div>
     </div>
     <div class="form-row cols-2">
-      <div class="form-group">
+      <div class="form-group" id="af-balance-group" style="${a.type === 'mortgage' ? 'display:none' : ''}">
         <label class="form-label">Saldo Actual</label>
         <input type="number" id="af-balance" value="${a.balance ?? ''}" step="0.01" placeholder="0">
+      </div>
+      <div class="form-group" id="af-mortgage-balance-note" style="${a.type === 'mortgage' ? '' : 'display:none'}">
+        <label class="form-label">Saldo Actual</label>
+        <input type="text" value="Se calcula automáticamente" readonly disabled>
       </div>
       <div class="form-group">
         <label class="form-label">Moneda</label>
@@ -199,8 +207,34 @@ function accountFormHtml(acct) {
         <input type="number" id="af-rate" value="${a.interest_rate ?? ''}" step="0.01" placeholder="0.00">
       </div>
       <div class="form-group">
-        <label class="form-label">Cuota Mensual</label>
-        <input type="number" id="af-payment" value="${a.monthly_payment ?? ''}" step="0.01" placeholder="0">
+        <label class="form-label">Plazo (años)</label>
+        <input type="number" id="af-years" value="${a.loan_years ?? ''}" step="1" min="1" placeholder="20">
+      </div>
+    </div>
+    <div class="form-row cols-2" id="af-debt-fields-2" style="${!['credit_loan','mortgage'].includes(a.type) ? 'display:none' : ''}">
+      <div class="form-group">
+        <label class="form-label">Fecha de Inicio</label>
+        <input type="date" id="af-start-date" value="${a.loan_start_date ?? ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cuota calculada</label>
+        <input type="text" id="af-calculated-payment" value="" placeholder="—" readonly disabled>
+      </div>
+    </div>
+    <div class="form-row cols-2" id="af-debt-fields-3" style="${!['credit_loan','mortgage'].includes(a.type) ? 'display:none' : ''}">
+      <div class="form-group" id="af-actual-payment-group" style="${a.type === 'mortgage' ? 'display:none' : ''}">
+        <label class="form-label">Cuota real que pagas</label>
+        <input type="number" id="af-actual-payment" value="${a.actual_payment_amount ?? a.monthly_payment ?? ''}" step="0.01" placeholder="Igual a la calculada si la dejas vacía">
+      </div>
+      <div class="form-group" style="display:flex;flex-direction:column;justify-content:center;gap:6px">
+        <label class="flex items-center gap-1" style="font-size:0.82rem">
+          <input type="checkbox" id="af-has-insurance" ${a.has_insurance ? 'checked' : ''}>
+          La cuota incluye seguros
+        </label>
+        <label class="flex items-center gap-1" id="af-includes-principal-group" style="font-size:0.82rem;${a.type === 'mortgage' ? 'display:none' : ''}">
+          <input type="checkbox" id="af-includes-principal" ${a.includes_principal_payment ? 'checked' : ''}>
+          La cuota incluye abono a capital extra
+        </label>
       </div>
     </div>
     <div class="form-group">
@@ -208,6 +242,35 @@ function accountFormHtml(acct) {
       <textarea id="af-notes" rows="2">${sanitize(a.notes ?? '')}</textarea>
     </div>
   `;
+}
+
+function calculateMonthlyPayment(principal, annualRatePct, years) {
+  if (!principal || !years || annualRatePct == null) return null;
+  const rate = annualRatePct / 100;
+  if (rate === 0) return principal / (years * 12);
+  const monthlyRate = Math.pow(1 + rate, 1 / 12) - 1;
+  const n = years * 12;
+  const factor = Math.pow(1 + monthlyRate, n);
+  return principal * (monthlyRate * factor) / (factor - 1);
+}
+
+function refreshCalculatedPayment(container) {
+  const limitEl = container.querySelector('#af-limit');
+  const rateEl = container.querySelector('#af-rate');
+  const yearsEl = container.querySelector('#af-years');
+  const outEl = container.querySelector('#af-calculated-payment');
+  const actualEl = container.querySelector('#af-actual-payment');
+  if (!outEl) return;
+  const principal = parseFloat(limitEl?.value || '');
+  const rate = parseFloat(rateEl?.value || '');
+  const years = parseInt(yearsEl?.value || '', 10);
+  const payment = calculateMonthlyPayment(principal, rate, years);
+  if (payment != null && !Number.isNaN(payment)) {
+    outEl.value = fmtCurrency(payment, 'COP');
+    if (actualEl && !actualEl.value) actualEl.placeholder = `Ej: ${fmtCurrency(payment, 'COP')}`;
+  } else {
+    outEl.value = '';
+  }
 }
 
 function openAccountModal(acct, container) {
@@ -228,14 +291,34 @@ function openAccountModal(acct, container) {
         country:     body.querySelector('#af-institution').value.trim() || null,
         notes:       body.querySelector('#af-notes').value.trim() || null,
       };
-      const limit = body.querySelector('#af-limit')?.value;
-      const rate  = body.querySelector('#af-rate')?.value;
-      const pay   = body.querySelector('#af-payment')?.value;
-      if (limit)   data.credit_limit = parseFloat(limit);
-      if (rate)    data.interest_rate = parseFloat(rate);
-      if (pay)     data.monthly_payment = parseFloat(pay);
+      const limit      = body.querySelector('#af-limit')?.value;
+      const rate       = body.querySelector('#af-rate')?.value;
+      const years      = body.querySelector('#af-years')?.value;
+      const startDate  = body.querySelector('#af-start-date')?.value;
+      const actualPay  = body.querySelector('#af-actual-payment')?.value;
+      const hasInsurance     = body.querySelector('#af-has-insurance')?.checked;
+      const includesCapital  = body.querySelector('#af-includes-principal')?.checked;
+      if (limit)     data.credit_limit = parseFloat(limit);
+      if (limit)     data.original_amount = parseFloat(limit);
+      if (rate)      data.interest_rate = parseFloat(rate);
+      if (years)     data.loan_years = parseInt(years, 10);
+      if (startDate) data.loan_start_date = startDate;
+      if (data.type === 'mortgage') {
+        // Hipoteca: solo los 4 campos base + seguros informativo. La cuota, el saldo
+        // y todo lo demás se derivan en el backend — no se envía saldo manual ni
+        // cuota real/abono extra.
+        delete data.balance;
+        data.has_insurance = !!hasInsurance;
+      } else if (data.type === 'credit_loan') {
+        if (actualPay) data.actual_payment_amount = parseFloat(actualPay);
+        data.has_insurance = !!hasInsurance;
+        data.includes_principal_payment = !!includesCapital;
+      }
 
       if (!data.name) throw new Error('El nombre es obligatorio');
+      if (data.type === 'mortgage' && (!data.original_amount || !data.interest_rate || !data.loan_years || !data.loan_start_date)) {
+        throw new Error('Una hipoteca requiere monto inicial, tasa de interés, plazo (años) y fecha de inicio');
+      }
 
       if (isEdit) {
         await api.accounts.update(acct.id, data);
@@ -251,13 +334,33 @@ function openAccountModal(acct, container) {
 
   // Show/hide debt fields on type change
   const typeEl = document.getElementById('af-type');
-  const debtFields = document.getElementById('af-debt-fields');
+  const debtFieldGroups = [
+    document.getElementById('af-debt-fields'),
+    document.getElementById('af-debt-fields-2'),
+    document.getElementById('af-debt-fields-3'),
+  ];
   const limitGroup = document.getElementById('af-limit-group');
+  const balanceGroup = document.getElementById('af-balance-group');
+  const mortgageBalanceNote = document.getElementById('af-mortgage-balance-note');
+  const actualPaymentGroup = document.getElementById('af-actual-payment-group');
+  const includesPrincipalGroup = document.getElementById('af-includes-principal-group');
   typeEl?.addEventListener('change', () => {
     const t = typeEl.value;
-    debtFields.style.display = ['credit_loan','mortgage'].includes(t) ? '' : 'none';
-    limitGroup.style.display = ['credit_card','credit_loan','mortgage'].includes(t) ? '' : 'none';
+    const showDebt = ['credit_loan', 'mortgage'].includes(t);
+    const isMortgage = t === 'mortgage';
+    debtFieldGroups.forEach(el => { if (el) el.style.display = showDebt ? '' : 'none'; });
+    limitGroup.style.display = ['credit_card', 'credit_loan', 'mortgage'].includes(t) ? '' : 'none';
+    if (balanceGroup) balanceGroup.style.display = isMortgage ? 'none' : '';
+    if (mortgageBalanceNote) mortgageBalanceNote.style.display = isMortgage ? '' : 'none';
+    if (actualPaymentGroup) actualPaymentGroup.style.display = isMortgage ? 'none' : '';
+    if (includesPrincipalGroup) includesPrincipalGroup.style.display = isMortgage ? 'none' : '';
   });
+
+  // Live preview of the calculated (French-system) monthly payment
+  ['#af-limit', '#af-rate', '#af-years'].forEach(sel => {
+    document.querySelector(sel)?.addEventListener('input', () => refreshCalculatedPayment(document));
+  });
+  refreshCalculatedPayment(document);
 }
 
 function openAdjustModal(acct, container) {

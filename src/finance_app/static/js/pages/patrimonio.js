@@ -181,7 +181,17 @@ function assetFormHtml(asset) {
     </div>
     <div class="form-group">
       <label class="form-label">Tasa de apreciación anual (%)</label>
-      <input type="number" id="af-tasa" value="${a.tasa_anual ?? 0}" step="0.01" placeholder="0.00">
+      <input type="number" id="af-tasa" value="${((a.tasa_anual ?? 0) * 100).toFixed(2)}" step="0.01" placeholder="0.00">
+    </div>
+    <div class="form-row cols-2" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--color-border)">
+      <div class="form-group">
+        <label class="form-label">Precio de mercado actual</label>
+        <input type="number" id="af-valor-mercado" value="${a.valor_mercado_manual ?? ''}" step="0.01" min="0" placeholder="Avalúo, tasación…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha de ese precio</label>
+        <input type="date" id="af-fecha-mercado" value="${a.fecha_valor_mercado ?? ''}">
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Notas</label>
@@ -199,14 +209,18 @@ function openAssetModal(asset, container) {
     onSubmit: async (body) => {
       const currencyIdMap = { COP: 1, USD: 2 };
       const currCode = body.querySelector('#af-currency').value;
+      const valorMercadoRaw = body.querySelector('#af-valor-mercado').value;
+      const fechaMercadoRaw = body.querySelector('#af-fecha-mercado').value;
       const data = {
-        nombre:            body.querySelector('#af-nombre').value.trim(),
-        valor_adquisicion: parseFloat(body.querySelector('#af-valor').value),
-        fecha_adquisicion: body.querySelector('#af-fecha').value,
-        tipo:              body.querySelector('#af-tipo').value,
-        tasa_anual:        parseFloat(body.querySelector('#af-tasa').value || '0'),
-        moneda_id:         currencyIdMap[currCode] ?? 1,
-        notas:             body.querySelector('#af-notas').value.trim() || null,
+        nombre:               body.querySelector('#af-nombre').value.trim(),
+        valor_adquisicion:    parseFloat(body.querySelector('#af-valor').value),
+        fecha_adquisicion:    body.querySelector('#af-fecha').value,
+        tipo:                 body.querySelector('#af-tipo').value,
+        tasa_anual:           parseFloat(body.querySelector('#af-tasa').value || '0') / 100,
+        moneda_id:            currencyIdMap[currCode] ?? 1,
+        notas:                body.querySelector('#af-notas').value.trim() || null,
+        valor_mercado_manual: valorMercadoRaw ? parseFloat(valorMercadoRaw) : null,
+        fecha_valor_mercado:  fechaMercadoRaw || null,
       };
       if (!data.nombre || !data.valor_adquisicion || !data.fecha_adquisicion) throw new Error('Nombre, valor y fecha son obligatorios');
       if (isEdit) { await api.patrimonio.updateAsset(asset.id, data); toast.success('Actualizado'); }

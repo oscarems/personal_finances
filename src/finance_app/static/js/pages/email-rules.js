@@ -73,14 +73,14 @@ function ruleRow(r) {
     <tr>
       <td style="font-size:0.8125rem">
         <div style="font-weight:500;font-family:var(--font-mono);font-size:0.8rem">${sanitize(r.sender_pattern ?? r.email_pattern ?? r.sender ?? '—')}</div>
-        ${r.description ? `<div style="font-size:0.72rem;color:var(--text-soft)">${sanitize(r.description)}</div>` : ''}
+        ${r.description ? `<div style="font-size:0.72rem;color:var(--fin-ink-3)">${sanitize(r.description)}</div>` : ''}
       </td>
       <td class="td-soft" style="font-size:0.8rem">${sanitize(r.account_name ?? '—')}</td>
       <td class="td-soft" style="font-size:0.8rem">${sanitize(r.category_name ?? '—')}</td>
       <td style="font-size:0.8rem">${r.priority ?? '—'}</td>
       <td style="text-align:right">
         <button class="btn btn-ghost btn-xs" data-edit-rule="${r.id}">✏</button>
-        <button class="btn btn-ghost btn-xs" style="color:var(--color-danger)" data-delete-rule="${r.id}">✕</button>
+        <button class="btn btn-ghost btn-xs" style="color:var(--fin-danger)" data-delete-rule="${r.id}">✕</button>
       </td>
     </tr>`;
 }
@@ -92,7 +92,7 @@ function ruleFormHtml(r) {
       <label class="form-label required">Patrón de remitente</label>
       <input type="text" id="rf-pattern" value="${sanitize(rule.sender_pattern ?? rule.email_pattern ?? rule.sender ?? '')}"
         placeholder="Ej: noreply@davivienda.com o *@davivienda.com">
-      <div style="font-size:0.72rem;color:var(--text-soft);margin-top:4px">Usa * como comodín. Ej: *@banco.com</div>
+      <div style="font-size:0.72rem;color:var(--fin-ink-3);margin-top:4px">Usa * como comodín. Ej: *@banco.com</div>
     </div>
     <div class="form-row cols-2">
       <div class="form-group">

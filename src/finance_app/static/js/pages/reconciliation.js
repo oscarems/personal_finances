@@ -72,7 +72,7 @@ function bindStep1(container, accounts) {
 // ── Step 2: Transaction checklist ─────────────────────────
 
 async function loadStep2(container, account, statementDate, statementBalance) {
-  container.innerHTML = `<div style="padding:40px;text-align:center"><div class="spinner"></div><p style="margin-top:12px;color:var(--color-text-muted)">Cargando transacciones…</p></div>`;
+  container.innerHTML = `<div style="padding:40px;text-align:center"><div class="spinner"></div><p style="margin-top:12px;color:var(--fin-ink-3)">Cargando transacciones…</p></div>`;
 
   try {
     const [summary, txResp] = await Promise.all([
@@ -106,32 +106,32 @@ function renderStep2(account, statementDate, statementBalance, transactions, sum
       <button id="r-back" class="btn btn-ghost">← Volver</button>
     </div>
 
-    <div id="r-panel" class="card" style="position:sticky;top:8px;z-index:10;margin-bottom:16px;border:1px solid var(--color-border)">
+    <div id="r-panel" class="card" style="position:sticky;top:8px;z-index:10;margin-bottom:16px;border:1px solid var(--fin-border)">
       <div style="display:flex;gap:24px;align-items:center;padding:16px 20px;flex-wrap:wrap">
         <div>
-          <div style="font-size:11px;color:var(--color-text-muted);text-transform:uppercase">Saldo extracto</div>
+          <div style="font-size:11px;color:var(--fin-ink-3);text-transform:uppercase">Saldo extracto</div>
           <div style="font-size:20px;font-weight:700;font-family:monospace">${fmt(statementBalance)}</div>
         </div>
         <div>
-          <div style="font-size:11px;color:var(--color-text-muted);text-transform:uppercase">Suma marcadas</div>
+          <div style="font-size:11px;color:var(--fin-ink-3);text-transform:uppercase">Suma marcadas</div>
           <div id="r-cleared-sum" style="font-size:20px;font-weight:700;font-family:monospace">${fmt(clearedSum)}</div>
         </div>
         <div style="margin-left:auto">
-          <div style="font-size:11px;color:var(--color-text-muted);text-transform:uppercase">Diferencia</div>
-          <div id="r-diff" style="font-size:24px;font-weight:800;font-family:monospace;color:${Math.abs(diff) < 1 ? 'var(--color-success)' : 'var(--color-danger)'}">${fmt(diff)}</div>
+          <div style="font-size:11px;color:var(--fin-ink-3);text-transform:uppercase">Diferencia</div>
+          <div id="r-diff" style="font-size:24px;font-weight:800;font-family:monospace;color:${Math.abs(diff) < 1 ? 'var(--fin-success)' : 'var(--fin-danger)'}">${fmt(diff)}</div>
         </div>
         <button id="r-finish" class="btn btn-primary" ${Math.abs(diff) >= 1 ? 'disabled' : ''}>
           Finalizar reconciliación
         </button>
       </div>
-      <div id="r-diff-hint" style="padding:0 20px 12px;font-size:12px;color:var(--color-text-muted);${Math.abs(diff) < 1 ? 'display:none' : ''}">
+      <div id="r-diff-hint" style="padding:0 20px 12px;font-size:12px;color:var(--fin-ink-3);${Math.abs(diff) < 1 ? 'display:none' : ''}">
         Marca las transacciones confirmadas hasta que la diferencia sea $0
       </div>
     </div>
 
     <div class="card">
-      <div style="padding:12px 16px;border-bottom:1px solid var(--color-border);display:flex;gap:12px;align-items:center">
-        <span style="font-size:13px;color:var(--color-text-muted)">${transactions.length} transacciones</span>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--fin-border);display:flex;gap:12px;align-items:center">
+        <span style="font-size:13px;color:var(--fin-ink-3)">${transactions.length} transacciones</span>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-left:auto">
           <input type="checkbox" id="r-filter-uncleared"> Solo no confirmadas
         </label>
@@ -156,8 +156,8 @@ function renderStep2(account, statementDate, statementBalance, transactions, sum
     <div id="r-finish-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center">
       <div class="card" style="max-width:400px;width:90%;padding:24px">
         <h3 style="margin:0 0 12px">¿Finalizar reconciliación?</h3>
-        <p style="color:var(--color-text-muted);font-size:14px;margin:0 0 16px">
-          Diferencia: <strong style="color:var(--color-success)">${fmt(diff)}</strong><br>
+        <p style="color:var(--fin-ink-3);font-size:14px;margin:0 0 16px">
+          Diferencia: <strong style="color:var(--fin-success)">${fmt(diff)}</strong><br>
           Se guardará el historial de esta reconciliación.
         </p>
         <div class="form-group">
@@ -183,7 +183,7 @@ function renderTxRow(tx) {
       </td>
       <td style="white-space:nowrap;font-size:13px">${tx.date ?? ''}</td>
       <td style="font-size:13px">${sanitize(tx.payee_name ?? tx.memo ?? 'Sin descripción')}</td>
-      <td style="text-align:right;font-family:monospace;font-size:13px;color:${isPos ? 'var(--color-success)' : 'var(--color-danger)'}">
+      <td style="text-align:right;font-family:monospace;font-size:13px;color:${isPos ? 'var(--fin-success)' : 'var(--fin-danger)'}">
         ${isPos ? '+' : ''}${fmt(tx.amount ?? 0)}
       </td>
     </tr>
@@ -203,7 +203,7 @@ function bindStep2(container, account, statementDate, statementBalance, transact
     container.querySelector('#r-cleared-sum').textContent = fmt(sum);
     const diffEl = container.querySelector('#r-diff');
     diffEl.textContent = fmt(diff);
-    diffEl.style.color = ok ? 'var(--color-success)' : 'var(--color-danger)';
+    diffEl.style.color = ok ? 'var(--fin-success)' : 'var(--fin-danger)';
     container.querySelector('#r-finish').disabled = !ok;
     const hint = container.querySelector('#r-diff-hint');
     if (hint) hint.style.display = ok ? 'none' : '';

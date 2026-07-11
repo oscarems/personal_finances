@@ -38,6 +38,8 @@ class AssetCreate(BaseModel):
     depreciation_start_date: Optional[date] = None
     return_rate: Optional[float] = None
     return_amount: Optional[float] = None
+    valor_mercado_manual: Optional[float] = None
+    fecha_valor_mercado: Optional[date] = None
     moneda_id: int = 1
     notas: Optional[str] = None
     is_active: bool = True
@@ -56,6 +58,8 @@ class AssetUpdate(BaseModel):
     depreciation_start_date: Optional[date] = None
     return_rate: Optional[float] = None
     return_amount: Optional[float] = None
+    valor_mercado_manual: Optional[float] = None
+    fecha_valor_mercado: Optional[date] = None
     moneda_id: Optional[int] = None
     notas: Optional[str] = None
     is_active: Optional[bool] = None

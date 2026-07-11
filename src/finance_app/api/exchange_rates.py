@@ -21,6 +21,18 @@ from finance_app.services.exchange_rate_service import (
 router = APIRouter()
 
 
+@router.get("/")
+def list_rates(db: Session = Depends(get_db)):
+    """List the most recent stored rate for each currency pair (used by the Configuración page)."""
+    all_rates = db.query(ExchangeRate).order_by(desc(ExchangeRate.date)).all()
+    latest_per_pair: dict[tuple[str, str], ExchangeRate] = {}
+    for r in all_rates:
+        key = (r.from_currency, r.to_currency)
+        if key not in latest_per_pair:
+            latest_per_pair[key] = r
+    return [r.to_dict() for r in latest_per_pair.values()]
+
+
 @router.get("/current")
 def get_current_rate(
     from_currency: str = "USD",

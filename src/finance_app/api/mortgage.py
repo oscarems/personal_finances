@@ -20,6 +20,7 @@ from finance_app.services.mortgage.service import (
     calculate_total_interest,
     compare_scenarios
 )
+from finance_app.services.debt.balance_service import calculate_scheduled_principal_balance
 
 router = APIRouter()
 
@@ -228,7 +229,7 @@ def get_example():
 
 @router.get("/accounts")
 def list_mortgage_accounts(db: Session = Depends(get_db)):
-    """Return all accounts of type 'mortgage'."""
+    """Return all accounts of type 'mortgage' with balance derived from the amortization plan."""
     accounts = db.query(Account).filter_by(type="mortgage", is_closed=False).all()
     result = []
     for acc in accounts:
@@ -243,24 +244,40 @@ def list_mortgage_accounts(db: Session = Depends(get_db)):
             elif debt.interest_rate is not None:
                 rate = debt.interest_rate
             data.setdefault("interest_rate", rate)
-            data.setdefault("monthly_payment", debt.monthly_payment)
             data["term_months"] = debt.term_months
             data["loan_start_date"] = debt.start_date.isoformat() if debt.start_date else None
             data["original_amount"] = debt.original_amount
+
+            years = debt.loan_years or (debt.term_months // 12 if debt.term_months else None)
+            if debt.original_amount and rate is not None and years and debt.start_date:
+                data["monthly_payment"] = calculate_monthly_payment(debt.original_amount, rate / 100, int(years))
+            else:
+                data.setdefault("monthly_payment", debt.monthly_payment)
+            # Balance is always the derived amortization-plan balance, even for legacy
+            # mortgages missing loan_years (the engine falls back to the stored
+            # monthly_payment in that case — see AmortizationEngine.generate_schedule).
+            if debt.start_date:
+                data["balance"] = calculate_scheduled_principal_balance(debt, date.today())
         result.append(data)
     return result
 
 
 @router.get("/{account_id}/schedule")
 def get_mortgage_schedule(account_id: int, db: Session = Depends(get_db)):
-    """Generate the amortization schedule for a mortgage account."""
+    """Generate the amortization schedule for a mortgage account.
+
+    Everything is derived exclusively from the 4 base fields: original_amount,
+    start_date, interest rate and loan term (years). No stored balance,
+    real-payment tracking or manual override is used.
+    """
     acc = db.query(Account).filter_by(id=account_id, type="mortgage").first()
     if not acc:
         raise HTTPException(status_code=404, detail="Hipoteca no encontrada")
 
+    debt = next((d for d in acc.debts if d.debt_type == "mortgage"), None)
+
     # Resolve interest rate: account field > linked debt fields
     rate = acc.interest_rate
-    debt = next((d for d in acc.debts if d.debt_type == "mortgage"), None)
     if rate is None and debt:
         if debt.annual_interest_rate is not None:
             v = float(debt.annual_interest_rate)
@@ -275,42 +292,61 @@ def get_mortgage_schedule(account_id: int, db: Session = Depends(get_db)):
                    "Actualiza la tasa en la sección de Cuentas para ver la tabla de amortización."
         )
 
-    balance = abs(acc.balance or 0)
-    if balance == 0 and debt:
-        balance = debt.current_balance or 0
+    # Resolve original amount (monto inicial) — the sole principal source.
+    original_amount = acc.original_amount or (debt.original_amount if debt else None)
+    if not original_amount:
+        raise HTTPException(
+            status_code=422,
+            detail="La hipoteca no tiene monto inicial registrado. "
+                   "Actualízalo en la sección de Cuentas."
+        )
 
     # Resolve term in years
     years = acc.loan_years
     if years is None and debt:
         years = debt.loan_years or (debt.term_months // 12 if debt.term_months else None)
     if years is None:
-        # Estimate from balance and monthly payment
-        mp = acc.monthly_payment or (debt.monthly_payment if debt else None)
-        if mp and mp > 0 and rate:
-            mr = (1 + rate / 100) ** (1 / 12) - 1
-            if mr > 0 and balance * mr / mp < 1:
-                import math
-                n = -math.log(1 - balance * mr / mp) / math.log(1 + mr)
-                years = max(1, math.ceil(n / 12))
-        if years is None:
-            raise HTTPException(status_code=422, detail="No se pudo determinar el plazo de la hipoteca.")
+        raise HTTPException(status_code=422, detail="La hipoteca no tiene plazo (años) registrado.")
 
     # Resolve start date
     start_date = acc.loan_start_date
     if start_date is None and debt and debt.start_date:
         start_date = debt.start_date
+    if start_date is None:
+        raise HTTPException(status_code=422, detail="La hipoteca no tiene fecha de inicio registrada.")
 
+    years = int(years)
+    rate_decimal = rate / 100
+    monthly_payment = calculate_monthly_payment(original_amount, rate_decimal, years)
     schedule = generate_amortization_schedule(
-        principal=balance,
-        annual_rate=rate / 100,
-        years=int(years),
+        principal=original_amount,
+        annual_rate=rate_decimal,
+        years=years,
         start_date=start_date,
     )
 
+    today = date.today()
+    payments_made = sum(1 for r in schedule if r["date"] <= today)
+    balance_today = schedule[payments_made - 1]["balance"] if payments_made > 0 else original_amount
+    if payments_made >= len(schedule):
+        balance_today = 0.0
+    total_interest = sum(r["interest"] for r in schedule)
+    paid_percentage = ((original_amount - balance_today) / original_amount) * 100 if original_amount else 0.0
+    payoff_date = schedule[-1]["date"].isoformat() if schedule else None
+
     return {
         "account_id": account_id,
+        "original_amount": original_amount,
+        "start_date": start_date.isoformat(),
         "annual_rate": rate,
         "years": years,
+        "monthly_payment": monthly_payment,
+        "total_interest": total_interest,
+        "current_balance": balance_today,
+        "paid_percentage": paid_percentage,
+        "payments_made": payments_made,
+        "remaining_payments": max(0, len(schedule) - payments_made),
+        "payoff_date": payoff_date,
         "schedule": [
             {
                 "payment_number": r["payment_number"],
@@ -319,6 +355,7 @@ def get_mortgage_schedule(account_id: int, db: Session = Depends(get_db)):
                 "principal": r["principal"],
                 "interest": r["interest"],
                 "balance": r["balance"],
+                "is_paid": r["date"] <= today,
             }
             for r in schedule
         ],

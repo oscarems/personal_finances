@@ -11,7 +11,6 @@ from finance_app.models.debt_installment import DebtInstallment
 from finance_app.models.debt_category_allocation import DebtCategoryAllocation
 from finance_app.models.debt_amortization import DebtAmortizationMonthly
 from finance_app.models.debt_snapshot import DebtSnapshotMonthly, DebtSnapshotProjectedMonthly
-from finance_app.models.mortgage_payment_allocation import MortgagePaymentAllocation
 from finance_app.models.alert import AlertRule
 from finance_app.models.budget_alert_state import BudgetAlertState
 from finance_app.models.reconciliation import ReconciliationSession
@@ -23,6 +22,7 @@ from finance_app.models.patrimonio_asset import PatrimonioAsset
 from finance_app.models.email_sender_rule import EmailSenderRule
 from finance_app.models.gmail_message import GmailProcessedMessage
 from finance_app.models.merchant_rule import MerchantRule
+from finance_app.models.merchant_ignore_rule import MerchantIgnoreRule
 from finance_app.models.investment_portfolio import InvestmentPortfolio
 from finance_app.models.investment_asset import InvestmentAsset
 from finance_app.models.asset_price_history import AssetPriceHistory
@@ -46,7 +46,6 @@ __all__ = [
     'DebtAmortizationMonthly',
     'DebtSnapshotMonthly',
     'DebtSnapshotProjectedMonthly',
-    'MortgagePaymentAllocation',
     'AlertRule',
     'BudgetAlertState',
     'ReconciliationSession',
@@ -60,6 +59,7 @@ __all__ = [
     'EmailSenderRule',
     'GmailProcessedMessage',
     'MerchantRule',
+    'MerchantIgnoreRule',
     'InvestmentPortfolio',
     'InvestmentAsset',
     'AssetPriceHistory',

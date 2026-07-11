@@ -182,7 +182,7 @@ function loadAllocation() {
           <span style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0"></span>
           <span class="text-muted" style="font-size:12px">${CLASE_LABELS[clase] ?? clase}</span>
         </div>
-        <span class="amount text-soft" style="font-size:11px">${pct}%</span>
+        <span class="amount" style="font-size:11px;color:var(--fin-ink-3)">${pct}%</span>
       </div>`;
     }).join('');
   }

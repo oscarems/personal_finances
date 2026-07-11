@@ -121,7 +121,8 @@ function debtSection(title, debts, container) {
 
 function debtCard(d) {
   const balance  = d.current_balance ?? d.balance ?? 0;
-  const original = d.original_amount ?? d.credit_limit ?? 0;
+  const isCreditCard = d.debt_type === 'credit_card';
+  const original = isCreditCard ? (d.credit_limit ?? 0) : (d.original_amount ?? d.credit_limit ?? 0);
   const currency = d.currency_code ?? 'COP';
   const rate     = d.interest_rate ?? 0;
   const monthly  = d.monthly_payment ?? 0;
@@ -156,17 +157,17 @@ function debtCard(d) {
               <div class="progress-fill ${pct >= 70 ? 'danger' : pct >= 30 ? 'warning' : 'ok'}" style="width:${pct}%"></div>
             </div>
             <div class="text-soft mt-1" style="font-size:0.72rem">
-              ${fmtCurrency(original, currency)} original/límite
+              ${isCreditCard ? `Cupo: ${fmtCurrency(original, currency)}` : `Original: ${fmtCurrency(original, currency)}`}
             </div>
           </div>
         ` : ''}
 
         ${monthly > 0 ? `
-          <div style="font-size:0.8rem;color:var(--text-secondary)">
+          <div style="font-size:0.8rem;color:var(--fin-ink-2)">
             Cuota mensual: <strong class="amount">${fmtCurrency(monthly, currency)}</strong>
           </div>` : ''}
       </div>
-      <div class="flex gap-2" style="padding:10px 20px;border-top:1px solid var(--border-muted);background:var(--bg-surface-muted)">
+      <div class="flex gap-2" style="padding:10px 20px;border-top:1px solid var(--fin-border);background:var(--fin-surface-2)">
         <button class="btn btn-ghost btn-xs" data-detail-debt="${d.id}">Ver detalles</button>
         <button class="btn btn-ghost btn-xs" data-simulate-debt="${d.id}">Simular pago</button>
         <button class="btn btn-ghost btn-xs" data-edit-debt="${d.id}">Editar</button>
@@ -224,7 +225,7 @@ async function openDebtDetail(debt) {
     })() : '';
 
     const costSection = costAnalysis ? `
-      <div class="mt-4" style="padding-top:16px;border-top:1px solid var(--border-muted)">
+      <div class="mt-4" style="padding-top:16px;border-top:1px solid var(--fin-border)">
         <h4 class="text-soft mb-3" style="font-size:0.8rem;text-transform:uppercase;margin:0;font-weight:600">Costo Total de la Deuda</h4>
         <div class="stat-row">
           <div class="stat-chip">
@@ -307,7 +308,7 @@ function openSimulateModal(debt) {
   const currency = debt.currency_code ?? debt.currency?.code ?? 'COP';
 
   const content = `
-    <p class="mb-4" style="font-size:0.875rem;color:var(--text-secondary)">
+    <p class="mb-4" style="font-size:0.875rem;color:var(--fin-ink-2)">
       Saldo actual: <strong class="amount negative">${fmtCurrency(debt.current_balance ?? debt.balance ?? 0, currency)}</strong> —
       Tasa: <strong>${(debt.interest_rate ?? 0).toFixed(2)}% EA</strong>
     </p>
@@ -364,11 +365,38 @@ function openSimulateModal(debt) {
   });
 }
 
-function openDebtForm(debt, onSaved) {
+async function openDebtForm(debt, onSaved) {
   const isEdit = debt != null;
   const today = new Date().toISOString().split('T')[0];
 
+  let accounts = [], categoryGroups = [];
+  try { accounts = await api.accounts.list(); } catch(_) {}
+  try { categoryGroups = await api.categories.groups(); } catch(_) {}
+
+  const accountOptions = accounts
+    .filter(a => ['credit_card','credit_loan','mortgage'].includes(a.type))
+    .map(a => `<option value="${a.id}" ${debt?.account_id === a.id ? 'selected' : ''}>${sanitize(a.name)} (${a.type})</option>`)
+    .join('');
+
+  const categoryOptions = categoryGroups
+    .filter(g => !g.is_income)
+    .map(g => `<optgroup label="${sanitize(g.name)}">${
+      g.categories.map(c => `<option value="${c.id}" ${debt?.category_id === c.id ? 'selected' : ''}>${sanitize(c.name)}</option>`).join('')
+    }</optgroup>`)
+    .join('');
+
+  const groupOptions = categoryGroups
+    .map(g => `<option value="${g.id}">${sanitize(g.name)}</option>`)
+    .join('');
+
   const content = `
+    <div class="form-group">
+      <label class="form-label">Cuenta asociada</label>
+      <select id="df-account" required>
+        <option value="">— Seleccionar cuenta —</option>
+        ${accountOptions}
+      </select>
+    </div>
     <div class="form-row cols-2">
       <div class="form-group">
         <label class="form-label">Nombre</label>
@@ -420,6 +448,33 @@ function openDebtForm(debt, onSaved) {
       <label class="form-label">Fecha de inicio</label>
       <input type="text" id="df-start" value="${debt?.start_date ?? today}">
     </div>
+
+    <div class="form-group">
+      <label class="form-label">Categoría de presupuesto (pago mensual)</label>
+      <div class="flex gap-2 items-center">
+        <select id="df-category" style="flex:1">
+          <option value="">— Sin categoría —</option>
+          ${categoryOptions}
+          <option value="__new__">+ Crear nueva categoría…</option>
+        </select>
+      </div>
+      <div id="df-new-category-fields" style="display:none;margin-top:8px;padding:12px;background:var(--fin-surface-2);border-radius:6px;border:1px solid var(--fin-border)">
+        <div class="form-row cols-2">
+          <div class="form-group mb-2">
+            <label class="form-label">Nombre de la categoría</label>
+            <input type="text" id="df-new-cat-name" placeholder="Ej: Pago Tarjeta Visa">
+          </div>
+          <div class="form-group mb-2">
+            <label class="form-label">Grupo</label>
+            <select id="df-new-cat-group">
+              <option value="">— Seleccionar grupo —</option>
+              ${groupOptions}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="df-cc-fields" style="display:none">
       <div class="form-row cols-2">
         <div class="form-group">
@@ -427,18 +482,31 @@ function openDebtForm(debt, onSaved) {
           <input type="number" id="df-limit" value="${debt?.credit_limit ?? ''}" step="0.01" min="0">
         </div>
         <div class="form-group">
-          <label class="form-label">Día de corte (1-31)</label>
-          <input type="number" id="df-statement-day" value="${debt?.statement_day ?? ''}" min="1" max="31">
+          <label class="form-label">Tasa mensual efectiva (% /mes)</label>
+          <input type="number" id="df-monthly-rate" value="${debt?.monthly_interest_rate ?? ''}" step="0.01" min="0" placeholder="Ej: 1.9">
         </div>
       </div>
       <div class="form-row cols-2">
         <div class="form-group">
+          <label class="form-label">Día de corte (1-31)</label>
+          <input type="number" id="df-statement-day" value="${debt?.statement_day ?? ''}" min="1" max="31">
+        </div>
+        <div class="form-group">
           <label class="form-label">Día de pago (1-31)</label>
           <input type="number" id="df-payment-day" value="${debt?.payment_due_day ?? ''}" min="1" max="31">
         </div>
+      </div>
+      <div class="form-row cols-2">
         <div class="form-group">
           <label class="form-label">% pago mínimo</label>
           <input type="number" id="df-min-pct" value="${debt?.min_payment_percentage ?? ''}" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo de tasa</label>
+          <select id="df-rate-type">
+            <option value="fixed"    ${(debt?.rate_type ?? 'fixed') === 'fixed'    ? 'selected' : ''}>Fija</option>
+            <option value="variable" ${debt?.rate_type === 'variable' ? 'selected' : ''}>Variable</option>
+          </select>
         </div>
       </div>
     </div>
@@ -453,28 +521,56 @@ function openDebtForm(debt, onSaved) {
       const name = modal.body.querySelector('#df-name').value.trim();
       if (!name) { modal.showError('El nombre es requerido'); return; }
 
+      const accountId = parseInt(modal.body.querySelector('#df-account').value);
+      if (!isEdit && !accountId) { modal.showError('Selecciona una cuenta asociada'); return; }
+
+      // Resolve category: may need to create a new one first
+      let categoryId = null;
+      const catSelect = modal.body.querySelector('#df-category');
+      if (catSelect.value === '__new__') {
+        const newCatName = modal.body.querySelector('#df-new-cat-name').value.trim();
+        const newCatGroup = parseInt(modal.body.querySelector('#df-new-cat-group').value);
+        if (!newCatName) { modal.showError('Ingresa el nombre de la nueva categoría'); return; }
+        if (!newCatGroup) { modal.showError('Selecciona el grupo de la nueva categoría'); return; }
+        try {
+          const created = await api.categories.create({ name: newCatName, category_group_id: newCatGroup });
+          categoryId = created.id;
+        } catch (err) {
+          modal.showError(`Error al crear categoría: ${err.message}`);
+          return;
+        }
+      } else if (catSelect.value) {
+        categoryId = parseInt(catSelect.value);
+      }
+
       const dtype = modal.body.querySelector('#df-type').value;
       const data = {
         name,
         debt_type: dtype,
+        ...(accountId ? { account_id: accountId } : {}),
+        category_id: categoryId,
         institution: modal.body.querySelector('#df-institution').value.trim() || null,
         currency_code: modal.body.querySelector('#df-currency').value,
-        original_amount: parseFloat(modal.body.querySelector('#df-original').value) || null,
+        original_amount: parseFloat(modal.body.querySelector('#df-original').value) || 0,
         current_balance: parseFloat(modal.body.querySelector('#df-balance').value) || null,
         interest_rate: parseFloat(modal.body.querySelector('#df-rate').value) || null,
         monthly_payment: parseFloat(modal.body.querySelector('#df-monthly').value) || null,
-        start_date: modal.body.querySelector('#df-start').value || null,
+        start_date: modal.body.querySelector('#df-start').value || today,
       };
 
       if (dtype === 'credit_card') {
-        const limit = parseFloat(modal.body.querySelector('#df-limit').value);
-        const stDay = parseInt(modal.body.querySelector('#df-statement-day').value);
-        const pmDay = parseInt(modal.body.querySelector('#df-payment-day').value);
-        const minPct = parseFloat(modal.body.querySelector('#df-min-pct').value);
-        if (!isNaN(limit)) data.credit_limit = limit;
-        if (!isNaN(stDay)) data.statement_day = stDay;
-        if (!isNaN(pmDay)) data.payment_due_day = pmDay;
-        if (!isNaN(minPct)) data.min_payment_percentage = minPct;
+        const limit      = parseFloat(modal.body.querySelector('#df-limit').value);
+        const stDay      = parseInt(modal.body.querySelector('#df-statement-day').value);
+        const pmDay      = parseInt(modal.body.querySelector('#df-payment-day').value);
+        const minPct     = parseFloat(modal.body.querySelector('#df-min-pct').value);
+        const monthlyRate = parseFloat(modal.body.querySelector('#df-monthly-rate').value);
+        const rateType   = modal.body.querySelector('#df-rate-type').value;
+        if (!isNaN(limit))        data.credit_limit = limit;
+        if (!isNaN(stDay))        data.statement_day = stDay;
+        if (!isNaN(pmDay))        data.payment_due_day = pmDay;
+        if (!isNaN(minPct))       data.min_payment_percentage = minPct;
+        if (!isNaN(monthlyRate))  data.monthly_interest_rate = monthlyRate;
+        data.rate_type = rateType;
       }
 
       try {
@@ -497,6 +593,13 @@ function openDebtForm(debt, onSaved) {
   const toggleCC = () => { ccFields.style.display = typeSelect.value === 'credit_card' ? '' : 'none'; };
   typeSelect.addEventListener('change', toggleCC);
   toggleCC();
+
+  // Toggle inline new-category fields
+  const catSelect      = modal.body.querySelector('#df-category');
+  const newCatFields   = modal.body.querySelector('#df-new-category-fields');
+  catSelect.addEventListener('change', () => {
+    newCatFields.style.display = catSelect.value === '__new__' ? '' : 'none';
+  });
 
   // Init flatpickr on date field if available
   if (window.flatpickr) {

@@ -433,6 +433,56 @@ def compare_scenarios(principal: float, scenarios: List[Dict]) -> List[Dict]:
     return results
 
 
+def resolve_effective_monthly_payment(
+    original_amount: float,
+    annual_rate_pct: float,
+    loan_years: int,
+    actual_payment_amount: float = None,
+    includes_principal_payment: bool = False,
+) -> Dict:
+    """
+    Resolve the calculated base payment and the payment to feed the
+    amortization engine (which treats `monthly_payment` as pure principal+interest).
+
+    - `calculated_payment`: theoretical French-system payment from principal/rate/term.
+    - `engine_payment`: what should be stored as the debt's `monthly_payment` so the
+      amortization schedule (used across /accounts, /hipoteca and the simulator) stays
+      correct. If the user's actual payment includes extra principal paydown, the
+      excess over the calculated payment is added so the schedule reflects the faster
+      payoff. If it only includes insurance (no extra principal), the excess is
+      ignored so insurance premiums don't falsely appear as principal reduction.
+
+    Args:
+        original_amount: Loan principal.
+        annual_rate_pct: Effective annual rate as a percentage (e.g. 12.5).
+        loan_years: Term in years.
+        actual_payment_amount: What the user actually pays monthly (optional).
+        includes_principal_payment: Whether the actual payment includes extra
+            principal paydown beyond the calculated payment.
+
+    Returns:
+        Dict with `calculated_payment` and `engine_payment`.
+    """
+    calculated_payment = 0.0
+    if original_amount and annual_rate_pct is not None and loan_years:
+        calculated_payment = calculate_monthly_payment(
+            original_amount, annual_rate_pct / 100, loan_years
+        )
+
+    engine_payment = calculated_payment
+    if actual_payment_amount and actual_payment_amount > 0:
+        if includes_principal_payment:
+            engine_payment = max(calculated_payment, actual_payment_amount)
+        elif calculated_payment <= 0:
+            # No hay tasa/plazo para calcular la cuota teórica: usar la cuota real.
+            engine_payment = actual_payment_amount
+
+    return {
+        'calculated_payment': calculated_payment,
+        'engine_payment': engine_payment,
+    }
+
+
 def calculate_early_payoff(
     principal: float,
     annual_rate: float,

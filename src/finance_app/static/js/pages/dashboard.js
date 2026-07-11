@@ -8,7 +8,7 @@ export const title = 'Dashboard';
 export async function mount(container) {
   container.innerHTML = skeletonHtml();
   try {
-    const [accounts, txResp, budget, debts, fxData, patrimonioData, cashflow, savingsRate, netWorthData, goals] = await Promise.all([
+    const [accounts, txResp, budget, debts, fxData, patrimonioData, cashflow, savingsRate, netWorthData, goals, financialHealth] = await Promise.all([
       api.accounts.list(),
       api.transactions.list({ limit: 10 }),
       optional(api.budgets.current(), null, 'Presupuesto'),
@@ -19,6 +19,7 @@ export async function mount(container) {
       optional(api.reports.savingsRate({ months: 3 }), null, 'Tasa de Ahorro'),
       optional(api.reports.netWorthTimeline(), [], 'Historial Patrimonio'),
       optional(api.goals.list(), [], 'Metas'),
+      optional(api.reports.financialHealth(), null, 'Salud Financiera'),
     ]);
     const txList = Array.isArray(txResp) ? txResp : (txResp?.transactions ?? txResp?.items ?? []);
     const usdRate = fxData?.rate ?? fxData?.USD ?? null;
@@ -26,10 +27,10 @@ export async function mount(container) {
       // Exchange rate is primary data — show error and omit consolidated totals
       const partial = document.createElement('div');
       partial.innerHTML = `<div class="alert alert-danger mb-4">No se pudo obtener la tasa de cambio — los totales consolidados están ocultos.</div>`;
-      container.innerHTML = renderPage(accounts, txList, budget, debts, null, null, cashflow, savingsRate, netWorthData, goals);
+      container.innerHTML = renderPage(accounts, txList, budget, debts, null, null, cashflow, savingsRate, netWorthData, goals, financialHealth);
       container.insertBefore(partial.firstElementChild, container.firstElementChild);
     } else {
-      container.innerHTML = renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals);
+      container.innerHTML = renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals, financialHealth);
     }
     bindEvents(container, accounts, netWorthData);
   } catch (err) {
@@ -44,6 +45,9 @@ function skeletonHtml() {
         <div class="skeleton" style="height:26px;width:180px;margin-bottom:8px"></div>
         <div class="skeleton" style="height:14px;width:260px"></div>
       </div>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-body"><div class="skeleton" style="height:40px;width:100%"></div></div>
     </div>
     <div class="kpi-grid">
       ${[0,1,2,3].map(() => `
@@ -60,7 +64,7 @@ function skeletonHtml() {
     </div>`;
 }
 
-function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals = []) {
+function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, cashflow, savingsRate, netWorthData, goals = [], financialHealth = null) {
   const DEBT_TYPES = ['credit_card','credit_loan','mortgage'];
   const savings   = accounts.filter(a => !DEBT_TYPES.includes(a.type));
   const debtAccts = accounts.filter(a =>  DEBT_TYPES.includes(a.type));
@@ -123,6 +127,8 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, ca
       </div>
     </div>
 
+    ${healthCard(financialHealth)}
+
     ${consolidatedSection}
 
     <div class="section-grid cols-2" style="margin-bottom:20px">
@@ -139,6 +145,48 @@ function renderPage(accounts, txList, budget, debts, usdRate, patrimonioData, ca
     ${budget && expenseCats.length > 0 ? budgetCard(expenseCats) : ''}
     ${debts.length > 0 ? debtsCard(debts) : ''}
   `;
+}
+
+function healthCard(fh) {
+  if (!fh || !fh.scores) {
+    return `
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <span class="card-title">Salud Financiera</span>
+          <a class="btn btn-ghost btn-sm" data-link="/financial-health">Ver detalle</a>
+        </div>
+        <div class="card-body"><p class="empty-state">No se pudo calcular la salud financiera este mes</p></div>
+      </div>`;
+  }
+
+  const { overall, grade, estado } = fh.scores;
+  const ESTADO_META = {
+    bueno:    { badge: 'badge-success', label: 'Buena',    dot: 'var(--fin-success)' },
+    regular:  { badge: 'badge-warning', label: 'Regular',  dot: 'var(--fin-amber)' },
+    critico:  { badge: 'badge-danger',  label: 'Crítica',  dot: 'var(--fin-danger)' },
+  };
+  const meta = ESTADO_META[estado] ?? ESTADO_META.regular;
+  const topInsight = (fh.insights ?? []).find(i => i.kind === 'bad') ?? (fh.insights ?? [])[0];
+
+  return `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-body">
+        <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:12px">
+          <div class="flex items-center" style="gap:12px">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${meta.dot};flex-shrink:0"></span>
+            <div>
+              <div style="font-size:0.8125rem;font-weight:600">Salud Financiera del Mes</div>
+              <div class="text-soft" style="font-size:0.72rem">${topInsight ? sanitize(topInsight.message) : 'Sin observaciones destacadas'}</div>
+            </div>
+          </div>
+          <div class="flex items-center" style="gap:10px">
+            <span class="amount" style="font-size:1.4rem;font-weight:700">${overall.toFixed(1)}<span class="text-soft" style="font-size:0.8rem;font-weight:500">/100</span></span>
+            <span class="badge ${meta.badge}">${meta.label} · ${grade}</span>
+            <a class="btn btn-ghost btn-sm" data-link="/financial-health">Ver detalle</a>
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function patrimonioBigCard(neto, activos, deudas, patrimonioActivosCOP) {
@@ -182,7 +230,7 @@ function kpiCard(label, value, currency, cls = '', sub = '') {
 
 function accountsCard(accounts) {
   const rows = accounts.slice(0, 7).map(a => `
-    <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--border-muted)">
+    <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--fin-border)">
       <div>
         <div style="font-size:0.8125rem;font-weight:500">${sanitize(a.name)}</div>
         <div class="text-soft" style="font-size:0.72rem">${sanitize(a.country ?? a.type ?? '')}</div>
@@ -210,7 +258,7 @@ function recentTxCard(txList) {
     const sign = isIncome ? '+' : '-';
     const cls  = isIncome ? 'positive' : 'negative';
     return `
-      <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--border-muted)">
+      <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--fin-border)">
         <div style="min-width:0;flex:1;margin-right:8px">
           <div style="font-size:0.8125rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${sanitize(tx.payee_name || tx.memo || 'Sin descripción')}
@@ -266,7 +314,7 @@ function budgetCard(cats) {
 
 function debtsCard(debts) {
   const rows = debts.slice(0, 5).map(d => `
-    <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--border-muted)">
+    <div class="flex justify-between items-center" style="padding:9px 0;border-bottom:1px solid var(--fin-border)">
       <div>
         <div style="font-size:0.8125rem;font-weight:500">${sanitize(d.name)}</div>
         <div class="text-soft" style="font-size:0.72rem">
@@ -316,9 +364,9 @@ function cashflowSection(cf, usdRate = 4200) {
   }
 
   function row(label, cop, usd, total, cls = '', bold = false) {
-    const labelStyle = `font-size:0.8125rem;padding:9px 0;color:${bold ? 'var(--text-primary)' : 'var(--text-secondary)'};${bold ? 'font-weight:600;' : ''}`;
+    const labelStyle = `font-size:0.8125rem;padding:9px 0;color:${bold ? 'var(--fin-ink)' : 'var(--fin-ink-2)'};${bold ? 'font-weight:600;' : ''}`;
     return `
-      <tr style="border-bottom:1px solid var(--border-muted)">
+      <tr style="border-bottom:1px solid var(--fin-border)">
         <td style="${labelStyle}">${label}</td>
         ${cell(cop,   'COP', cls, bold)}
         ${cell(usd,   'USD', cls, bold)}
@@ -327,7 +375,7 @@ function cashflowSection(cf, usdRate = 4200) {
   }
 
   function dividerRow() {
-    return `<tr><td colspan="4" style="padding:0"><div style="border-top:2px solid var(--border-subtle);margin:2px 0"></div></td></tr>`;
+    return `<tr><td colspan="4" style="padding:0"><div style="border-top:2px solid var(--fin-border);margin:2px 0"></div></td></tr>`;
   }
 
   const balCls = balTotal >= 0 ? 'positive' : 'negative';
@@ -382,8 +430,8 @@ function savingsRateCard(sr) {
           <span class="text-soft" style="font-size:0.78rem">${m.month_name}</span>
           <span class="amount ${cls}" style="font-size:0.78rem">${m.savings_rate.toFixed(1)}%</span>
         </div>
-        <div style="height:5px;background:var(--border-muted);border-radius:3px">
-          <div style="height:100%;width:${bar}%;background:var(--color-${m.savings_rate >= 20 ? 'success' : m.savings_rate >= 10 ? 'warning' : 'danger'});border-radius:3px;transition:width .4s"></div>
+        <div style="height:5px;background:var(--fin-border);border-radius:3px">
+          <div style="height:100%;width:${bar}%;background:${m.savings_rate >= 20 ? 'var(--fin-success)' : m.savings_rate >= 10 ? 'var(--fin-amber)' : 'var(--fin-danger)'};border-radius:3px;transition:width .4s"></div>
         </div>
       </div>`;
   }).join('');
@@ -491,14 +539,14 @@ function goalsWidget(goals) {
     const currency = g.currency_code ?? 'COP';
     const pct      = target > 0 ? Math.min(100, (current / target) * 100) : 0;
     const reqMonth = g.required_per_month ?? g.monthly_required ?? 0;
-    const barColor = pct >= 70 ? 'var(--color-success)' : pct >= 35 ? 'var(--color-warning)' : 'var(--color-danger)';
+    const barColor = pct >= 70 ? 'var(--fin-success)' : pct >= 35 ? 'var(--fin-amber)' : 'var(--fin-danger)';
     return `
       <div style="margin-bottom:14px">
         <div class="flex justify-between items-center mb-1">
           <span style="font-size:0.8125rem;font-weight:500">🎯 ${sanitize(g.name)}</span>
           <span class="amount text-soft" style="font-size:0.75rem">${pct.toFixed(0)}%</span>
         </div>
-        <div style="height:5px;background:var(--border-muted);border-radius:3px;margin-bottom:4px">
+        <div style="height:5px;background:var(--fin-border);border-radius:3px;margin-bottom:4px">
           <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
         </div>
         <div class="flex justify-between text-soft" style="font-size:0.72rem">

@@ -147,7 +147,11 @@ function _ensureStyles() {
   document.head.appendChild(el);
 }
 
+const LAST_SYNC_KEY = 'gmailImport.lastSyncDate';
+
 const defaultSince = () => {
+  const stored = localStorage.getItem(LAST_SYNC_KEY);
+  if (stored) return stored;
   const d = new Date();
   d.setDate(d.getDate() - 30);
   return d.toISOString().split('T')[0];
@@ -265,6 +269,7 @@ async function syncEmails(container) {
   try {
     _emails = await api.gmailImport.emails({ since_date: since, max_emails: max });
     _selectedIds.clear();
+    localStorage.setItem(LAST_SYNC_KEY, todayISO());
     renderEmailList(container);
   } catch (err) {
     listEl.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
@@ -528,6 +533,7 @@ async function startBulkProcess(container) {
   });
 
   const processedItems = [];
+  let ignoredCount = 0;
 
   for (let i = 0; i < ids.length; i++) {
     const messageId = ids[i];
@@ -536,6 +542,11 @@ async function startBulkProcess(container) {
 
     try {
       const result = await api.gmailImport.process(messageId, selectedModel);
+      if (result.ignored) {
+        if (email) email.skipped = true;
+        ignoredCount++;
+        continue;
+      }
       processedItems.push({ messageId, email, result, included: true, error: null });
     } catch (err) {
       processedItems.push({ messageId, email, result: {}, included: false, error: err.message });
@@ -543,6 +554,11 @@ async function startBulkProcess(container) {
   }
 
   progressModal.close();
+  if (ignoredCount > 0) {
+    toast.info(`${ignoredCount} correo${ignoredCount !== 1 ? 's' : ''} omitido${ignoredCount !== 1 ? 's' : ''} automáticamente (comercio ignorado)`);
+    renderEmailList(container);
+  }
+  if (processedItems.length === 0) return;
   showBulkReviewModal(container, processedItems);
 }
 
@@ -772,6 +788,15 @@ async function startProcess(container, messageId) {
 
   try {
     const result = await api.gmailImport.process(messageId, selectedModel);
+    if (result.ignored) {
+      const email = _emails.find(e => e.message_id === messageId);
+      if (email) email.skipped = true;
+      _selectedMessageId = null;
+      renderEmailList(container);
+      rightPanel.innerHTML = rightPanelEmpty();
+      toast.info(`Correo omitido automáticamente (comercio ignorado: ${result.matched_merchant})`);
+      return;
+    }
     renderConfirmForm(container, messageId, result);
   } catch (err) {
     renderManualForm(container, messageId, `Ollama no disponible: ${err.message}`);

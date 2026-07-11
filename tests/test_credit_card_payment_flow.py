@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -31,8 +31,11 @@ def test_credit_card_debt_balance_matches_account_after_card_payment_transfer():
     db = _make_session()
     _seed_currencies(db)
 
-    checking = Account(name="Cuenta", type="checking", currency_id=1, balance=1_000_000)
-    credit_card = Account(name="Tarjeta", type="credit_card", currency_id=1, balance=0)
+    # created_at is backdated to sidestep UTC-vs-local-clock edge cases around
+    # midnight — transaction_affects_balance() requires tx_date >= created_at.
+    old_created_at = datetime(2020, 1, 1)
+    checking = Account(name="Cuenta", type="checking", currency_id=1, balance=1_000_000, created_at=old_created_at)
+    credit_card = Account(name="Tarjeta", type="credit_card", currency_id=1, balance=0, created_at=old_created_at)
     db.add_all([checking, credit_card])
     db.commit()
 

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -53,7 +53,9 @@ def test_normal_transaction_without_tags_or_splits_keeps_category_allocation():
 def test_transaction_with_tag_ids_ignores_tags_and_preserves_total_amount_with_splits():
     db = _make_session()
     _seed_base(db)
-    account = Account(name="Cuenta", type="checking", currency_id=1, balance=500_000)
+    # created_at is backdated to sidestep UTC-vs-local-clock edge cases around
+    # midnight — transaction_affects_balance() requires tx_date >= created_at.
+    account = Account(name="Cuenta", type="checking", currency_id=1, balance=500_000, created_at=datetime(2020, 1, 1))
     db.add(account)
     db.add_all([Tag(name="viaje"), Tag(name="familia")])
     db.commit()
@@ -198,19 +200,24 @@ def test_spending_by_tag_category_filter_uses_splits():
 
 
 def test_transaction_can_be_associated_to_specific_debt_even_from_non_debt_account():
+    # Uses credit_loan (not mortgage): mortgage balances are now derived purely from
+    # original_amount/start_date/rate/term and are unaffected by individual transactions.
     db = _make_session()
     _seed_base(db)
 
-    payment_account = Account(name="Cuenta Nómina", type="checking", currency_id=1, balance=1_000_000)
-    debt_account = Account(name="Cuenta Hipoteca", type="mortgage", currency_id=1, balance=0)
+    # created_at is backdated to sidestep UTC-vs-local-clock edge cases around
+    # midnight — transaction_affects_balance() requires tx_date >= created_at.
+    old_created_at = datetime(2020, 1, 1)
+    payment_account = Account(name="Cuenta Nómina", type="checking", currency_id=1, balance=1_000_000, created_at=old_created_at)
+    debt_account = Account(name="Cuenta Préstamo", type="credit_loan", currency_id=1, balance=0, created_at=old_created_at)
     db.add_all([payment_account, debt_account])
     db.commit()
 
     debt = Debt(
         account_id=debt_account.id,
         category_id=1,
-        name="Hipoteca Casa",
-        debt_type="mortgage",
+        name="Préstamo Vehículo",
+        debt_type="credit_loan",
         currency_code="COP",
         original_amount=500_000_000,
         current_balance=500_000_000,
@@ -226,7 +233,7 @@ def test_transaction_can_be_associated_to_specific_debt_even_from_non_debt_accou
         "debt_id": debt.id,
         "amount": -1_500_000,
         "currency_id": 1,
-        "memo": "Cuota mensual hipoteca",
+        "memo": "Cuota mensual préstamo",
     })
 
     db.refresh(debt)
