@@ -24,6 +24,9 @@ export async function mount(container) {
 
 export function cleanup() { _chart?.destroy(); _chart = null; }
 
+const TIPO_ICON = { inmueble: '🏠', vehiculo: '🚗', inversion: '📈', cuenta: '🏦', efectivo: '💵', otro: '📦' };
+const TIPO_LABEL = { inmueble: 'Inmuebles', vehiculo: 'Vehículos', inversion: 'Inversiones', cuenta: 'Cuentas', efectivo: 'Efectivo', otro: 'Otros' };
+
 function render(container, summary, assets) {
   const totalAssets = summary?.total_activos ?? 0;
   const totalDebt   = summary?.total_deudas  ?? 0;
@@ -33,9 +36,17 @@ function render(container, summary, assets) {
   const displayAssets = summary?.activos ?? assets;
   const categories = groupByTipo(displayAssets);
 
+  const totalCosto  = displayAssets.reduce((s, a) => s + (a.valor_adquisicion ?? 0), 0);
+  const gananciaTot = totalAssets - totalCosto;
+  const gananciaPct = totalCosto > 0 ? (gananciaTot / totalCosto) * 100 : 0;
+  const debtRatio   = totalAssets > 0 ? (totalDebt / totalAssets) * 100 : 0;
+
   container.innerHTML = `
     <div class="page-header">
-      <div class="page-header-text"><h1>Patrimonio</h1></div>
+      <div class="page-header-text">
+        <h1>Patrimonio</h1>
+        <p class="text-soft" style="margin:2px 0 0;font-size:0.8125rem">Activos, valorización y composición de tu patrimonio neto</p>
+      </div>
       <div class="page-header-actions">
         <button class="btn btn-primary" id="btnAddAsset">+ Activo</button>
       </div>
@@ -44,7 +55,7 @@ function render(container, summary, assets) {
     <div class="kpi-grid mb-3">
       <div class="kpi-card">
         <div class="kpi-label">Patrimonio Neto</div>
-        <div class="kpi-value ${netWorth >= 0 ? 'positive' : 'negative'} amount">${fmtCurrency(netWorth, 'COP')}</div>
+        <div class="kpi-value ${netWorth >= 0 ? 'text-success' : 'text-danger'} amount">${fmtCurrency(netWorth, 'COP')}</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Total Activos</div>
@@ -53,6 +64,12 @@ function render(container, summary, assets) {
       <div class="kpi-card">
         <div class="kpi-label">Total Pasivos</div>
         <div class="kpi-value text-danger amount">${fmtCurrency(totalDebt, 'COP')}</div>
+        <div class="text-soft" style="font-size:0.72rem;margin-top:2px">${debtRatio.toFixed(1)}% de los activos</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Valorización</div>
+        <div class="kpi-value ${gananciaTot >= 0 ? 'text-success' : 'text-danger'} amount">${gananciaTot >= 0 ? '+' : ''}${fmtCurrency(gananciaTot, 'COP')}</div>
+        <div class="text-soft" style="font-size:0.72rem;margin-top:2px">${gananciaPct >= 0 ? '+' : ''}${gananciaPct.toFixed(1)}% sobre costo</div>
       </div>
     </div>
 
@@ -60,14 +77,17 @@ function render(container, summary, assets) {
       <div class="card">
         <div class="card-header"><span class="card-title">Activos</span></div>
         <div class="card-body">
-          ${Object.entries(categories).map(([cat, list]) => categorySection(cat, list)).join('')}
-          ${displayAssets.length === 0 ? `<div class="empty-state"><p>Sin activos registrados</p></div>` : ''}
+          ${displayAssets.length === 0
+            ? `<div class="empty-state"><div class="empty-state__icon">🏦</div><div class="empty-state__title">Sin activos registrados</div><p class="empty-state__hint">Agrega inmuebles, vehículos, inversiones u otros bienes para calcular tu patrimonio neto.</p></div>`
+            : Object.entries(categories).map(([cat, list]) => categorySection(cat, list)).join('')}
         </div>
       </div>
-      <div class="card" style="max-width:300px">
+      <div class="card">
         <div class="card-header"><span class="card-title">Composición</span></div>
-        <div class="card-body" style="height:260px;position:relative">
-          <canvas id="patriChart"></canvas>
+        <div class="card-body" style="height:280px;position:relative">
+          ${displayAssets.length === 0
+            ? `<div class="empty-state" style="padding-top:2.5rem"><p class="empty-state__hint">Sin datos para graficar</p></div>`
+            : '<canvas id="patriChart"></canvas>'}
         </div>
       </div>
     </div>
@@ -86,9 +106,9 @@ function render(container, summary, assets) {
   // Pie chart
   const ctx = container.querySelector('#patriChart');
   if (ctx && displayAssets.length) {
-    const COLORS = window.CHART_PALETTE ?? ['#D97706','#059669','#0891B2','#7C3AED','#DB2777','#EA580C'];
+    const COLORS = window.CHART_PALETTE ?? ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3F','#8A5A44','#7A6A53'];
     const data = Object.entries(categories).map(([cat, list], i) => ({
-      label: cat,
+      label: TIPO_LABEL[cat] ?? cat,
       value: list.reduce((s, a) => s + (a.valor_actual ?? a.valor_adquisicion ?? 0), 0),
       color: COLORS[i % COLORS.length],
     })).filter(d => d.value > 0);
@@ -121,26 +141,40 @@ function groupByTipo(assets) {
 
 function categorySection(cat, list) {
   const total = list.reduce((s, a) => s + (a.valor_actual ?? a.valor_adquisicion ?? 0), 0);
+  const icon = TIPO_ICON[cat] ?? '📦';
+  const label = TIPO_LABEL[cat] ?? sanitize(cat);
   return `
     <div class="mb-3">
       <div class="flex justify-between mb-1">
-        <span class="text-soft" style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">${sanitize(cat)}</span>
+        <span class="text-soft" style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em">${icon} ${label}</span>
         <span class="amount text-muted" style="font-size:0.8125rem">${fmtCurrency(total, 'COP')}</span>
       </div>
-      ${list.map(a => `
+      ${list.map(a => {
+        const valorActual = a.valor_actual ?? a.valor_adquisicion ?? 0;
+        const costo = a.valor_adquisicion ?? 0;
+        const ganancia = valorActual - costo;
+        const gananciaPct = costo > 0 ? (ganancia / costo) * 100 : 0;
+        const gCls = ganancia >= 0 ? 'text-success' : 'text-danger';
+        return `
         <div class="flex justify-between items-center" style="padding:8px 0;border-bottom:1px solid var(--fin-border)">
           <div>
             <div style="font-size:0.8125rem;font-weight:500">${sanitize(a.nombre)}</div>
-            ${a.notas ? `<div class="text-soft" style="font-size:0.72rem">${sanitize(a.notas)}</div>` : ''}
+            <div class="text-soft" style="font-size:0.72rem">
+              ${a.fecha_adquisicion ? fmtDate(a.fecha_adquisicion) : ''}${a.notas ? ` · ${sanitize(a.notas)}` : ''}
+            </div>
           </div>
           <div class="flex items-center gap-2">
-            <span class="amount text-success" style="font-size:0.8125rem">
-              ${fmtCurrency(a.valor_actual ?? a.valor_adquisicion ?? 0, a.currency?.code ?? 'COP')}
-            </span>
-            <button class="btn btn-ghost btn-xs" data-edit-asset="${a.id}">✏</button>
-            <button class="btn btn-ghost btn-xs text-danger" data-delete-asset="${a.id}">✕</button>
+            <div style="text-align:right">
+              <div class="amount" style="font-size:0.8125rem;font-weight:600">
+                ${fmtCurrency(valorActual, a.currency?.code ?? 'COP')}
+              </div>
+              ${costo > 0 ? `<div class="amount ${gCls}" style="font-size:0.68rem">${ganancia >= 0 ? '+' : ''}${gananciaPct.toFixed(1)}%</div>` : ''}
+            </div>
+            <button class="btn btn-ghost btn-xs" data-edit-asset="${a.id}" title="Editar">✏</button>
+            <button class="btn btn-ghost btn-xs text-danger" data-delete-asset="${a.id}" title="Eliminar">✕</button>
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`;
 }
 

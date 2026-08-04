@@ -197,6 +197,12 @@ CATEGORÍAS_DISPONIBLES:
 {categories_str}
 {merchant_rules_str}
 ### REGLAS DE EXTRACCIÓN Y LÓGICA:
+0. "es_transaccion": true si el correo describe explícitamente una transacción bancaria real (compra, pago, transferencia, retiro) con un monto asociado. false si es una notificación genérica, promoción, alerta de seguridad, estado de cuenta, recordatorio, correo informativo, o cualquier cosa que no sea una transacción concreta.
+- Si el correo indica que la transacción está "pendiente", "pending", "en revisión", "no confirmada" o similar (aún no es un cargo definitivo), NO es una transacción válida: usa es_transaccion=false.
+"confianza": entero 0-100 que indica qué tan seguro estás de tu clasificación de "es_transaccion" y de los datos extraídos.
+- Si el correo NO es explícitamente una transacción, usa una confianza ALTA (90-100) para reflejar que estás seguro de que debe excluirse.
+- Si SÍ es una transacción pero el texto es ambiguo o incompleto (monto poco claro, comercio no identificable, etc.), usa una confianza BAJA (0-50).
+- Si SÍ es una transacción y los datos son claros y completos, usa una confianza ALTA (80-100).
 1. "fecha": Extrae la fecha de la transacción y conviértela a formato estricto YYYY-MM-DD.
 2. "monto": Extrae solo el valor numérico sin símbolos de moneda.
 - Si la moneda es COP: el punto es separador de miles → $85.900 = 85900.00
@@ -221,6 +227,8 @@ Si no, infiere del nombre del comercio y el grupo de categoría. Ejemplos típic
 ### FORMATO DE SALIDA:
 Devuelve EXCLUSIVAMENTE un objeto JSON válido. Sin bloques markdown, sin explicaciones.
 {{
+"es_transaccion": true,
+"confianza": 0,
 "fecha": "YYYY-MM-DD",
 "monto": 0.00,
 "moneda": "COP o USD según el correo",
@@ -255,6 +263,11 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido. Sin bloques markdown, sin explic
     raw = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', raw)
 
     def _postprocess(data: dict) -> dict:
+        data["es_transaccion"] = bool(data.get("es_transaccion", True))
+        try:
+            data["confianza"] = max(0, min(100, int(data.get("confianza", 0))))
+        except (TypeError, ValueError):
+            data["confianza"] = 0
         if data.get("cuenta_id") is not None:
             data["cuenta_id"] = int(data["cuenta_id"])
         if data.get("categoria_id") is not None:

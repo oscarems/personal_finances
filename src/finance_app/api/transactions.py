@@ -12,7 +12,7 @@ from decimal import Decimal
 from datetime import date
 
 from finance_app.database import get_db
-from finance_app.models import Currency
+from finance_app.models import Currency, Category
 from finance_app.models.transaction import Transaction
 from finance_app.models.merchant_rule import MerchantRule
 from finance_app.services.transaction_service import (
@@ -313,21 +313,33 @@ def remove_transaction(
         is_cubierto = memo.startswith("Cubierto desde:")
 
         if is_cubrir or is_cubierto:
+            # The pair may live in a different currency/account than `tx` when the
+            # source and target categories use different currencies, so match by
+            # date + complementary memo naming the categories on both sides
+            # (not account_id or negated amount, which no longer hold across
+            # currencies).
+            own_category = db.get(Category, tx.category_id) if tx.category_id else None
+            own_prefix = "Cubrir exceso:" if is_cubrir else "Cubierto desde:"
+            counterpart_name = memo[len(own_prefix):].strip()
             complementary_prefix = "Cubierto desde:" if is_cubrir else "Cubrir exceso:"
-            pair_tx = (
-                db.query(Transaction)
-                .filter(
-                    Transaction.id != tx.id,
-                    Transaction.date == tx.date,
-                    Transaction.account_id == tx.account_id,
-                    Transaction.is_adjustment.is_(True),
-                    Transaction.memo.like(f"{complementary_prefix}%"),
+
+            pair_tx = None
+            if own_category:
+                candidates = (
+                    db.query(Transaction)
+                    .filter(
+                        Transaction.id != tx.id,
+                        Transaction.date == tx.date,
+                        Transaction.is_adjustment.is_(True),
+                        Transaction.memo == f"{complementary_prefix} {own_category.name}",
+                    )
+                    .all()
                 )
-                .filter(
-                    Transaction.amount == -tx.amount,
-                )
-                .first()
-            )
+                for c in candidates:
+                    c_cat = db.get(Category, c.category_id) if c.category_id else None
+                    if c_cat and c_cat.name == counterpart_name:
+                        pair_tx = c
+                        break
             if pair_tx:
                 deleted_ids = [tx.id, pair_tx.id]
                 db.delete(tx)

@@ -143,10 +143,10 @@ async function loadAmortization(container, id, list) {
           datasets: [{
             label: 'Saldo restante',
             data: sample.map(r => r.balance ?? r.remaining_balance ?? 0),
-            borderColor: (window.CHART_PALETTE ?? ['#60A5FA'])[0],
+            borderColor: (window.CHART_PALETTE ?? ['#316342'])[0],
             backgroundColor: 'rgba(79,142,247,0.1)',
             fill: true, tension: 0.3,
-            pointBackgroundColor: sample.map((_, i) => i === todayIndex ? '#F59E0B' : (window.CHART_PALETTE ?? ['#60A5FA'])[0]),
+            pointBackgroundColor: sample.map((_, i) => i === todayIndex ? '#735142' : (window.CHART_PALETTE ?? ['#316342'])[0]),
             pointRadius: sample.map((_, i) => i === todayIndex ? 6 : 2),
           }],
         },

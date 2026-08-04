@@ -20,6 +20,7 @@ from finance_app.services.budget_service import (
     initialize_month,
     audit_ready_to_assign,
 )
+from finance_app.services.exchange_rate_service import convert_currency
 from finance_app.models import BudgetMonth, Currency, Category
 
 router = APIRouter()
@@ -42,6 +43,13 @@ class CoverOverspendingRequest(BaseModel):
     amount: float
     currency_code: str = 'COP'
     month: date
+
+
+class UpdateCoverOverspendingRequest(BaseModel):
+    """Schema for editing an existing coverage movement (amount/currency/counterpart)."""
+    counterpart_category_id: int
+    amount: float
+    currency_code: str = 'COP'
 
 
 @router.get("/current")
@@ -172,18 +180,44 @@ def assign_budget(assignment: BudgetAssignment, db: Session = Depends(get_db)):
     return {"success": True, "budget": budget.to_dict()}
 
 
+def _get_category_currency(db: Session, category_id: int, month_date, fallback: Currency) -> Currency:
+    """Return the currency a category's budget is actually tracked in for a given month.
+
+    Prefers the row with non-zero `assigned` (the category's "real" currency);
+    falls back to any existing row for that month, then to `fallback`.
+    """
+    budgets = db.query(BudgetMonth).filter_by(
+        category_id=category_id, month=month_date
+    ).all()
+    if not budgets:
+        return fallback
+    primary = next((b for b in budgets if (b.assigned or 0.0) != 0.0), budgets[0])
+    return db.get(Currency, primary.currency_id) or fallback
+
+
+def _get_budget_account_for_currency(db: Session, currency_id: int):
+    from finance_app.models import Account
+    return db.query(Account).filter(
+        Account.is_budget == True,
+        Account.is_closed == False,
+        Account.currency_id == currency_id
+    ).first()
+
+
 @router.post("/cover-overspending")
 def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(get_db)):
     """
     Cover overspending by moving available funds from source to target category.
     Does NOT modify 'assigned' for either category.
-    Creates two internal transactions (expense in source, income in target) on the
-    same budget account so the account balance stays neutral.
+    Creates two internal transactions (expense in source, income in target). Each
+    transaction is recorded in its own category's native currency — `amount` is
+    given in the target category's currency (`currency_code`) and converted to the
+    source category's currency when they differ.
     """
-    from finance_app.models import Transaction, Account
+    from finance_app.models import Transaction
 
-    currency = db.query(Currency).filter_by(code=request.currency_code).first()
-    if not currency:
+    input_currency = db.query(Currency).filter_by(code=request.currency_code).first()
+    if not input_currency:
         return {"error": "Currency not found"}
 
     source_cat = db.get(Category, request.source_category_id)
@@ -191,27 +225,37 @@ def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(
     if not source_cat or not target_cat:
         return {"error": "Category not found"}
 
-    # Get a budget account to use for the internal transaction
-    budget_account = db.query(Account).filter(
-        Account.is_budget == True,
-        Account.is_closed == False,
-        Account.currency_id == currency.id
-    ).first()
+    month_date = request.month
 
-    if not budget_account:
-        return {"error": "No budget account found for this currency"}
+    # Each category keeps its own native currency; the amount entered by the
+    # user is expressed in the target category's currency and must be
+    # converted for the source side if they differ.
+    target_currency = _get_category_currency(db, request.target_category_id, month_date, input_currency)
+    source_currency = _get_category_currency(db, request.source_category_id, month_date, input_currency)
 
-    amt = abs(request.amount)
+    target_budget_account = _get_budget_account_for_currency(db, target_currency.id)
+    if not target_budget_account:
+        return {"error": f"No budget account found for currency {target_currency.code}"}
+
+    source_budget_account = _get_budget_account_for_currency(db, source_currency.id)
+    if not source_budget_account:
+        return {"error": f"No budget account found for currency {source_currency.code}"}
+
+    target_amt = abs(request.amount)
+    source_amt = (
+        target_amt if source_currency.code == target_currency.code
+        else convert_currency(target_amt, target_currency.code, source_currency.code, db)
+    )
 
     # Create expense transaction in source category (reduces its available)
     source_tx = Transaction(
-        date=request.month,
-        amount=-amt,
-        account_id=budget_account.id,
+        date=month_date,
+        amount=-source_amt,
+        account_id=source_budget_account.id,
         category_id=request.source_category_id,
-        currency_id=currency.id,
-        original_amount=-amt,
-        original_currency_id=currency.id,
+        currency_id=source_currency.id,
+        original_amount=-source_amt,
+        original_currency_id=source_currency.id,
         memo=f"Cubrir exceso: {target_cat.name}",
         is_adjustment=True,
     )
@@ -219,13 +263,13 @@ def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(
 
     # Create income transaction in target category (increases its available)
     target_tx = Transaction(
-        date=request.month,
-        amount=amt,
-        account_id=budget_account.id,
+        date=month_date,
+        amount=target_amt,
+        account_id=target_budget_account.id,
         category_id=request.target_category_id,
-        currency_id=currency.id,
-        original_amount=amt,
-        original_currency_id=currency.id,
+        currency_id=target_currency.id,
+        original_amount=target_amt,
+        original_currency_id=target_currency.id,
         memo=f"Cubierto desde: {source_cat.name}",
         is_adjustment=True,
     )
@@ -234,16 +278,15 @@ def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(
     db.commit()
 
     # Recalculate available for both categories
-    month_date = request.month
     source_budgets = db.query(BudgetMonth).filter_by(
         category_id=request.source_category_id,
         month=month_date,
-        currency_id=currency.id
+        currency_id=source_currency.id
     ).all()
     target_budgets = db.query(BudgetMonth).filter_by(
         category_id=request.target_category_id,
         month=month_date,
-        currency_id=currency.id
+        currency_id=target_currency.id
     ).all()
 
     for b in source_budgets + target_budgets:
@@ -251,7 +294,78 @@ def cover_overspending(request: CoverOverspendingRequest, db: Session = Depends(
 
     db.commit()
 
-    return {"success": True, "amount": request.amount, "currency_code": request.currency_code}
+    return {
+        "success": True,
+        "amount": request.amount,
+        "currency_code": request.currency_code,
+        "source_currency_code": source_currency.code,
+        "source_amount": source_amt,
+    }
+
+
+@router.put("/cover-overspending/{transaction_id}")
+def update_cover_overspending(
+    transaction_id: int,
+    request: UpdateCoverOverspendingRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Edit an existing coverage movement (amount, currency, and/or counterpart
+    category). Deletes the old transaction pair and recreates it, preserving
+    the original direction (who gave, who received).
+    """
+    from finance_app.models import Transaction
+
+    tx = db.get(Transaction, transaction_id)
+    if not tx or not tx.is_adjustment or not tx.memo:
+        return {"error": "Movimiento de cobertura no encontrado"}
+
+    is_cubrir = tx.memo.startswith("Cubrir exceso:")
+    is_cubierto = tx.memo.startswith("Cubierto desde:")
+    if not (is_cubrir or is_cubierto):
+        return {"error": "La transacción no es un movimiento de cobertura"}
+
+    own_category = db.get(Category, tx.category_id)
+    if not own_category:
+        return {"error": "Categoría no encontrada"}
+
+    own_prefix = "Cubrir exceso:" if is_cubrir else "Cubierto desde:"
+    complementary_prefix = "Cubierto desde:" if is_cubrir else "Cubrir exceso:"
+
+    pair_tx = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id != tx.id,
+            Transaction.date == tx.date,
+            Transaction.is_adjustment.is_(True),
+            Transaction.memo == f"{complementary_prefix} {own_category.name}",
+        )
+        .first()
+    )
+
+    month_date = tx.date
+    db.delete(tx)
+    if pair_tx:
+        db.delete(pair_tx)
+    db.commit()
+
+    if is_cubrir:
+        source_category_id = own_category.id
+        target_category_id = request.counterpart_category_id
+    else:
+        source_category_id = request.counterpart_category_id
+        target_category_id = own_category.id
+
+    return cover_overspending(
+        CoverOverspendingRequest(
+            source_category_id=source_category_id,
+            target_category_id=target_category_id,
+            amount=request.amount,
+            currency_code=request.currency_code,
+            month=month_date,
+        ),
+        db,
+    )
 
 
 @router.post("/recalculate-savings")

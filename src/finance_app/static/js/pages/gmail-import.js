@@ -69,7 +69,7 @@ const _CSS = `
 .gi-preview-body   {
   white-space: pre-wrap; word-break: break-word; font-size: 0.78rem;
   line-height: 1.6; max-height: 420px; overflow-y: auto;
-  background: var(--fin-bg, #0f172a); padding: 12px;
+  background: var(--fin-bg, #F4FBF3); padding: 12px;
   border-radius: var(--fin-radius); border: 1px solid var(--fin-border);
 }
 .gi-review-item {
@@ -112,7 +112,7 @@ const _CSS = `
 .gi-prompt-pre     {
   margin-top: 6px; white-space: pre-wrap; word-break: break-word;
   font-size: 0.72rem; line-height: 1.55; max-height: 340px; overflow-y: auto;
-  background: var(--fin-bg, #0f172a); padding: 12px;
+  background: var(--fin-bg, #F4FBF3); padding: 12px;
   border-radius: var(--fin-radius); border: 1px solid var(--fin-border);
 }
 .gi-monto-grid { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
@@ -547,7 +547,10 @@ async function startBulkProcess(container) {
         ignoredCount++;
         continue;
       }
-      processedItems.push({ messageId, email, result, included: true, error: null });
+      const esTransaccion = result.es_transaccion !== false;
+      const confianzaBaja = typeof result.confianza === 'number' && result.confianza < 50;
+      const included = esTransaccion && !confianzaBaja;
+      processedItems.push({ messageId, email, result, included, error: null });
     } catch (err) {
       processedItems.push({ messageId, email, result: {}, included: false, error: err.message });
     }
@@ -631,11 +634,18 @@ function buildReviewHTML(items) {
     const fecha = r.fecha || todayISO();
     const monto = r.monto ?? '';
     const moneda = r.moneda || 'COP';
+    const noEsTransaccion = r.es_transaccion === false;
+    const confianzaBaja = typeof r.confianza === 'number' && r.confianza < 50;
     const borderColor = hasError
       ? 'var(--fin-danger)'
-      : (!r.cuenta_id || !r.monto)
+      : noEsTransaccion
+      ? 'var(--fin-danger)'
+      : (confianzaBaja || !r.cuenta_id || !r.monto)
       ? 'var(--fin-amber)'
       : 'var(--fin-border)';
+    const confianzaBadge = typeof r.confianza === 'number'
+      ? `<span class="text-muted">· confianza ${r.confianza}%${noEsTransaccion ? ' (no parece transacción)' : ''}</span>`
+      : '';
 
     return `
       <div class="gi-review-item" style="border:1px solid ${borderColor}">
@@ -645,7 +655,7 @@ function buildReviewHTML(items) {
             <div class="gi-email-subject">${sanitize(item.email?.subject || item.messageId)}</div>
             <div class="gi-email-meta text-muted">
               ${fmtDate(item.email?.received_at)}
-              ${hasError ? `· <span class="text-danger">Error: ${sanitize(item.error)}</span>` : ''}
+              ${hasError ? `· <span class="text-danger">Error: ${sanitize(item.error)}</span>` : confianzaBadge}
             </div>
           </div>
         </div>
@@ -814,6 +824,14 @@ function renderConfirmForm(container, messageId, ollama) {
       </details>`
     : '';
 
+  const noEsTransaccion = ollama.es_transaccion === false;
+  const confianzaBadge = typeof ollama.confianza === 'number'
+    ? `<div class="gi-email-meta text-muted mb-2">
+         Confianza del modelo: ${ollama.confianza}%
+         ${noEsTransaccion ? ' · <span class="text-danger">el modelo indica que este correo no es una transacción</span>' : ''}
+       </div>`
+    : '';
+
   rightPanel.innerHTML = `
     <div class="card">
       <div class="card-header">
@@ -822,6 +840,7 @@ function renderConfirmForm(container, messageId, ollama) {
         </span>
       </div>
       <div class="card-body gi-card-body-md">
+        ${confianzaBadge}
         ${formFields(ollama)}
         ${promptSection}
         <div class="gi-actions-row">

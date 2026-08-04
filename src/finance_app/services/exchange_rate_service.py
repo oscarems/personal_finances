@@ -10,10 +10,14 @@ Backward-compatible API:
   convert_currency(amount, from_code, to_code, db, rate_date) → float
 """
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Optional
 import logging
+import os
+import ssl
 
 import requests
+from requests.adapters import HTTPAdapter
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -24,6 +28,70 @@ logger = logging.getLogger(__name__)
 
 _PLAUSIBLE_MIN = 1e-6
 _PLAUSIBLE_MAX = 1e9
+_STALE_RATE_DAYS = 1  # a cached rate older than this triggers a live re-fetch
+
+# Extra CA certs some local security software injects for TLS inspection
+# (e.g. Norton sets NODE_EXTRA_CA_CERTS for Node; Python has no equivalent
+# built in, so `requests` fails TLS verification against those proxies).
+# We merge them with certifi's bundle rather than disabling verification.
+_EXTRA_CA_CANDIDATES = [
+    os.environ.get('NODE_EXTRA_CA_CERTS'),
+    os.environ.get('REQUESTS_CA_BUNDLE'),
+    r'C:\ProgramData\Norton\Antivirus\wscert.pem',
+]
+_CA_BUNDLE_CACHE_PATH = Path(__file__).resolve().parent.parent / '.cache' / 'ca_bundle.pem'
+_session: Optional[requests.Session] = None
+
+
+class _TlsInspectionAdapter(HTTPAdapter):
+    """HTTPAdapter using an SSLContext that trusts a local TLS-inspection CA.
+
+    Some antivirus/corporate proxies (Norton included) issue CA certs whose
+    Basic Constraints extension isn't marked critical — technically
+    non-conformant to RFC 5280, but common in older MITM tooling. OpenSSL 3.x
+    rejects those under VERIFY_X509_STRICT even once trusted, so we clear
+    that single flag while still requiring full chain + hostname validation.
+    """
+
+    def __init__(self, ssl_context: ssl.SSLContext, *args, **kwargs):
+        self._ssl_context = ssl_context
+        super().__init__(*args, **kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        kwargs['ssl_context'] = self._ssl_context
+        return super().init_poolmanager(*args, **kwargs)
+
+
+def _get_requests_session() -> requests.Session:
+    """Return a shared requests.Session, configured to trust a locally
+    installed TLS-inspection CA (if any) in addition to the public CA bundle.
+    Falls back to a plain Session (standard verification) when no such
+    local CA is present.
+    """
+    global _session
+    if _session is not None:
+        return _session
+
+    extra_ca = next((p for p in _EXTRA_CA_CANDIDATES if p and os.path.exists(p)), None)
+    session = requests.Session()
+
+    if extra_ca:
+        try:
+            import certifi
+            certifi_bundle = Path(certifi.where()).read_text(encoding='utf-8')
+            extra_pem = Path(extra_ca).read_text(encoding='utf-8')
+            _CA_BUNDLE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            _CA_BUNDLE_CACHE_PATH.write_text(certifi_bundle + '\n' + extra_pem, encoding='utf-8')
+
+            ctx = ssl.create_default_context(cafile=str(_CA_BUNDLE_CACHE_PATH))
+            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+            session.mount('https://', _TlsInspectionAdapter(ctx))
+            logger.info("Using combined CA bundle (certifi + %s) for exchange rate API calls", extra_ca)
+        except Exception:
+            logger.exception("Failed to build combined CA bundle from %s", extra_ca)
+
+    _session = session
+    return _session
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +104,7 @@ def _fetch_usd_rates_from_api(api_url: str, timeout: int = 5) -> Optional[dict[s
     Returns {currency_code: rate} where 1 USD = rate X, or None on failure.
     """
     try:
-        response = requests.get(api_url, timeout=timeout)
+        response = _get_requests_session().get(api_url, timeout=timeout)
         if response.status_code != 200:
             logger.warning(
                 "Exchange rate API %s returned status %d: %s",
@@ -58,9 +126,14 @@ def _fetch_usd_rates_from_api(api_url: str, timeout: int = 5) -> Optional[dict[s
 # ---------------------------------------------------------------------------
 
 def _active_currency_codes(db: Session) -> list[str]:
-    """Return codes of all non-base currencies currently in the DB."""
+    """Return codes of all non-USD currencies currently in the DB that need a USD pivot rate.
+
+    Includes the base currency (e.g. COP) even though it's not "non-base" —
+    the sync loop stores USD→code rates, and the base currency is exactly what
+    convert_currency/get_current_exchange_rate need kept fresh.
+    """
     currencies = db.query(Currency).all()
-    return [c.code for c in currencies if not c.is_base]
+    return [c.code for c in currencies if c.code != 'USD']
 
 
 def _base_currency_code(db: Session) -> str:
@@ -226,6 +299,8 @@ def get_rate(
 
     lookup_date = target_date or date.today()
 
+    is_live_lookup = not target_date or target_date == date.today()
+
     def _usd_to(code: str) -> float:
         if code == 'USD':
             return 1.0
@@ -233,12 +308,33 @@ def get_rate(
         r = _get_stored_rate(db, 'USD', code, lookup_date)
         if r:
             return r
-        # Nearest historical
-        r = _get_nearest_stored_rate(db, 'USD', code, lookup_date)
-        if r:
-            return r
-        # Live fetch (only for today)
-        if not target_date or target_date == date.today():
+        # Nearest historical — only good enough if it's recent (or we're
+        # asking about a past date, where "nearest on/before" is correct by
+        # definition). For today's lookups, a stale rate must not preempt a
+        # live fetch.
+        nearest_row = (
+            db.query(ExchangeRate)
+            .filter(
+                ExchangeRate.from_currency == 'USD',
+                ExchangeRate.to_currency == code,
+                ExchangeRate.date <= lookup_date,
+            )
+            .order_by(desc(ExchangeRate.date))
+            .first()
+        )
+        nearest = (
+            nearest_row.rate
+            if nearest_row and _PLAUSIBLE_MIN <= nearest_row.rate <= _PLAUSIBLE_MAX
+            else None
+        )
+        stale = (
+            nearest_row is not None
+            and (lookup_date - nearest_row.date).days > _STALE_RATE_DAYS
+        )
+        if nearest is not None and not (is_live_lookup and stale):
+            return nearest
+        # Live fetch (only for today, or when the cached rate is too stale)
+        if is_live_lookup:
             config = EXCHANGE_RATE_API
             for url in (config['primary'], config['fallback']):
                 all_rates = _fetch_usd_rates_from_api(url, config['timeout'])
@@ -247,6 +343,9 @@ def get_rate(
                     if _PLAUSIBLE_MIN <= rate <= _PLAUSIBLE_MAX:
                         _store_rate(db, 'USD', code, rate, date.today(), 'api_primary')
                         return rate
+        # Fall back to the stale cached rate rather than nothing
+        if nearest is not None:
+            return nearest
         # Average
         avg = _average_recent_rate(db, 'USD', code)
         if avg:
@@ -332,7 +431,7 @@ def _fetch_historical_rates_for_date(target_date: date, timeout: int = 8) -> Opt
     for url_template in (_HISTORICAL_API_PRIMARY, _HISTORICAL_API_FALLBACK):
         url = url_template.format(date=date_str)
         try:
-            resp = requests.get(url, timeout=timeout)
+            resp = _get_requests_session().get(url, timeout=timeout)
             if resp.status_code == 200:
                 data = resp.json()
                 rates = data.get("usd", {})

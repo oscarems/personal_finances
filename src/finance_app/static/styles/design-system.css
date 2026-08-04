@@ -1,10 +1,14 @@
-/* ═══════════════════════════════════════════════════════════
-   PERSONAL FINANCES — Design System  DAYLIGHT — Indigo Canvas
+/* ===============================================================
+   PERSONAL FINANCES -- Design System  TERRA -- FinancePro Wealth
    Responsabilidad: tokens CSS (variables), estilos base,
-   clases de componentes canónicas, capa de utilidades.
+   clases de componentes canonicas, capa de utilidades.
    NO contiene estructura de layout (eso es layout.css).
 
-   Utilidades rápidas disponibles:
+   Fuente Stitch: proyecto "Gestor de Finanzas Integral",
+   design system Sovereign Finance, variante de pantalla Terra
+   (verde bosque #316342 sobre fondo verde-blanco calido).
+
+   Utilidades rapidas disponibles:
      Texto:    .text-xs/sm/base/lg/xl/2xl
                .fw-normal/medium/semibold/bold
                .text-success/danger/warning/accent/muted/soft
@@ -12,34 +16,35 @@
      Layout:   .flex-1 .flex-shrink-0 .overflow-x-auto .overflow-hidden
      Spacing:  .mb-1..6 .mt-1..6 .gap-1..4 .p-0
      Composite:.soft-panel .list-row .field-label .mono
-   ═══════════════════════════════════════════════════════════ */
+   =============================================================== */
 
-/* ── Core Tokens ────────────────────────────────────────── */
+/* -- Core Tokens ------------------------------------------------ */
 :root {
-  /* — Canonical (A1 — Fondos en 4 capas claras) — */
-  --fin-bg:           #F4F6FA;
+  /* - Canonical (Terra -- superficie verde-blanco en 4 capas) - */
+  --fin-bg:           #F4FBF3;
   --fin-surface:      #FFFFFF;
-  --fin-surface-2:    #F1F5F9;
-  --fin-surface-3:    #E8EEF7;
-  /* — Ink (A3 — Tinta clara) — */
-  --fin-ink:          #0F172A;
-  --fin-ink-2:        #475569;
-  --fin-ink-3:        #94A3B8;
-  /* — Accent (A2 — Índigo + semánticos) — */
-  --fin-accent:       #6366F1;
-  --fin-accent-light: rgba(99, 102, 241, 0.10);
-  --fin-success:      #059669;
-  --fin-danger:       #DC2626;
-  --fin-danger-light: rgba(220, 38, 38, 0.10);
-  --fin-amber:        #D97706;
-  --fin-amber-light:  rgba(217, 119, 6, 0.10);
-  /* — Borders (A4 — Bordes sutiles) — */
-  --fin-border:       rgba(15, 23, 42, 0.09);
-  --fin-radius:       14px;
-  --fin-font:         'Inter', system-ui, sans-serif;
+  --fin-surface-2:    #E9F0E8;
+  --fin-surface-3:    #DDE4DD;
+  /* - Ink (texto sobre superficie clara) - */
+  --fin-ink:          #161D19;
+  --fin-ink-2:        #414942;
+  --fin-ink-3:        #717971;
+  /* - Accent (Verde bosque Terra + semanticos) - */
+  --fin-accent:       #316342;
+  --fin-accent-light: rgba(49, 99, 66, 0.10);
+  --fin-success:      #316342;
+  --fin-danger:       #BA1A1A;
+  --fin-danger-light: rgba(186, 26, 26, 0.10);
+  --fin-amber:        #735142;
+  --fin-amber-light:  rgba(115, 81, 66, 0.10);
+  /* - Borders - */
+  --fin-border:       rgba(22, 29, 25, 0.13);
+  --fin-radius:       12px;
+  --fin-font:         'Nunito Sans', system-ui, sans-serif;
   --fin-mono:         'JetBrains Mono', monospace;
+  --fin-serif:        'Nunito Sans', system-ui, sans-serif;
 
-  /* — Typography scale — */
+  /* - Typography scale - */
   --text-xs:   0.72rem;
   --text-sm:   0.82rem;
   --text-base: 0.92rem;
@@ -47,67 +52,67 @@
   --text-xl:   1.45rem;
   --text-2xl:  1.9rem;
 
-  /* — Fonts — */
-  --font-display: var(--fin-font);
+  /* - Fonts - */
+  --font-display: var(--fin-serif);
   --font-sans:    var(--fin-font);
   --font-mono:    var(--fin-mono);
 
-  /* — Backgrounds — */
-  --bg-primary:       #F4F6FA;
+  /* - Backgrounds - */
+  --bg-primary:       #F4FBF3;
   --bg-surface:       #FFFFFF;
-  --bg-surface-muted: #F1F5F9;
-  --bg-surface-alt:   #E8EEF7;
-  --bg-surface-2:     #F1F5F9;
+  --bg-surface-muted: #E9F0E8;
+  --bg-surface-alt:   #DDE4DD;
+  --bg-surface-2:     #E9F0E8;
 
-  /* — Text — */
-  --text-primary:   #0F172A;
-  --text-secondary: #475569;
-  --text-soft:      #94A3B8;
-  --text-link:      #6366F1;
+  /* - Text - */
+  --text-primary:   #161D19;
+  --text-secondary: #414942;
+  --text-soft:      #717971;
+  --text-link:      #316342;
   --text-inverse:   #FFFFFF;
 
-  /* — Borders — */
-  --border-muted:  rgba(15, 23, 42, 0.07);
-  --border-color:  rgba(15, 23, 42, 0.09);
-  --border-strong: rgba(15, 23, 42, 0.13);
-  --border-hover:  rgba(15, 23, 42, 0.18);
-  --border-focus:  rgba(99, 102, 241, 0.40);
+  /* - Borders - */
+  --border-muted:  rgba(22, 29, 25, 0.08);
+  --border-color:  rgba(22, 29, 25, 0.13);
+  --border-strong: rgba(22, 29, 25, 0.20);
+  --border-hover:  rgba(22, 29, 25, 0.30);
+  --border-focus:  rgba(49, 99, 66, 0.45);
 
-  /* — Semantic colors — */
-  --color-primary:       #6366F1;
-  --color-primary-hover: #4F52E8;
-  --color-primary-active:#4346D4;
-  --color-primary-600:   #4F52E8;
-  --color-primary-700:   #4346D4;
-  --color-primary-50:    rgba(99, 102, 241, 0.07);
-  --color-primary-100:   rgba(99, 102, 241, 0.13);
+  /* - Semantic colors - */
+  --color-primary:       #316342;
+  --color-primary-hover: #275031;
+  --color-primary-active:#1C3B24;
+  --color-primary-600:   #275031;
+  --color-primary-700:   #1C3B24;
+  --color-primary-50:    rgba(49, 99, 66, 0.07);
+  --color-primary-100:   rgba(49, 99, 66, 0.13);
 
-  --color-success:        #059669;
-  --color-success-hover:  #047857;
-  --color-success-active: #036644;
-  --color-success-600:    #047857;
-  --color-success-700:    #036644;
+  --color-success:        #316342;
+  --color-success-hover:  #275031;
+  --color-success-active: #1C3B24;
+  --color-success-600:    #275031;
+  --color-success-700:    #1C3B24;
 
-  --color-danger:        #DC2626;
-  --color-danger-hover:  #B91C1C;
-  --color-danger-active: #991B1B;
-  --color-danger-600:    #B91C1C;
-  --color-danger-700:    #991B1B;
+  --color-danger:        #BA1A1A;
+  --color-danger-hover:  #9C1616;
+  --color-danger-active: #7D1212;
+  --color-danger-600:    #9C1616;
+  --color-danger-700:    #7D1212;
 
-  --color-warning:        #D97706;
-  --color-warning-hover:  #B45309;
-  --color-warning-active: #92400E;
-  --color-warning-600:    #B45309;
-  --color-warning-700:    #92400E;
+  --color-warning:        #735142;
+  --color-warning-hover:  #5F4235;
+  --color-warning-active: #4B342A;
+  --color-warning-600:    #5F4235;
+  --color-warning-700:    #4B342A;
 
-  --color-accent:      #D97706;
-  --color-accent-600:  #B45309;
-  --color-accent-700:  #92400E;
+  --color-accent:      #735142;
+  --color-accent-600:  #5F4235;
+  --color-accent-700:  #4B342A;
 
-  --color-info:        #6366F1;
-  --color-info-600:    #4F52E8;
+  --color-info:        #316342;
+  --color-info-600:    #275031;
 
-  /* — Aliases — */
+  /* - Aliases - */
   --color-bg:            var(--bg-primary);
   --color-surface:       var(--bg-surface);
   --color-surface-muted: var(--bg-surface-muted);
@@ -117,121 +122,121 @@
   --color-border:        var(--border-muted);
   --color-border-strong: var(--border-strong);
 
-  /* — Radii — */
-  --radius-card:   14px;
-  --radius-button: 10px;
-  --radius-pill:   100px;
+  /* - Radii (Terra -- geometria suave y redondeada) - */
+  --radius-card:   12px;
+  --radius-button: 8px;
+  --radius-pill:   999px;
   --radius-sm:     8px;
 
-  /* — Shadows (A5 — Sombras suaves) — */
-  --shadow-soft:   0 1px 3px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-medium: 0 4px 16px rgba(15, 23, 42, 0.09), 0 2px 6px rgba(15, 23, 42, 0.06);
-  --shadow-strong: 0 12px 40px rgba(15, 23, 42, 0.14), 0 4px 12px rgba(15, 23, 42, 0.08);
+  /* - Shadows (card-shadow / card-hover de Stitch) - */
+  --shadow-soft:   0px 4px 20px rgba(0, 0, 0, 0.03);
+  --shadow-medium: 0px 8px 30px rgba(49, 99, 66, 0.10);
+  --shadow-strong: 0px 16px 40px rgba(22, 29, 25, 0.14), 0px 4px 12px rgba(22, 29, 25, 0.06);
 
-  /* — Transitions — */
+  /* - Transitions - */
   --transition-fast: 0.14s ease;
   --transition-slow: 0.24s ease;
 
-  /* — Focus — */
-  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.22);
+  /* - Focus - */
+  --focus-ring: 0 0 0 3px rgba(49, 99, 66, 0.22);
 
-  /* — Inputs (A8 — Inputs claros) — */
-  --input-bg:           #FFFFFF;
-  --input-border:       rgba(15, 23, 42, 0.13);
-  --input-focus-border: #6366F1;
-  --input-disabled-bg:  #F8FAFC;
+  /* - Inputs - */
+  --input-bg:           #EEF6EE;
+  --input-border:       rgba(22, 29, 25, 0.20);
+  --input-focus-border: #316342;
+  --input-disabled-bg:  #E9F0E8;
 
-  /* — Tables — */
-  --table-head-bg:   #F8FAFC;
-  --table-row-alt:   rgba(15, 23, 42, 0.018);
-  --table-row-hover: rgba(99, 102, 241, 0.05);
-  --table-border:    rgba(15, 23, 42, 0.07);
+  /* - Tables - */
+  --table-head-bg:   #E9F0E8;
+  --table-row-alt:   rgba(22, 29, 25, 0.02);
+  --table-row-hover: rgba(49, 99, 66, 0.05);
+  --table-border:    rgba(22, 29, 25, 0.10);
 
-  /* — Badges — */
-  --badge-success-bg:     rgba(5, 150, 105, 0.10);
-  --badge-success-border: rgba(5, 150, 105, 0.25);
-  --badge-success-text:   #047857;
-  --badge-danger-bg:      rgba(220, 38, 38, 0.09);
-  --badge-danger-border:  rgba(220, 38, 38, 0.22);
-  --badge-danger-text:    #B91C1C;
-  --badge-warning-bg:     rgba(217, 119, 6, 0.09);
-  --badge-warning-border: rgba(217, 119, 6, 0.25);
-  --badge-warning-text:   #B45309;
-  --badge-primary-bg:     rgba(99, 102, 241, 0.09);
-  --badge-primary-border: rgba(99, 102, 241, 0.25);
-  --badge-accent-bg:      rgba(217, 119, 6, 0.09);
-  --badge-accent-border:  rgba(217, 119, 6, 0.22);
-  --badge-neutral-bg:     rgba(15, 23, 42, 0.05);
-  --badge-neutral-border: rgba(15, 23, 42, 0.11);
+  /* - Badges - */
+  --badge-success-bg:     rgba(49, 99, 66, 0.10);
+  --badge-success-border: rgba(49, 99, 66, 0.28);
+  --badge-success-text:   #275031;
+  --badge-danger-bg:      rgba(186, 26, 26, 0.09);
+  --badge-danger-border:  rgba(186, 26, 26, 0.25);
+  --badge-danger-text:    #9C1616;
+  --badge-warning-bg:     rgba(115, 81, 66, 0.10);
+  --badge-warning-border: rgba(115, 81, 66, 0.28);
+  --badge-warning-text:   #5F4235;
+  --badge-primary-bg:     rgba(49, 99, 66, 0.09);
+  --badge-primary-border: rgba(49, 99, 66, 0.28);
+  --badge-accent-bg:      rgba(115, 81, 66, 0.09);
+  --badge-accent-border:  rgba(115, 81, 66, 0.25);
+  --badge-neutral-bg:     rgba(22, 29, 25, 0.06);
+  --badge-neutral-border: rgba(22, 29, 25, 0.15);
 
-  /* — Alerts — */
-  --alert-success-bg:   rgba(5, 150, 105, 0.07);
-  --alert-danger-bg:    rgba(220, 38, 38, 0.07);
-  --alert-warning-bg:   rgba(217, 119, 6, 0.07);
-  --alert-info-bg:      rgba(99, 102, 241, 0.07);
-  --alert-success-text: #047857;
-  --alert-danger-text:  #B91C1C;
-  --alert-warning-text: #B45309;
-  --alert-info-text:    #4F52E8;
+  /* - Alerts - */
+  --alert-success-bg:   rgba(49, 99, 66, 0.08);
+  --alert-danger-bg:    rgba(186, 26, 26, 0.08);
+  --alert-warning-bg:   rgba(115, 81, 66, 0.08);
+  --alert-info-bg:      rgba(49, 99, 66, 0.07);
+  --alert-success-text: #275031;
+  --alert-danger-text:  #9C1616;
+  --alert-warning-text: #5F4235;
+  --alert-info-text:    #275031;
 
-  --alert-critical-border:        rgba(220, 38, 38, 0.30);
-  --alert-critical-bg:            rgba(220, 38, 38, 0.07);
-  --alert-risk-border:            rgba(217, 119, 6, 0.30);
-  --alert-risk-bg:                rgba(217, 119, 6, 0.07);
-  --alert-warning-border:         rgba(217, 119, 6, 0.30);
-  --alert-warning-bg-soft:        rgba(217, 119, 6, 0.07);
-  --alert-critical-border-strong: rgba(220, 38, 38, 0.50);
-  --alert-critical-bg-strong:     rgba(220, 38, 38, 0.06);
-  --alert-risk-border-strong:     rgba(217, 119, 6, 0.50);
-  --alert-risk-bg-strong:         rgba(217, 119, 6, 0.06);
-  --alert-warning-border-strong:  rgba(217, 119, 6, 0.50);
-  --alert-warning-bg-strong:      rgba(217, 119, 6, 0.06);
+  --alert-critical-border:        rgba(186, 26, 26, 0.32);
+  --alert-critical-bg:            rgba(186, 26, 26, 0.07);
+  --alert-risk-border:            rgba(115, 81, 66, 0.32);
+  --alert-risk-bg:                rgba(115, 81, 66, 0.07);
+  --alert-warning-border:         rgba(115, 81, 66, 0.32);
+  --alert-warning-bg-soft:        rgba(115, 81, 66, 0.07);
+  --alert-critical-border-strong: rgba(186, 26, 26, 0.55);
+  --alert-critical-bg-strong:     rgba(186, 26, 26, 0.06);
+  --alert-risk-border-strong:     rgba(115, 81, 66, 0.55);
+  --alert-risk-bg-strong:         rgba(115, 81, 66, 0.06);
+  --alert-warning-border-strong:  rgba(115, 81, 66, 0.55);
+  --alert-warning-bg-strong:      rgba(115, 81, 66, 0.06);
 
-  /* — Progress — */
-  --progress-track: rgba(15, 23, 42, 0.08);
+  /* - Progress - */
+  --progress-track: rgba(22, 29, 25, 0.08);
 
-  /* — Charts — */
-  --chart-text:         #64748B;
-  --chart-grid:         rgba(15, 23, 42, 0.06);
-  --chart-border:       #F1F5F9;
-  --chart-tooltip-bg:   #1E293B;
-  --chart-tooltip-text: #F8FAFC;
-  --chart-color-1: #6366F1;
-  --chart-color-2: #10B981;
-  --chart-color-3: #F59E0B;
-  --chart-color-4: #EF4444;
-  --chart-color-5: #8B5CF6;
-  --chart-color-6: #06B6D4;
-  --chart-color-7: #F97316;
-  --chart-color-8: #EC4899;
+  /* - Charts (paleta Terra) - */
+  --chart-text:         #414942;
+  --chart-grid:         rgba(22, 29, 25, 0.08);
+  --chart-border:       #E9F0E8;
+  --chart-tooltip-bg:   #161D19;
+  --chart-tooltip-text: #F4FBF3;
+  --chart-color-1: #316342;
+  --chart-color-2: #BA1A1A;
+  --chart-color-3: #735142;
+  --chart-color-4: #3B6D7A;
+  --chart-color-5: #8E6959;
+  --chart-color-6: #57615A;
+  --chart-color-7: #9DD3AA;
+  --chart-color-8: #C9A98F;
 
-  /* — Scrollbars — */
+  /* - Scrollbars - */
   --scrollbar-track:       transparent;
-  --scrollbar-thumb:       rgba(15, 23, 42, 0.14);
-  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.24);
+  --scrollbar-thumb:       rgba(22, 29, 25, 0.16);
+  --scrollbar-thumb-hover: rgba(22, 29, 25, 0.28);
 
-  /* — Sidebar (A7 — Sidebar claro) — */
+  /* - Sidebar - */
   --sidebar-bg:        #FFFFFF;
-  --sidebar-border:    rgba(15, 23, 42, 0.08);
-  --nav-text:          #64748B;
-  --nav-text-strong:   #0F172A;
-  --nav-hover-bg:      rgba(99, 102, 241, 0.07);
-  --nav-active-bg:     rgba(99, 102, 241, 0.12);
-  --nav-accent-strong: #6366F1;
-  --nav-section-text:  #94A3B8;
+  --sidebar-border:    rgba(22, 29, 25, 0.10);
+  --nav-text:          #414942;
+  --nav-text-strong:   #161D19;
+  --nav-hover-bg:      rgba(49, 99, 66, 0.07);
+  --nav-active-bg:     rgba(49, 99, 66, 0.12);
+  --nav-accent-strong: #316342;
+  --nav-section-text:  #717971;
 
-  /* — Misc — */
-  --divider-gradient:      rgba(15, 23, 42, 0.07);
+  /* - Misc - */
+  --divider-gradient:      rgba(22, 29, 25, 0.10);
   --glass-bg:              rgba(255, 255, 255, 0.85);
-  --glass-border:          rgba(15, 23, 42, 0.09);
-  --spinner-track:         rgba(15, 23, 42, 0.10);
-  --section-accent:        rgba(99, 102, 241, 0.25);
-  --section-accent-strong: rgba(99, 102, 241, 0.08);
-  --card-hover-border:     rgba(99, 102, 241, 0.22);
-  --info-bg-soft:          rgba(99, 102, 241, 0.05);
-  --info-bg-strong:        rgba(99, 102, 241, 0.10);
+  --glass-border:          rgba(22, 29, 25, 0.13);
+  --spinner-track:         rgba(22, 29, 25, 0.12);
+  --section-accent:        rgba(49, 99, 66, 0.28);
+  --section-accent-strong: rgba(49, 99, 66, 0.08);
+  --card-hover-border:     rgba(49, 99, 66, 0.25);
+  --info-bg-soft:          rgba(49, 99, 66, 0.05);
+  --info-bg-strong:        rgba(49, 99, 66, 0.10);
 
-  /* — Spacing scale (A6 — múltiplos de 4) — */
+  /* - Spacing scale (multiplos de 4) - */
   --space-1:  4px;
   --space-2:  8px;
   --space-3:  12px;
@@ -241,7 +246,7 @@
   --space-12: 48px;
   --space-16: 64px;
 
-  /* — Semantic aliases — */
+  /* - Semantic aliases - */
   --bg-base:        var(--bg-primary);
   --bg-elevated:    var(--bg-surface-alt);
   --bg-overlay:     var(--bg-surface-muted);
@@ -259,13 +264,13 @@
   --shadow-md:      var(--shadow-medium);
   --shadow-lg:      var(--shadow-strong);
 
-  /* — Compat aliases (referencias desde JS heredado) — */
+  /* - Compat aliases (referencias desde JS heredado) - */
   --fin-bg-2:       var(--fin-surface-2);
   --bg-hover:       var(--table-row-hover);
   --fin-text-soft:  var(--text-soft);
 }
 
-/* ── Reset & Base ───────────────────────────────────────── */
+/* -- Reset & Base ------------------------------------------------ */
 * { box-sizing: border-box; }
 
 body {
@@ -283,8 +288,8 @@ body {
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-family: var(--fin-font);
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--fin-ink);
   line-height: 1.2;
 }
@@ -308,7 +313,7 @@ a:hover { color: var(--fin-accent); }
 
 pre, code, kbd, samp { font-family: var(--fin-mono); }
 
-/* ── Page Header ────────────────────────────────────────── */
+/* -- Page Header --------------------------------------------------- */
 .page-header {
   display: flex;
   flex-wrap: wrap;
@@ -319,11 +324,11 @@ pre, code, kbd, samp { font-family: var(--fin-mono); }
 }
 
 .page-title {
-  font-family: var(--fin-font);
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  font-family: var(--fin-serif);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
   color: var(--fin-ink);
 }
 
@@ -341,7 +346,7 @@ pre, code, kbd, samp { font-family: var(--fin-mono); }
   align-items: center;
 }
 
-/* ── Section Header ─────────────────────────────────────── */
+/* -- Section Header -------------------------------------------- */
 .section-header {
   display: flex;
   align-items: center;
@@ -352,7 +357,7 @@ pre, code, kbd, samp { font-family: var(--fin-mono); }
 .section-title {
   font-family: var(--fin-font);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--fin-ink);
 }
@@ -362,7 +367,7 @@ pre, code, kbd, samp { font-family: var(--fin-mono); }
   color: var(--fin-ink-2);
 }
 
-/* ── Buttons ────────────────────────────────────────────── */
+/* -- Buttons --------------------------------------------------- */
 .btn,
 .btn-primary,
 .btn-secondary,
@@ -375,9 +380,9 @@ pre, code, kbd, samp { font-family: var(--fin-mono); }
   justify-content: center;
   gap: 0.375rem;
   padding: 0.4375rem 1rem;
-  border-radius: 100px;
+  border-radius: var(--radius-button);
   font-family: var(--fin-font);
-  font-weight: 500;
+  font-weight: 700;
   font-size: 13px;
   letter-spacing: 0;
   border: 0.5px solid transparent;
@@ -458,7 +463,7 @@ pre, code, kbd, samp { font-family: var(--fin-mono); }
   cursor: not-allowed;
 }
 
-/* ── Inputs ─────────────────────────────────────────────── */
+/* -- Inputs ------------------------------------------------------- */
 .input-field {
   width: 100%;
   padding: 0.4375rem 0.75rem;
@@ -514,7 +519,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   box-shadow: var(--focus-ring);
 }
 
-/* ── Cards ──────────────────────────────────────────────── */
+/* -- Cards --------------------------------------------------------- */
 .card,
 .card-hover-lift,
 .card-glass {
@@ -527,13 +532,14 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 }
 
 .card-hover-lift {
-  transition: border-color var(--transition-fast);
+  transition: box-shadow var(--transition-slow), transform var(--transition-slow), border-color var(--transition-fast);
   cursor: default;
 }
 
 .card-hover-lift:hover {
-  border-color: rgba(99, 102, 241, 0.25);
+  border-color: var(--card-hover-border);
   box-shadow: var(--shadow-medium);
+  transform: translateY(-2px);
 }
 
 .card-glass {
@@ -544,15 +550,15 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 }
 
 
-/* ── KPI Card (accent) ─────────────────────────────────── */
+/* -- KPI Card (accent) --------------------------------------------- */
 .kpi-card-dark {
-  background: rgba(99, 102, 241, 0.07);
+  background: var(--fin-accent-light);
   color: var(--fin-ink);
   border-radius: var(--fin-radius);
-  border: 0.5px solid rgba(99, 102, 241, 0.18);
+  border: 0.5px solid rgba(49, 99, 66, 0.18);
 }
 
-/* ── Metric Card ────────────────────────────────────────── */
+/* -- Metric Card ----------------------------------------------------- */
 .metric-card {
   background: var(--fin-surface);
   border: 1px solid var(--fin-border);
@@ -567,9 +573,9 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 .metric-card__label {
   font-family: var(--fin-font);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--fin-ink-3);
 }
 
@@ -591,7 +597,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 .metric-card__icon {
   width: 2rem;
   height: 2rem;
-  border-radius: 6px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -606,7 +612,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 .metric-card--warning .metric-card__value { color: var(--fin-amber); }
 .metric-card--primary .metric-card__value { color: var(--fin-accent); }
 
-/* ── Empty State ────────────────────────────────────────── */
+/* -- Empty State ------------------------------------------------- */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -626,7 +632,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 .empty-state__title {
   font-family: var(--fin-font);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--fin-ink);
   margin-bottom: 0.25rem;
 }
@@ -637,15 +643,15 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   max-width: 280px;
 }
 
-/* ── Badges ─────────────────────────────────────────────── */
+/* -- Badges ---------------------------------------------------------- */
 .badge {
   display: inline-flex;
   align-items: center;
   padding: 0.175rem 0.5rem;
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   font-family: var(--fin-font);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0;
   border: 1px solid transparent;
 }
@@ -686,7 +692,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   border-color: var(--badge-neutral-border);
 }
 
-/* ── Alerts ─────────────────────────────────────────────── */
+/* -- Alerts ------------------------------------------------------ */
 .alert {
   border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
@@ -753,7 +759,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   background: var(--alert-warning-bg-strong);
 }
 
-/* ── Tables ─────────────────────────────────────────────── */
+/* -- Tables -------------------------------------------------------- */
 .table, .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -772,9 +778,9 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   padding: 0.5rem 0.875rem;
   font-family: var(--fin-font);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--fin-ink-3);
 }
 
@@ -800,7 +806,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   font-size: 13px;
 }
 
-/* ── Focus ──────────────────────────────────────────────── */
+/* -- Focus ---------------------------------------------------------- */
 .nav-item:focus-visible,
 .btn:focus-visible,
 .btn-primary:focus-visible,
@@ -814,7 +820,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   box-shadow: var(--focus-ring);
 }
 
-/* ── Utilities ──────────────────────────────────────────── */
+/* -- Utilities ------------------------------------------------------ */
 .spinner {
   display: inline-block;
   width: 1.25rem;
@@ -842,9 +848,9 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 .chart-panel { height: 280px; }
 .chart-legend { max-height: 280px; }
 
-/* ── Progress Bar — ver layout.css: .progress-wrap > .progress-fill ── */
+/* -- Progress Bar -- ver layout.css: .progress-wrap > .progress-fill -- */
 
-/* ── Page / Section Icons ───────────────────────────────── */
+/* -- Page / Section Icons -------------------------------------------- */
 .page-icon {
   width: 2.25rem;
   height: 2.25rem;
@@ -860,20 +866,20 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 .section-icon {
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 4px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-/* ── Sidebar Navigation ─────────────────────────────────── */
+/* -- Sidebar Navigation ----------------------------------------------- */
 .nav-item {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   padding: 0.4375rem 0.75rem;
   margin: 1px 0.375rem;
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--nav-text);
   font-family: var(--fin-font);
   font-weight: 400;
@@ -895,8 +901,8 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 
 .nav-item.active {
   background: var(--nav-active-bg);
-  color: var(--nav-text-strong);
-  font-weight: 500;
+  color: var(--nav-accent-strong);
+  font-weight: 700;
 }
 
 .nav-item.active::before {
@@ -905,12 +911,12 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   left: -0.375rem;
   top: 5px;
   bottom: 5px;
-  width: 2px;
-  border-radius: 0 2px 2px 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
   background: var(--fin-accent);
 }
 
-/* ── Sidebar Sections ───────────────────────────────────── */
+/* -- Sidebar Sections --------------------------------------------- */
 .sidebar-section {
   margin: 1rem 0 0.25rem;
   padding: 0 1rem;
@@ -920,17 +926,17 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   color: var(--nav-section-text);
   font-family: var(--fin-font);
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
 
 .nav-icon { display: none; }
 
-/* ── Theme Toggle (hidden — no dark mode) ───────────────── */
+/* -- Theme Toggle (hidden -- no dark mode) --------------------------- */
 .theme-toggle { display: none; }
 
-/* ── Tailwind overrides (light theme) ───────────────────── */
+/* -- Tailwind overrides (light theme) -------------------------------- */
 .bg-white,
 .bg-neutral-50,
 .bg-neutral-100 { background-color: var(--fin-surface) !important; }
@@ -960,26 +966,26 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
 .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--fin-border) !important; }
 .shadow, .shadow-sm, .shadow-soft { box-shadow: var(--shadow-soft) !important; }
 
-/* ── Transitions for theme switch (noop) ────────────────── */
+/* -- Transitions for theme switch (noop) ----------------------------- */
 body, main, .card, .card-hover-lift, .card-glass, .input-field,
 .table thead, .table tbody tr, .data-table thead, .data-table tbody tr,
 .badge, .alert, .btn, .divider, .progress-track, .metric-card {
   transition: background-color var(--transition-slow), color var(--transition-fast), border-color var(--transition-fast);
 }
 
-/* ── Scrollbar ──────────────────────────────────────────── */
+/* -- Scrollbar ------------------------------------------------------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
-/* ── Text selection ─────────────────────────────────────── */
+/* -- Text selection ---------------------------------------------- */
 ::selection {
-  background: rgba(99, 102, 241, 0.20);
+  background: rgba(49, 99, 66, 0.20);
   color: var(--fin-ink);
 }
 
-/* ── Flatpickr overrides ────────────────────────────────── */
+/* -- Flatpickr overrides ------------------------------------------ */
 .flatpickr-calendar {
   border-radius: 12px !important;
   box-shadow: var(--shadow-strong) !important;
@@ -1014,9 +1020,9 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
   color: var(--fin-ink-2) !important;
 }
 
-/* ══════════════════════════════════════════════════
-   MOBILE — max-width: 767px
-   ══════════════════════════════════════════════════ */
+/* ==================================================
+   MOBILE -- max-width: 767px
+   ================================================== */
 @media (max-width: 767px) {
   .container {
     padding-left: 1rem !important;
@@ -1289,7 +1295,7 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
     background: var(--fin-accent);
     color: #fff;
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     border: none;
     border-radius: 100px;
     cursor: pointer;
@@ -1318,9 +1324,9 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
   .numpad-del { background: none; border-color: transparent; color: var(--fin-ink-3); }
 }
 
-/* ══════════════════════════════════════════════════
-   TABLET — 768px to 1023px
-   ══════════════════════════════════════════════════ */
+/* ==================================================
+   TABLET -- 768px to 1023px
+   ================================================== */
 @media (min-width: 768px) and (max-width: 1023px) {
   .container { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
   .page-title { font-size: 20px; }
@@ -1328,16 +1334,16 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
   .chart-panel { height: 240px; }
 }
 
-/* ══════════════════════════════════════════════════
-   DESKTOP — hide mobile nav
-   ══════════════════════════════════════════════════ */
+/* ==================================================
+   DESKTOP -- hide mobile nav
+   ================================================== */
 @media (min-width: 768px) {
   .mobile-bottom-nav { display: none !important; }
   .numpad-btn { display: block; }
   .quick-add-sheet, .quick-add-sheet-backdrop { display: none !important; }
 }
 
-/* ── Skeleton Loaders ───────────────────────────────────── */
+/* -- Skeleton Loaders -------------------------------------------- */
 @keyframes skeleton-shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
@@ -1361,7 +1367,7 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
 .skeleton-circle  { border-radius: 50%; }
 .skeleton-btn     { height: 2.125rem; border-radius: 100px; }
 
-/* ── Nav icon alignment ─────────────────────────────────── */
+/* -- Nav icon alignment ------------------------------------------ */
 .nav-item .nav-icon {
   display: flex;
   align-items: center;
@@ -1376,7 +1382,7 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
 .nav-item:hover .nav-icon,
 .nav-item.active .nav-icon { opacity: 1; }
 
-/* ── Global focus-visible ───────────────────────────────── */
+/* -- Global focus-visible ------------------------------------------ */
 :focus-visible {
   outline: 2px solid var(--fin-accent);
   outline-offset: 3px;
@@ -1384,7 +1390,7 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
 
 :focus:not(:focus-visible) { outline: none; }
 
-/* ── Utilities ── */
+/* -- Utilities -- */
 .text-success { color: var(--fin-success); }
 .text-danger  { color: var(--fin-danger); }
 .text-warning { color: var(--fin-amber); }
@@ -1431,26 +1437,26 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
   gap: 3px;
 }
 
-/* ── Empty state (utility layer) ── */
+/* -- Empty state (utility layer) -- */
 .empty-state__icon { font-size: 2.5rem; margin-bottom: 16px; }
-.empty-state__title { font-size: var(--text-lg); font-weight: 600; color: var(--fin-ink); margin: 0 0 8px; }
+.empty-state__title { font-size: var(--text-lg); font-weight: 700; color: var(--fin-ink); margin: 0 0 8px; }
 .empty-state__hint  { font-size: var(--text-sm); margin: 0 0 20px; }
 
-/* ── fin-table utility ── */
+/* -- fin-table utility -- */
 .fin-table { width: 100%; border-collapse: collapse; }
-.fin-table th { background: var(--fin-surface-2); padding: 10px 14px; text-align: left; font-size: var(--text-sm); color: var(--fin-ink-3); font-weight: 600; border-bottom: 1px solid var(--fin-border); }
+.fin-table th { background: var(--fin-surface-2); padding: 10px 14px; text-align: left; font-size: var(--text-sm); color: var(--fin-ink-3); font-weight: 700; border-bottom: 1px solid var(--fin-border); }
 .fin-table td { padding: 10px 14px; border-bottom: 1px solid var(--fin-border); }
 .fin-table tr:hover td { background: var(--table-row-hover); }
 .fin-table td.amount, .fin-table th.amount { text-align: right; }
 
-/* ══════════════════════════════════════════════════
+/* ==================================================
    UTILITY LAYER
-   Cubre los patrones inline más frecuentes en páginas JS.
-   Estilos dinámicos (width:${pct}%, color:${color}) siguen
-   inline — eso es correcto. Esta capa cubre solo los estáticos.
-   ══════════════════════════════════════════════════ */
+   Cubre los patrones inline mas frecuentes en paginas JS.
+   Estilos dinamicos (width:${pct}%, color:${color}) siguen
+   inline -- eso es correcto. Esta capa cubre solo los estaticos.
+   ================================================== */
 
-/* — Tipografía — */
+/* - Tipografia - */
 .text-xs   { font-size: var(--text-xs); }
 .text-sm   { font-size: var(--text-sm); }
 .text-base { font-size: var(--text-base); }
@@ -1458,60 +1464,59 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
 .text-xl   { font-size: var(--text-xl); }
 .text-2xl  { font-size: var(--text-2xl); }
 
-/* — Peso — */
+/* - Peso - */
 .fw-normal  { font-weight: 400; }
 .fw-medium  { font-weight: 500; }
-.fw-semibold{ font-weight: 600; }
-.fw-bold    { font-weight: 700; }
+.fw-semibold{ font-weight: 700; }
+.fw-bold    { font-weight: 800; }
 
-/* — Color de texto semántico — */
+/* - Color de texto semantico - */
 /* (text-success/danger/warning/muted/soft definidos arriba en Utilities) */
 
-/* — Alineación de texto — */
+/* - Alineacion de texto - */
 .text-right  { text-align: right; }
 .text-center { text-align: center; }
 .text-left   { text-align: left; }
 
-/* — Whitespace — */
+/* - Whitespace - */
 .nowrap { white-space: nowrap; }
 
-/* — Display / flex helpers — */
+/* - Display / flex helpers - */
 .flex-1       { flex: 1; }
 .flex-shrink-0{ flex-shrink: 0; }
 .overflow-x-auto { overflow-x: auto; }
 .overflow-hidden { overflow: hidden; }
 
-/* — Espaciado extra (mb-5, mb-6 para margin-bottom 20px/24px) — */
+/* - Espaciado extra (mb-5, mb-6 para margin-bottom 20px/24px) - */
 .mb-5 { margin-bottom: 20px; }
 .mb-6 { margin-bottom: 24px; }
 .mt-5 { margin-top: 20px; }
 .mt-6 { margin-top: 24px; }
 .p-0  { padding: 0; }
 
-/* — Composite: panel suave (reemplaza style="background:var(--fin-bg-2);...") — */
+/* - Composite: panel suave (reemplaza style="background:var(--fin-bg-2);...") - */
 .soft-panel {
   background: var(--fin-surface-2);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
 }
 
-/* — Composite: fila de lista con separador — */
+/* - Composite: fila de lista con separador - */
 .list-row {
   padding: 9px 0;
   border-bottom: 0.5px solid var(--fin-border);
 }
 .list-row:last-child { border-bottom: none; }
 
-/* — Composite: label de campo superior (11px uppercase) — */
+/* - Composite: label de campo superior (11px uppercase) - */
 .field-label {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--fin-ink-3);
   margin-bottom: 4px;
 }
 
-/* — Monospace número — */
+/* - Monospace numero - */
 .mono { font-family: var(--fin-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-

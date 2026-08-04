@@ -1,62 +1,62 @@
 /**
- * Global Chart.js v4 defaults — Daylight theme (light background, indigo accent).
+ * Global Chart.js v4 defaults -- Terra theme (green-white surface, forest accents).
  * Loaded once after chart.js CDN; affects every chart in the app.
  */
 (function () {
   if (typeof Chart === 'undefined') return;
 
-  // Design-system Daylight palette (matches --chart-color-* tokens)
+  // Design-system Terra palette (matches --chart-color-* tokens)
   const PALETTE = [
-    '#6366F1', // indigo   (--chart-color-1)
-    '#10B981', // emerald  (--chart-color-2)
-    '#F59E0B', // amber    (--chart-color-3)
-    '#EF4444', // red      (--chart-color-4)
-    '#8B5CF6', // violet   (--chart-color-5)
-    '#06B6D4', // cyan     (--chart-color-6)
-    '#F97316', // orange   (--chart-color-7)
-    '#EC4899', // pink     (--chart-color-8)
+    '#316342', // forest green   (--chart-color-1)
+    '#BA1A1A', // error red      (--chart-color-2)
+    '#735142', // umber          (--chart-color-3)
+    '#3B6D7A', // teal           (--chart-color-4)
+    '#8E6959', // clay           (--chart-color-5)
+    '#57615A', // sage gray      (--chart-color-6)
+    '#9DD3AA', // mint           (--chart-color-7)
+    '#C9A98F', // sand           (--chart-color-8)
   ];
 
-  // ── Global font & color ────────────────────────────────────────────────────
-  Chart.defaults.font.family  = "'Inter', system-ui, sans-serif";
+  // -- Global font & color -----------------------------------------------------
+  Chart.defaults.font.family  = "'Nunito Sans', system-ui, sans-serif";
   Chart.defaults.font.size    = 12;
-  Chart.defaults.color        = '#64748B';   // --fin-ink-2 (readable on light bg)
-  Chart.defaults.borderColor  = 'rgba(15, 23, 42, 0.07)';
+  Chart.defaults.color        = '#414942';   // --fin-ink-2 (readable on light surface)
+  Chart.defaults.borderColor  = 'rgba(22, 29, 25, 0.08)';
   Chart.defaults.layout.padding = 4;
 
-  // ── Animation ──────────────────────────────────────────────────────────────
+  // -- Animation ----------------------------------------------------------------
   Chart.defaults.animation.duration = 550;
   Chart.defaults.animation.easing   = 'easeOutQuart';
 
-  // ── Legend ─────────────────────────────────────────────────────────────────
+  // -- Legend ---------------------------------------------------------------------
   Chart.defaults.plugins.legend.labels.usePointStyle    = true;
   Chart.defaults.plugins.legend.labels.pointStyle       = 'circle';
   Chart.defaults.plugins.legend.labels.padding          = 16;
-  Chart.defaults.plugins.legend.labels.color            = '#475569';  // --fin-ink-2
-  Chart.defaults.plugins.legend.labels.font             = { size: 11.5, weight: '500' };
+  Chart.defaults.plugins.legend.labels.color            = '#414942';  // --fin-ink-2
+  Chart.defaults.plugins.legend.labels.font             = { size: 11.5, weight: '600' };
   Chart.defaults.plugins.legend.labels.boxWidth         = 8;
   Chart.defaults.plugins.legend.labels.boxHeight        = 8;
 
-  // ── Tooltip ────────────────────────────────────────────────────────────────
-  Chart.defaults.plugins.tooltip.backgroundColor = '#1E293B';
-  Chart.defaults.plugins.tooltip.titleColor      = '#F1F5F9';
-  Chart.defaults.plugins.tooltip.bodyColor       = '#94A3B8';
-  Chart.defaults.plugins.tooltip.borderColor     = 'rgba(15, 23, 42, 0.15)';
+  // -- Tooltip ----------------------------------------------------------------
+  Chart.defaults.plugins.tooltip.backgroundColor = '#161D19';
+  Chart.defaults.plugins.tooltip.titleColor      = '#F4FBF3';
+  Chart.defaults.plugins.tooltip.bodyColor       = '#DDE4DD';
+  Chart.defaults.plugins.tooltip.borderColor     = 'rgba(22, 29, 25, 0.20)';
   Chart.defaults.plugins.tooltip.borderWidth     = 1;
   Chart.defaults.plugins.tooltip.padding         = 10;
-  Chart.defaults.plugins.tooltip.cornerRadius    = 10;
-  Chart.defaults.plugins.tooltip.titleFont       = { size: 12, weight: '600', family: '"Inter", system-ui, sans-serif' };
-  Chart.defaults.plugins.tooltip.bodyFont        = { size: 12, family: '"Inter", system-ui, sans-serif' };
+  Chart.defaults.plugins.tooltip.cornerRadius    = 8;
+  Chart.defaults.plugins.tooltip.titleFont       = { size: 12, weight: '700', family: '"Nunito Sans", system-ui, sans-serif' };
+  Chart.defaults.plugins.tooltip.bodyFont        = { size: 12, family: '"Nunito Sans", system-ui, sans-serif' };
   Chart.defaults.plugins.tooltip.caretSize       = 5;
   Chart.defaults.plugins.tooltip.boxPadding      = 5;
   Chart.defaults.plugins.tooltip.usePointStyle   = true;
   Chart.defaults.plugins.tooltip.mode            = 'index';
   Chart.defaults.plugins.tooltip.intersect       = false;
 
-  // ── Scale grid & ticks (light theme) ──────────────────────────────────────
+  // -- Scale grid & ticks (light theme) ----------------------------------------
   const scaleStyle = {
     grid: {
-      color:      'rgba(15, 23, 42, 0.06)',  // --chart-grid
+      color:      'rgba(22, 29, 25, 0.08)',  // --chart-grid
       lineWidth:  1,
       drawBorder: false,
     },
@@ -64,7 +64,7 @@
       display: false,
     },
     ticks: {
-      color:   '#94A3B8',   // --fin-ink-3
+      color:   '#717971',   // --fin-ink-3
       padding: 8,
       font:    { size: 11 },
     },
@@ -80,13 +80,13 @@
     } catch (_) {}
   });
 
-  // ── Chart type overrides (v4 API) ──────────────────────────────────────────
+  // -- Chart type overrides (v4 API) -------------------------------------------
   try {
     const bar = Chart.overrides.bar;
-    bar.borderRadius ??= 6;
+    bar.borderRadius ??= 4;
     bar.borderSkipped ??= false;
     if (!bar.datasets) bar.datasets = {};
-    bar.datasets.borderRadius ??= 6;
+    bar.datasets.borderRadius ??= 4;
   } catch (_) {}
 
   try {

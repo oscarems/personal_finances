@@ -134,7 +134,7 @@ function loadAllocation() {
     return;
   }
 
-  const palette = window.CHART_PALETTE ?? ['#2D6A4F','#3d5a80','#B7621A','#6B6560','#D97706','#0891B2'];
+  const palette = window.CHART_PALETTE ?? ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3F','#8A5A44','#7A6A53'];
 
   const byClase = {};
   const claseOrder = [];

@@ -114,6 +114,20 @@ function mountBucketsChart(container, buckets, targets, income, currency) {
   const labels = keys.map(k => `${BUCKET_META[k].emoji} ${BUCKET_META[k].label}`);
   const colors = keys.map(k => BUCKET_META[k].color);
 
+  const unassignedPct = Math.max(0, 100 - values.reduce((s, v) => s + v, 0));
+  if (unassignedPct > 0.5) {
+    keys.push('unassigned');
+    values.push(unassignedPct);
+    labels.push('⬜ No asignado');
+    colors.push('#717971');
+  }
+
+  const style = getComputedStyle(container);
+  const surface = style.getPropertyValue('--fin-surface').trim() || '#FFFFFF';
+  const ink     = style.getPropertyValue('--fin-ink').trim() || '#161D19';
+  const ink3    = style.getPropertyValue('--fin-ink-3').trim() || '#717971';
+  const border  = style.getPropertyValue('--fin-border').trim() || 'rgba(28,27,23,0.15)';
+
   _chart = new Chart(canvas, {
     type: 'doughnut',
     data: {
@@ -121,21 +135,39 @@ function mountBucketsChart(container, buckets, targets, income, currency) {
       datasets: [{
         data: values,
         backgroundColor: colors,
-        borderWidth: 3,
-        borderColor: 'var(--fin-surface)',
-        hoverOffset: 8,
+        borderWidth: 0,
+        borderRadius: 10,
+        spacing: 4,
+        hoverOffset: 10,
+        hoverBorderWidth: 0,
       }],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '62%',
+      cutout: '74%',
+      radius: '92%',
+      animation: { animateRotate: true, duration: 700, easing: 'easeOutQuart' },
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: surface,
+          titleColor: ink,
+          bodyColor: ink3,
+          borderColor: border,
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 8,
+          displayColors: true,
+          boxPadding: 4,
+          bodyFont: { size: 12 },
+          titleFont: { size: 12, weight: '700' },
           callbacks: {
             label: (ctx) => {
               const k = keys[ctx.dataIndex];
+              if (k === 'unassigned') {
+                return ` ${ctx.parsed.toFixed(1)}% sin asignar a ningún balde`;
+              }
               const target = targets[k] ?? 0;
               const b = buckets[k];
               const amount = k === 'savings' ? (b?.assigned ?? 0) : (b?.spent ?? 0);
@@ -362,9 +394,9 @@ function goodJobSection(goods) {
 // ── BLOQUE 3: BALDES 50/30/20 ─────────────────────────────────────────────────
 
 const BUCKET_META = {
-  needs:   { label: 'Necesidades',  emoji: '🏠', color: '#22d3ee', desc: 'Vivienda · Comida · Transporte', target_tip: 'max 50% de tus ingresos' },
-  wants:   { label: 'Deseos',       emoji: '🎉', color: '#fbbf24', desc: 'Entretenimiento · Restaurantes', target_tip: 'max 30% de tus ingresos' },
-  savings: { label: 'Ahorro',       emoji: '💰', color: '#34d399', desc: 'Inversión · Emergencias · Deudas', target_tip: 'mínimo 20% de tus ingresos' },
+  needs:   { label: 'Necesidades',  emoji: '🏠', color: '#3B5B66', desc: 'Vivienda · Comida · Transporte', target_tip: 'max 50% de tus ingresos' },
+  wants:   { label: 'Deseos',       emoji: '🎉', color: '#735142', desc: 'Entretenimiento · Restaurantes', target_tip: 'max 30% de tus ingresos' },
+  savings: { label: 'Ahorro',       emoji: '💰', color: '#316342', desc: 'Inversión · Emergencias · Deudas', target_tip: 'mínimo 20% de tus ingresos' },
 };
 
 function bucketsSection(buckets, targets, income, currency) {
@@ -377,7 +409,7 @@ function bucketsSection(buckets, targets, income, currency) {
       <div class="fh-section-sub">
         La torta muestra en qué se va cada peso ${hasIncome ? 'de tu ingreso' : 'de tu presupuesto'} este mes,
         comparado contra la regla ${targets.needs.toFixed(0)}/${targets.wants.toFixed(0)}/${targets.savings.toFixed(0)}
-        (necesidades / deseos / ahorro).
+        (necesidades / deseos / ahorro)${hasIncome ? '. El gris muestra el % de tu ingreso que no asignaste a ningún balde' : ''}.
       </div>
 
       <div class="fh-pie-wrap">
@@ -392,6 +424,7 @@ function bucketsSection(buckets, targets, income, currency) {
 
         <div class="fh-pie-legend">
           ${['needs', 'wants', 'savings'].map(k => pieLegendRow(k, buckets[k], targets[k], income.buckets?.[k], hasIncome, currency)).join('')}
+          ${unassignedLegendRow(buckets, targets, income, hasIncome, currency)}
         </div>
       </div>
 
@@ -427,6 +460,42 @@ function pieLegendRow(key, b, targetPct, ib, hasIncome, currency) {
         <div class="fh-pie-leg-sub">
           ${fmtCurrency(amount, currency)} · meta ${targetPct.toFixed(0)}% ·
           <span style="color:${statusColor};font-weight:600">${statusText}</span>
+        </div>
+        <div class="fh-pie-leg-bar">
+          <div class="fh-pie-leg-bar-fg" style="width:${Math.min(100, actualPct)}%;background:${meta.color}"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function unassignedLegendRow(buckets, targets, income, hasIncome, currency) {
+  if (!hasIncome) return '';
+
+  const keys = ['needs', 'wants', 'savings'];
+  const usedPct = keys.reduce((s, k) => {
+    const b = buckets[k];
+    const ib = income.buckets?.[k];
+    return s + (ib ? (ib.pct_of_income ?? 0) : (b?.pct_of_assigned ?? 0));
+  }, 0);
+  const unassignedPct = Math.max(0, 100 - usedPct);
+  if (unassignedPct <= 0.5) return '';
+
+  const totalIncome = income.total_income ?? 0;
+  const amount = totalIncome * (unassignedPct / 100);
+
+  return `
+    <div class="fh-pie-leg-row">
+      <span class="fh-pie-leg-dot" style="background:#717971"></span>
+      <div class="fh-pie-leg-body">
+        <div class="fh-pie-leg-top">
+          <span class="fh-pie-leg-name">⬜ No asignado</span>
+          <span class="fh-pie-leg-pct">${unassignedPct.toFixed(0)}%</span>
+        </div>
+        <div class="fh-pie-leg-sub">
+          ${fmtCurrency(amount, currency)} · ingreso sin asignar a ningún balde de presupuesto
+        </div>
+        <div class="fh-pie-leg-bar">
+          <div class="fh-pie-leg-bar-fg" style="width:${Math.min(100, unassignedPct)}%;background:#717971"></div>
         </div>
       </div>
     </div>`;
@@ -560,9 +629,9 @@ function goodsSection(goods) {
 function detailSection(buckets, currency) {
   const rows = [];
   for (const { key, color } of [
-    { key: 'needs',   color: '#22d3ee' },
-    { key: 'wants',   color: '#fbbf24' },
-    { key: 'savings', color: '#34d399' },
+    { key: 'needs',   color: BUCKET_META.needs.color },
+    { key: 'wants',   color: BUCKET_META.wants.color },
+    { key: 'savings', color: BUCKET_META.savings.color },
   ]) {
     const b    = buckets[key];
     const cats = (b?.categories ?? []).filter(c => (c.assigned ?? 0) > 0 || (c.spent ?? 0) > 0);
@@ -612,29 +681,29 @@ function detailSection(buckets, currency) {
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
 function getGradeInfo(score) {
-  if (score == null) return { color: '#94A3B8', face: '😶', label: '—', message: '' };
+  if (score == null) return { color: '#717971', face: '😶', label: '—', message: '' };
   if (score >= 90) return {
-    color: '#34d399', face: '🤩', label: '¡Excelente!',
+    color: '#316342', face: '🤩', label: '¡Excelente!',
     message: 'Tus finanzas están en forma. Sigue así y llegarás a tus metas.',
   };
   if (score >= 80) return {
-    color: '#4ade80', face: '😄', label: '¡Muy bien!',
+    color: '#2F6B4F', face: '😄', label: '¡Muy bien!',
     message: 'Vas por buen camino. Hay pequeñas cosas que afinar.',
   };
   if (score >= 70) return {
-    color: '#fbbf24', face: '😊', label: 'Bien',
+    color: '#735142', face: '😊', label: 'Bien',
     message: 'Estás bien, pero hay oportunidades claras de mejorar.',
   };
   if (score >= 60) return {
-    color: '#fb923c', face: '😐', label: 'Regular',
+    color: '#8A5A44', face: '😐', label: 'Regular',
     message: 'Algunas cosas necesitan atención. Lee las acciones de abajo.',
   };
   if (score >= 40) return {
-    color: '#f87171', face: '😟', label: 'Atención',
+    color: '#B4462F', face: '😟', label: 'Atención',
     message: 'Tu salud financiera necesita trabajo. No te preocupes, hay pasos claros.',
   };
   return {
-    color: '#ef4444', face: '😨', label: '¡Alerta!',
+    color: '#BA1A1A', face: '😨', label: '¡Alerta!',
     message: 'Situación crítica. Enfócate en las acciones de abajo hoy mismo.',
   };
 }
@@ -753,28 +822,51 @@ function fhStyles() {
 
     /* Torta de distribución */
     .fh-pie-wrap {
-      display: flex; align-items: center; gap: 28px;
+      display: flex; align-items: center; gap: 32px;
       margin-top: 18px; margin-bottom: 20px; flex-wrap: wrap;
     }
     .fh-pie-chart {
       position: relative; flex-shrink: 0;
-      width: 200px; height: 200px;
+      width: 208px; height: 208px;
+      border-radius: 50%;
+      filter: drop-shadow(0 8px 20px rgba(0,0,0,.28));
+    }
+    .fh-pie-chart::before {
+      content: '';
+      position: absolute; inset: 6%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 42%, rgba(255,255,255,.05), rgba(255,255,255,0) 60%);
+      pointer-events: none;
     }
     .fh-pie-center {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       text-align: center; pointer-events: none;
     }
-    .fh-pie-center-lbl { font-size: 0.66rem; color: var(--fin-ink-3); text-transform: uppercase; letter-spacing: .05em }
-    .fh-pie-center-val { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--fin-ink); margin-top: 2px }
+    .fh-pie-center-lbl { font-size: 0.64rem; color: var(--fin-ink-3); text-transform: uppercase; letter-spacing: .08em }
+    .fh-pie-center-val { font-family: var(--font-mono); font-size: 0.95rem; font-weight: 700; color: var(--fin-ink); margin-top: 3px }
 
-    .fh-pie-legend { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 12px }
-    .fh-pie-leg-row { display: flex; align-items: flex-start; gap: 10px }
-    .fh-pie-leg-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; margin-top: 3px }
-    .fh-pie-leg-body { flex: 1 }
+    .fh-pie-legend { flex: 0 1 380px; min-width: 240px; max-width: 420px; display: flex; flex-direction: column; gap: 8px }
+    .fh-pie-leg-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px; border-radius: 10px;
+      border: 1px solid transparent;
+      transition: background .15s, border-color .15s;
+    }
+    .fh-pie-leg-row:hover { background: rgba(255,255,255,.03); border-color: var(--fin-border) }
+    .fh-pie-leg-dot {
+      width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+      box-shadow: 0 0 0 4px rgba(255,255,255,.05);
+    }
+    .fh-pie-leg-body { flex: 1; min-width: 0 }
     .fh-pie-leg-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px }
-    .fh-pie-leg-name { font-size: 0.85rem; font-weight: 600; color: var(--fin-ink) }
-    .fh-pie-leg-pct  { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 700; color: var(--fin-ink) }
-    .fh-pie-leg-sub  { font-size: 0.74rem; color: var(--fin-ink-3); margin-top: 2px }
+    .fh-pie-leg-name { font-size: 0.83rem; font-weight: 600; color: var(--fin-ink) }
+    .fh-pie-leg-pct  { font-family: var(--font-mono); font-size: 0.88rem; font-weight: 700; color: var(--fin-ink); flex-shrink: 0 }
+    .fh-pie-leg-sub  { font-size: 0.72rem; color: var(--fin-ink-3); margin-top: 2px }
+    .fh-pie-leg-bar {
+      height: 4px; border-radius: 2px; background: var(--fin-border);
+      margin-top: 7px; overflow: hidden;
+    }
+    .fh-pie-leg-bar-fg { height: 100%; border-radius: inherit; transition: width .6s ease }
 
     @media (max-width: 560px) {
       .fh-pie-wrap { justify-content: center }

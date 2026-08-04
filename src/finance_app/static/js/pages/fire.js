@@ -163,9 +163,9 @@ function renderGauge(pct) {
   if (pct > 0) {
     // Map pct ranges to CSS token colours via getComputedStyle
     const root = getComputedStyle(document.documentElement);
-    const successColor = root.getPropertyValue('--fin-success').trim() || '#2D6A4F';
-    const amberColor   = root.getPropertyValue('--fin-amber').trim()   || '#B7621A';
-    const mutedColor   = root.getPropertyValue('--fin-ink-3').trim()   || '#6B6560';
+    const successColor = root.getPropertyValue('--fin-success').trim() || '#316342';
+    const amberColor   = root.getPropertyValue('--fin-amber').trim()   || '#735142';
+    const mutedColor   = root.getPropertyValue('--fin-ink-3').trim()   || '#717971';
     const fillColor = pct >= 75 ? successColor : pct >= 25 ? amberColor : mutedColor;
     ctx.beginPath();
     ctx.arc(cx, cy, r, startAngle, fillAngle);

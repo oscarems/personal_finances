@@ -26,7 +26,7 @@ function _destroyCharts() {
 }
 
 const TYPE_LABEL = { mortgage: 'Hipoteca', credit_loan: 'Préstamo', credit_card: 'Tarjeta' };
-const TYPE_COLOR = { mortgage: 'var(--fin-accent)', credit_loan: 'var(--fin-warning,#f59e0b)', credit_card: 'var(--fin-danger)' };
+const TYPE_COLOR = { mortgage: 'var(--fin-accent)', credit_loan: 'var(--fin-amber,#735142)', credit_card: 'var(--fin-danger)' };
 const PRESETS_COP = [50_000, 100_000, 200_000, 500_000];
 const PRESETS_USD = [50, 100, 250, 500];
 
@@ -237,7 +237,7 @@ async function _runSimulation(container) {
       resultsEl.innerHTML = renderExtraResults(_lastSimData, extra, selectedDebt);
       if (_lastSimData.warnings?.length) {
         resultsEl.insertAdjacentHTML('afterbegin', _lastSimData.warnings.map(w =>
-          `<div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:var(--fin-warning,#f59e0b)">⚠ ${w}</div>`
+          `<div style="background:rgba(166,117,44,0.1);border:1px solid rgba(166,117,44,0.35);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.82rem;color:var(--fin-amber,#735142)">⚠ ${w}</div>`
         ).join(''));
       }
       const currency = selectedDebt?.currency_code || 'COP';
@@ -420,7 +420,7 @@ function renderStrategyResults(data, extra, selectedDebt) {
 
   const strategies = [
     { key: 'avalanche', label: 'Avalancha', emoji: '🏔️', desc: 'Paga primero la de mayor tasa', color: 'var(--fin-accent)', border: 'rgba(99,179,237,0.35)', bg: 'rgba(99,179,237,0.05)' },
-    { key: 'snowball',  label: 'Bola de nieve', emoji: '❄️', desc: 'Paga primero la de menor saldo', color: '#a78bfa', border: 'rgba(167,139,250,0.35)', bg: 'rgba(167,139,250,0.05)' },
+    { key: 'snowball',  label: 'Bola de nieve', emoji: '❄️', desc: 'Paga primero la de menor saldo', color: '#6B4226', border: 'rgba(107,66,38,0.35)', bg: 'rgba(107,66,38,0.05)' },
     { key: 'minimum_only', label: 'Solo mínimo', emoji: '😬', desc: 'Sin estrategia, cuota mínima', color: 'var(--fin-ink-3)', border: 'var(--fin-border)', bg: 'var(--fin-bg-2)' },
   ];
 

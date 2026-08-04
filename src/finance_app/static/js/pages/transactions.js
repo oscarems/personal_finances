@@ -9,6 +9,8 @@ export const title = 'Transacciones';
 let _accounts  = [];
 let _categories= [];
 let _filters   = { search: '', account_id: '', category_id: '', date_from: '', date_to: '', type: '', uncategorized: false, limit: 100 };
+let _sortDir   = null; // null | 'asc' | 'desc'
+let _lastTxList = [];
 
 export async function mount(container) {
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
@@ -206,43 +208,69 @@ async function loadTransactions(container) {
       `;
     }
 
-    if (!txList.length) {
-      wrap.innerHTML = emptyState({ icon: '📋', title: 'Sin transacciones', hint: 'No se encontraron resultados con los filtros aplicados.' });
-      return;
-    }
-
-    wrap.innerHTML = `
-      <table class="fin-table">
-        <thead>
-          <tr>
-            <th style="width:100px">Fecha</th>
-            <th>Beneficiario / Desc.</th>
-            <th>Cuenta</th>
-            <th>Categoría</th>
-            <th class="amount" style="width:140px">Monto</th>
-            <th style="width:60px"></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${txList.map(tx => txRow(tx)).join('')}
-        </tbody>
-      </table>
-    `;
-
-    wrap.querySelectorAll('[data-edit-tx]').forEach(btn => {
-      const id = parseInt(btn.dataset.editTx);
-      const tx = txList.find(t => t.id === id);
-      btn.addEventListener('click', () => openTxModal(tx, container));
-    });
-
-    wrap.querySelectorAll('[data-delete-tx]').forEach(btn => {
-      const id = parseInt(btn.dataset.deleteTx);
-      btn.addEventListener('click', () => deleteTx(id, container));
-    });
+    _lastTxList = txList;
+    renderTxTable(container);
 
   } catch (err) {
     wrap.innerHTML = `<div class="alert alert-danger mt-3">${sanitize(err.message)}</div>`;
   }
+}
+
+function getSortAmount(tx) {
+  const nativeCurrency = tx.currency?.code ?? 'COP';
+  if (nativeCurrency === 'COP') return tx.amount ?? 0;
+  return tx.cop_amount ?? tx.amount ?? 0;
+}
+
+function renderTxTable(container) {
+  const wrap = container.querySelector('#tx-table-wrap');
+  if (!wrap) return;
+
+  if (!_lastTxList.length) {
+    wrap.innerHTML = emptyState({ icon: '📋', title: 'Sin transacciones', hint: 'No se encontraron resultados con los filtros aplicados.' });
+    return;
+  }
+
+  const txList = [..._lastTxList];
+  if (_sortDir) {
+    txList.sort((a, b) => _sortDir === 'asc' ? getSortAmount(a) - getSortAmount(b) : getSortAmount(b) - getSortAmount(a));
+  }
+
+  const sortArrow = _sortDir === 'asc' ? '▲' : _sortDir === 'desc' ? '▼' : '↕';
+
+  wrap.innerHTML = `
+    <table class="fin-table">
+      <thead>
+        <tr>
+          <th style="width:100px">Fecha</th>
+          <th>Beneficiario / Desc.</th>
+          <th>Cuenta</th>
+          <th>Categoría</th>
+          <th class="amount" style="width:140px; cursor:pointer; user-select:none" id="th-amount" title="Ordenar por monto">Monto <span class="text-soft" style="font-size:0.75em">${sortArrow}</span></th>
+          <th style="width:60px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${txList.map(tx => txRow(tx)).join('')}
+      </tbody>
+    </table>
+  `;
+
+  wrap.querySelector('#th-amount').addEventListener('click', () => {
+    _sortDir = _sortDir === 'desc' ? 'asc' : 'desc';
+    renderTxTable(container);
+  });
+
+  wrap.querySelectorAll('[data-edit-tx]').forEach(btn => {
+    const id = parseInt(btn.dataset.editTx);
+    const tx = txList.find(t => t.id === id);
+    btn.addEventListener('click', () => openTxModal(tx, container));
+  });
+
+  wrap.querySelectorAll('[data-delete-tx]').forEach(btn => {
+    const id = parseInt(btn.dataset.deleteTx);
+    btn.addEventListener('click', () => deleteTx(id, container));
+  });
 }
 
 function txRow(tx) {
@@ -263,13 +291,10 @@ function txRow(tx) {
       <td class="amount ${amountCls}">
         ${(() => {
           const nativeCurrency = tx.currency?.code ?? 'COP';
-          const mainLine = `<div>${sign}${fmtCurrency(Math.abs(tx.amount ?? 0), nativeCurrency)}</div>`;
-          let secondaryLine = '';
-          if (nativeCurrency === 'COP' && tx.usd_amount != null) {
-            secondaryLine = `<div class="tx-secondary text-soft">≈ ${fmtCurrency(Math.abs(tx.usd_amount), 'USD')}</div>`;
-          } else if (nativeCurrency === 'USD' && tx.cop_amount != null) {
-            secondaryLine = `<div class="tx-secondary text-soft">≈ ${fmtCurrency(Math.abs(tx.cop_amount), 'COP')}</div>`;
-          }
+          const copValue = nativeCurrency === 'COP' ? (tx.amount ?? 0) : (tx.cop_amount ?? tx.amount ?? 0);
+          const usdValue = nativeCurrency === 'COP' ? tx.usd_amount : tx.amount;
+          const mainLine = `<div>${sign}${fmtCurrency(Math.abs(copValue), 'COP')}</div>`;
+          const secondaryLine = usdValue != null ? `<div class="tx-secondary text-soft">≈ ${fmtCurrency(Math.abs(usdValue), 'USD')}</div>` : '';
           return mainLine + secondaryLine;
         })()}
       </td>
@@ -290,7 +315,7 @@ function exportTransactions() {
   if (_filters.type)        params.set('transaction_type', _filters.type);
   params.set('limit', '0'); // export all
   const a = document.createElement('a');
-  a.href = `/api/v1/transactions/export?${params.toString()}`;
+  a.href = `/api/transactions/export?${params.toString()}`;
   a.download = 'transacciones.csv';
   a.click();
 }

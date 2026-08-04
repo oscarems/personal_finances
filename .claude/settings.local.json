@@ -227,7 +227,30 @@
       "Bash(grep -v ':0$')",
       "Bash(taskkill //F //IM python.exe //T)",
       "Bash(awk -F: '{s+=$2} END{print \"total:\", s}')",
-      "Bash(grep -n '\\\\${\\\\\\(tx\\\\|t\\\\|r\\\\|m\\\\|e\\\\\\)\\\\.\\\\\\(payee\\\\|payee_name\\\\|description\\\\|memo\\\\|merchant\\\\|lugar\\\\|place\\\\|subject\\\\|sender\\\\|name\\\\\\)\\\\b[^}]*}' js/pages/gmail-import.js js/pages/transactions.js js/pages/income.js js/pages/merchant-rules.js js/pages/debts.js js/pages/dashboard.js)"
+      "Bash(grep -n '\\\\${\\\\\\(tx\\\\|t\\\\|r\\\\|m\\\\|e\\\\\\)\\\\.\\\\\\(payee\\\\|payee_name\\\\|description\\\\|memo\\\\|merchant\\\\|lugar\\\\|place\\\\|subject\\\\|sender\\\\|name\\\\\\)\\\\b[^}]*}' js/pages/gmail-import.js js/pages/transactions.js js/pages/income.js js/pages/merchant-rules.js js/pages/debts.js js/pages/dashboard.js)",
+      "Bash(PYTHONPATH=src python -c ' *)",
+      "PowerShell(python -c \"import requests; r = requests.get\\('https://api.exchangerate-api.com/v4/latest/USD', timeout=5\\); print\\(r.status_code\\); print\\(r.json\\(\\).get\\('rates',{}\\).get\\('COP'\\)\\)\")",
+      "Bash(env)",
+      "Skill(dataviz)",
+      "Bash(/c/Users/oskre/AppData/Local/Programs/Python/Python313/python.exe -m playwright install chromium)",
+      "Bash(claude mcp *)",
+      "mcp__stitch__list_projects",
+      "mcp__stitch__list_screens",
+      "Bash(mkdir -p /tmp/stitch)",
+      "Read(//tmp/**)",
+      "Bash(cygpath -w /tmp/stitch/dashboard_terra.html)",
+      "Bash(grep -n \"#[0-9A-Fa-f]\\\\{3,6\\\\}\" \"D:/Github/personal_finances/src/finance_app/static/css/layout.css\")",
+      "Bash(taskkill //F //PID 13716 //T)",
+      "Bash(taskkill //F //PID 32796 //T)",
+      "Bash(APP_PASSWORD=dev \"./venv/Scripts/python.exe\" run.py)",
+      "Bash(disown)",
+      "Bash(taskkill //F //PID 36772)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(where python *)",
+      "Bash(./venv/Scripts/python.exe -m py_compile src/finance_app/api/budgets.py)",
+      "Bash(./venv/Scripts/python.exe -c ' *)",
+      "Bash(./venv/Scripts/python.exe -m py_compile src/finance_app/services/budget_service.py)",
+      "Bash(grep *)"
     ]
   }
 }

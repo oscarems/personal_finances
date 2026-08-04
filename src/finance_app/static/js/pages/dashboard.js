@@ -479,7 +479,7 @@ function renderNetWorthChart(container, data) {
   if (!ctx || !window.Chart) return;
 
   const theme = window.getChartTheme ? window.getChartTheme() : {};
-  const palette = window.CHART_PALETTE ?? ['#60A5FA','#34D399','#FBBF24','#F87171','#A78BFA','#22D3EE','#FB923C','#F472B6'];
+  const palette = window.CHART_PALETTE ?? ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3F','#8A5A44','#7A6A53'];
   const labels = data.map(d => d.month);
   const nets   = data.map(d => d.net_cop);
 
@@ -513,10 +513,10 @@ function renderNetWorthChart(container, data) {
         },
       },
       scales: {
-        x: { ticks: { color: theme.tickColor ?? '#94a3b8', maxTicksLimit: 6 }, grid: { color: theme.gridColor ?? '#1e293b' } },
+        x: { ticks: { color: theme.tickColor ?? '#717971', maxTicksLimit: 6 }, grid: { color: theme.gridColor ?? 'rgba(28,27,23,0.08)' } },
         y: {
           ticks: {
-            color: theme.tickColor ?? '#94a3b8',
+            color: theme.tickColor ?? '#717971',
             callback: v => {
               if (Math.abs(v) >= 1e9) return (v / 1e9).toFixed(1) + 'B';
               if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + 'M';
@@ -524,7 +524,7 @@ function renderNetWorthChart(container, data) {
               return v;
             },
           },
-          grid: { color: theme.gridColor ?? '#1e293b' },
+          grid: { color: theme.gridColor ?? 'rgba(28,27,23,0.08)' },
         },
       },
     },

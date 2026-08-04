@@ -89,7 +89,7 @@ function simulate(container) {
   const totalGain    = finalBalance - totalInvested;
   const roi          = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
 
-  const palette = window.CHART_PALETTE ?? ['#60A5FA','#34D399','#FBBF24','#F87171','#A78BFA','#22D3EE'];
+  const palette = window.CHART_PALETTE ?? ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3F','#8A5A44','#7A6A53'];
 
   const kpisEl = container.querySelector('#inv-kpis');
   kpisEl.innerHTML = `

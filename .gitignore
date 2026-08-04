@@ -18,6 +18,9 @@ build/
 data/*.db
 data/*.sqlite*
 
+# Generated at runtime
+src/finance_app/.cache/
+
 # IDE
 .vscode/
 .idea/

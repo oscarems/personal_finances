@@ -233,9 +233,55 @@ function renderPage(container) {
     const cat = cats.find(c => c.category_id === parseInt(btn.dataset.coverCat));
     btn.addEventListener('click', () => openCoverModal(cat, cats, container));
   });
+
+  // Edit/delete "Cubierto" movements
+  container.querySelectorAll('[data-edit-covered]').forEach(el => {
+    const cat = cats.find(c => c.category_id === parseInt(el.dataset.editCovered));
+    el.addEventListener('click', () => openCoveredModal(cat, cats, container));
+  });
+
+  // Drag & drop category rows onto a group header to move them
+  let draggedCatId = null;
+  container.querySelectorAll('[data-drag-cat]').forEach(row => {
+    row.addEventListener('dragstart', (e) => {
+      draggedCatId = parseInt(row.dataset.dragCat);
+      e.dataTransfer.effectAllowed = 'move';
+      row.style.opacity = '0.4';
+    });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      draggedCatId = null;
+    });
+  });
+  container.querySelectorAll('[data-drop-group]').forEach(header => {
+    header.addEventListener('dragover', (e) => {
+      if (draggedCatId == null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      header.style.outline = '2px dashed var(--fin-accent)';
+      header.style.outlineOffset = '-2px';
+    });
+    header.addEventListener('dragleave', () => {
+      header.style.outline = '';
+    });
+    header.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      header.style.outline = '';
+      const groupId = parseInt(header.dataset.dropGroup);
+      const cat = cats.find(c => c.category_id === draggedCatId);
+      if (!cat || !groupId || cat.group_id === groupId) return;
+      try {
+        await api.categories.update(draggedCatId, { category_group_id: groupId });
+        toast.success('Categoría movida de grupo');
+        await loadAndRender(container);
+      } catch (err) {
+        toast.error(err.message);
+      }
+    });
+  });
 }
 
-const GROUP_ACCENTS = ['#E07B54','#4E9D8F','#7B68C8','#C4883A','#4A90C4','#C45E8A','#5DA06A','#8E6BBF'];
+const GROUP_ACCENTS = ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3F','#8A5A44','#7A6A53'];
 let _isFirstGroup = true;
 let _groupIndex   = 0;
 
@@ -251,20 +297,20 @@ function groupRows(group, cats) {
   _groupIndex++;
 
   const pct         = progressPct(totSpent, totAssigned);
-  const pctColor    = pct >= 100 ? '#DC2626' : pct >= 80 ? '#D97706' : '#059669';
+  const pctColor    = pct >= 100 ? '#BA1A1A' : pct >= 80 ? '#735142' : '#2F6B4F';
   const pctLabel    = totAssigned > 0 ? `${Math.round(pct)}%` : '—';
   const availSign   = totAvailable >= 0 ? '+' : '';
-  const availColor  = totAvailable >= 0 ? '#059669' : '#DC2626';
+  const availColor  = totAvailable >= 0 ? '#2F6B4F' : '#BA1A1A';
 
   const coveredSign  = totCovered >= 0 ? '+' : '';
-  const coveredColor = totCovered > 0 ? '#4A90C4' : totCovered < 0 ? '#D97706' : 'var(--fin-ink-3)';
+  const coveredColor = totCovered > 0 ? '#3B5B66' : totCovered < 0 ? '#735142' : 'var(--fin-ink-3)';
 
   const spacer = _isFirstGroup ? '' : `<tr><td colspan="7" style="height:20px;padding:0;border:none;background:transparent"></td></tr>`;
   _isFirstGroup = false;
 
   const header = `
     ${spacer}
-    <tr class="budget-group-header" style="background:var(--fin-surface-2)">
+    <tr class="budget-group-header" data-drop-group="${grpId}" style="background:var(--fin-surface-2)">
       <td colspan="7" style="padding:0;border:none">
         <div style="
           border-left: 4px solid ${accent};
@@ -323,7 +369,7 @@ function categoryRow(c, groupAccent = 'var(--fin-border)') {
   const availClass = available >= 0 ? 'text-success' : 'text-danger';
 
   const pct      = progressPct(spent, assigned);
-  const pctColor = pct >= 100 ? '#DC2626' : pct >= 80 ? '#D97706' : '#059669';
+  const pctColor = pct >= 100 ? '#BA1A1A' : pct >= 80 ? '#735142' : '#2F6B4F';
   const pctLabel = assigned > 0 ? `${Math.round(pct)}%` : '—';
 
   const usoCel = assigned > 0
@@ -342,26 +388,26 @@ function categoryRow(c, groupAccent = 'var(--fin-border)') {
   const coveredClass = covered > 0 ? '' : covered < 0 ? 'text-warning' : 'td-soft';
   const coveredSign  = covered > 0 ? '+' : '';
   const coveredHtml  = covered !== 0
-    ? `<span style="color:${covered > 0 ? '#4A90C4' : '#D97706'};font-weight:600">${coveredSign}${fmtDual(covered)}</span>`
+    ? `<span style="color:${covered > 0 ? '#3B5B66' : '#735142'};font-weight:600">${coveredSign}${fmtDual(covered)}</span>`
     : `<span class="td-soft">—</span>`;
 
   return `
-    <tr>
+    <tr draggable="true" data-drag-cat="${c.category_id}" style="cursor:grab">
       <td style="font-size:0.8125rem;font-weight:500;padding-left:28px;border-left:3px solid ${groupAccent}33">
-        ${sanitize(c.category_name)}
+        <span style="opacity:0.35;margin-right:6px;font-size:0.7rem" title="Arrastra para mover de grupo">⠿</span>${sanitize(c.category_name)}
         ${isSavings ? '<span class="badge badge-accent" style="margin-left:6px;font-size:0.6rem">Ahorro</span>' : ''}
       </td>
       <td class="td-right td-mono" style="cursor:pointer;font-size:0.8125rem;line-height:1.4" data-edit-assigned="${c.category_id}" data-month="${_month}">
         ${assignedHtml}
       </td>
       <td class="td-right td-mono td-soft" style="font-size:0.8125rem;line-height:1.4">${fmtDual(spent)}</td>
-      <td class="td-right td-mono" style="font-size:0.8125rem;line-height:1.4">${coveredHtml}</td>
+      <td class="td-right td-mono" style="font-size:0.8125rem;line-height:1.4${covered !== 0 ? ';cursor:pointer' : ''}" ${covered !== 0 ? `data-edit-covered="${c.category_id}"` : ''}>${coveredHtml}</td>
       <td class="td-right td-mono ${availClass}" style="font-size:0.8125rem;line-height:1.4">
         ${fmtDual(available)}
       </td>
       <td style="padding-right:12px">${usoCel}</td>
       <td style="white-space:nowrap">
-        ${coverBtn}<button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría">⋯</button>
+        ${coverBtn}<button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría (nombre, grupo, tipo)">✎ Editar</button>
       </td>
     </tr>`;
 }
@@ -582,8 +628,10 @@ function openCategoryModal(cat, container) {
 }
 
 function openCoverModal(cat, allCats, container) {
-  const deficit   = Math.abs(cat.available ?? 0);
   const currency  = cat.currency_code ?? 'COP';
+  // cat.available is always COP-equivalent; cat.available_native is in the
+  // category's own currency and must be used for USD categories.
+  const deficit   = Math.abs(currency === 'USD' ? (cat.available_native ?? (cat.available ?? 0) / _rate) : (cat.available ?? 0));
   const readyToAssign = _data?.ready_to_assign ?? 0;
 
   // Categories with positive available (exclude the target itself)
@@ -636,6 +684,127 @@ function openCoverModal(cat, allCats, container) {
       }
 
       toast.success('Exceso cubierto');
+      await loadAndRender(container);
+    },
+  });
+}
+
+async function openCoveredModal(cat, allCats, container) {
+  const [year, month] = _month.split('-').map(Number);
+  const startDate = `${_month}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${_month}-${String(lastDay).padStart(2, '0')}`;
+
+  let txs = [];
+  try {
+    const all = await api.transactions.list({ category_id: cat.category_id, start_date: startDate, end_date: endDate });
+    txs = (all ?? []).filter(t => t.is_adjustment && t.memo &&
+      (t.memo.startsWith('Cubrir exceso:') || t.memo.startsWith('Cubierto desde:')));
+  } catch (err) {
+    toast.error(err.message);
+    return;
+  }
+
+  if (txs.length === 0) {
+    toast.error('No se encontraron movimientos de cobertura para este mes');
+    return;
+  }
+
+  const rowsHtml = txs.map(t => {
+    const isReceived = t.memo.startsWith('Cubierto desde:');
+    const counterpart = t.memo.slice(t.memo.indexOf(':') + 1).trim();
+    const currencyCode = t.currency?.code ?? t.currency_code ?? 'COP';
+    const sentence = isReceived
+      ? `Recibió <strong>${fmtCurrency(Math.abs(t.amount), currencyCode)}</strong> de <strong>${sanitize(counterpart)}</strong> para cubrir su déficit`
+      : `Envió <strong>${fmtCurrency(Math.abs(t.amount), currencyCode)}</strong> a <strong>${sanitize(counterpart)}</strong> para cubrir su déficit`;
+    return `
+    <div class="flex-row" style="justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--fin-border)">
+      <div>
+        <div style="font-size:0.8125rem">${sentence}</div>
+        <div class="text-soft" style="font-size:0.7rem">${sanitize(t.date)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <button class="btn btn-xs" data-cv-edit="${t.id}" title="Editar monto">✎</button>
+        <button class="btn btn-xs" data-cv-delete="${t.id}" title="Eliminar movimiento" style="background:var(--fin-danger);color:#fff;opacity:0.85">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  const modal = openModal({
+    title: `Cobertura: ${sanitize(cat.category_name)}`,
+    size: 'sm',
+    content: `<div id="cv-list">${rowsHtml}</div>`,
+  });
+
+  const root = modal.body;
+
+  root.querySelectorAll('[data-cv-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tx = txs.find(t => t.id === parseInt(btn.dataset.cvEdit));
+      openEditCoverModal(cat, tx, allCats, container, modal);
+    });
+  });
+
+  root.querySelectorAll('[data-cv-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar este movimiento de cobertura? Se eliminará también su contraparte.')) return;
+      try {
+        await api.transactions.delete(parseInt(btn.dataset.cvDelete), { delete_pair: true });
+        toast.success('Movimiento eliminado');
+        modal.close?.();
+        await loadAndRender(container);
+      } catch (err) {
+        toast.error(err.message);
+      }
+    });
+  });
+}
+
+function openEditCoverModal(cat, tx, allCats, container, parentModal) {
+  const isReceived = tx.memo.startsWith('Cubierto desde:');
+  const counterpartName = tx.memo.slice(tx.memo.indexOf(':') + 1).trim();
+  const counterpart = allCats.find(c => c.category_name === counterpartName);
+  const currencyCode = tx.currency?.code ?? tx.currency_code ?? 'COP';
+
+  const otherCats = allCats.filter(c => c.category_id !== cat.category_id);
+  const optionsHtml = otherCats.map(c =>
+    `<option value="${c.category_id}" ${c.category_id === counterpart?.category_id ? 'selected' : ''}>${sanitize(c.category_name)}</option>`
+  ).join('');
+
+  const modal = openModal({
+    title: 'Editar cobertura',
+    size: 'sm',
+    content: `
+      <p style="font-size:0.8125rem;margin-bottom:16px" class="text-soft">
+        ${isReceived ? 'Categoría que recibe' : 'Categoría que cubre'}: <strong>${sanitize(cat.category_name)}</strong>
+      </p>
+      <div class="form-group mb-3">
+        <label class="form-label required">Monto</label>
+        <input type="number" id="ec-amount" value="${Math.abs(tx.amount)}" step="0.01" min="0.01" autofocus>
+      </div>
+      <div class="form-group mb-3">
+        <label class="form-label required">Moneda</label>
+        <select id="ec-currency">
+          <option value="COP" ${currencyCode === 'COP' ? 'selected' : ''}>COP</option>
+          <option value="USD" ${currencyCode === 'USD' ? 'selected' : ''}>USD</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">${isReceived ? 'Categoría de origen' : 'Categoría de destino'}</label>
+        <select id="ec-counterpart">${optionsHtml}</select>
+      </div>
+    `,
+    submitLabel: 'Guardar',
+    onSubmit: async (body) => {
+      const amount = parseFloat(body.querySelector('#ec-amount').value);
+      const currency_code = body.querySelector('#ec-currency').value;
+      const counterpart_category_id = parseInt(body.querySelector('#ec-counterpart').value);
+      if (isNaN(amount) || amount <= 0) throw new Error('Monto inválido');
+
+      await api.budgets.updateCoverExcess(tx.id, { counterpart_category_id, amount, currency_code });
+
+      toast.success('Cobertura actualizada');
+      parentModal.close();
       await loadAndRender(container);
     },
   });

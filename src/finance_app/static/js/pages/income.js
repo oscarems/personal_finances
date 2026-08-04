@@ -437,8 +437,8 @@ function renderChart(container, trendData) {
     data: {
       labels,
       datasets: [
-        { label:'Ingresos', data:income,  backgroundColor:'rgba(56,189,248,0.85)', borderRadius:4 },
-        { label:'Gastos',   data:expense, backgroundColor:'rgba(251,113,133,0.75)', borderRadius:4 },
+        { label:'Ingresos', data:income,  backgroundColor:'rgba(31,77,60,0.85)', borderRadius:4 },
+        { label:'Gastos',   data:expense, backgroundColor:'rgba(154,51,36,0.75)', borderRadius:4 },
       ],
     },
     options: {
@@ -539,8 +539,8 @@ function savingsRateSection(sr) {
               const sav = (m.income ?? 0) - (m.expenses ?? 0);
               return `<tr>
                 <td class="text-soft">${m.month_name ?? m.month}</td>
-                <td class="td-right" style="color:rgba(56,189,248,0.9)">${fmt(m.income ?? 0)}</td>
-                <td class="td-right" style="color:rgba(251,113,133,0.9)">${fmt(m.expenses ?? 0)}</td>
+                <td class="td-right" style="color:rgba(31,77,60,0.9)">${fmt(m.income ?? 0)}</td>
+                <td class="td-right" style="color:rgba(154,51,36,0.9)">${fmt(m.expenses ?? 0)}</td>
                 <td class="td-right" style="color:${sav >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">${fmt(sav)}</td>
                 <td class="td-right amount" style="font-weight:600;color:${rateColor(r)}">${r.toFixed(1)}%</td>
                 <td style="text-align:center;color:${rateColor(r)};font-size:0.7rem">${rateLabel(r)}</td>
@@ -572,7 +572,7 @@ function renderSavingsRateChart(container, sr) {
             label: 'Tasa de ahorro',
             data: rates,
             borderColor: 'var(--fin-success)',
-            backgroundColor: 'rgba(34,197,94,0.1)',
+            backgroundColor: 'rgba(47,107,79,0.1)',
             borderWidth: 2,
             pointRadius: 4,
             fill: true,

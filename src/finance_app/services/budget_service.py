@@ -589,32 +589,45 @@ def _build_group_budget(
 
 
 def _get_coverage_by_category(db: Session, month_date: date) -> dict[int, float]:
-    """Return a dict {category_id: covered_amount} for the given month.
+    """Return a dict {category_id: covered_amount_in_cop} for the given month.
 
     Sums all is_adjustment transactions whose memo starts with "Cubrir exceso:"
     (negative → money taken out) or "Cubierto desde:" (positive → money received).
+    Each transaction's amount is stored in its own currency (the category's
+    currency at the time it was created), so every amount is normalized to
+    COP before summing — otherwise mixing COP and USD amounts in the same
+    total produces wildly wrong figures.
     """
     from calendar import monthrange
     last_day = monthrange(month_date.year, month_date.month)[1]
     month_start = date(month_date.year, month_date.month, 1)
     month_end   = date(month_date.year, month_date.month, last_day)
 
-    txs = db.query(Transaction).filter(
-        Transaction.is_adjustment == True,
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        or_(
-            Transaction.memo.like('Cubrir exceso:%'),
-            Transaction.memo.like('Cubierto desde:%'),
-        ),
-    ).all()
+    txs = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.currency))
+        .filter(
+            Transaction.is_adjustment == True,
+            Transaction.date >= month_start,
+            Transaction.date <= month_end,
+            or_(
+                Transaction.memo.like('Cubrir exceso:%'),
+                Transaction.memo.like('Cubierto desde:%'),
+            ),
+        )
+        .all()
+    )
+
+    to_cop = _make_currency_converter("COP", get_current_exchange_rate(db))
 
     result: dict[int, float] = {}
     for tx in txs:
         cat_id = tx.category_id
         if cat_id is None:
             continue
-        result[cat_id] = result.get(cat_id, 0.0) + float(tx.amount or 0.0)
+        tx_currency_code = tx.currency.code if tx.currency else "COP"
+        amount_cop = to_cop(float(tx.amount or 0.0), tx_currency_code)
+        result[cat_id] = result.get(cat_id, 0.0) + amount_cop
     return result
 
 
@@ -656,6 +669,7 @@ def _build_category_budget(
     pbcur = all_currencies.get(primary_budget.currency_id) if primary_budget else None
     primary_currency_code = pbcur.code if pbcur else currency.code
     assigned_native = float(primary_budget.assigned or 0.0) if primary_budget else 0.0
+    available_native = float(primary_budget.available or 0.0) if primary_budget else 0.0
 
     # Only use the primary budget's initial_amount to avoid double-counting across
     # multiple currency rows for the same savings category.
@@ -663,10 +677,10 @@ def _build_category_budget(
     if category.rollover_type == 'accumulate' and primary_budget and pbcur:
         total_initial = convert(primary_budget.initial_amount or 0.0, pbcur.code, currency.code)
 
+    # `coverage_by_category` values are always normalized to COP (see
+    # _get_coverage_by_category), so convert from COP to the requested currency.
     raw_covered = (coverage_by_category or {}).get(category.id, 0.0)
-    # Convert covered amount from COP (transactions are always stored in their own currency;
-    # use primary_currency_code if known, else assume COP).
-    covered_converted = convert(raw_covered, primary_currency_code, currency.code) if raw_covered != 0.0 else 0.0
+    covered_converted = convert(raw_covered, "COP", currency.code) if raw_covered != 0.0 else 0.0
 
     return {
         'category_id': category.id,
@@ -681,6 +695,7 @@ def _build_category_budget(
         'notes': category.notes or '',
         'currency_code': primary_currency_code,
         'assigned_native': assigned_native,
+        'available_native': available_native,
         'covered': covered_converted,
     }
 

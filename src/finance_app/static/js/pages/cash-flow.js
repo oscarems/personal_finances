@@ -168,7 +168,7 @@ function renderChart(container, forecast) {
 
   // Use CHART_PALETTE accent or fall back to blue
   const palette = window.CHART_PALETTE ?? [];
-  const lineColor = palette[0] ?? '#3b82f6';
+  const lineColor = palette[0] ?? '#316342';
 
   function doRender(Chart) {
     new Chart(canvas, {
@@ -181,7 +181,7 @@ function renderChart(container, forecast) {
           borderColor: lineColor,
           backgroundColor: lineColor.startsWith('#')
             ? lineColor + '14'
-            : 'rgba(59,130,246,0.08)',
+            : 'rgba(31,77,60,0.08)',
           borderWidth: 2,
           pointRadius: 0,
           tension: 0.3,
@@ -203,7 +203,7 @@ function renderChart(container, forecast) {
         scales: {
           x: {
             ticks: { color: 'var(--fin-ink-3)', maxTicksLimit: 10, font: { size: 11 } },
-            grid: { color: 'rgba(148,163,184,0.08)' },
+            grid: { color: 'rgba(28,27,23,0.08)' },
           },
           y: {
             ticks: {
@@ -211,7 +211,7 @@ function renderChart(container, forecast) {
               font: { size: 11 },
               callback: v => new Intl.NumberFormat('es-CO', { notation: 'compact', currency: 'COP', style: 'currency', maximumFractionDigits: 0 }).format(v),
             },
-            grid: { color: 'rgba(148,163,184,0.08)' },
+            grid: { color: 'rgba(28,27,23,0.08)' },
           },
         },
       },

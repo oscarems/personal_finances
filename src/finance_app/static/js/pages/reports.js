@@ -227,7 +227,7 @@ async function loadData(container) {
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'right', labels: { font: { size: 11 }, color: '#475569', padding: 12 } },
+            legend: { position: 'right', labels: { font: { size: 11 }, color: '#414942', padding: 12 } },
             tooltip: { callbacks: { label: (ctx) => ` ${fmt(ctx.raw)}` } },
           },
         },
@@ -244,7 +244,7 @@ async function loadData(container) {
           labels: ['Ingresos', 'Gastos'],
           datasets: [{
             data: [totalInc, totalExp],
-            backgroundColor: ['#059669', '#DC2626'],
+            backgroundColor: ['#2F6B4F', '#BA1A1A'],
             borderRadius: 6,
           }],
         },
@@ -252,8 +252,8 @@ async function loadData(container) {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            y: { grid: { color: 'rgba(15,23,42,0.07)' }, ticks: { callback: v => fmt(v), font: { size: 10 }, color: '#94A3B8' } },
-            x: { grid: { display: false }, ticks: { color: '#64748B' } },
+            y: { grid: { color: 'rgba(28,27,23,0.08)' }, ticks: { callback: v => fmt(v), font: { size: 10 }, color: '#717971' } },
+            x: { grid: { display: false }, ticks: { color: '#414942' } },
           },
         },
       });
@@ -296,11 +296,11 @@ async function loadData(container) {
   }
 }
 
-// Matches --chart-color-* tokens in design-system.css (Daylight palette)
+// Matches --chart-color-* tokens in design-system.css (Ledger palette)
 const LOCAL_COLORS = [
-  '#6366F1','#10B981','#F59E0B','#EF4444','#8B5CF6',
-  '#06B6D4','#F97316','#EC4899','#059669','#D97706',
-  '#0891B2','#7C3AED','#DB2777','#65A30D','#0284C7',
+  '#316342','#BA1A1A','#735142','#3B5B66','#6B4226',
+  '#4C6B3F','#8A5A44','#7A6A53','#255740','#7E291D',
+  '#8B6124','#2E4A52','#553219','#3A5230','#6E4635',
 ];
 
 function getColor(idx) {
@@ -391,7 +391,7 @@ function renderCategoryDropdown(container) {
     cb.addEventListener('change', async () => {
       const cat = cb.dataset.cat;
       if (_selectedCategories === null) {
-        _selectedCategories = new Set(_availableCategories);
+        _selectedCategories = new Set();
       }
       if (cb.checked) {
         _selectedCategories.add(cat);
@@ -517,7 +517,7 @@ async function loadOvertimeChart(container) {
             stacked: false,
             grid: { display: false },
             ticks: {
-              color: '#64748B',
+              color: '#414942',
               font: { size: 10 },
               maxRotation: isDaily ? 45 : 0,
               autoSkip: true,
@@ -527,8 +527,8 @@ async function loadOvertimeChart(container) {
           y: {
             stacked: false,
             beginAtZero: true,
-            grid: { color: 'rgba(15,23,42,0.07)' },
-            ticks: { callback: v => fmt(v), font: { size: 10 }, color: '#94A3B8' },
+            grid: { color: 'rgba(28,27,23,0.08)' },
+            ticks: { callback: v => fmt(v), font: { size: 10 }, color: '#717971' },
           },
         },
       },

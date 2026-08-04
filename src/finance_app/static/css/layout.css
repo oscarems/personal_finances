@@ -74,7 +74,7 @@ body {
 }
 
 .sidebar-title {
-  font-family: var(--fin-font);
+  font-family: var(--fin-serif);
   font-weight: 600;
   font-size: 0.9375rem;
   color: var(--nav-text-strong);
@@ -214,7 +214,7 @@ body {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.40);
+  background: rgba(28, 27, 23, 0.40);
   backdrop-filter: blur(2px);
   z-index: 150;
   opacity: 0;
@@ -242,7 +242,7 @@ body {
   align-items: center;
   padding: 0 24px;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(251, 250, 247, 0.88);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   flex-shrink: 0;
@@ -307,12 +307,12 @@ body {
 }
 
 .page-header-text h1 {
-  font-family: var(--fin-font);
-  font-size: 22px;
+  font-family: var(--fin-serif);
+  font-size: 26px;
   font-weight: 600;
   margin: 0 0 4px;
   color: var(--fin-ink);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
 }
 
 .page-header-text p {
@@ -508,7 +508,7 @@ textarea {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--input-border);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--fin-surface);
   color: var(--fin-ink);
   font-family: var(--fin-font);
@@ -575,7 +575,7 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
 
 .filter-quick-btn {
   padding: 5px 12px;
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   border: 0.5px solid var(--fin-border);
   background: transparent;
   color: var(--fin-ink-2);
@@ -621,7 +621,7 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
   -webkit-appearance: none;
   padding: 5px 28px 5px 12px;
   border: 0.5px solid var(--fin-border);
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   background: var(--fin-surface-2);
   color: var(--fin-ink-2);
   font-family: var(--fin-font);
@@ -650,7 +650,7 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
   gap: 4px;
   background: var(--fin-surface-2);
   border: 0.5px solid var(--fin-border);
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   padding: 0 12px;
   flex-shrink: 0;
   transition: border-color 0.14s, background 0.14s;
@@ -691,7 +691,7 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
   gap: 6px;
   padding: 5px 12px;
   border: 0.5px solid var(--fin-border);
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--fin-ink-3);
   font-family: var(--fin-font);
@@ -769,7 +769,7 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 100px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0;
@@ -791,7 +791,7 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
   align-items: center;
   gap: 6px;
   padding: 7px 16px;
-  border-radius: 100px;
+  border-radius: var(--radius-button);
   font-size: 13px;
   font-weight: 500;
   font-family: var(--fin-font);
@@ -1139,8 +1139,8 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
 }
 
 .month-nav-label {
-  font-family: var(--fin-font);
-  font-size: 15px;
+  font-family: var(--fin-serif);
+  font-size: 16px;
   font-weight: 600;
   min-width: 160px;
   text-align: center;
@@ -1164,7 +1164,7 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
   gap: 2px;
   background: var(--fin-surface);
   border: 1px solid var(--fin-border);
-  border-radius: 14px;
+  border-radius: var(--fin-radius);
   padding: 10px 14px;
   min-width: 120px;
   box-shadow: var(--shadow-soft);

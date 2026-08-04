@@ -43,7 +43,7 @@ function parseMonth(m) {
 const get  = (p, params) => request('GET',    p, null, params);
 const post = (p, body)   => request('POST',   p, body);
 const put  = (p, body)   => request('PUT',    p, body);
-const del  = (p)         => request('DELETE', p);
+const del  = (p, params) => request('DELETE', p, null, params);
 const patch= (p, body)   => request('PATCH',  p, body);
 
 export const accounts = {
@@ -60,7 +60,7 @@ export const transactions = {
   get:      (id)     => get(`/transactions/${id}`),
   create:   (data)   => post('/transactions', data),
   update:   (id, d)  => put(`/transactions/${id}`, d),
-  delete:   (id)     => del(`/transactions/${id}`),
+  delete:   (id, opts) => del(`/transactions/${id}`, opts),
   transfer: (data)   => post('/transactions/transfer', data),
 };
 
@@ -71,6 +71,7 @@ export const budgets = {
   setInitial:    (m, catId, d)  => post('/budgets/assign', { category_id: catId, amount: 0, month: m + '-01', currency_code: d.currency_code, initial_amount: d.initial_amount }),
   initialize:    (m)            => { const { year, month } = parseMonth(m); return post(`/budgets/initialize/${year}/${month}`); },
   coverExcess:   (d)            => post('/budgets/cover-overspending', d),
+  updateCoverExcess: (txId, d)  => put(`/budgets/cover-overspending/${txId}`, d),
   assignedTotals:()             => get('/budgets/assigned-totals'),
   readyToAssign: ()             => get('/budgets/ready-to-assign'),
   recalcSavings: ()             => post('/budgets/recalculate-savings'),
