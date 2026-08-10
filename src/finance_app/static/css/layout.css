@@ -426,6 +426,12 @@ body {
   box-shadow: var(--shadow-soft);
 }
 
+/* Allow info-tooltip popovers to escape clipped parents (card / table-wrap). */
+.table-wrap:has(.info-tooltip),
+.card:has(.info-tooltip) {
+  overflow: visible;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -1223,6 +1229,320 @@ input[type="number"] { font-family: var(--fin-mono); letter-spacing: -0.02em; }
   font-weight: 500;
   color: var(--fin-ink);
   letter-spacing: -0.03em;
+}
+
+/* ── Money tree (Ingresos → Asignado → Gastado / Disponible) ─ */
+
+.money-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tree-tier {
+  display: flex;
+  justify-content: center;
+}
+
+.tree-node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--fin-surface);
+  border: 1px solid var(--fin-border);
+  border-radius: var(--fin-radius);
+  padding: 10px 18px;
+  min-width: 170px;
+  box-shadow: var(--shadow-soft);
+  text-align: center;
+  align-items: center;
+}
+
+.tree-node-root {
+  border-color: var(--fin-accent);
+  border-width: 1.5px;
+}
+
+.tree-node-primary {
+  min-width: 150px;
+}
+
+.tree-node-leaf {
+  min-width: 150px;
+}
+
+/* Color-coded boxes: assigned / unassigned / spent / remaining */
+.tree-node-assigned {
+  border-color: var(--fin-accent);
+  background: color-mix(in srgb, var(--fin-accent) 8%, var(--fin-surface));
+}
+
+.tree-node-unassigned {
+  border-color: var(--fin-ink-3);
+  background: color-mix(in srgb, var(--fin-ink-3) 8%, var(--fin-surface));
+  border-style: dashed;
+}
+
+.tree-node-overassigned {
+  border-color: var(--fin-danger);
+  background: color-mix(in srgb, var(--fin-danger) 10%, var(--fin-surface));
+}
+
+.tree-node-spent {
+  border-color: var(--fin-danger);
+  background: color-mix(in srgb, var(--fin-danger) 6%, var(--fin-surface));
+}
+
+.tree-node-remaining {
+  border-color: var(--fin-success);
+  background: color-mix(in srgb, var(--fin-success) 6%, var(--fin-surface));
+}
+
+.tree-node-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: var(--fin-ink-3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--fin-font);
+}
+
+.tree-node-value {
+  font-family: var(--fin-mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--fin-ink);
+  letter-spacing: -0.03em;
+}
+
+.tree-node-sub {
+  font-size: 0.75rem;
+  color: var(--fin-ink-3);
+}
+
+/* Vertical connector between tiers */
+.tree-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 26px;
+}
+
+.tree-connector-line {
+  width: 2px;
+  flex: 1;
+  min-height: 14px;
+  background: var(--fin-border);
+  position: relative;
+}
+
+.tree-connector-line::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 6px solid var(--fin-border);
+}
+
+.tree-connector-note {
+  font-size: 0.75rem;
+  color: var(--fin-ink-3);
+  background: var(--fin-bg);
+  border: 1px dashed var(--fin-border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin: 4px 0;
+}
+
+.tree-connector-note-warn {
+  color: var(--fin-danger);
+  border-color: var(--fin-danger);
+}
+
+/* Branch: one parent splitting into two children */
+.tree-branch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 480px;
+  padding-top: 14px;
+}
+
+.tree-branch-wide {
+  max-width: 640px;
+}
+
+.tree-branch-wide > .tree-branch-children {
+  align-items: flex-start;
+}
+
+.tree-branch-wide .tree-branch {
+  max-width: none;
+}
+
+.tree-connector-sm {
+  min-height: 14px;
+}
+
+.tree-connector-sm .tree-connector-line {
+  min-height: 8px;
+}
+
+.tree-branch-hline {
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 2px;
+  background: var(--fin-border);
+}
+
+.tree-branch-children {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.tree-child {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.tree-vline {
+  width: 2px;
+  height: 14px;
+  background: var(--fin-border);
+}
+
+/* ── Accumulated account state (separate from the monthly flow) ─ */
+
+.account-state {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--fin-border);
+}
+
+.account-state-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: var(--fin-ink-3);
+}
+
+.account-state-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--fin-radius);
+  background: var(--fin-bg);
+}
+
+.account-state-group-alert {
+  background: color-mix(in srgb, var(--fin-accent) 6%, var(--fin-bg));
+}
+
+.account-state-group-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fin-ink-2, var(--fin-ink));
+}
+
+.account-state-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.account-state-row .stat-chip {
+  min-width: 170px;
+  flex: 1;
+}
+
+.stat-chip-highlight {
+  border-width: 1.5px;
+  max-width: 260px;
+}
+
+/* ── Accounts diagram (budget accounts split by currency) ─── */
+
+.account-list-columns {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.account-list-col {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-list-col-header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: var(--fin-ink-3);
+  margin-bottom: 4px;
+}
+
+.account-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.account-list-name {
+  color: var(--fin-ink-2, var(--fin-ink));
+}
+
+.account-list-balance {
+  font-family: var(--fin-mono);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.account-list-subtotal {
+  border-top: 1px dashed var(--fin-border);
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+.account-list-total {
+  border-top: 1px solid var(--fin-border);
+  margin-top: 8px;
+  padding-top: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
 /* ── Animations ──────────────────────────────────────────── */

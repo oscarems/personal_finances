@@ -25,7 +25,46 @@ from finance_app.services.debt.amortization_service import (
 )
 
 
-def calculate_credit_card_monthly_interest(debt: Debt) -> float:
+def normalize_rate_units(rate: float) -> float:
+    """Normalise a stored rate to decimal form.
+
+    Convention used across debt helpers, simulator and amortization engine:
+    values **> 1** are treated as a percentage (e.g. ``1.9`` → ``0.019`` = 1.9%/mo);
+    values **≤ 1** are already decimal (e.g. ``0.019``).
+    """
+    return rate / 100 if rate > 1 else rate
+
+
+def effective_monthly_interest_rate(debt: Debt) -> float:
+    """Effective monthly interest rate as a decimal (e.g. 0.019 for 1.9%/mo).
+
+    Priority matches CLAUDE.md / AmortizationEngine:
+    1) ``monthly_interest_rate`` — percent if > 1, else already decimal
+       (``normalize_rate_units``).
+    2) ``annual_interest_rate`` then ``interest_rate`` (same percent/decimal heuristic),
+       converted with effective annual: ``(1 + annual)^(1/12) - 1``.
+
+    Rate unit convention: values > 1 are percentages; ≤ 1 are decimals.
+    Callers (simulator, cost analysis, CC helpers) must use this function — do not
+    hard-code ``rate / 100``.
+    """
+    if getattr(debt, "monthly_interest_rate", None):
+        return normalize_rate_units(float(debt.monthly_interest_rate))
+
+    annual_rate_raw = debt.annual_interest_rate or debt.interest_rate
+    if not annual_rate_raw:
+        return 0.0
+
+    annual_decimal = normalize_rate_units(float(annual_rate_raw))
+    return (1 + annual_decimal) ** (1 / 12) - 1
+
+
+def calculate_credit_card_monthly_interest(
+    debt: Debt,
+    db: Session | None = None,
+    *,
+    balance: float | None = None,
+) -> float:
     """Estimate the monthly interest charge on a credit card balance.
 
     Uses the effective annual rate convention: monthly = (1 + annual)^(1/12) - 1.
@@ -33,31 +72,30 @@ def calculate_credit_card_monthly_interest(debt: Debt) -> float:
 
     Args:
         debt: Debt model instance with debt_type == 'credit_card'.
+        db: Optional session for FX when account currency ≠ debt currency.
+        balance: Optional override (e.g. mid-projection declining balance).
+            When omitted, credit cards use the FX-derived account balance;
+            other debt types use ``debt.current_balance``.
 
     Returns:
         Estimated interest amount for the current month (always >= 0).
     """
-    balance = float(debt.current_balance or 0.0)
-    if balance <= 0:
+    bal = float(balance) if balance is not None else _balance_for_payment_calcs(debt, db)
+    if bal <= 0:
         return 0.0
 
-    # Prefer explicit monthly rate when available
-    if getattr(debt, "monthly_interest_rate", None):
-        rate = float(debt.monthly_interest_rate)
-        monthly_rate = rate / 100 if rate > 1 else rate
-        return round(balance * monthly_rate, 2)
-
-    annual_rate_raw = debt.annual_interest_rate or debt.interest_rate
-    if not annual_rate_raw:
+    monthly_rate = effective_monthly_interest_rate(debt)
+    if monthly_rate <= 0:
         return 0.0
-
-    annual = float(annual_rate_raw)
-    annual_decimal = annual / 100 if annual > 1 else annual
-    monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1
-    return round(balance * monthly_rate, 2)
+    return round(bal * monthly_rate, 2)
 
 
-def calculate_suggested_minimum_payment(debt: Debt) -> float:
+def calculate_suggested_minimum_payment(
+    debt: Debt,
+    db: Session | None = None,
+    *,
+    balance: float | None = None,
+) -> float:
     """Calculate the suggested minimum payment for a credit card.
 
     Formula (standard): max(stored minimum, monthly_interest + 1% of balance).
@@ -66,26 +104,39 @@ def calculate_suggested_minimum_payment(debt: Debt) -> float:
 
     Args:
         debt: Debt model instance with debt_type == 'credit_card'.
+        db: Optional session for FX when account currency ≠ debt currency.
+        balance: Optional override for declining-balance projections.
 
     Returns:
         Suggested minimum payment (always >= 0).
     """
     stored_min = float(debt.minimum_payment or 0.0)
-    balance = float(debt.current_balance or 0.0)
-    if balance <= 0:
+    bal = float(balance) if balance is not None else _balance_for_payment_calcs(debt, db)
+    if bal <= 0:
         return 0.0
 
-    monthly_interest = calculate_credit_card_monthly_interest(debt)
+    monthly_interest = calculate_credit_card_monthly_interest(debt, db, balance=bal)
     # 1% of balance covers a token principal reduction
-    principal_chunk = balance * 0.01
+    principal_chunk = bal * 0.01
     calculated = monthly_interest + principal_chunk
 
     # If min_payment_percentage is set, it acts as an additional floor
     if getattr(debt, "min_payment_percentage", None):
-        pct_minimum = balance * (float(debt.min_payment_percentage) / 100)
+        pct_minimum = bal * (float(debt.min_payment_percentage) / 100)
         calculated = max(calculated, pct_minimum)
 
     return round(max(stored_min, calculated), 2)
+
+
+def _balance_for_payment_calcs(debt: Debt, db: Session | None = None) -> float:
+    """Balance used for interest / minimum suggestions.
+
+    Credit cards: FX-converted account-derived balance.
+    Other debts: stored ``current_balance``.
+    """
+    if getattr(debt, "debt_type", None) == "credit_card":
+        return get_credit_card_current_balance(debt, db)
+    return float(debt.current_balance or 0.0)
 
 
 def get_billing_cycle_info(debt: Debt, reference_date: date | None = None) -> dict:
@@ -237,19 +288,67 @@ def payment_source_label(transaction_id: int | None) -> str:
     return "transaccion" if transaction_id else "presupuesto"
 
 
-def get_credit_card_current_balance(debt: Debt) -> float:
+def get_credit_card_current_balance(
+    debt: Debt,
+    db: Session | None = None,
+) -> float:
     """Derive credit-card debt balance from the linked account balance.
 
     Credit cards show the negative account balance as positive debt.
+    When the account currency differs from ``debt.currency_code``, the balance
+    is converted via ``exchange_rate_service.convert_currency`` (same path as
+    transaction updates in ``_cc_balance_in_debt_currency``).
 
     Args:
         debt: Debt model instance with ``debt_type == 'credit_card'``.
+        db: Optional session used for FX lookup. If omitted and conversion is
+            needed, a short-lived ``SessionLocal`` is opened.
 
     Returns:
-        Current credit-card balance (always >= 0).
+        Current credit-card balance in ``debt.currency_code`` (always >= 0).
     """
-    account_balance = debt.account.balance if debt.account else 0.0
-    return max(0.0, -(account_balance or 0.0))
+    account = debt.account
+    account_balance = account.balance if account else 0.0
+    raw_balance = max(0.0, -(account_balance or 0.0))
+    if raw_balance <= 0:
+        return 0.0
+
+    debt_code = (debt.currency_code or "COP").upper()
+    acct_code = _account_currency_code(account, db)
+    if acct_code == debt_code:
+        return raw_balance
+
+    owns_session = False
+    session = db
+    if session is None:
+        from finance_app.database import SessionLocal
+
+        session = SessionLocal()
+        owns_session = True
+    try:
+        from finance_app.services.exchange_rate_service import convert_currency
+
+        return float(convert_currency(raw_balance, acct_code, debt_code, session))
+    finally:
+        if owns_session:
+            session.close()
+
+
+def _account_currency_code(account, db: Session | None = None) -> str:
+    """Resolve the ISO currency code for an account (default COP)."""
+    if account is None:
+        return "COP"
+    currency = getattr(account, "currency", None)
+    if currency is not None and getattr(currency, "code", None):
+        return str(currency.code).upper()
+    currency_id = getattr(account, "currency_id", None)
+    if currency_id is not None and db is not None:
+        from finance_app.models import Currency
+
+        row = db.query(Currency).filter_by(id=currency_id).first()
+        if row and row.code:
+            return str(row.code).upper()
+    return "COP"
 
 
 def _build_debt_payment_entries(debt: Debt, db: Session) -> list[dict]:
@@ -368,12 +467,18 @@ def debt_to_dict_with_calculated_balance(
     """
     data = debt.to_dict(include_payments=include_payments)
     if debt.debt_type == "credit_card":
-        data["current_balance"] = get_credit_card_current_balance(debt)
+        data["current_balance"] = get_credit_card_current_balance(debt, db)
         if debt.original_amount and debt.original_amount > 0:
             data["paid_percentage"] = ((debt.original_amount - data["current_balance"]) / debt.original_amount) * 100
         # Credit-card specific enrichment: interest estimate + suggested minimum payment
-        data["monthly_interest_estimate"] = calculate_credit_card_monthly_interest(debt)
-        data["suggested_minimum_payment"] = calculate_suggested_minimum_payment(debt)
+        data["monthly_interest_estimate"] = calculate_credit_card_monthly_interest(debt, db)
+        data["suggested_minimum_payment"] = calculate_suggested_minimum_payment(debt, db)
+        # Recompute utilization from FX-converted balance (to_dict used stored balance).
+        effective_limit = data.get("effective_credit_limit")
+        if effective_limit and effective_limit > 0:
+            data["utilization_percentage"] = (data["current_balance"] / float(effective_limit)) * 100
+        else:
+            data["utilization_percentage"] = None
         # Utilization thresholds for UI alerts
         util = data.get("utilization_percentage")
         if util is not None:

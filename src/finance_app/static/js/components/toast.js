@@ -1,9 +1,18 @@
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function show(message, type, duration = 4500) {
   const container = document.getElementById('toast-container');
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
   el.innerHTML = `
-    <span>${message}</span>
+    <span>${escapeHtml(message)}</span>
     <button class="toast-close" aria-label="Cerrar">×</button>
   `;
   el.querySelector('.toast-close').addEventListener('click', () => remove(el));

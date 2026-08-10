@@ -1,17 +1,21 @@
 """
 Debt Payoff Simulator — Pure function, no DB access.
 
-All monetary calculations use Decimal. Interest rates follow the effective annual
-convention: monthly_rate = (1 + annual_rate)^(1/12) - 1
+All monetary calculations use Decimal. Interest rates follow the same convention
+as ``helpers.effective_monthly_interest_rate``:
+monthly_rate = monthly_interest_rate (percent if > 1, else decimal), else
+(1 + annual)^(1/12) - 1 with the same percent/decimal heuristic.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
-from typing import List, Optional
+from typing import List
 
 from dateutil.relativedelta import relativedelta
+
+from finance_app.services.debt.helpers import effective_monthly_interest_rate
 
 TWOPLACES = Decimal("0.01")
 MAX_MONTHS = 600
@@ -19,16 +23,6 @@ MAX_MONTHS = 600
 
 def _round2(value: Decimal) -> Decimal:
     return value.quantize(TWOPLACES, rounding=ROUND_HALF_UP)
-
-
-def _monthly_rate(annual_rate_pct: Optional[float]) -> Decimal:
-    if annual_rate_pct is None or annual_rate_pct == 0:
-        return Decimal("0")
-    annual = float(annual_rate_pct)
-    if annual > 1:
-        annual = annual / 100
-    monthly = (1 + annual) ** (1 / 12) - 1
-    return Decimal(str(monthly))
 
 
 @dataclass
@@ -51,13 +45,8 @@ def _build_states(debts: list, balance_overrides: dict | None = None) -> List[_D
         if balance <= 0:
             continue
 
-        # Rate priority: monthly_interest_rate > annual_interest_rate > interest_rate
-        mir = getattr(d, 'monthly_interest_rate', None)
-        if mir is not None and float(mir) > 0:
-            monthly = Decimal(str(float(mir) / 100))
-        else:
-            rate_raw = getattr(d, 'annual_interest_rate', None) or getattr(d, 'interest_rate', None)
-            monthly = _monthly_rate(float(rate_raw) if rate_raw is not None else None)
+        # Same rate units as helpers / AmortizationEngine (percent if > 1, else decimal).
+        monthly = Decimal(str(effective_monthly_interest_rate(d)))
 
         # Payment priority: monthly_payment > minimum_payment > min_payment_percentage of balance
         # monthly_payment and minimum_payment must be explicitly > 0 (0.0 is falsy but means "not set")

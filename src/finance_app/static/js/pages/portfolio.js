@@ -1,16 +1,12 @@
+import * as api from '../api/client.js';
 import { fmtCurrency, fmtNumber, sanitize } from '../utils.js';
+import { openModal } from '../components/modal.js';
 
 export const title = 'Portafolio de Inversiones';
 
-const BASE = '/api/v1';
-const api = {
-  assets:      ()          => fetch(`${BASE}/portfolio/assets`).then(r => r.json()),
-  createAsset: (data)      => fetch(`${BASE}/portfolio/assets`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(async r => { if (!r.ok) { const e = await r.json(); throw new Error(e.detail || `HTTP ${r.status}`); } return r.json(); }),
-  addPrice:    (id, data)  => fetch(`${BASE}/portfolio/assets/${id}/prices`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(async r => { if (!r.ok) { const e = await r.json(); throw new Error(e.detail || `HTTP ${r.status}`); } return r.json(); }),
-};
-
 let allAssets = [];
 let allocationChart = null;
+let rootEl = null;
 
 const TIPO_LABELS = {
   accion: 'Acción', etf: 'ETF', cripto: 'Cripto', fondo: 'Fondo', otro: 'Otro',
@@ -29,110 +25,185 @@ function formatPct(value) {
   return `<span class="${cls} amount">${n >= 0 ? '+' : ''}${n.toFixed(2)}%</span>`;
 }
 
+function shellHtml() {
+  return `
+    <div class="page-header">
+      <div class="page-header-text">
+        <h1>Portafolio de Inversiones</h1>
+        <p class="text-soft" style="margin:2px 0 0;font-size:0.8125rem">Activos, valorización y asignación por clase</p>
+      </div>
+      <div class="page-header-actions">
+        <button type="button" class="btn btn-primary" id="btnNewAsset">+ Activo</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid mb-3" id="portfolioKpis"></div>
+
+    <div class="grid-2 mb-3">
+      <div class="card" style="grid-column:1 / -1">
+        <div class="card-header flex justify-between items-center">
+          <span class="card-title">Activos</span>
+          <span class="text-soft" style="font-size:0.75rem" id="assetCount"></span>
+        </div>
+        <div class="card-body" style="overflow-x:auto">
+          <table class="data-table fin-table">
+            <thead>
+              <tr>
+                <th>Símbolo</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th class="amount">Unidades</th>
+                <th class="amount">Precio compra</th>
+                <th class="amount">Precio actual</th>
+                <th class="amount">Valor</th>
+                <th class="amount">Ganancia</th>
+                <th class="amount">Retorno</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="assetsTableBody">
+              <tr><td colspan="10" class="text-center text-soft" style="padding:32px">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Asignación por clase</span></div>
+        <div class="card-body" style="position:relative;min-height:240px">
+          <canvas id="allocationChart" height="200"></canvas>
+          <div id="allocationEmpty" class="empty-state" style="display:none;padding-top:2rem">
+            <p class="empty-state__hint">Sin datos para graficar</p>
+          </div>
+          <div id="allocationLegend" class="mt-3" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 async function loadAssets() {
   try {
-    allAssets = await api.assets();
+    const data = await api.portfolio.assets();
+    allAssets = Array.isArray(data) ? data : [];
     renderKpis();
     renderTable(allAssets);
     loadAllocation();
   } catch (err) {
-    const tbody = document.getElementById('assetsTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="text-danger" style="text-align:center;padding:32px;font-size:13px">${sanitize(err.message)}</td></tr>`;
+    const tbody = rootEl?.querySelector('#assetsTableBody');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="10" class="text-danger" style="text-align:center;padding:32px;font-size:13px">${sanitize(err.message)}</td></tr>`;
+    }
   }
 }
 
 function renderKpis() {
-  const container = document.getElementById('portfolioKpis');
+  const container = rootEl?.querySelector('#portfolioKpis');
   if (!container) return;
 
-  const totalValor = allAssets.reduce((s, a) => s + (a.current_value ?? a.valor_actual ?? 0), 0);
+  const totalValor = allAssets.reduce((s, a) => s + (a.valor_actual ?? a.current_value ?? 0), 0);
   const totalCosto = allAssets.reduce((s, a) => {
-    const u = a.units ?? a.unidades ?? 0;
-    const pc = a.purchase_price ?? a.precio_compra ?? 0;
+    const u = a.unidades ?? a.units ?? 0;
+    const pc = a.precio_compra ?? a.purchase_price ?? 0;
     return s + u * pc;
   }, 0);
   const ganancia = totalValor - totalCosto;
   const retorno = totalCosto > 0 ? (ganancia / totalCosto) * 100 : 0;
-  const moneda = allAssets[0]?.currency ?? allAssets[0]?.moneda ?? 'COP';
+  const moneda = allAssets[0]?.moneda ?? allAssets[0]?.currency ?? 'COP';
   const gClass = ganancia >= 0 ? 'text-success' : 'text-danger';
 
   container.innerHTML = `
-    <div class="card p-5">
-      <div class="pf-kpi-label kpi-label">Valor Total</div>
-      <div class="pf-kpi-value amount" style="font-size:1.2rem;font-weight:600;color:var(--fin-ink)">${formatCurrency(totalValor, moneda)}</div>
+    <div class="kpi-card">
+      <div class="kpi-label">Valor Total</div>
+      <div class="kpi-value amount">${formatCurrency(totalValor, moneda)}</div>
     </div>
-    <div class="card p-5">
-      <div class="pf-kpi-label kpi-label">Costo Base</div>
-      <div class="pf-kpi-value amount text-muted" style="font-size:1.2rem;font-weight:600">${formatCurrency(totalCosto, moneda)}</div>
+    <div class="kpi-card">
+      <div class="kpi-label">Costo Base</div>
+      <div class="kpi-value amount text-muted">${formatCurrency(totalCosto, moneda)}</div>
     </div>
-    <div class="card p-5">
-      <div class="pf-kpi-label kpi-label">Ganancia / Pérdida</div>
-      <div class="pf-kpi-value amount ${gClass}" style="font-size:1.2rem;font-weight:600">${formatCurrency(ganancia, moneda)}</div>
+    <div class="kpi-card">
+      <div class="kpi-label">Ganancia / Pérdida</div>
+      <div class="kpi-value amount ${gClass}">${formatCurrency(ganancia, moneda)}</div>
     </div>
-    <div class="card p-5">
-      <div class="pf-kpi-label kpi-label">Retorno</div>
-      <div style="font-size:1.2rem;font-weight:600">${formatPct(retorno)}</div>
+    <div class="kpi-card">
+      <div class="kpi-label">Retorno</div>
+      <div class="kpi-value">${formatPct(retorno)}</div>
     </div>
   `;
 }
 
 function renderTable(assets) {
-  const tbody = document.getElementById('assetsTableBody');
-  const count = document.getElementById('assetCount');
+  const tbody = rootEl?.querySelector('#assetsTableBody');
+  const count = rootEl?.querySelector('#assetCount');
   if (!tbody) return;
 
   if (count) count.textContent = `${assets.length} activo${assets.length !== 1 ? 's' : ''}`;
 
   if (!assets.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-state" style="padding:40px">
-      <div>📊</div>
-      <div>Sin activos registrados</div>
+    tbody.innerHTML = `<tr><td colspan="10">
+      <div class="empty-state" style="padding:40px">
+        <div class="empty-state__icon">📊</div>
+        <div class="empty-state__title">Sin activos registrados</div>
+        <p class="empty-state__hint">Agrega acciones, ETFs, cripto u otros activos.</p>
+      </div>
     </td></tr>`;
     return;
   }
 
   tbody.innerHTML = assets.map(a => {
-    const unidades = a.units ?? a.unidades ?? 0;
-    const precioCompra = a.purchase_price ?? a.precio_compra ?? 0;
-    const precioActual = a.current_price ?? a.precio_actual ?? precioCompra;
-    const valorActual = a.current_value ?? (unidades * precioActual);
+    const unidades = a.unidades ?? a.units ?? 0;
+    const precioCompra = a.precio_compra ?? a.purchase_price ?? 0;
+    const precioActual = a.precio_actual ?? a.current_price ?? precioCompra;
+    const valorActual = a.valor_actual ?? a.current_value ?? (unidades * precioActual);
     const costo = unidades * precioCompra;
-    const ganancia = valorActual - costo;
-    const retorno = costo > 0 ? (ganancia / costo) * 100 : 0;
-    const moneda = a.currency ?? a.moneda ?? 'COP';
-    const tipo = a.asset_type ?? a.tipo ?? '';
-    const simbolo = a.symbol ?? a.simbolo ?? '—';
-    const nombre = a.name ?? a.nombre ?? '—';
+    const ganancia = a.ganancia ?? (valorActual - costo);
+    const retorno = a.ganancia_pct ?? (costo > 0 ? (ganancia / costo) * 100 : 0);
+    const moneda = a.moneda ?? a.currency ?? 'COP';
+    const tipo = a.tipo ?? a.asset_type ?? '';
+    const simbolo = a.simbolo ?? a.symbol ?? '—';
+    const nombre = a.nombre ?? a.name ?? '—';
     const ganCls = ganancia >= 0 ? 'text-success' : 'text-danger';
+    const tipoLabel = TIPO_LABELS[tipo] ?? sanitize(tipo);
 
     return `<tr>
-      <td class="pf-symbol">${sanitize(simbolo)}</td>
+      <td style="font-weight:600">${sanitize(simbolo)}</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${sanitize(nombre)}</td>
-      <td><span class="pf-badge">${TIPO_LABELS[tipo] ?? sanitize(tipo)}</span></td>
-      <td class="text-right amount">${fmtNumber(unidades, 4)}</td>
-      <td class="text-right amount">${formatCurrency(precioCompra, moneda)}</td>
-      <td class="text-right amount">${formatCurrency(precioActual, moneda)}</td>
-      <td class="text-right amount" style="font-weight:600">${formatCurrency(valorActual, moneda)}</td>
-      <td class="text-right amount ${ganCls}">${formatCurrency(ganancia, moneda)}</td>
-      <td class="text-right">${formatPct(retorno)}</td>
+      <td><span class="badge">${tipoLabel}</span></td>
+      <td class="amount">${fmtNumber(unidades, 4)}</td>
+      <td class="amount">${formatCurrency(precioCompra, moneda)}</td>
+      <td class="amount">${formatCurrency(precioActual, moneda)}</td>
+      <td class="amount" style="font-weight:600">${formatCurrency(valorActual, moneda)}</td>
+      <td class="amount ${ganCls}">${formatCurrency(ganancia, moneda)}</td>
+      <td class="amount">${formatPct(retorno)}</td>
       <td>
-        <button class="pf-action-btn" onclick="openPriceModal(${a.id}, '${sanitize(simbolo)}')">Precio</button>
+        <button type="button" class="btn btn-ghost btn-xs" data-price-asset="${a.id}" data-simbolo="${sanitize(simbolo)}">Precio</button>
       </td>
     </tr>`;
   }).join('');
+
+  tbody.querySelectorAll('[data-price-asset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openPriceModal(parseInt(btn.dataset.priceAsset, 10), btn.dataset.simbolo || '');
+    });
+  });
 }
 
 function loadAllocation() {
-  const canvas = document.getElementById('allocationChart');
-  const legendEl = document.getElementById('allocationLegend');
-  const emptyEl = document.getElementById('allocationEmpty');
+  const canvas = rootEl?.querySelector('#allocationChart');
+  const legendEl = rootEl?.querySelector('#allocationLegend');
+  const emptyEl = rootEl?.querySelector('#allocationEmpty');
   if (!canvas) return;
 
   if (!allAssets.length) {
     canvas.style.display = 'none';
     if (emptyEl) emptyEl.style.display = 'block';
+    if (legendEl) legendEl.innerHTML = '';
+    if (allocationChart) { allocationChart.destroy(); allocationChart = null; }
     return;
   }
+
+  canvas.style.display = 'block';
+  if (emptyEl) emptyEl.style.display = 'none';
 
   const palette = window.CHART_PALETTE ?? ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3F','#8A5A44','#7A6A53'];
 
@@ -140,7 +211,8 @@ function loadAllocation() {
   const claseOrder = [];
   for (const a of allAssets) {
     const clase = a.asset_class ?? a.clase ?? 'otro';
-    const val = a.current_value ?? ((a.units ?? a.unidades ?? 0) * (a.current_price ?? a.precio_actual ?? a.purchase_price ?? a.precio_compra ?? 0));
+    const val = a.valor_actual ?? a.current_value
+      ?? ((a.unidades ?? a.units ?? 0) * (a.precio_actual ?? a.current_price ?? a.precio_compra ?? a.purchase_price ?? 0));
     if (!byClase[clase]) { byClase[clase] = 0; claseOrder.push(clase); }
     byClase[clase] += val;
   }
@@ -157,7 +229,13 @@ function loadAllocation() {
     type: 'doughnut',
     data: {
       labels,
-      datasets: [{ data, backgroundColor: colors, borderWidth: 1.5, borderColor: getComputedStyle(document.documentElement).getPropertyValue('--fin-surface').trim() || '#fff', hoverOffset: 6 }],
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderWidth: 1.5,
+        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--fin-surface').trim() || '#fff',
+        hoverOffset: 6,
+      }],
     },
     options: {
       cutout: '68%',
@@ -179,8 +257,8 @@ function loadAllocation() {
       const color = colors[i];
       return `<div class="flex justify-between items-center gap-2">
         <div class="flex items-center gap-1">
-          <span style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0"></span>
-          <span class="text-muted" style="font-size:12px">${CLASE_LABELS[clase] ?? clase}</span>
+          <span style="width:10px;height:10px;border-radius:2px;background:${sanitize(color)};flex-shrink:0"></span>
+          <span class="text-muted" style="font-size:12px">${sanitize(CLASE_LABELS[clase] ?? clase)}</span>
         </div>
         <span class="amount" style="font-size:11px;color:var(--fin-ink-3)">${pct}%</span>
       </div>`;
@@ -188,106 +266,152 @@ function loadAllocation() {
   }
 }
 
-window.openNewAssetModal = function() {
-  const modal = document.getElementById('newAssetModal');
-  if (!modal) return;
-  document.getElementById('naFechaCompra').value = new Date().toISOString().split('T')[0];
-  document.getElementById('naError').style.display = 'none';
-  modal.style.display = 'block';
-  document.body.style.overflow = 'hidden';
-};
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
-window.closeNewAssetModal = function() {
-  const modal = document.getElementById('newAssetModal');
-  if (modal) modal.style.display = 'none';
-  document.body.style.overflow = '';
-};
+function openNewAssetModal() {
+  openModal({
+    title: 'Nuevo activo',
+    submitLabel: 'Guardar Activo',
+    content: `
+      <div class="form-row cols-2">
+        <div class="form-group mb-3">
+          <label class="form-label required">Símbolo</label>
+          <input type="text" id="naSimbolo" placeholder="AAPL" autocomplete="off">
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label required">Nombre</label>
+          <input type="text" id="naNombre" placeholder="Apple Inc." autocomplete="off">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group mb-3">
+          <label class="form-label required">Tipo</label>
+          <select id="naTipo">
+            <option value="accion">Acción</option>
+            <option value="etf">ETF</option>
+            <option value="cripto">Cripto</option>
+            <option value="fondo">Fondo</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label required">Clase</label>
+          <select id="naClase">
+            <option value="renta_variable">Renta Variable</option>
+            <option value="renta_fija">Renta Fija</option>
+            <option value="liquidez">Liquidez</option>
+            <option value="alternativo">Alternativo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group mb-3">
+          <label class="form-label required">Unidades</label>
+          <input type="number" id="naUnidades" step="any" min="0">
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label required">Precio de compra</label>
+          <input type="number" id="naPrecioCompra" step="any" min="0">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group mb-3">
+          <label class="form-label required">Fecha de compra</label>
+          <input type="date" id="naFechaCompra" value="${todayISO()}">
+        </div>
+        <div class="form-group mb-3">
+          <label class="form-label">Moneda</label>
+          <select id="naMoneda">
+            <option value="USD">USD</option>
+            <option value="COP">COP</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group mb-3">
+        <label class="form-label">Notas</label>
+        <input type="text" id="naNotas" placeholder="Opcional">
+      </div>
+    `,
+    onSubmit: async (body) => {
+      const simbolo = body.querySelector('#naSimbolo').value.trim();
+      const nombre = body.querySelector('#naNombre').value.trim();
+      const tipo = body.querySelector('#naTipo').value;
+      const assetClass = body.querySelector('#naClase').value;
+      const unidades = parseFloat(body.querySelector('#naUnidades').value);
+      const precioCompra = parseFloat(body.querySelector('#naPrecioCompra').value);
+      const fechaCompra = body.querySelector('#naFechaCompra').value || todayISO();
+      const moneda = body.querySelector('#naMoneda').value;
+      const notas = body.querySelector('#naNotas').value.trim();
 
-window.submitNewAsset = async function() {
-  const btn = document.getElementById('naSubmit');
-  const errEl = document.getElementById('naError');
-  errEl.style.display = 'none';
+      if (!simbolo) throw new Error('El símbolo es requerido');
+      if (!nombre) throw new Error('El nombre es requerido');
+      if (isNaN(unidades) || unidades <= 0) throw new Error('Ingresa las unidades');
+      if (isNaN(precioCompra) || precioCompra <= 0) throw new Error('Ingresa el precio de compra');
 
-  const simbolo = document.getElementById('naSimbolo').value.trim();
-  const nombre = document.getElementById('naNombre').value.trim();
-  const tipo = document.getElementById('naTipo').value;
-  const clase = document.getElementById('naClase').value;
-  const unidades = parseFloat(document.getElementById('naUnidades').value);
-  const precioCompra = parseFloat(document.getElementById('naPrecioCompra').value);
-  const fechaCompra = document.getElementById('naFechaCompra').value;
-  const moneda = document.getElementById('naMoneda').value;
-  const notas = document.getElementById('naNotas').value.trim();
+      await api.portfolio.createAsset({
+        simbolo,
+        nombre,
+        tipo,
+        asset_class: assetClass,
+        unidades,
+        precio_compra: precioCompra,
+        fecha_compra: fechaCompra,
+        moneda,
+        notas: notas || null,
+      });
+      await loadAssets();
+    },
+  });
+}
 
-  if (!simbolo) { showErr(errEl, 'El símbolo es requerido'); return; }
-  if (!nombre)  { showErr(errEl, 'El nombre es requerido'); return; }
-  if (isNaN(unidades) || unidades <= 0) { showErr(errEl, 'Ingresa las unidades'); return; }
-  if (isNaN(precioCompra) || precioCompra <= 0) { showErr(errEl, 'Ingresa el precio de compra'); return; }
+function openPriceModal(assetId, simbolo) {
+  openModal({
+    title: `Actualizar Precio — ${simbolo || 'Activo'}`,
+    submitLabel: 'Actualizar Precio',
+    content: `
+      <input type="hidden" id="priceAssetId" value="${assetId}">
+      <div class="form-group mb-3">
+        <label class="form-label required">Fecha</label>
+        <input type="date" id="pFecha" value="${todayISO()}">
+      </div>
+      <div class="form-group mb-3">
+        <label class="form-label required">Precio</label>
+        <input type="number" id="pPrecio" step="any" min="0">
+      </div>
+    `,
+    onSubmit: async (body) => {
+      const id = parseInt(body.querySelector('#priceAssetId').value, 10);
+      const fecha = body.querySelector('#pFecha').value;
+      const precio = parseFloat(body.querySelector('#pPrecio').value);
 
-  btn.disabled = true;
-  btn.textContent = 'Guardando…';
-  try {
-    await api.createAsset({ symbol: simbolo, name: nombre, asset_type: tipo, asset_class: clase, units: unidades, purchase_price: precioCompra, purchase_date: fechaCompra || null, currency: moneda, notes: notas || null });
-    window.closeNewAssetModal();
-    ['naSimbolo','naNombre','naUnidades','naPrecioCompra','naNotas'].forEach(id => { document.getElementById(id).value = ''; });
-    await loadAssets();
-  } catch (err) {
-    showErr(errEl, err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Guardar Activo';
-  }
-};
+      if (!fecha) throw new Error('La fecha es requerida');
+      if (isNaN(precio) || precio <= 0) throw new Error('Ingresa un precio válido');
 
-window.openPriceModal = function(assetId, simbolo) {
-  const modal = document.getElementById('priceModal');
-  if (!modal) return;
-  document.getElementById('priceAssetId').value = assetId;
-  document.getElementById('priceModalTitle').textContent = `Actualizar Precio — ${simbolo}`;
-  document.getElementById('pFecha').value = new Date().toISOString().split('T')[0];
-  document.getElementById('pPrecio').value = '';
-  document.getElementById('pError').style.display = 'none';
-  modal.style.display = 'block';
-  document.body.style.overflow = 'hidden';
-};
+      await api.portfolio.addPrice(id, { fecha, precio, fuente: 'manual' });
+      await loadAssets();
+    },
+  });
+}
 
-window.closePriceModal = function() {
-  const modal = document.getElementById('priceModal');
-  if (modal) modal.style.display = 'none';
-  document.body.style.overflow = '';
-};
-
-window.submitPrice = async function() {
-  const btn = document.getElementById('pSubmit');
-  const errEl = document.getElementById('pError');
-  errEl.style.display = 'none';
-
-  const assetId = parseInt(document.getElementById('priceAssetId').value);
-  const fecha = document.getElementById('pFecha').value;
-  const precio = parseFloat(document.getElementById('pPrecio').value);
-
-  if (!fecha) { showErr(errEl, 'La fecha es requerida'); return; }
-  if (isNaN(precio) || precio <= 0) { showErr(errEl, 'Ingresa un precio válido'); return; }
-
-  btn.disabled = true;
-  btn.textContent = 'Actualizando…';
-  try {
-    await api.addPrice(assetId, { date: fecha, price: precio });
-    window.closePriceModal();
-    await loadAssets();
-  } catch (err) {
-    showErr(errEl, err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Actualizar Precio';
-  }
-};
-
-function showErr(el, msg) {
-  el.textContent = msg;
-  el.style.display = 'block';
+function bindEvents(container) {
+  container.querySelector('#btnNewAsset')?.addEventListener('click', openNewAssetModal);
 }
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  rootEl = container;
+  container.innerHTML = shellHtml();
+  bindEvents(container);
   await loadAssets();
+}
+
+export function cleanup() {
+  if (allocationChart) { allocationChart.destroy(); allocationChart = null; }
+  allAssets = [];
+  rootEl = null;
 }

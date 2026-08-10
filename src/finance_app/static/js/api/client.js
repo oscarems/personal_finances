@@ -239,3 +239,16 @@ export const admin = {
   syncEmail: () => post('/admin/sync-email'),
   backupUrl: '/api/admin/backup',
 };
+
+/** Portfolio & FIRE live under `/api/v1/...` (legacy prefix on those routers). */
+export const portfolio = {
+  assets:      ()         => get('/v1/portfolio/assets'),
+  createAsset: (data)     => post('/v1/portfolio/assets', data),
+  deleteAsset: (id)       => del(`/v1/portfolio/assets/${id}`),
+  addPrice:    (id, data) => post(`/v1/portfolio/assets/${id}/prices`, data),
+  prices:      (id)       => get(`/v1/portfolio/assets/${id}/prices`),
+};
+
+export const fire = {
+  dashboard: () => get('/v1/fire'),
+};

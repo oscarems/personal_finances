@@ -1,8 +1,8 @@
 # Sistema multiagente y feedback loop del proyecto
 
-Este documento describe cómo se organiza el desarrollo del proyecto usando subagentes de Claude Code y un ciclo de revisión continua. Complementa `docs/PROPUESTA_MEJORAS_2026-07.md`.
+Este documento describe cómo se organiza el desarrollo del proyecto usando subagentes (Claude Code / Cursor) y un ciclo de revisión continua. Complementa `docs/PROPUESTA_MEJORAS_2026-07.md` y el catálogo `docs/BUGS_AUDIT_2026-08.md`.
 
-## Agentes definidos (`.claude/agents/`)
+## Agentes definidos (`.claude/agents/` y espejo `.cursor/agents/`)
 
 | Agente | Dominio | Cuándo usarlo |
 |---|---|---|
@@ -15,8 +15,34 @@ Este documento describe cómo se organiza el desarrollo del proyecto usando suba
 | `ui-designer` / `ui-implementer` / `ui-reviewer` | Ciclo de diseño → implementación → revisión de UI | Features nuevas de UI |
 | `janitor` | Limpieza de archivos legacy | Mantenimiento puntual |
 | `verifier` | Chequeo post-fase: tests, rutas HTTP, recorrido del SPA | Cierre de cada fase |
+| `bugfix-cover` | Cubrir exceso, delete cover/balance, HTTP budgets, transfer matching | Ola A/D — `BUGS_AUDIT` |
+| `bugfix-portfolio-fire` | Shell HTML + contrato API de `/portfolio` y `/fire` | Ola A — `BUGS_AUDIT` |
+| `bugfix-debt-fx` | Tasas deuda, amortización, FX silent, migraciones CC | Ola B/D — `BUGS_AUDIT` |
+| `bugfix-budget-calc` | initialize vs get_or_create, multi-moneda, activity totals | Ola B/D — `BUGS_AUDIT` |
+| `bugfix-fe-ux` | Race mes, fechas locales, silent catches, UX tx/dashboard | Ola C — `BUGS_AUDIT` |
 
-**Patrón de trabajo:** cada fase del roadmap se divide en agentes con dominios de archivos disjuntos (backend puro / tests / una página frontend) para poder correrlos en paralelo sin conflictos de edición. Al terminar, el orquestador (la sesión principal de Claude) revisa el diff completo, corre `verifier`, y hace un solo commit por fase.
+**Patrón de trabajo:** cada fase / ola se divide en agentes con dominios de archivos disjuntos (backend puro / tests / páginas FE) para correrlos en paralelo sin conflictos. Al terminar, el orquestador revisa el diff, corre `verifier`, actualiza el catálogo de bugs, y hace un solo commit por ola **si el usuario lo pide**.
+
+## Bugfix (auditoría 2026-08)
+
+Fuente de verdad: [`docs/BUGS_AUDIT_2026-08.md`](BUGS_AUDIT_2026-08.md).  
+Skill Cursor: `.cursor/skills/bugfix-orchestrator/SKILL.md`.  
+Rule: `.cursor/rules/bugfix-agents.mdc`.
+
+| Ola | Paralelo | IDs |
+|-----|----------|-----|
+| A (P0) | `bugfix-cover` \|\| `bugfix-portfolio-fire` | BUG-001…007 |
+| B (P1 BE) | `bugfix-debt-fx` \|\| `bugfix-budget-calc` | BUG-008…014 (+023/024) |
+| C (FE) | `bugfix-fe-ux` | BUG-015…022 |
+| D | residuales por agente | BUG-025…032 |
+
+Flujo:
+
+1. Marcar IDs `in_progress` en el catálogo.
+2. Lanzar agentes de la ola (prompts en `.cursor/agents/bugfix-*.md`).
+3. Verificar (pytest + smoke SPA).
+4. Marcar `fixed` + línea en Changelog del catálogo.
+5. Commit por ola solo con OK del usuario.
 
 ## Feedback loop de calidad
 

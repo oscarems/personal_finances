@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, sanitize, debounce, todayISO } from '../utils.js';
+import { fmtCurrency, fmtDate, sanitize, debounce, todayISO, daysAgoISO } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 import { emptyState } from '../components/emptyState.js';
@@ -127,9 +127,8 @@ function bindFilters(container) {
   });
 
   container.querySelector('#btnQuickLast30').addEventListener('click', () => {
-    const now = new Date();
-    const to = now.toISOString().slice(0, 10);
-    const from = new Date(now - 30 * 864e5).toISOString().slice(0, 10);
+    const to = todayISO();
+    const from = daysAgoISO(30);
     _filters.date_from = from;
     _filters.date_to   = to;
     container.querySelector('#f-from').value = from;
@@ -339,7 +338,7 @@ function txFormHtml(tx) {
     <div class="form-row cols-2">
       <div class="form-group">
         <label class="form-label required">Monto</label>
-        <input type="number" id="tf-amount" value="${t.amount ?? ''}" step="0.01" min="0" placeholder="0.00">
+        <input type="number" id="tf-amount" value="${t.amount != null ? Math.abs(t.amount) : ''}" step="0.01" min="0" placeholder="0.00">
       </div>
       <div class="form-group">
         <label class="form-label">Moneda</label>

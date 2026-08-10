@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from finance_app.models import Debt, DebtPayment
 from finance_app.services.debt.helpers import (
     calculate_suggested_minimum_payment,
+    effective_monthly_interest_rate,
+    get_credit_card_current_balance,
     payment_principal_amount,
 )
 
@@ -29,7 +31,7 @@ def analyze_debt_cost(db: Session, debt: Debt) -> dict:
           - ``total_paid_to_date`` – sum of payment amounts.
           - ``interest_pct_of_paid`` – interest as a percentage of total paid (0 when no payments).
           - ``minimum_projection`` – sub-dict with month count, interest totals, and payoff date
-            when paying only the suggested minimum each month.
+            when paying only the suggested minimum each month (recalculated as balance falls).
     """
     # --- Historical payments ---
     payments = db.query(DebtPayment).filter_by(debt_id=debt.id).all()
@@ -40,7 +42,7 @@ def analyze_debt_cost(db: Session, debt: Debt) -> dict:
     interest_pct = (interest_paid / total_paid * 100) if total_paid > 0 else 0.0
 
     # --- Minimum-payment projection ---
-    minimum_projection = _project_minimum_payment(debt)
+    minimum_projection = _project_minimum_payment(debt, db)
 
     return {
         "interest_paid_to_date": round(interest_paid, 2),
@@ -52,29 +54,42 @@ def analyze_debt_cost(db: Session, debt: Debt) -> dict:
 
 
 def _monthly_rate_from_debt(debt: Debt) -> Optional[float]:
-    """Derive the effective monthly interest rate from the debt's annual rate fields."""
-    annual_raw = debt.annual_interest_rate or debt.interest_rate
-    if not annual_raw:
-        return None
-    annual = float(annual_raw)
-    annual_decimal = annual / 100 if annual > 1 else annual
-    return (1 + annual_decimal) ** (1 / 12) - 1
+    """Derive the effective monthly interest rate (monthly > annual > interest_rate)."""
+    rate = effective_monthly_interest_rate(debt)
+    return rate if rate > 0 else None
 
 
-def _project_minimum_payment(debt: Debt) -> dict:
-    """Simulate paying only the suggested minimum each month until the balance reaches zero.
+def _starting_balance(debt: Debt, db: Session | None) -> float:
+    """Opening balance for the minimum-payment projection.
+
+    Credit cards use the FX-converted account-derived balance (same as listings),
+    not the possibly-stale ``debt.current_balance`` field.
+    """
+    if debt.debt_type == "credit_card":
+        return float(get_credit_card_current_balance(debt, db))
+    return float(debt.current_balance or 0.0)
+
+
+def _project_minimum_payment(debt: Debt, db: Session | None = None) -> dict:
+    """Simulate paying only the suggested minimum each month until balance is zero.
+
+    The monthly minimum is **recalculated every month** from the declining balance
+    (interest + 1% principal, floors from ``minimum_payment`` /
+    ``min_payment_percentage``). A fixed minimum computed once on the opening
+    balance would overstate later payments and understate months-to-payoff.
 
     Args:
         debt: Debt model instance.
+        db: Session used for CC FX conversion when account currency ≠ debt currency.
 
     Returns:
         Dict with projection keys; values are ``None`` when the projection cannot be computed.
     """
-    monthly_minimum = calculate_suggested_minimum_payment(debt)
-    balance = float(debt.current_balance or 0.0)
+    balance = _starting_balance(debt, db)
+    initial_minimum = calculate_suggested_minimum_payment(debt, db, balance=balance)
 
     empty: dict = {
-        "monthly_minimum": monthly_minimum,
+        "monthly_minimum": initial_minimum,
         "months_if_minimum": None,
         "total_interest_if_minimum": None,
         "total_paid_if_minimum": None,
@@ -82,10 +97,10 @@ def _project_minimum_payment(debt: Debt) -> dict:
     }
 
     monthly_rate = _monthly_rate_from_debt(debt)
-    if monthly_rate is None or monthly_minimum <= 0 or balance <= 0:
+    if monthly_rate is None or initial_minimum <= 0 or balance <= 0:
         return empty
 
-    MAX_MONTHS = 600
+    MAX_MONTHS = 2400  # ~1%/mo principal reduction can need ~1100 iterations
     total_interest = 0.0
     total_paid_sim = 0.0
     months = 0
@@ -96,7 +111,15 @@ def _project_minimum_payment(debt: Debt) -> dict:
         if balance <= 0:
             break
         interest = balance * monthly_rate
-        payment = min(monthly_minimum, balance + interest)
+        # Recalculate suggested minimum on the current (declining) balance.
+        monthly_minimum = calculate_suggested_minimum_payment(
+            debt, db, balance=balance
+        )
+        if monthly_minimum <= 0:
+            # Suggested min rounded to 0 on residual pennies — pay off remainder.
+            payment = balance + interest
+        else:
+            payment = min(monthly_minimum, balance + interest)
         balance = balance + interest - payment
         total_interest += interest
         total_paid_sim += payment
@@ -114,7 +137,7 @@ def _project_minimum_payment(debt: Debt) -> dict:
         payoff_date = (payoff_date + timedelta(days=32)).replace(day=1)
 
     return {
-        "monthly_minimum": round(monthly_minimum, 2),
+        "monthly_minimum": round(initial_minimum, 2),
         "months_if_minimum": months,
         "total_interest_if_minimum": round(total_interest, 2),
         "total_paid_if_minimum": round(total_paid_sim, 2),

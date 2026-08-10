@@ -6,16 +6,37 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, Literal
+from uuid import uuid4
 from finance_app.models import (
     Transaction, Account, Category, Payee, Currency, Debt, DebtPayment,
     TransactionSplit
 )
 from finance_app.services.debt.balance_service import refresh_mortgage_current_balance
+from finance_app.services.debt.helpers import (
+    effective_monthly_interest_rate,
+    payment_principal_amount,
+)
 from finance_app.services.exchange_rate_service import convert_currency, get_rate_for_date
 from finance_app.services.transaction_allocation_service import (
+    get_category_allocations,
     validate_splits_sum,
     validate_splits_categories_exist,
 )
+
+# Shared import_id prefix linking both legs of a transfer (no schema migration).
+TRANSFER_PAIR_IMPORT_PREFIX = "transfer_pair:"
+
+# Fields that can change DebtPayment / debt balance when a transaction is patched.
+_DEBT_TOUCH_KEYS = frozenset({
+    "amount",
+    "account_id",
+    "date",
+    "debt_id",
+    "category_id",
+    "currency_id",
+    "original_amount",
+    "original_currency_id",
+})
 
 
 def transaction_affects_balance(account: Account, transaction_date: date) -> bool:
@@ -28,6 +49,172 @@ def transaction_affects_balance(account: Account, transaction_date: date) -> boo
     if not account.created_at:
         return True
     return transaction_date >= account.created_at.date()
+
+
+def is_budget_cover_adjustment(transaction: Transaction) -> bool:
+    """True for category-to-category 'Cubrir exceso' / 'Cubierto desde' pairs.
+
+    These are virtual budget movements: they must change category available
+    but must NOT touch the denormalized account.balance (create already skips it).
+    """
+    if not transaction or not transaction.is_adjustment:
+        return False
+    memo = (transaction.memo or "").strip()
+    return memo.startswith("Cubrir exceso:") or memo.startswith("Cubierto desde:")
+
+
+def _assign_transfer_pair_link(from_tx: Transaction, to_tx: Transaction) -> str:
+    """Stamp both transfer legs with the same import_id pair key."""
+    pair_id = f"{TRANSFER_PAIR_IMPORT_PREFIX}{uuid4().hex}"
+    from_tx.import_id = pair_id
+    to_tx.import_id = pair_id
+    return pair_id
+
+
+def find_linked_transfer(db: Session, transaction: Transaction) -> Transaction | None:
+    """Locate the counterpart of a transfer transaction.
+
+    Prefer the stable ``import_id`` pair stamped by ``create_transfer``. Fall back
+    to accounts+date plus ``abs(amount)`` (and ``base_amount`` for FX) so two same-
+    day transfers between the same accounts are not confused.
+    """
+    if not transaction or not transaction.transfer_account_id:
+        return None
+
+    if transaction.import_id and str(transaction.import_id).startswith(TRANSFER_PAIR_IMPORT_PREFIX):
+        linked = (
+            db.query(Transaction)
+            .filter(
+                Transaction.id != transaction.id,
+                Transaction.import_id == transaction.import_id,
+                Transaction.transfer_account_id.isnot(None),
+            )
+            .first()
+        )
+        if linked:
+            return linked
+
+    candidates = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id != transaction.id,
+            Transaction.account_id == transaction.transfer_account_id,
+            Transaction.transfer_account_id == transaction.account_id,
+            Transaction.date == transaction.date,
+        )
+        .all()
+    )
+    if not candidates:
+        return None
+
+    abs_amt = abs(float(transaction.amount or 0))
+    opposite = [c for c in candidates if (float(c.amount or 0) * float(transaction.amount or 0)) < 0]
+    pool = opposite or candidates
+
+    same_currency = [
+        c for c in pool
+        if c.currency_id == transaction.currency_id
+        and abs(float(c.amount or 0)) == abs_amt
+    ]
+    if len(same_currency) == 1:
+        return same_currency[0]
+    if len(same_currency) > 1:
+        return same_currency[0]
+
+    if transaction.base_amount is not None:
+        base_abs = abs(float(transaction.base_amount))
+        base_matches = [
+            c for c in pool
+            if c.base_amount is not None
+            and abs(abs(float(c.base_amount)) - base_abs) < 0.01
+        ]
+        if len(base_matches) == 1:
+            return base_matches[0]
+        if len(base_matches) > 1:
+            return base_matches[0]
+
+    abs_matches = [c for c in pool if abs(float(c.amount or 0)) == abs_amt]
+    if len(abs_matches) == 1:
+        return abs_matches[0]
+
+    return pool[0]
+
+
+def _update_touches_debt(
+    transaction: Transaction,
+    data: dict,
+    transaction_type,
+    splits,
+) -> bool:
+    """True when a patch can change DebtPayment or debt balance (not memo-only)."""
+    if transaction_type is not None:
+        return True
+    if splits is not None:
+        return True
+    for key in _DEBT_TOUCH_KEYS:
+        if key not in data:
+            continue
+        new_val = data[key]
+        old_val = getattr(transaction, key, None)
+        if key in ("amount", "original_amount"):
+            if float(new_val or 0) != float(old_val or 0):
+                return True
+            continue
+        if new_val != old_val:
+            return True
+    return False
+
+
+def get_monthly_coverage_net(
+    db: Session,
+    category_id,
+    month,
+    year,
+    currency_id,
+    include_all_currencies: bool = True,
+) -> float:
+    """Net cover-adjustment amount for a category in a month (target currency).
+
+    Positive = covered from another category; negative = gave cover to another.
+    Excluded from activity (real spending) but included in available.
+    """
+    start_date = date(year, month, 1)
+    end_date = start_date + relativedelta(months=1)
+
+    filters = [
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.is_adjustment.is_(True),
+        Transaction.category_id == category_id,
+        or_(
+            Transaction.memo.like("Cubrir exceso:%"),
+            Transaction.memo.like("Cubierto desde:%"),
+        ),
+    ]
+    if not include_all_currencies:
+        filters.append(Transaction.currency_id == currency_id)
+
+    transactions = (
+        db.query(Transaction)
+        .options(joinedload(Transaction.currency))
+        .filter(and_(*filters))
+        .all()
+    )
+
+    target_currency = db.get(Currency, currency_id)
+    if not target_currency:
+        return sum(float(t.amount or 0) for t in transactions)
+
+    total = 0.0
+    for t in transactions:
+        total += convert_currency(
+            float(t.amount or 0),
+            t.currency.code if t.currency else target_currency.code,
+            target_currency.code,
+            db,
+            rate_date=t.date,
+        )
+    return total
 
 
 def normalize_transaction_amount(
@@ -215,15 +402,15 @@ def _estimate_period_interest(debt: Debt, payment_amount: float) -> float:
     """Estimate the interest portion of a debt payment based on the debt's rate and balance.
 
     For debts without an interest rate, returns 0.0 (all payment goes to principal).
-    Uses effective annual rate converted to monthly, applied to current balance.
+    Uses the shared rate priority (monthly → annual → interest_rate).
     The estimated interest is capped at the payment amount.
     """
-    rate = debt.interest_rate or 0.0
-    if rate <= 0 or debt.debt_type == "credit_card":
+    if debt.debt_type == "credit_card":
         return 0.0
 
-    annual_decimal = rate / 100 if rate > 1 else rate
-    monthly_rate = (1 + annual_decimal) ** (1 / 12) - 1
+    monthly_rate = effective_monthly_interest_rate(debt)
+    if monthly_rate <= 0:
+        return 0.0
 
     balance = debt.current_balance or 0.0
     if balance <= 0:
@@ -253,11 +440,13 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
 
     payment = db.query(DebtPayment).filter_by(transaction_id=transaction.id).first()
     if payment:
+        principal = payment_principal_amount(payment)
         db.delete(payment)
         if debt.debt_type == "mortgage":
             debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
         else:
-            debt.current_balance += payment.amount
+            # Apply reduced balance by principal only; reverse must restore principal, not full payment.
+            debt.current_balance += principal
         debt.is_active = True
         return
 
@@ -267,6 +456,8 @@ def _reverse_debt_impact(db: Session, transaction: Transaction, account: Account
         if debt.debt_type == "mortgage":
             debt.current_balance = refresh_mortgage_current_balance(db, debt, as_of_date=transaction.date)
         else:
+            # Legacy txs without DebtPayment: cannot recover exact principal vs interest.
+            # Restore the full outflow (interest portion stays as residual risk for old data).
             debt.current_balance += payment_amount
         debt.is_active = True
     elif amount > 0:
@@ -391,6 +582,10 @@ def create_transaction(db: Session, data):
 
         _apply_debt_impact(db, transaction, account)
 
+    # Always persist. When a prior query opened a session transaction (e.g. merchant
+    # rule lookup), the block above only commits a SAVEPOINT via begin_nested().
+    db.commit()
+    db.refresh(transaction)
     return transaction
 
 
@@ -493,8 +688,6 @@ def update_transaction(db: Session, transaction_id, data):
     old_date = transaction.date
     old_account = db.get(Account, old_account_id)
 
-    _reverse_debt_impact(db, transaction, old_account)
-
     transaction_type = data.pop('type', None)
 
     # Update payee if needed
@@ -512,6 +705,11 @@ def update_transaction(db: Session, transaction_id, data):
 
     tag_ids = data.pop("tag_ids", None)
     splits = data.pop("splits", None)
+
+    # Memo/tags-only patches must not regenerate DebtPayment / re-estimate interest.
+    touches_debt = _update_touches_debt(transaction, data, transaction_type, splits)
+    if touches_debt:
+        _reverse_debt_impact(db, transaction, old_account)
 
     # Update fields
     for key, value in data.items():
@@ -543,18 +741,35 @@ def update_transaction(db: Session, transaction_id, data):
     transaction.base_amount = base_amount
     transaction.base_currency_id = base_currency_id
 
-    # Update account balances
+    # Update account balances (skip virtual budget-cover adjustments)
+    touches_balance = not is_budget_cover_adjustment(transaction)
+    amount_or_account_changed = (
+        float(old_amount or 0) != float(transaction.amount or 0)
+        or old_account_id != transaction.account_id
+        or old_date != transaction.date
+    )
     old_account = db.get(Account, old_account_id)
-    if old_account and transaction_affects_balance(old_account, old_date):
+    if (
+        touches_balance
+        and amount_or_account_changed
+        and old_account
+        and transaction_affects_balance(old_account, old_date)
+    ):
         old_account.balance -= old_amount
 
-    if new_account and transaction_affects_balance(new_account, transaction.date):
+    if (
+        touches_balance
+        and amount_or_account_changed
+        and new_account
+        and transaction_affects_balance(new_account, transaction.date)
+    ):
         new_account.balance += transaction.amount
 
     _apply_tags_to_transaction(db, transaction, tag_ids)
     _apply_splits_to_transaction(db, transaction, splits)
 
-    _apply_debt_impact(db, transaction, new_account)
+    if touches_debt and touches_balance:
+        _apply_debt_impact(db, transaction, new_account)
 
     db.commit()
     return transaction
@@ -572,14 +787,7 @@ def delete_transaction(db: Session, transaction_id):
 
     # If this is a transfer, also delete the linked transaction
     if transaction.transfer_account_id:
-        # Find the linked transaction
-        linked_transaction = db.query(Transaction).filter(
-            and_(
-                Transaction.account_id == transaction.transfer_account_id,
-                Transaction.transfer_account_id == transaction.account_id,
-                Transaction.date == transaction.date
-            )
-        ).first()
+        linked_transaction = find_linked_transfer(db, transaction)
 
         if linked_transaction:
             # Update linked account balance
@@ -589,11 +797,16 @@ def delete_transaction(db: Session, transaction_id):
             _reverse_debt_impact(db, linked_transaction, linked_account)
             db.delete(linked_transaction)
 
-    # Update account balance
+    # Cover adjustments never touch account.balance on create — keep delete symmetrical
     account = db.get(Account, transaction.account_id)
-    if account and transaction_affects_balance(account, transaction.date):
+    if (
+        account
+        and not is_budget_cover_adjustment(transaction)
+        and transaction_affects_balance(account, transaction.date)
+    ):
         account.balance -= transaction.amount
-    _reverse_debt_impact(db, transaction, account)
+    if not is_budget_cover_adjustment(transaction):
+        _reverse_debt_impact(db, transaction, account)
 
     db.delete(transaction)
     db.commit()
@@ -883,6 +1096,7 @@ def create_transfer(db: Session, data):
 
     db.add(from_transaction)
     db.add(to_transaction)
+    _assign_transfer_pair_link(from_transaction, to_transaction)
 
     # Update account balances
     if transaction_affects_balance(from_account, transfer_date):
@@ -909,47 +1123,78 @@ def get_monthly_activity(
     include_all_currencies: bool = True
 ):
     """
-    Calculate total activity (spending) for a category in a month
-    Returns negative number for expenses
+    Calculate total activity (spending) for a category in a month.
+    Returns negative number for expenses.
+
+    Includes transaction_splits: when a transaction has splits, only the split
+    amounts for this category count (header category_id alone is ignored).
     """
     start_date = date(year, month, 1)
     end_date = start_date + relativedelta(months=1)
 
     category = db.get(Category, category_id)
+    is_income = bool(category and category.category_group and category.category_group.is_income)
+
+    split_tx_ids = db.query(TransactionSplit.transaction_id).filter(
+        TransactionSplit.category_id == category_id
+    )
 
     filters = [
-        Transaction.category_id == category_id,
         Transaction.date >= start_date,
         Transaction.date < end_date,
         Transaction.is_adjustment.is_(False),
+        Transaction.transfer_account_id.is_(None),
+        or_(
+            Transaction.category_id == category_id,
+            Transaction.id.in_(split_tx_ids),
+        ),
     ]
-    if category and category.category_group:
-        if category.category_group.is_income:
-            filters.append(Transaction.amount > 0)
-        else:
-            filters.append(Transaction.amount != 0)
     if not include_all_currencies:
         filters.append(Transaction.currency_id == currency_id)
 
-    transactions = db.query(Transaction).options(joinedload(Transaction.currency)).filter(
-        and_(*filters)
-    ).all()
+    transactions = (
+        db.query(Transaction)
+        .options(
+            joinedload(Transaction.currency),
+            joinedload(Transaction.splits).joinedload(TransactionSplit.category),
+        )
+        .filter(and_(*filters))
+        .all()
+    )
 
     target_currency = db.get(Currency, currency_id)
-
     if not target_currency:
-        return sum(t.amount for t in transactions)
+        total = 0.0
+        for t in transactions:
+            for alloc in get_category_allocations(t):
+                if alloc["category_id"] != category_id:
+                    continue
+                amount = float(alloc["amount"] or 0)
+                if is_income and amount <= 0:
+                    continue
+                if not is_income and amount == 0:
+                    continue
+                total += amount
+        return total
 
-    return sum(
-        convert_currency(
-            t.amount,
-            t.currency.code if t.currency else target_currency.code,
-            target_currency.code,
-            db,
-            rate_date=t.date,
-        )
-        for t in transactions
-    )
+    total = 0.0
+    for t in transactions:
+        for alloc in get_category_allocations(t):
+            if alloc["category_id"] != category_id:
+                continue
+            amount = float(alloc["amount"] or 0)
+            if is_income and amount <= 0:
+                continue
+            if not is_income and amount == 0:
+                continue
+            total += convert_currency(
+                amount,
+                t.currency.code if t.currency else target_currency.code,
+                target_currency.code,
+                db,
+                rate_date=t.date,
+            )
+    return total
 
 
 def get_monthly_spent(
@@ -963,6 +1208,8 @@ def get_monthly_spent(
     """
     Calculate total spending for a category in a month.
     Returns a negative number representing outflows only.
+
+    Honors splits the same way as get_monthly_activity.
     """
     start_date = date(year, month, 1)
     end_date = start_date + relativedelta(months=1)
@@ -971,35 +1218,62 @@ def get_monthly_spent(
     if category and category.category_group and category.category_group.is_income:
         return 0.0
 
+    split_tx_ids = db.query(TransactionSplit.transaction_id).filter(
+        TransactionSplit.category_id == category_id
+    )
+
     filters = [
-        Transaction.category_id == category_id,
         Transaction.date >= start_date,
         Transaction.date < end_date,
-        Transaction.amount < 0,
         Transaction.is_adjustment.is_(False),
+        Transaction.transfer_account_id.is_(None),
+        or_(
+            Transaction.category_id == category_id,
+            Transaction.id.in_(split_tx_ids),
+        ),
     ]
     if not include_all_currencies:
         filters.append(Transaction.currency_id == currency_id)
 
-    transactions = db.query(Transaction).options(joinedload(Transaction.currency)).filter(
-        and_(*filters)
-    ).all()
+    transactions = (
+        db.query(Transaction)
+        .options(
+            joinedload(Transaction.currency),
+            joinedload(Transaction.splits).joinedload(TransactionSplit.category),
+        )
+        .filter(and_(*filters))
+        .all()
+    )
 
     target_currency = db.get(Currency, currency_id)
 
-    if not target_currency:
-        return sum(t.amount for t in transactions)
+    def _negative_portion(amount: float) -> float:
+        return amount if amount < 0 else 0.0
 
-    return sum(
-        convert_currency(
-            t.amount,
-            t.currency.code if t.currency else target_currency.code,
-            target_currency.code,
-            db,
-            rate_date=t.date,
+    if not target_currency:
+        return sum(
+            _negative_portion(float(alloc["amount"] or 0))
+            for t in transactions
+            for alloc in get_category_allocations(t)
+            if alloc["category_id"] == category_id
         )
-        for t in transactions
-    )
+
+    total = 0.0
+    for t in transactions:
+        for alloc in get_category_allocations(t):
+            if alloc["category_id"] != category_id:
+                continue
+            amount = _negative_portion(float(alloc["amount"] or 0))
+            if amount == 0:
+                continue
+            total += convert_currency(
+                amount,
+                t.currency.code if t.currency else target_currency.code,
+                target_currency.code,
+                db,
+                rate_date=t.date,
+            )
+    return total
 
 
 def get_account_summary(db: Session):

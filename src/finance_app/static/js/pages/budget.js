@@ -8,7 +8,11 @@ export const title = 'Presupuesto';
 let _month = currentMonth();
 let _data  = null;
 let _cats  = [];
+let _accounts = [];
 let _rate  = 4200; // COP per 1 USD
+let _loadToken = 0; // ignore stale responses when switching months quickly
+
+const DEBT_ACCOUNT_TYPES = new Set(['credit_card', 'credit_loan', 'mortgage']);
 
 export async function mount(container) {
   container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
@@ -16,17 +20,24 @@ export async function mount(container) {
 }
 
 async function loadAndRender(container) {
+  const token = ++_loadToken;
+  const monthRequested = _month;
   try {
-    const [budgetData, cats, rateData] = await Promise.all([
-      api.budgets.month(_month),
+    const [budgetData, cats, rateData, accounts] = await Promise.all([
+      api.budgets.month(monthRequested),
       api.categories.list(),
       optional(api.exchangeRates.current(), null, 'Tasa de Cambio'),
+      optional(api.accounts.list(), [], 'Cuentas'),
     ]);
+    // Stale response: user already navigated to another month
+    if (token !== _loadToken) return;
     _data = budgetData;
     _cats = cats;
     if (rateData?.rate) _rate = rateData.rate;
+    _accounts = accounts ?? [];
     renderPage(container);
   } catch (err) {
+    if (token !== _loadToken) return;
     container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
   }
 }
@@ -61,16 +72,90 @@ function fmtDual(amount_cop, currency = 'COP', native = null) {
   return `${fmtCurrency(amount_cop, 'COP')}<br><small class="text-soft" style="font-size:0.7rem">≈ ${fmtCurrency(usd, 'USD')}</small>`;
 }
 
+// Accounts that count as "money in accounts" for Listo para asignar:
+// open, is_budget=True, and not a debt account (credit card / loan / mortgage).
+function budgetAccounts() {
+  return (_accounts ?? []).filter(a =>
+    a.is_budget && !a.is_closed && !DEBT_ACCOUNT_TYPES.has(a.type)
+  );
+}
+
+function accountsDiagram() {
+  const accs = budgetAccounts();
+  if (!accs.length) return '';
+
+  const byCurrency = {};
+  for (const a of accs) {
+    const code = a.currency?.code ?? 'COP';
+    (byCurrency[code] ??= []).push(a);
+  }
+  const codes = Object.keys(byCurrency).sort((a, b) => (a === 'COP' ? -1 : b === 'COP' ? 1 : a.localeCompare(b)));
+
+  const columns = codes.map(code => {
+    const list = byCurrency[code];
+    const subtotal = list.reduce((s, a) => s + (a.balance ?? 0), 0);
+    const rows = list.map(a => `
+      <div class="account-list-row">
+        <span class="account-list-name">${sanitize(a.name)}</span>
+        <span class="account-list-balance ${a.balance < 0 ? 'text-danger' : ''}">${fmtCurrency(a.balance ?? 0, code)}</span>
+      </div>
+    `).join('');
+    return `
+      <div class="account-list-col">
+        <div class="account-list-col-header">Cuentas en ${code}</div>
+        ${rows}
+        <div class="account-list-row account-list-subtotal">
+          <span class="account-list-name">Subtotal ${code}</span>
+          <span class="account-list-balance">${fmtCurrency(subtotal, code)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const totalCop = accs.reduce((s, a) => {
+    const code = a.currency?.code ?? 'COP';
+    const bal = a.balance ?? 0;
+    return s + (code === 'USD' ? bal * _rate : bal);
+  }, 0);
+
+  return `
+    <div class="account-state-group">
+      <div class="account-state-group-label">
+        Cuentas de presupuesto
+        <span class="info-tooltip" tabindex="0" aria-label="Explicación de Cuentas de presupuesto">
+          &#9432;
+          <span class="tooltip-text">
+            Cuentas que suman en "Listo para asignar": abiertas, incluidas en presupuesto, sin contar tarjetas de crédito, préstamos ni hipoteca. Separadas por moneda porque cada una vive en su propia cuenta (COP o USD).
+          </span>
+        </span>
+      </div>
+      <div class="account-list-columns">${columns}</div>
+      <div class="account-list-row account-list-total">
+        <span class="account-list-name">Total (equivalente COP)</span>
+        <span class="account-list-balance">${fmtCurrency(totalCop, 'COP')}</span>
+      </div>
+      <div class="account-list-row account-list-total">
+        <span class="account-list-name">Total (equivalente USD)</span>
+        <span class="account-list-balance">${fmtCurrency(totalCop / _rate, 'USD')}</span>
+      </div>
+    </div>
+  `;
+}
+
 function renderPage(container) {
   const cats = flattenBudgetCats(_data);
-  const expCats = cats.filter(c => c.category_type !== 'income');
-  const savCats = cats.filter(c => c.category_type === 'savings');
+  const expCats    = cats.filter(c => c.category_type !== 'income');
+  const savCats    = cats.filter(c => c.category_type === 'savings');
+  const incomeCats = cats.filter(c => c.category_type === 'income');
 
+  const totalIncome      = incomeCats.reduce((s, c) => s + (c.spent ?? 0), 0);
   const totalAssigned    = expCats.reduce((s, c) => s + (c.assigned ?? 0), 0);
   const totalSpent       = expCats.reduce((s, c) => s + (c.spent    ?? 0), 0);
   const totalAvailable   = expCats.reduce((s, c) => s + (c.available ?? 0), 0);
   const totalSavings     = savCats.reduce((s, c) => s + (c.available ?? 0), 0);
   const readyToAssign    = _data?.ready_to_assign ?? 0;
+  const monthLeftover    = totalAssigned - totalSpent;   // este mes: asignado - gastado
+  const unassignedIncome = totalIncome - totalAssigned;  // este mes: ingresos sin destino todavía
 
   const groups = groupByGroup(cats);
   _isFirstGroup = true;
@@ -97,57 +182,210 @@ function renderPage(container) {
       </div>
     </div>
 
-    <div class="stat-row mb-4">
-      <div class="stat-chip">
-        <span class="stat-chip-label">Asignado</span>
-        <span class="stat-chip-value amount">${fmtCurrency(totalAssigned, 'COP')}</span>
-        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalAssigned / _rate, 'USD')}</span>
-      </div>
-      <div class="stat-chip">
-        <span class="stat-chip-label">Gastado</span>
-        <span class="stat-chip-value text-danger amount">${fmtCurrency(totalSpent, 'COP')}</span>
-        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalSpent / _rate, 'USD')}</span>
-      </div>
-      <div class="stat-chip">
-        <span class="stat-chip-label">Disponible</span>
-        <span class="stat-chip-value amount ${totalAvailable >= 0 ? 'text-success' : 'text-danger'}">
-          ${fmtCurrency(totalAvailable, 'COP')}
-        </span>
-        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalAvailable / _rate, 'USD')}</span>
-      </div>
-      ${totalSavings > 0 ? `
-        <div class="stat-chip">
-          <span class="stat-chip-label">Ahorros acumulados</span>
-          <span class="stat-chip-value amount" style="color:var(--fin-accent)">${fmtCurrency(totalSavings, 'COP')}</span>
-          <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalSavings / _rate, 'USD')}</span>
-        </div>` : ''}
-      <div class="stat-chip" style="border-color:${readyToAssign >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">
-        <span class="stat-chip-label">
-          Listo para asignar
-          <span class="info-tooltip" tabindex="0" aria-label="Explicación de Listo para asignar">
-            &#9432;
-            <span class="tooltip-text">
-              Dinero que tienes pero aún no has asignado a ninguna categoría.<br><br>
-              <strong>= Saldo en cuentas de ahorro − Total disponible en presupuesto</strong><br><br>
-              Positivo: hay dinero sin categorizar.<br>
-              Negativo: asignaste más de lo que tienes.<br>
-              Ideal: $0 (cada peso tiene un destino).
+    <div class="money-tree mb-4">
+      <div class="tree-tier">
+        <div class="tree-node tree-node-root">
+          <span class="tree-node-label">
+            Ingresos de este mes
+            <span class="info-tooltip" tabindex="0" aria-label="Explicación de Ingresos">
+              &#9432;
+              <span class="tooltip-text">
+                Suma de las <strong>transacciones reales</strong> registradas en ${fmtMonthLabel(_month).toLowerCase()} en categorías de tipo ingreso.<br><br>
+                No es lo que "definiste" o planeaste ganar (eso es el <em>asignado</em> de la categoría ingreso) — es lo que realmente entró y quedó registrado como transacción este mes.
+              </span>
             </span>
           </span>
-        </span>
-        <span class="stat-chip-value amount ${readyToAssign >= 0 ? 'text-success' : 'text-danger'}">
-          ${fmtCurrency(readyToAssign, 'COP')}
-        </span>
-        <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(readyToAssign / _rate, 'USD')}</span>
+          <span class="tree-node-value text-success">${fmtCurrency(totalIncome, 'COP')}</span>
+          <span class="tree-node-sub">${fmtCurrency(totalIncome / _rate, 'USD')}</span>
+        </div>
       </div>
+
+      <div class="tree-connector">
+        <div class="tree-connector-line"></div>
+      </div>
+
+      <div class="tree-branch tree-branch-wide">
+        <div class="tree-branch-hline"></div>
+        <div class="tree-branch-children">
+
+          <div class="tree-child">
+            <div class="tree-vline"></div>
+            <div class="tree-node tree-node-primary tree-node-assigned">
+              <span class="tree-node-label">
+                Asignado
+                <span class="info-tooltip" tabindex="0" aria-label="Explicación de Asignado">
+                  &#9432;
+                  <span class="tooltip-text">Cuánto de tus ingresos ya tiene un destino (categoría) este mes.</span>
+                </span>
+              </span>
+              <span class="tree-node-value">${fmtCurrency(totalAssigned, 'COP')}</span>
+              <span class="tree-node-sub">${fmtCurrency(totalAssigned / _rate, 'USD')}</span>
+            </div>
+
+            <div class="tree-connector tree-connector-sm">
+              <div class="tree-connector-line"></div>
+            </div>
+
+            <div class="tree-branch">
+              <div class="tree-branch-hline"></div>
+              <div class="tree-branch-children">
+                <div class="tree-child">
+                  <div class="tree-vline"></div>
+                  <div class="tree-node tree-node-leaf tree-node-spent">
+                    <span class="tree-node-label">
+                      Gastado
+                      <span class="info-tooltip" tabindex="0" aria-label="Explicación de Gastado">
+                        &#9432;
+                        <span class="tooltip-text">De lo asignado, cuánto ya se gastó este mes.</span>
+                      </span>
+                    </span>
+                    <span class="tree-node-value text-danger">${fmtCurrency(totalSpent, 'COP')}</span>
+                    <span class="tree-node-sub">${fmtCurrency(totalSpent / _rate, 'USD')}</span>
+                  </div>
+                </div>
+                <div class="tree-child">
+                  <div class="tree-vline"></div>
+                  <div class="tree-node tree-node-leaf tree-node-remaining">
+                    <span class="tree-node-label">
+                      Falta por gastar
+                      <span class="info-tooltip" tabindex="0" aria-label="Explicación de Falta por gastar">
+                        &#9432;
+                        <span class="tooltip-text">
+                          Lo que queda de lo asignado este mes, sin gastar todavía.<br><br>
+                          <strong>= Asignado − Gastado</strong>
+                        </span>
+                      </span>
+                    </span>
+                    <span class="tree-node-value ${monthLeftover >= 0 ? 'text-success' : 'text-danger'}">${fmtCurrency(monthLeftover, 'COP')}</span>
+                    <span class="tree-node-sub">${fmtCurrency(monthLeftover / _rate, 'USD')}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tree-child">
+            <div class="tree-vline"></div>
+            <div class="tree-node tree-node-primary ${unassignedIncome < 0 ? 'tree-node-overassigned' : 'tree-node-unassigned'}">
+              <span class="tree-node-label">
+                Sin asignar (este mes)
+                <span class="info-tooltip" tabindex="0" aria-label="Explicación de Sin asignar">
+                  &#9432;
+                  <span class="tooltip-text">
+                    De los ingresos de ${fmtMonthLabel(_month).toLowerCase()}, cuánto todavía no tiene una categoría destino.<br><br>
+                    <strong>= Ingresos de este mes − Asignado este mes</strong><br><br>
+                    Es distinto de <em>"Listo para asignar"</em> (abajo): este número solo mira el flujo del mes; "Listo para asignar" mira el saldo acumulado de todas tus cuentas de presupuesto contra todo lo disponible acumulado en el presupuesto. Pueden dar valores diferentes.
+                  </span>
+                </span>
+              </span>
+              <span class="tree-node-value ${unassignedIncome < 0 ? 'text-danger' : ''}">${fmtCurrency(unassignedIncome, 'COP')}</span>
+              <span class="tree-node-sub">
+                ${unassignedIncome < 0
+                  ? `Asignaste ${fmtCurrency(Math.abs(unassignedIncome), 'COP')} de más`
+                  : fmtCurrency(unassignedIncome / _rate, 'USD')}
+              </span>
+              ${unassignedIncome > readyToAssign
+                ? `<span class="tree-node-note text-warning" style="display:block;font-size:0.72rem;margin-top:4px">
+                    ⚠ Sin asignar supera a "Listo para asignar": hay categorías en rojo que se deben cubrir con este dinero.
+                  </span>`
+                : ''}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="account-state mb-4">
+      <div class="account-state-label">
+        Estado acumulado (todos los meses, no solo ${fmtMonthLabel(_month).toLowerCase()})
+      </div>
+
+      <div class="account-state-group">
+        <div class="account-state-group-label">
+          Dinero ya asignado a una categoría
+          <span class="info-tooltip" tabindex="0" aria-label="Explicación">
+            &#9432;
+            <span class="tooltip-text">
+              Este dinero ya tiene un destino. No es lo mismo que "Listo para asignar" →, que es dinero sin destino todavía.
+            </span>
+          </span>
+        </div>
+        <div class="account-state-row">
+          <div class="stat-chip">
+            <span class="stat-chip-label">
+              Disponible acumulado
+              <span class="info-tooltip" tabindex="0" aria-label="Explicación de Disponible acumulado">
+                &#9432;
+                <span class="tooltip-text">
+                  Suma del disponible de todas las categorías (gasto y ahorro), incluyendo lo que quedó de meses anteriores. Es la versión acumulada de "Disponible este mes" ↑, sumando también meses pasados.
+                </span>
+              </span>
+            </span>
+            <span class="stat-chip-value amount ${totalAvailable >= 0 ? 'text-success' : 'text-danger'}">
+              ${fmtCurrency(totalAvailable, 'COP')}
+            </span>
+            <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalAvailable / _rate, 'USD')}</span>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-chip-label">
+              Ahorros acumulados
+              <span class="info-tooltip" tabindex="0" aria-label="Explicación de Ahorros acumulados">
+                &#9432;
+                <span class="tooltip-text">Parte del "Disponible acumulado" que está en categorías de tipo ahorro (dinero guardado, no de gasto mensual).</span>
+              </span>
+            </span>
+            <span class="stat-chip-value amount" style="color:var(--fin-accent)">${fmtCurrency(totalSavings, 'COP')}</span>
+            <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(totalSavings / _rate, 'USD')}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="account-state-group account-state-group-alert">
+        <div class="account-state-group-label">
+          Dinero SIN asignar a ninguna categoría
+          <span class="info-tooltip" tabindex="0" aria-label="Explicación">
+            &#9432;
+            <span class="tooltip-text">
+              Este dinero está en tus cuentas pero no está dentro de ninguna categoría — a diferencia de "Disponible acumulado" ←, que sí está categorizado.
+            </span>
+          </span>
+        </div>
+        <div class="account-state-row">
+          <div class="stat-chip stat-chip-highlight" style="border-color:${readyToAssign >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)'}">
+            <span class="stat-chip-label">
+              Listo para asignar
+              <span class="info-tooltip" tabindex="0" aria-label="Explicación de Listo para asignar">
+                &#9432;
+                <span class="tooltip-text">
+                  Dinero que tienes pero aún no has asignado a ninguna categoría.<br><br>
+                  <strong>= Saldo en cuentas de presupuesto (hoy) − Disponible acumulado en presupuesto (a hoy, incluye ahorros y lo no gastado)</strong><br><br>
+                  Siempre se calcula contra el mes actual real, aunque estés navegando otro mes en esta pantalla.<br><br>
+                  Positivo: hay dinero sin categorizar, puedes asignarlo.<br>
+                  Negativo: asignaste más de lo que tienes en cuentas.<br>
+                  Ideal: $0 (cada peso tiene un destino).<br><br>
+                  Es distinto de <em>"Sin asignar (este mes)"</em> ↑ arriba: ese número solo compara ingresos vs. asignado dentro del mes que estás viendo; este compara el saldo total de tus cuentas contra el disponible acumulado de hoy.
+                </span>
+              </span>
+            </span>
+            <span class="stat-chip-value amount ${readyToAssign >= 0 ? 'text-success' : 'text-danger'}">
+              ${fmtCurrency(readyToAssign, 'COP')}
+            </span>
+            <span class="text-soft" style="font-size:0.75rem">${fmtCurrency(readyToAssign / _rate, 'USD')}</span>
+          </div>
+        </div>
+      </div>
+
+      ${accountsDiagram()}
     </div>
 
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th style="width:24%">Categoría</th>
-            <th class="td-right" style="width:13%">Asignado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
+            <th style="width:21%">Categoría</th>
+            <th class="td-right" style="width:12%">Asignado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
+            <th class="td-right" style="width:8%">% del ingreso</th>
             <th class="td-right" style="width:13%">Gastado<br><small class="text-soft" style="font-weight:400">COP / USD</small></th>
             <th class="td-right" style="width:13%">Cubierto
               <span class="info-tooltip" tabindex="0" aria-label="Explicación de Cubierto" style="font-size:0.75rem;font-weight:400">
@@ -166,7 +404,7 @@ function renderPage(container) {
           </tr>
         </thead>
         <tbody>
-          ${Object.entries(groups).map(([grp, list]) => groupRows(grp, list)).join('')}
+          ${Object.entries(groups).map(([grp, list]) => groupRows(grp, list, totalIncome)).join('')}
         </tbody>
       </table>
     </div>
@@ -285,9 +523,10 @@ const GROUP_ACCENTS = ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3
 let _isFirstGroup = true;
 let _groupIndex   = 0;
 
-function groupRows(group, cats) {
+function groupRows(group, cats, totalIncomeAll) {
   const grpId       = cats[0]?.group_id ?? '';
   const grpName     = sanitize(group || 'Sin grupo');
+  const isIncomeGroup = cats[0]?.category_type === 'income';
   const totAssigned  = cats.reduce((s, c) => s + (c.assigned  ?? 0), 0);
   const totSpent     = cats.reduce((s, c) => s + (c.spent     ?? 0), 0);
   const totAvailable = cats.reduce((s, c) => s + (c.available ?? 0), 0);
@@ -295,6 +534,33 @@ function groupRows(group, cats) {
 
   const accent      = GROUP_ACCENTS[_groupIndex % GROUP_ACCENTS.length];
   _groupIndex++;
+
+  if (isIncomeGroup) {
+    const spacer = _isFirstGroup ? '' : `<tr><td colspan="8" style="height:20px;padding:0;border:none;background:transparent"></td></tr>`;
+    _isFirstGroup = false;
+    const header = `
+      ${spacer}
+      <tr class="budget-group-header" data-drop-group="${grpId}" style="background:var(--fin-surface-2)">
+        <td colspan="8" style="padding:0;border:none">
+          <div style="
+            border-left: 4px solid ${accent};
+            border-top: 1px solid var(--fin-border);
+            background: linear-gradient(90deg, ${accent}0d 0%, transparent 40%);
+            padding: 10px 16px 8px 18px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            align-items: center;
+          ">
+            <span style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.09em;color:${accent};${grpId ? 'cursor:pointer' : ''}"
+              ${grpId ? `data-edit-group="${grpId}" title="Editar grupo"` : ''}>${grpName}</span>
+            <span style="font-size:0.72rem;font-weight:700;color:var(--fin-ink-3);font-variant-numeric:tabular-nums">${fmtCurrency(totAssigned,'COP')}</span>
+          </div>
+        </td>
+      </tr>`;
+    const rows = cats.map(c => incomeCategoryRow(c, accent)).join('');
+    return header + rows;
+  }
 
   const pct         = progressPct(totSpent, totAssigned);
   const pctColor    = pct >= 100 ? '#BA1A1A' : pct >= 80 ? '#735142' : '#2F6B4F';
@@ -305,13 +571,16 @@ function groupRows(group, cats) {
   const coveredSign  = totCovered >= 0 ? '+' : '';
   const coveredColor = totCovered > 0 ? '#3B5B66' : totCovered < 0 ? '#735142' : 'var(--fin-ink-3)';
 
-  const spacer = _isFirstGroup ? '' : `<tr><td colspan="7" style="height:20px;padding:0;border:none;background:transparent"></td></tr>`;
+  const spacer = _isFirstGroup ? '' : `<tr><td colspan="8" style="height:20px;padding:0;border:none;background:transparent"></td></tr>`;
   _isFirstGroup = false;
+
+  const groupPct = totalIncomeAll > 0 ? (totAssigned / totalIncomeAll) * 100 : 0;
+  const groupPctLabel = totalIncomeAll > 0 ? `${groupPct.toFixed(1)}%` : '—';
 
   const header = `
     ${spacer}
     <tr class="budget-group-header" data-drop-group="${grpId}" style="background:var(--fin-surface-2)">
-      <td colspan="7" style="padding:0;border:none">
+      <td colspan="8" style="padding:0;border:none">
         <div style="
           border-left: 4px solid ${accent};
           border-top: 1px solid var(--fin-border);
@@ -332,6 +601,7 @@ function groupRows(group, cats) {
               border-radius:999px;padding:1px 7px;
               font-variant-numeric:tabular-nums;
             ">${pctLabel} usado</span>
+            ${totalIncomeAll > 0 ? `<span style="font-size:0.72rem;font-weight:700;color:var(--fin-ink-3);font-variant-numeric:tabular-nums" title="% de los ingresos de este mes">${groupPctLabel} del ingreso</span>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:16px">
             <span style="font-size:0.72rem;color:var(--fin-ink-3)">
@@ -348,11 +618,31 @@ function groupRows(group, cats) {
         </div>
       </td>
     </tr>`;
-  const rows = cats.map(c => categoryRow(c, accent)).join('');
+  const rows = cats.map(c => categoryRow(c, accent, totalIncomeAll)).join('');
   return header + rows;
 }
 
-function categoryRow(c, groupAccent = 'var(--fin-border)') {
+function incomeCategoryRow(c, groupAccent = 'var(--fin-border)') {
+  const assigned        = c.assigned        ?? 0;
+  const assigned_native = c.assigned_native ?? null;
+  const currency_code   = c.currency_code   ?? 'COP';
+
+  return `
+    <tr draggable="true" data-drag-cat="${c.category_id}" style="cursor:grab">
+      <td style="font-size:0.8125rem;font-weight:500;padding-left:28px;border-left:3px solid ${groupAccent}33">
+        <span style="opacity:0.35;margin-right:6px;font-size:0.7rem" title="Arrastra para mover de grupo">⠿</span>${sanitize(c.category_name)}
+      </td>
+      <td class="td-right td-mono" style="cursor:pointer;font-size:0.8125rem;line-height:1.4" data-edit-assigned="${c.category_id}" data-month="${_month}">
+        ${fmtDual(assigned, currency_code, assigned_native)}
+      </td>
+      <td colspan="5"></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría (nombre, grupo, tipo)">✎ Editar</button>
+      </td>
+    </tr>`;
+}
+
+function categoryRow(c, groupAccent = 'var(--fin-border)', totalIncomeAll = 0) {
   const assigned        = c.assigned        ?? 0;
   const assigned_native = c.assigned_native ?? null;
   const currency_code   = c.currency_code   ?? 'COP';
@@ -361,6 +651,9 @@ function categoryRow(c, groupAccent = 'var(--fin-border)') {
   const covered         = c.covered         ?? 0;
   const initial_amount  = c.initial_amount  ?? 0;
   const isSavings       = c.category_type   === 'savings';
+
+  const shareOfTotal    = totalIncomeAll > 0 ? (assigned / totalIncomeAll) * 100 : 0;
+  const shareLabel      = totalIncomeAll > 0 && assigned > 0 ? `${shareOfTotal.toFixed(1)}%` : '—';
 
   const assignedHtml = isSavings && initial_amount > 0
     ? `${fmtDual(assigned, currency_code, assigned_native)}<br><small class="amount" style="color:var(--fin-accent);font-size:0.68rem;white-space:nowrap">+ ${fmtCurrency(initial_amount, 'COP')} guardado</small>`
@@ -400,6 +693,7 @@ function categoryRow(c, groupAccent = 'var(--fin-border)') {
       <td class="td-right td-mono" style="cursor:pointer;font-size:0.8125rem;line-height:1.4" data-edit-assigned="${c.category_id}" data-month="${_month}">
         ${assignedHtml}
       </td>
+      <td class="td-right td-mono td-soft" style="font-size:0.75rem;line-height:1.4" title="% de los ingresos de este mes">${shareLabel}</td>
       <td class="td-right td-mono td-soft" style="font-size:0.8125rem;line-height:1.4">${fmtDual(spent)}</td>
       <td class="td-right td-mono" style="font-size:0.8125rem;line-height:1.4${covered !== 0 ? ';cursor:pointer' : ''}" ${covered !== 0 ? `data-edit-covered="${c.category_id}"` : ''}>${coveredHtml}</td>
       <td class="td-right td-mono ${availClass}" style="font-size:0.8125rem;line-height:1.4">
@@ -461,7 +755,7 @@ function openAssignedModal(el, container) {
           <p class="text-soft" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Ya ahorrado (acumulado anterior)</p>
           <div class="form-group">
             <label class="form-label">Monto (${currentCurrency})</label>
-            <input type="number" id="ma-initial" value="${currentCurrency === 'USD' ? initialNative.toFixed(2) : Math.round(initialNative)}" step="${currentCurrency === 'USD' ? '0.01' : '1000'}" min="0">
+            <input type="number" id="ma-initial" value="${currentCurrency === 'USD' ? initialNative.toFixed(2) : Math.round(initialNative)}" step="${currentCurrency === 'USD' ? '0.01' : '1000'}">
           </div>
           <p id="ma-initial-preview" class="text-soft" style="font-size:0.8rem;margin-top:4px"></p>
         </div>
@@ -475,7 +769,7 @@ function openAssignedModal(el, container) {
 
       if (isSavings) {
         const initial = parseFloat(body.querySelector('#ma-initial').value);
-        if (isNaN(initial) || initial < 0) throw new Error('Monto acumulado inválido');
+        if (isNaN(initial)) throw new Error('Monto acumulado inválido');
         // initial is always in currency_code (same as assigned); single call
         await api.budgets.update(_month, catId, { assigned: amount, currency_code, initial_amount: initial });
       } else {
@@ -499,6 +793,23 @@ function openAssignedModal(el, container) {
   }
   updatePreview();
   amtInput.addEventListener('input', updatePreview);
+
+  const initialInput   = isSavings ? modal.body.querySelector('#ma-initial') : null;
+  const initialPreview = isSavings ? modal.body.querySelector('#ma-initial-preview') : null;
+  const initialLabel   = isSavings ? modal.body.querySelector('#ma-initial')?.closest('.form-group')?.querySelector('.form-label') : null;
+
+  function updateInitialPreview() {
+    if (!initialInput || !initialPreview) return;
+    const amt = parseFloat(initialInput.value) || 0;
+    initialPreview.textContent = curSelect.value === 'COP'
+      ? `≈ ${fmtCurrency(amt / _rate, 'USD')}`
+      : `≈ ${fmtCurrency(amt * _rate, 'COP')}`;
+  }
+  if (initialInput && initialPreview) {
+    updateInitialPreview();
+    initialInput.addEventListener('input', updateInitialPreview);
+  }
+
   curSelect.addEventListener('change', () => {
     const amt = parseFloat(amtInput.value) || 0;
     if (curSelect.value === 'USD') {
@@ -509,28 +820,35 @@ function openAssignedModal(el, container) {
       amtInput.step  = '1000';
     }
     updatePreview();
-  });
 
-  if (isSavings) {
-    const initialInput   = modal.body.querySelector('#ma-initial');
-    const initialPreview = modal.body.querySelector('#ma-initial-preview');
-    if (initialInput && initialPreview) {
-      const updateInitialPreview = () => {
-        const amt = parseFloat(initialInput.value) || 0;
-        initialPreview.textContent = currentCurrency === 'COP'
-          ? `≈ ${fmtCurrency(amt / _rate, 'USD')}`
-          : `≈ ${fmtCurrency(amt * _rate, 'COP')}`;
-      };
+    if (initialInput) {
+      const initialAmt = parseFloat(initialInput.value) || 0;
+      if (curSelect.value === 'USD') {
+        initialInput.value = (initialAmt / _rate).toFixed(2);
+        initialInput.step  = '0.01';
+      } else {
+        initialInput.value = Math.round(initialAmt * _rate);
+        initialInput.step  = '1000';
+      }
+      if (initialLabel) initialLabel.textContent = `Monto (${curSelect.value})`;
       updateInitialPreview();
-      initialInput.addEventListener('input', updateInitialPreview);
     }
-  }
+  });
 }
 
 function openCategoryModal(cat, container) {
   const isEdit = !!cat;
   const c = cat ?? {};
-  const groups = (_data?.groups ?? []).filter(g => !g.is_income);
+  const allGroups = _data?.groups ?? [];
+  const expenseGroups = allGroups.filter(g => !g.is_income);
+  const incomeGroups  = allGroups.filter(g => g.is_income);
+  const initialType = c.category_type === 'income' ? 'income' : (c.category_type === 'savings' ? 'savings' : 'expense');
+
+  const groupOptionsFor = (type) => {
+    const list = type === 'income' ? incomeGroups : expenseGroups;
+    if (!list.length) return '<option value="">(crea primero un grupo)</option>';
+    return list.map(g => `<option value="${g.id}" ${g.id === c.group_id ? 'selected' : ''}>${sanitize(g.name)}</option>`).join('');
+  };
 
   const modal = openModal({
     title: isEdit ? `Editar: ${c.category_name}` : 'Nueva Categoría',
@@ -544,18 +862,19 @@ function openCategoryModal(cat, container) {
         <div class="form-group">
           <label class="form-label">Tipo</label>
           <select id="cf-type">
-            <option value="expense" ${c.category_type !== 'savings' ? 'selected' : ''}>Gasto</option>
-            <option value="savings" ${c.category_type === 'savings' ? 'selected' : ''}>Ahorro (acumula)</option>
+            <option value="expense" ${initialType === 'expense' ? 'selected' : ''}>Gasto</option>
+            <option value="savings" ${initialType === 'savings' ? 'selected' : ''}>Ahorro (acumula)</option>
+            <option value="income" ${initialType === 'income' ? 'selected' : ''}>Ingreso</option>
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Grupo</label>
           <select id="cf-group">
-            ${groups.map(g => `<option value="${g.id}" ${g.id === c.group_id ? 'selected' : ''}>${sanitize(g.name)}</option>`).join('')}
+            ${groupOptionsFor(initialType)}
           </select>
         </div>
       </div>
-      <div class="form-group mt-3">
+      <div class="form-group mt-3" id="cf-essential-wrap" ${initialType === 'income' ? 'style="display:none"' : ''}>
         <label class="flex items-center gap-2" style="cursor:pointer;font-size:0.875rem">
           <input type="checkbox" id="cf-essential" ${c.is_essential ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer">
           <span>Gasto esencial <span class="text-soft" style="font-size:0.8125rem">(Necesidades en salud financiera)</span></span>
@@ -574,14 +893,14 @@ function openCategoryModal(cat, container) {
       const groupId = parseInt(body.querySelector('#cf-group').value);
       const isEssential = body.querySelector('#cf-essential').checked;
       if (!name) throw new Error('El nombre es obligatorio');
-      if (isNaN(groupId)) throw new Error('Selecciona un grupo');
+      if (isNaN(groupId)) throw new Error('Selecciona un grupo (crea uno de tipo ingreso primero si vas a crear una categoría de ingreso)');
 
       if (isEdit) {
         await api.categories.update(c.category_id, {
           name,
           rollover_type: type === 'savings' ? 'accumulate' : 'reset',
           category_group_id: groupId,
-          is_essential: isEssential,
+          is_essential: type === 'income' ? false : isEssential,
         });
         toast.success('Categoría actualizada');
       } else {
@@ -589,11 +908,21 @@ function openCategoryModal(cat, container) {
           name,
           category_group_id: groupId,
           rollover_type: type === 'savings' ? 'accumulate' : 'reset',
+          is_essential: type === 'income' ? false : isEssential,
         });
         toast.success('Categoría creada');
       }
       await loadAndRender(container);
     },
+  });
+
+  const typeSelect = modal.body.querySelector('#cf-type');
+  const groupSelect = modal.body.querySelector('#cf-group');
+  const essentialWrap = modal.body.querySelector('#cf-essential-wrap');
+  typeSelect.addEventListener('change', () => {
+    const type = typeSelect.value;
+    groupSelect.innerHTML = groupOptionsFor(type);
+    essentialWrap.style.display = type === 'income' ? 'none' : '';
   });
 
   if (isEdit) {

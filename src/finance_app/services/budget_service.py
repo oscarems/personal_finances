@@ -13,7 +13,10 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, extract, or_
 from sqlalchemy.orm import Session, joinedload
 from finance_app.models import BudgetMonth, Category, CategoryGroup, Transaction, Account, Currency
-from finance_app.services.transaction_service import get_monthly_activity
+from finance_app.services.transaction_service import (
+    get_monthly_activity,
+    get_monthly_coverage_net,
+)
 from finance_app.services.exchange_rate_service import get_current_exchange_rate, convert_currency
 
 
@@ -24,40 +27,71 @@ from finance_app.services.exchange_rate_service import get_current_exchange_rate
 def _make_currency_converter(
     target_currency_code: str,
     exchange_rate_usd_cop: float,
+    db: Session | None = None,
 ) -> Callable:
     """Return a closure that converts *amount* from *from_code* to the target currency.
 
-    The returned function uses a cached exchange rate so no extra DB queries
-    are needed.
+    Fast path (no DB): only **USD↔COP** using the cached ``exchange_rate_usd_cop``.
+    Same-currency is a no-op.
+
+    When ``db`` is provided, other pairs (EUR, MXN, …) go through
+    ``exchange_rate_service.convert_currency`` (USD pivot). Without ``db``,
+    non-USD/COP pairs return the amount **unchanged** (identity) — this is a
+    known limitation (BUG-030); callers that need multi-currency should pass ``db``.
+
+    Does not alter accumulate / coverage formulas.
     """
+    target = (target_currency_code or "COP").upper()
+
     def _convert(amount: float, from_code: str) -> float:
-        if from_code == target_currency_code:
+        src = (from_code or target).upper()
+        if src == target:
             return amount
-        if from_code == "USD" and target_currency_code == "COP":
+        if src == "USD" and target == "COP":
             return amount * exchange_rate_usd_cop
-        if from_code == "COP" and target_currency_code == "USD":
-            return amount / exchange_rate_usd_cop
+        if src == "COP" and target == "USD":
+            return amount / exchange_rate_usd_cop if exchange_rate_usd_cop else amount
+        if db is not None and src != target:
+            try:
+                return float(convert_currency(amount, src, target, db))
+            except Exception:
+                return amount
         return amount
+
     return _convert
 
 
 def _make_currency_converter_2arg(
     target_currency_code: str,
     exchange_rate_usd_cop: float,
+    db: Session | None = None,
 ) -> Callable:
     """Like :func:`_make_currency_converter` but accepts *(from_code, to_code)*.
 
     Used inside ``get_month_budget`` where both source and target codes are
     passed explicitly.
+
+    Same BUG-030 contract: USD↔COP via cached rate; other pairs require ``db``
+    and use ``convert_currency``; otherwise identity.
     """
+    _ = (target_currency_code or "COP").upper()  # retained for call-site symmetry
+
     def _convert(amount: float, from_code: str, to_code: str) -> float:
-        if from_code == to_code:
+        src = (from_code or "").upper()
+        dest = (to_code or "").upper()
+        if src == dest:
             return amount
-        if from_code == "USD" and to_code == "COP":
+        if src == "USD" and dest == "COP":
             return amount * exchange_rate_usd_cop
-        if from_code == "COP" and to_code == "USD":
-            return amount / exchange_rate_usd_cop
+        if src == "COP" and dest == "USD":
+            return amount / exchange_rate_usd_cop if exchange_rate_usd_cop else amount
+        if db is not None:
+            try:
+                return float(convert_currency(amount, src, dest, db))
+            except Exception:
+                return amount
         return amount
+
     return _convert
 
 
@@ -195,12 +229,32 @@ def has_any_previous_budget(db: Session, category_id, currency_id, exclude_month
     return query.first() is not None
 
 
+def _category_has_multi_currency(db: Session, category_id: int, month_date: date) -> bool:
+    """True when the category already has budget rows in more than one currency this month."""
+    currency_ids = {
+        row[0]
+        for row in db.query(BudgetMonth.currency_id).filter_by(
+            category_id=category_id,
+            month=month_date,
+        ).all()
+    }
+    return len(currency_ids) > 1
+
+
 def get_or_create_budget_month(db: Session, category_id, month_date, currency_id):
     """
     Get or create a budget entry for a specific month and category.
 
     Looks for an existing budget for the category/month/currency combination.
-    If none exists, creates a new one with zero values.
+    If none exists, creates a new one inheriting from the previous month:
+
+    - assigned ← prev.assigned (both reset and accumulate)
+    - accumulate only: seed initial_amount ← prev.available (auto-derived;
+      initial_overridden=False so recalculate keeps it in sync)
+
+    Unified available formula after recalculate_budget_available:
+    - reset:      available = assigned + activity + coverage
+    - accumulate: available = prev.available + assigned + activity + coverage
 
     Args:
         db (Session): SQLAlchemy database session.
@@ -210,13 +264,6 @@ def get_or_create_budget_month(db: Session, category_id, month_date, currency_id
 
     Returns:
         BudgetMonth: Monthly budget object (existing or newly created).
-
-    Example:
-        >>> from datetime import date
-        >>> budget = get_or_create_budget_month(db, category_id=5,
-        ...                                     month_date=date(2025, 1, 1),
-        ...                                     currency_id=1)
-        >>> print(budget.assigned)  # 0.0 if new
     """
     budget = db.query(BudgetMonth).filter_by(
         category_id=category_id,
@@ -225,7 +272,6 @@ def get_or_create_budget_month(db: Session, category_id, month_date, currency_id
     ).first()
 
     if not budget:
-        # Inherit assigned from previous month if it exists
         prev_month_date = month_date - relativedelta(months=1)
         prev_budget = db.query(BudgetMonth).filter_by(
             category_id=category_id,
@@ -233,6 +279,16 @@ def get_or_create_budget_month(db: Session, category_id, month_date, currency_id
             currency_id=currency_id
         ).first()
         inherited_assigned = prev_budget.assigned if prev_budget else 0.0
+        initial_amount = 0.0
+
+        category = db.get(Category, category_id)
+        if (
+            category
+            and category.rollover_type == 'accumulate'
+            and prev_budget is not None
+        ):
+            # Same seed initialize_month uses — recalculate will re-sync if needed.
+            initial_amount = prev_budget.available or 0.0
 
         budget = BudgetMonth(
             category_id=category_id,
@@ -240,7 +296,9 @@ def get_or_create_budget_month(db: Session, category_id, month_date, currency_id
             currency_id=currency_id,
             assigned=inherited_assigned,
             activity=0.0,
-            available=0.0
+            available=0.0,
+            initial_amount=initial_amount,
+            initial_overridden=False,
         )
         db.add(budget)
         db.commit()
@@ -339,22 +397,23 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
     """
     Calculate the available amount for a monthly budget entry.
 
-    Implements rollover logic for two category types:
+    Unified formulas (coverage always included; activity is signed):
 
-    1. ACCUMULATE (savings): Available is calculated from the initial balance
-       plus the month's assigned minus spending.
-       Formula: Available = Initial Amount + Assigned + Activity
-       Example: $200 initial, $100 assigned, $30 spent:
-                Available = $200 + $100 + (-$30) = $270
+    1. RESET (monthly spending):
+       available = assigned + activity + coverage_net
 
-    2. RESET (monthly spending): Resets each month.
-       Formula: Available = Assigned + Activity
-       Example: $100 assigned, $30 spent:
-                Available = $100 + (-$30) = $70
+    2. ACCUMULATE (savings):
+       available = prev.available + assigned + activity + coverage_net
+       (prev.available applied via initial_amount when initial_overridden=False)
+
+    initialize_month and get_or_create_budget_month must seed accumulate the
+    same way so both yield identical available for the same prior dataset.
 
     Args:
         db (Session): Database session.
         budget_month (BudgetMonth): Monthly budget object to calculate.
+        include_all_currencies: When False, only sum activity/coverage in this
+            row's currency (required when the category has COP+USD rows).
 
     Returns:
         BudgetMonth: Same object with activity and available fields updated.
@@ -367,9 +426,18 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
     Note:
         Activity is NEGATIVE for expenses and POSITIVE for income.
         Example: spending $50 → activity = -$50.
+        coverage_net comes from cover-overspending adjustments (BUG-001).
     """
     # Get category to check rollover type
     category = db.get(Category, budget_month.category_id)
+
+    # Income categories only track 'assigned' (planned income). They never
+    # accumulate spending/available — actual income is measured from
+    # transactions separately (see build_income_transactions_query).
+    if category and category.category_group and category.category_group.is_income:
+        budget_month.activity = 0.0
+        budget_month.available = 0.0
+        return budget_month
 
     # Get activity from transactions
     month = budget_month.month.month
@@ -386,6 +454,16 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
 
     budget_month.activity = activity
 
+    # Cover moves available between categories without counting as real spending.
+    coverage = get_monthly_coverage_net(
+        db,
+        budget_month.category_id,
+        month,
+        year,
+        budget_month.currency_id,
+        include_all_currencies=include_all_currencies,
+    )
+
     # Get initial amount (only for 'accumulate' categories)
     initial_available = 0.0
 
@@ -397,6 +475,7 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
             not include_all_currencies
             and (budget_month.assigned or 0.0) == 0.0
             and activity == 0.0
+            and coverage == 0.0
         )
         if is_inactive_multicurrency_row:
             budget_month.initial_amount = 0.0
@@ -419,9 +498,11 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
                 # First month ever — no prev exists, use stored seed value
                 initial_available = budget_month.initial_amount or 0.0
 
-    # Available = assigned - activity (negative for expenses) + initial amount (if accumulate)
-    # activity is negative for expenses, so we add it
-    budget_month.available = budget_month.assigned + activity + initial_available
+    # Available = assigned + activity + coverage (+ initial for accumulate).
+    # activity is real spending/income; coverage is internal category reallocation.
+    budget_month.available = (
+        budget_month.assigned + activity + coverage + initial_available
+    )
 
     return budget_month
 
@@ -503,7 +584,7 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
 
     all_currencies = {c.id: c for c in db.query(Currency).all()}
     exchange_rate_usd_cop = get_current_exchange_rate(db)
-    convert = _make_currency_converter_2arg(currency.code, exchange_rate_usd_cop)
+    convert = _make_currency_converter_2arg(currency.code, exchange_rate_usd_cop, db=db)
 
     groups = db.query(CategoryGroup).options(
         joinedload(CategoryGroup.categories)
@@ -532,9 +613,57 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
 
     total_in_accounts = calculate_total_in_accounts(db, currency.id)
     budget_data['totals']['in_accounts'] = total_in_accounts
-    budget_data['ready_to_assign'] = total_in_accounts - budget_data['totals']['available']
+
+    today_month = date(date.today().year, date.today().month, 1)
+    if today_month == month_date:
+        total_available_today = budget_data['totals']['available']
+    else:
+        total_available_today = _calculate_total_available_for_month(
+            db, today_month, currency, all_currencies, convert
+        )
+    budget_data['ready_to_assign'] = total_in_accounts - total_available_today
 
     return budget_data
+
+
+def _calculate_total_available_for_month(
+    db: Session,
+    month_date: date,
+    currency: Currency,
+    all_currencies: dict,
+    convert: Callable,
+) -> float:
+    """Sum 'available' across non-income, non-hidden categories for *month_date*.
+
+    Used to compute "Listo para asignar" against TODAY's disponible even when
+    the budget view being displayed has been navigated to a past/future month —
+    otherwise it would compare today's real account balance against a
+    different month's snapshot and produce a misleading number.
+    """
+    budgets = db.query(BudgetMonth).options(
+        joinedload(BudgetMonth.category).joinedload(Category.category_group)
+    ).filter_by(month=month_date).all()
+
+    by_category: dict[int, list[BudgetMonth]] = {}
+    for b in budgets:
+        by_category.setdefault(b.category_id, []).append(b)
+
+    total = 0.0
+    for cat_budgets in by_category.values():
+        category = cat_budgets[0].category
+        if not category or category.is_hidden:
+            continue
+        if category.category_group and category.category_group.is_income:
+            continue
+
+        has_multi = len({b.currency_id for b in cat_budgets}) > 1
+        for b in cat_budgets:
+            recalculate_budget_available(db, b, include_all_currencies=not has_multi)
+            bcur = all_currencies.get(b.currency_id)
+            if bcur:
+                total += convert(b.available, bcur.code, currency.code)
+
+    return total
 
 
 # -- helpers for get_month_budget ------------------------------------------
@@ -582,7 +711,9 @@ def _build_group_budget(
 
         if not group.is_income:
             running_totals['assigned'] += cat_data['assigned']
-            running_totals['activity'] += abs(cat_data['activity'])
+            # Keep signed activity (expenses negative). abs() inflated monthly
+            # totals and cancelled out income-like positive activity in expenses.
+            running_totals['activity'] += cat_data['activity']
             running_totals['available'] += cat_data['available']
 
     return group_data
@@ -618,7 +749,7 @@ def _get_coverage_by_category(db: Session, month_date: date) -> dict[int, float]
         .all()
     )
 
-    to_cop = _make_currency_converter("COP", get_current_exchange_rate(db))
+    to_cop = _make_currency_converter("COP", get_current_exchange_rate(db), db=db)
 
     result: dict[int, float] = {}
     for tx in txs:
@@ -706,7 +837,7 @@ def calculate_total_in_accounts(db: Session, currency_id: int) -> float:
     Excludes debt accounts (credit_card, credit_loan, mortgage).
     """
     target_currency = db.get(Currency, currency_id)
-    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
+    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db), db=db)
 
     excluded_types = {'credit_card', 'credit_loan', 'mortgage'}
     accounts = db.query(Account).options(
@@ -760,7 +891,7 @@ def calculate_ready_to_assign(db: Session, month_date, currency_id):
         - Tracking accounts are NOT included.
     """
     target_currency = db.get(Currency, currency_id)
-    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
+    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db), db=db)
 
     total_in_accounts = calculate_total_in_accounts(db, currency_id)
 
@@ -797,7 +928,7 @@ def calculate_assigned_this_month(db: Session, month_date, currency_id):
     if not target_currency:
         return 0.0
 
-    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db))
+    convert = _make_currency_converter(target_currency.code, get_current_exchange_rate(db), db=db)
     previous_month = month_date - relativedelta(months=1)
 
     budgets = db.query(BudgetMonth).options(
@@ -941,7 +1072,7 @@ def audit_ready_to_assign(db: Session, month_date: date, currency_id: int) -> di
         return {"error": f"Moneda id={currency_id} no encontrada"}
 
     exchange_rate = get_current_exchange_rate(db)
-    convert = _make_currency_converter(target_currency.code, exchange_rate)
+    convert = _make_currency_converter(target_currency.code, exchange_rate, db=db)
 
     # --- Bloque 1: cuentas presupuestadas (excluye deudas) ---
     excluded_types = {"credit_card", "credit_loan", "mortgage"}
@@ -1070,27 +1201,56 @@ def get_budget_overview(db: Session, currency_code='COP'):
 
 def move_to_next_month(db: Session, current_month_date, currency_id):
     """
-    Roll over budget to the next month.
-    Carries over 'available' amounts to the next month.
+    Ensure next-month budget rows exist and apply accumulate carry-over.
+
+    Unified semantics (same as initialize_month / get_or_create_budget_month):
+    - reset: next.available = next.assigned + activity + coverage
+      (leftover available does NOT roll; monthly reset by design)
+    - accumulate: next.available = current.available + next.assigned + activity + coverage
+      via initial_amount auto-derived from current.available
+
+    Creates missing next-month rows (inherited assigned + seeded initial for
+    accumulate) and recalculates available. Existing next-month rows keep
+    explicit user overrides (assigned_overridden / initial_overridden).
     """
     next_month = current_month_date + relativedelta(months=1)
 
-    budgets = db.query(BudgetMonth).filter_by(
+    budgets = db.query(BudgetMonth).options(
+        joinedload(BudgetMonth.category).joinedload(Category.category_group)
+    ).filter_by(
         month=current_month_date,
         currency_id=currency_id
     ).all()
 
     for budget in budgets:
-        if budget.available > 0:
-            next_budget = get_or_create_budget_month(
-                db,
-                budget.category_id,
-                next_month,
-                currency_id
-            )
-            # The available will be automatically calculated when needed
-            db.commit()
+        has_multi = _category_has_multi_currency(db, budget.category_id, current_month_date)
+        recalculate_budget_available(db, budget, include_all_currencies=not has_multi)
+    db.flush()
 
+    for budget in budgets:
+        category = budget.category
+        if not category or not category.category_group:
+            continue
+        if category.category_group.is_income:
+            continue
+
+        next_budget = get_or_create_budget_month(
+            db,
+            budget.category_id,
+            next_month,
+            currency_id,
+        )
+
+        if (
+            category.rollover_type == 'accumulate'
+            and not next_budget.initial_overridden
+        ):
+            next_budget.initial_amount = budget.available or 0.0
+
+        has_multi = _category_has_multi_currency(db, budget.category_id, next_month)
+        recalculate_budget_available(db, next_budget, include_all_currencies=not has_multi)
+
+    db.commit()
     return True
 
 
@@ -1166,7 +1326,7 @@ def get_category_budget_history(db: Session, category_id: int, months: int = 3):
             recalculate_budget_available(db, b, include_all_currencies=not has_multiple_currencies)
     db.commit()
 
-    to_cop = _make_currency_converter("COP", exchange_rate)
+    to_cop = _make_currency_converter("COP", exchange_rate, db=db)
 
     def _to_cop_by_id(amount: float, cur_id: int) -> float:
         cur = currencies.get(cur_id)
@@ -1228,11 +1388,8 @@ def recalculate_month(db: Session, month_date: date) -> dict:
 
     # --- Paso 1: refrescar el mes anterior ---
     prev_budgets_list = db.query(BudgetMonth).filter_by(month=prev_month).all()
-    prev_by_cat: dict[int, list] = {}
     for b in prev_budgets_list:
-        prev_by_cat.setdefault(b.category_id, []).append(b)
-    for b in prev_budgets_list:
-        has_multi = len(prev_by_cat.get(b.category_id, [])) > 1
+        has_multi = _category_has_multi_currency(db, b.category_id, prev_month)
         recalculate_budget_available(db, b, include_all_currencies=not has_multi)
     db.flush()
 
@@ -1244,10 +1401,6 @@ def recalculate_month(db: Session, month_date: date) -> dict:
         BudgetMonth.category_id, BudgetMonth.currency_id
     ).all()
 
-    by_category: dict[int, list] = {}
-    for b in budgets:
-        by_category.setdefault(b.category_id, []).append(b)
-
     updated = 0
     for budget in budgets:
         prev = prev_budgets.get((budget.category_id, budget.currency_id))
@@ -1256,7 +1409,9 @@ def recalculate_month(db: Session, month_date: date) -> dict:
             budget.assigned_overridden = False
         # If no prev record for this currency, leave assigned as-is.
 
-        recalculate_budget_available(db, budget, include_all_currencies=True)
+        # Multi-currency: never double-count activity across COP+USD rows.
+        has_multi = _category_has_multi_currency(db, budget.category_id, month_date)
+        recalculate_budget_available(db, budget, include_all_currencies=not has_multi)
         updated += 1
 
     db.commit()
@@ -1267,8 +1422,11 @@ def initialize_month(db: Session, year: int, month: int) -> dict:
     """
     Initialize budget rows for a target month based on the previous month.
 
-    - 'accumulate' (savings): new assigned = max(0, prev_assigned + prev_activity)
-    - 'reset' (spending): new assigned = prev_assigned
+    Same create semantics as get_or_create_budget_month (parity required):
+    - 'reset' (spending): assigned = prev.assigned; available = assigned + activity + coverage
+    - 'accumulate' (savings): assigned = prev.assigned;
+      initial_amount = prev.available (initial_overridden=False);
+      available = prev.available + assigned + activity + coverage
 
     Only creates rows that do NOT already exist. Existing rows are left untouched.
     """
@@ -1283,12 +1441,9 @@ def initialize_month(db: Session, year: int, month: int) -> dict:
         return {"created": 0, "skipped": 0, "month": target_month.isoformat(),
                 "message": "No hay presupuesto en el mes anterior"}
 
-    # Recalculate previous month so activity is fresh
-    prev_by_cat: dict[int, list] = {}
+    # Recalculate previous month so activity / available are fresh
     for b in prev_budgets:
-        prev_by_cat.setdefault(b.category_id, []).append(b)
-    for b in prev_budgets:
-        has_multi = len(prev_by_cat.get(b.category_id, [])) > 1
+        has_multi = _category_has_multi_currency(db, b.category_id, prev_month)
         recalculate_budget_available(db, b, include_all_currencies=not has_multi)
     db.flush()
 
@@ -1305,20 +1460,22 @@ def initialize_month(db: Session, year: int, month: int) -> dict:
         if not category or not category.category_group:
             skipped += 1
             continue
-        if category.category_group.is_income:
-            skipped += 1
-            continue
-
         key = (prev.category_id, prev.currency_id)
         if key in existing_keys:
             skipped += 1
             continue
 
         prev_assigned = prev.assigned or 0.0
-        prev_activity = prev.activity or 0.0
+        initial_amount = 0.0
 
-        if category.rollover_type == 'accumulate':
-            new_assigned = max(0.0, prev_assigned + prev_activity)
+        if category.category_group.is_income:
+            # Income categories only carry forward 'asignado' (planned income),
+            # never accumulate — activity/available stay at 0.
+            new_assigned = prev_assigned
+        elif category.rollover_type == 'accumulate':
+            # available = prev.available + assigned + activity (+ coverage)
+            new_assigned = prev_assigned
+            initial_amount = prev.available or 0.0
         else:
             new_assigned = prev_assigned
 
@@ -1330,7 +1487,7 @@ def initialize_month(db: Session, year: int, month: int) -> dict:
             assigned_overridden=False,
             activity=0.0,
             available=0.0,
-            initial_amount=0.0,
+            initial_amount=initial_amount,
             initial_overridden=False,
         )
         db.add(new_budget)
@@ -1340,11 +1497,8 @@ def initialize_month(db: Session, year: int, month: int) -> dict:
     db.commit()
 
     new_budgets = db.query(BudgetMonth).filter_by(month=target_month).all()
-    new_by_cat: dict[int, list] = {}
     for b in new_budgets:
-        new_by_cat.setdefault(b.category_id, []).append(b)
-    for b in new_budgets:
-        has_multi = len(new_by_cat.get(b.category_id, [])) > 1
+        has_multi = _category_has_multi_currency(db, b.category_id, target_month)
         recalculate_budget_available(db, b, include_all_currencies=not has_multi)
     db.commit()
 

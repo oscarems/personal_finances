@@ -1,0 +1,15 @@
+---
+description: Orquestación bugfix — catálogo BUGS_AUDIT y agentes bugfix-* con dominios disjuntos
+alwaysApply: false
+globs: docs/BUGS_AUDIT_2026-08.md, .cursor/agents/bugfix-*.md, .claude/agents/bugfix-*.md
+---
+
+# Bugfix
+
+- Catálogo: `docs/BUGS_AUDIT_2026-08.md`
+- Agentes: `bugfix-cover`, `bugfix-portfolio-fire`, `bugfix-debt-fx`, `bugfix-budget-calc`, `bugfix-fe-ux`
+- Skill: `.cursor/skills/bugfix-orchestrator/SKILL.md`
+- Ola A en paralelo: cover + portfolio-fire. Ola B: debt-fx + budget-calc. Ola C: fe-ux.
+- No mezclar dominios de archivo entre agentes concurrentes.
+- No commit sin pedir explícito del usuario.
+- Tras fix: actualizar estado del ID en el catálogo.

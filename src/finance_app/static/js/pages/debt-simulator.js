@@ -1,5 +1,6 @@
 import * as api from '../api/client.js';
 import { fmtCurrency, sanitize } from '../utils.js';
+import { toast } from '../components/toast.js';
 
 let _balanceChart = null;
 let _interestChart = null;
@@ -37,7 +38,10 @@ export async function mount(container) {
     const all = await api.debts.list();
     // Tarjetas de crédito quedan fuera: saldo revolvente no encaja en el modelo de pago a plazo.
     _debts = all.filter(d => d.is_active !== false && d.debt_type !== 'credit_card');
-  } catch (_) {}
+  } catch (err) {
+    _debts = [];
+    toast.error(err?.message || 'No se pudieron cargar las deudas');
+  }
 
   const debtOptions = _debts.map(d => {
     const label = TYPE_LABEL[d.debt_type] || d.debt_type;

@@ -12,13 +12,20 @@ from decimal import Decimal
 from datetime import date
 
 from finance_app.database import get_db
-from finance_app.models import Currency, Category
+from finance_app.models import Currency, Category, Account
 from finance_app.models.transaction import Transaction
 from finance_app.models.merchant_rule import MerchantRule
+from finance_app.models.budget import BudgetMonth
 from finance_app.services.transaction_service import (
     create_transaction, get_transactions, get_transaction_by_id,
     update_transaction, delete_transaction, create_transfer, create_adjustment,
     get_last_manual_transactions_by_account, amounts_in_cop_and_usd,
+    is_budget_cover_adjustment, _reverse_debt_impact, _apply_debt_impact,
+    _resolve_target_debt,
+)
+from finance_app.services.budget_service import (
+    get_or_create_budget_month,
+    recalculate_budget_available,
 )
 from finance_app.services.merchant_rule_engine import find_matching_rule
 
@@ -103,9 +110,44 @@ def bulk_update_transactions(body: BulkUpdateBody, db: Session = Depends(get_db)
     if not body.ids:
         raise HTTPException(status_code=400, detail="No transaction IDs provided.")
     updated = 0
+    # (category_id, month_first_day, currency_id) needing budget recalculation
+    budgets_to_refresh: set[tuple[int, date, int]] = set()
+
+    def _track_budget(tx: Transaction, category_id: int | None) -> None:
+        if category_id is None or not tx.date or not tx.currency_id:
+            return
+        month_date = date(tx.date.year, tx.date.month, 1)
+        budgets_to_refresh.add((category_id, month_date, tx.currency_id))
+
     for tx in db.query(Transaction).filter(Transaction.id.in_(body.ids)).all():
         if body.category_id is not None:
-            tx.category_id = body.category_id if body.category_id != 0 else None
+            new_category_id = body.category_id if body.category_id != 0 else None
+            old_category_id = tx.category_id
+            if new_category_id != old_category_id:
+                account = db.get(Account, tx.account_id)
+                old_debt = (
+                    _resolve_target_debt(db, tx, account)
+                    if account and not is_budget_cover_adjustment(tx)
+                    else None
+                )
+                _track_budget(tx, old_category_id)
+                tx.category_id = new_category_id
+                new_debt = (
+                    _resolve_target_debt(db, tx, account)
+                    if account and not is_budget_cover_adjustment(tx)
+                    else None
+                )
+                old_debt_id = old_debt.id if old_debt else None
+                new_debt_id = new_debt.id if new_debt else None
+                # Only reverse/apply when category reassignment changes debt linkage
+                if old_debt_id != new_debt_id and account and not is_budget_cover_adjustment(tx):
+                    if old_debt_id is not None:
+                        tx.category_id = old_category_id
+                        _reverse_debt_impact(db, tx, account)
+                        tx.category_id = new_category_id
+                    if new_debt_id is not None:
+                        _apply_debt_impact(db, tx, account)
+                _track_budget(tx, new_category_id)
         if body.notes is not None:
             tx.memo = body.notes or None
         if body.tag_ids is not None:
@@ -116,6 +158,17 @@ def bulk_update_transactions(body: BulkUpdateBody, db: Session = Depends(get_db)
                 if tag:
                     db.add(TransactionTag(transaction_id=tx.id, tag_id=tag_id))
         updated += 1
+
+    db.flush()
+    for category_id, month_date, currency_id in budgets_to_refresh:
+        budget = get_or_create_budget_month(db, category_id, month_date, currency_id)
+        existing = db.query(BudgetMonth).filter_by(
+            category_id=category_id,
+            month=month_date,
+        ).all()
+        has_multi = len({b.currency_id for b in existing}) > 1
+        recalculate_budget_available(db, budget, include_all_currencies=not has_multi)
+
     db.commit()
     return {"success": True, "updated": updated}
 
@@ -268,6 +321,8 @@ def create_new_transaction(transaction: TransactionCreate, db: Session = Depends
         new_transaction = create_transaction(db, data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # create_transaction commits; refresh so serialization sees DB state.
+    db.refresh(new_transaction)
     return new_transaction.to_dict()
 
 

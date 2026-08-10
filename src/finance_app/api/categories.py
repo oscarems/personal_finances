@@ -281,6 +281,7 @@ class CategoryCreate(BaseModel):
     name: str
     category_group_id: int
     rollover_type: str = 'reset'
+    is_essential: Optional[bool] = False
 
 
 class CategoryUpdate(BaseModel):
@@ -320,6 +321,7 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
         name=category.name,
         category_group_id=category.category_group_id,
         rollover_type=category.rollover_type,
+        is_essential=bool(category.is_essential),
         is_hidden=False
     )
     db.add(new_category)

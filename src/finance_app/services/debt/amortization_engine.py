@@ -74,17 +74,23 @@ class AmortizationEngine:
         Both fields accept either percentage form (> 1, e.g. 12.0) or decimal form
         (<= 1, e.g. 0.12) — the > 1 heuristic normalises them automatically.
         """
+        from finance_app.services.debt.helpers import normalize_rate_units
+
         for raw in (debt.annual_interest_rate, debt.interest_rate):
             if raw is not None:
-                value = float(raw)
-                return value / 100 if value > 1 else value
+                return normalize_rate_units(float(raw))
         return 0.0
 
     def _monthly_rate(self, debt: Debt) -> float:
-        # Prefer explicit monthly_interest_rate field when available
+        # Prefer explicit monthly_interest_rate field when available.
+        # Lazy import avoids circular import with helpers → amortization_service → engine.
+        from finance_app.services.debt.helpers import (
+            effective_monthly_interest_rate,
+            normalize_rate_units,
+        )
+
         if getattr(debt, "monthly_interest_rate", None):
-            rate = float(debt.monthly_interest_rate)
-            return rate / 100 if rate > 1 else rate
+            return normalize_rate_units(float(debt.monthly_interest_rate))
 
         note = (debt.notes or "").lower()
         if "tasa_mensual" in note or "monthly_rate" in note:
@@ -94,14 +100,14 @@ class AmortizationEngine:
                 value = float(debt.interest_rate)
             else:
                 value = 0.0
-            return value / 100 if value > 1 else value
+            return normalize_rate_units(value)
 
-        annual = self._annual_rate_decimal(debt)
-        if annual == 0:
-            return 0.0
+        # Shared heuristic with simulator / cost analysis (annual → effective monthly).
+        # When annual_rate_convention is "nominal", divide by 12 instead of effective.
         if self.annual_rate_convention == "nominal":
-            return annual / 12
-        return (1 + annual) ** (1 / 12) - 1
+            annual = self._annual_rate_decimal(debt)
+            return annual / 12 if annual else 0.0
+        return effective_monthly_interest_rate(debt)
 
     def _term_months(self, debt: Debt) -> int:
         if debt.term_months:
@@ -247,28 +253,39 @@ class AmortizationEngine:
                 extra_payment = max(0.0, principal_paid - base_principal)
                 is_paid_real = True
                 fuente = "transaccion" if real_payments[key].get("has_transaction") else "asumido"
+                # Capitalize any accrued interest not covered by the real payment.
+                unpaid_interest = max(0.0, interest - interest_paid)
+                principal_paid = min(opening, principal_paid)
+                ending = max(0.0, opening - principal_paid + unpaid_interest)
             else:
                 payment_total = planned_payment
-                if amortization_type == "fixed_principal":
-                    base_principal = (float(debt.original_amount or opening) / max(term_months, 1))
-                    principal_paid = base_principal
-                elif amortization_type == "interest_only":
-                    principal_paid = 0.0
-                else:
-                    principal_paid = max(0.0, planned_payment - interest)
                 interest_paid = interest
                 extra_payment = 0.0
                 is_paid_real = False
-                # Past months without real payment data are "asumido", future are "proyectado"
                 if mode in {"actual", "hybrid"} and month_start <= self._month_start(cutoff):
                     fuente = "asumido"
                 else:
                     fuente = "proyectado"
 
-            principal_paid = min(opening, principal_paid)
-            ending = max(0.0, opening - principal_paid)
-            if ending <= 0.01:
-                principal_paid += ending
+                if amortization_type == "fixed_principal":
+                    principal_paid = float(debt.original_amount or opening) / max(term_months, 1)
+                    principal_paid = min(opening, principal_paid)
+                    # scheduled payment should be principal + interest; capitalize shortfall
+                    ending = max(0.0, opening - principal_paid + max(0.0, interest - payment_total))
+                elif amortization_type == "interest_only":
+                    principal_paid = 0.0
+                    ending = opening
+                else:
+                    # French / fixed_payment: ending = opening + interest - payment
+                    principal_paid = max(0.0, payment_total - interest)
+                    ending = opening + interest - payment_total
+                    if ending < 0:
+                        principal_paid = opening
+                        payment_total = principal_paid + interest_paid
+                        ending = 0.0
+
+            if 0 < ending <= 0.01:
+                principal_paid = max(0.0, principal_paid + ending)
                 ending = 0.0
                 payment_total = principal_paid + interest_paid
 

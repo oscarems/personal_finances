@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, fmtDateShort, sanitize, amountClass, progressBar, optional } from '../utils.js';
+import { fmtCurrency, fmtDate, fmtDateShort, sanitize, amountClass, progressBar, optional, todayISO } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { openModal } from '../components/modal.js';
 
@@ -568,12 +568,12 @@ function goalsWidget(goals) {
 
 function bindEvents(container, accounts, netWorthData) {
   container.querySelector('#btnQuickAdd')?.addEventListener('click', () => {
-    openQuickAdd(accounts);
+    openQuickAdd(accounts, container);
   });
   renderNetWorthChart(container, netWorthData);
 }
 
-function openQuickAdd(accounts) {
+function openQuickAdd(accounts, container) {
   const currencies = ['COP', 'USD'];
 
   openModal({
@@ -583,7 +583,7 @@ function openQuickAdd(accounts) {
       <div class="form-row cols-2">
         <div class="form-group">
           <label class="form-label required">Fecha</label>
-          <input type="date" id="qa-date" value="${new Date().toISOString().split('T')[0]}">
+          <input type="date" id="qa-date" value="${todayISO()}">
         </div>
         <div class="form-group">
           <label class="form-label required">Tipo</label>
@@ -635,6 +635,7 @@ function openQuickAdd(accounts) {
         type: txType, payee_name: payee || undefined,
       });
       toast.success('Transacción guardada');
+      await mount(container);
     },
   });
 }

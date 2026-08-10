@@ -8,7 +8,9 @@ Backward-compatible API:
   get_current_exchange_rate(db)  → float (USD→base_currency rate, or USD→COP fallback)
   get_rate_for_date(db, date)    → float (same, for a historical date)
   convert_currency(amount, from_code, to_code, db, rate_date) → float
+  convert_currency_result(...) → (amount, RateResult) with fallback flag
 """
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Optional
@@ -29,6 +31,22 @@ logger = logging.getLogger(__name__)
 _PLAUSIBLE_MIN = 1e-6
 _PLAUSIBLE_MAX = 1e9
 _STALE_RATE_DAYS = 1  # a cached rate older than this triggers a live re-fetch
+
+
+@dataclass(frozen=True)
+class RateResult:
+    """Exchange-rate lookup with an explicit source flag.
+
+    ``source`` values: ``identity`` (same currency), ``cache``, ``api``,
+    ``stale_cache``, ``average``, ``default``, ``fallback_identity``.
+    ``used_fallback`` is True only when the rate is the silent 1.0 identity used
+    because no rate could be resolved — callers should warn the user.
+    """
+
+    rate: float
+    source: str
+    used_fallback: bool = False
+
 
 # Extra CA certs some local security software injects for TLS inspection
 # (e.g. Norton sets NODE_EXTRA_CA_CERTS for Node; Python has no equivalent
@@ -281,33 +299,38 @@ def sync_all_currency_rates(db: Session, force: bool = False) -> None:
 # Generic rate lookup (USD pivot)
 # ---------------------------------------------------------------------------
 
-def get_rate(
+def get_rate_result(
     db: Session,
     from_code: str,
     to_code: str,
     target_date: Optional[date] = None,
-) -> float:
+) -> RateResult:
     """
-    Get the exchange rate to convert 1 unit of from_code into to_code.
+    Get the exchange rate to convert 1 unit of from_code into to_code,
+    plus a source flag.
+
     Uses USD as a universal pivot:
         rate(A→B) = rate(USD→B) / rate(USD→A)
 
     Falls back through: DB cache → API → historical average → config default.
+    Unknown currencies yield ``fallback_identity`` (rate=1.0) with a warning —
+    never treat that as a successful live quote.
     """
+    from_code = (from_code or "").upper()
+    to_code = (to_code or "").upper()
     if from_code == to_code:
-        return 1.0
+        return RateResult(rate=1.0, source="identity", used_fallback=False)
 
     lookup_date = target_date or date.today()
-
     is_live_lookup = not target_date or target_date == date.today()
 
-    def _usd_to(code: str) -> float:
-        if code == 'USD':
-            return 1.0
+    def _usd_to(code: str) -> RateResult:
+        if code == "USD":
+            return RateResult(rate=1.0, source="identity", used_fallback=False)
         # Exact date
-        r = _get_stored_rate(db, 'USD', code, lookup_date)
+        r = _get_stored_rate(db, "USD", code, lookup_date)
         if r:
-            return r
+            return RateResult(rate=r, source="cache", used_fallback=False)
         # Nearest historical — only good enough if it's recent (or we're
         # asking about a past date, where "nearest on/before" is correct by
         # definition). For today's lookups, a stale rate must not preempt a
@@ -315,7 +338,7 @@ def get_rate(
         nearest_row = (
             db.query(ExchangeRate)
             .filter(
-                ExchangeRate.from_currency == 'USD',
+                ExchangeRate.from_currency == "USD",
                 ExchangeRate.to_currency == code,
                 ExchangeRate.date <= lookup_date,
             )
@@ -332,35 +355,99 @@ def get_rate(
             and (lookup_date - nearest_row.date).days > _STALE_RATE_DAYS
         )
         if nearest is not None and not (is_live_lookup and stale):
-            return nearest
+            return RateResult(rate=nearest, source="cache", used_fallback=False)
         # Live fetch (only for today, or when the cached rate is too stale)
         if is_live_lookup:
             config = EXCHANGE_RATE_API
-            for url in (config['primary'], config['fallback']):
-                all_rates = _fetch_usd_rates_from_api(url, config['timeout'])
+            for url in (config["primary"], config["fallback"]):
+                all_rates = _fetch_usd_rates_from_api(url, config["timeout"])
                 if all_rates and code in all_rates:
                     rate = all_rates[code]
                     if _PLAUSIBLE_MIN <= rate <= _PLAUSIBLE_MAX:
-                        _store_rate(db, 'USD', code, rate, date.today(), 'api_primary')
-                        return rate
+                        _store_rate(db, "USD", code, rate, date.today(), "api_primary")
+                        return RateResult(rate=rate, source="api", used_fallback=False)
         # Fall back to the stale cached rate rather than nothing
         if nearest is not None:
-            return nearest
+            return RateResult(rate=nearest, source="stale_cache", used_fallback=False)
         # Average
-        avg = _average_recent_rate(db, 'USD', code)
+        avg = _average_recent_rate(db, "USD", code)
         if avg:
-            return avg
-        # Hard default
+            return RateResult(rate=avg, source="average", used_fallback=False)
+        # Hard default from config (known currencies)
         from finance_app.config import DEFAULT_EXCHANGE_RATES_TO_USD
-        return DEFAULT_EXCHANGE_RATES_TO_USD.get(code, 1.0)
+
+        if code in DEFAULT_EXCHANGE_RATES_TO_USD:
+            return RateResult(
+                rate=DEFAULT_EXCHANGE_RATES_TO_USD[code],
+                source="default",
+                used_fallback=False,
+            )
+        logger.warning(
+            "No FX rate for USD→%s; using identity 1.0 (fallback_identity)",
+            code,
+        )
+        return RateResult(rate=1.0, source="fallback_identity", used_fallback=True)
 
     usd_to_from = _usd_to(from_code)
-    usd_to_to   = _usd_to(to_code)
+    usd_to_to = _usd_to(to_code)
 
-    if usd_to_from <= 0:
-        return 1.0
+    if usd_to_from.used_fallback or usd_to_to.used_fallback:
+        logger.warning(
+            "FX rate %s→%s unresolved (from_source=%s, to_source=%s); "
+            "identity 1.0 fallback",
+            from_code,
+            to_code,
+            usd_to_from.source,
+            usd_to_to.source,
+        )
+        return RateResult(rate=1.0, source="fallback_identity", used_fallback=True)
 
-    return usd_to_to / usd_to_from
+    if usd_to_from.rate <= 0:
+        logger.warning(
+            "FX rate USD→%s is non-positive (%s); identity 1.0 fallback for %s→%s",
+            from_code,
+            usd_to_from.rate,
+            from_code,
+            to_code,
+        )
+        return RateResult(rate=1.0, source="fallback_identity", used_fallback=True)
+
+    # Prefer the "worse" source label for transparency.
+    source_priority = {
+        "identity": 0,
+        "cache": 1,
+        "api": 1,
+        "stale_cache": 2,
+        "average": 3,
+        "default": 4,
+        "fallback_identity": 5,
+    }
+    source = usd_to_from.source
+    if source_priority.get(usd_to_to.source, 0) > source_priority.get(source, 0):
+        source = usd_to_to.source
+
+    return RateResult(
+        rate=usd_to_to.rate / usd_to_from.rate,
+        source=source,
+        used_fallback=False,
+    )
+
+
+def get_rate(
+    db: Session,
+    from_code: str,
+    to_code: str,
+    target_date: Optional[date] = None,
+) -> float:
+    """
+    Get the exchange rate to convert 1 unit of from_code into to_code.
+    Uses USD as a universal pivot:
+        rate(A→B) = rate(USD→B) / rate(USD→A)
+
+    Falls back through: DB cache → API → historical average → config default.
+    Unknown currencies return 1.0 with a warning (see ``get_rate_result``).
+    """
+    return get_rate_result(db, from_code, to_code, target_date).rate
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +482,24 @@ def get_rate_for_date(db: Session, target_date: date) -> float:
     return get_rate(db, 'USD', _usd_cop_target(db), target_date)
 
 
+def convert_currency_result(
+    amount: float,
+    from_currency: str,
+    to_currency: str,
+    db: Session,
+    rate_date: Optional[date] = None,
+) -> tuple[float, RateResult]:
+    """Convert amount and return ``(converted_amount, RateResult)``.
+
+    When ``RateResult.used_fallback`` is True the conversion used identity 1:1
+    because no rate was available — do not treat that as a successful live quote.
+    """
+    if from_currency == to_currency:
+        return amount, RateResult(rate=1.0, source="identity", used_fallback=False)
+    meta = get_rate_result(db, from_currency, to_currency, rate_date)
+    return amount * meta.rate, meta
+
+
 def convert_currency(
     amount: float,
     from_currency: str,
@@ -403,10 +508,10 @@ def convert_currency(
     rate_date: Optional[date] = None,
 ) -> float:
     """Convert amount from from_currency to to_currency. Supports any pair."""
-    if from_currency == to_currency:
-        return amount
-    rate = get_rate(db, from_currency, to_currency, rate_date)
-    return amount * rate
+    converted, _meta = convert_currency_result(
+        amount, from_currency, to_currency, db, rate_date=rate_date
+    )
+    return converted
 
 
 # ---------------------------------------------------------------------------

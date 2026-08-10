@@ -356,6 +356,8 @@ _MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
     ("debts", "min_payment_percentage", "min_payment_percentage FLOAT"),
     ("debts", "monthly_interest_rate", "monthly_interest_rate FLOAT"),
     ("debts", "rate_type", "rate_type VARCHAR(20) DEFAULT 'fixed'"),
+    ("debts", "confirmed_balance", "confirmed_balance NUMERIC(18,2)"),
+    ("debts", "confirmed_balance_date", "confirmed_balance_date DATE"),
     ("debts", "includes_principal_payment", "includes_principal_payment BOOLEAN DEFAULT 0"),
     ("debts", "actual_payment_amount", "actual_payment_amount FLOAT"),
     ("accounts", "country", "country VARCHAR(50)"),

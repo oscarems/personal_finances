@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, fmtNumber, sanitize, progressBar, optional } from '../utils.js';
+import { fmtCurrency, fmtDate, fmtNumber, sanitize, progressBar, optional, todayISO } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 
@@ -367,11 +367,11 @@ function openSimulateModal(debt) {
 
 async function openDebtForm(debt, onSaved) {
   const isEdit = debt != null;
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayISO();
 
   let accounts = [], categoryGroups = [];
-  try { accounts = await api.accounts.list(); } catch(_) {}
-  try { categoryGroups = await api.categories.groups(); } catch(_) {}
+  accounts = await optional(api.accounts.list(), [], 'Cuentas');
+  categoryGroups = await optional(api.categories.groups(), [], 'Grupos de categorías');
 
   const accountOptions = accounts
     .filter(a => ['credit_card','credit_loan','mortgage'].includes(a.type))
@@ -632,7 +632,7 @@ function openInstallmentForm(debtId, currency, onSaved) {
     </div>
     <div class="form-group">
       <label class="form-label">Fecha de inicio</label>
-      <input type="text" id="inst-start" value="${new Date().toISOString().split('T')[0]}">
+      <input type="text" id="inst-start" value="${todayISO()}">
     </div>
     <div class="form-group">
       <label class="flex items-center gap-2" style="cursor:pointer">
