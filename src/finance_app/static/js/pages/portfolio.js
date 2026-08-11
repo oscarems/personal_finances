@@ -1,6 +1,8 @@
 import * as api from '../api/client.js';
 import { fmtCurrency, fmtNumber, sanitize } from '../utils.js';
 import { openModal } from '../components/modal.js';
+import { emptyState } from '../components/emptyState.js';
+import { sectionErrorState, bindRetry } from '../components/pageState.js';
 
 export const title = 'Portafolio de Inversiones';
 
@@ -92,7 +94,8 @@ async function loadAssets() {
   } catch (err) {
     const tbody = rootEl?.querySelector('#assetsTableBody');
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="10" class="text-danger" style="text-align:center;padding:32px;font-size:13px">${sanitize(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10">${sectionErrorState({ message: err.message, retryId: 'btnPortfolioRetry' })}</td></tr>`;
+      bindRetry(tbody, () => loadAssets(), 'btnPortfolioRetry');
     }
   }
 }
@@ -140,13 +143,16 @@ function renderTable(assets) {
   if (count) count.textContent = `${assets.length} activo${assets.length !== 1 ? 's' : ''}`;
 
   if (!assets.length) {
-    tbody.innerHTML = `<tr><td colspan="10">
-      <div class="empty-state" style="padding:40px">
-        <div class="empty-state__icon">📊</div>
-        <div class="empty-state__title">Sin activos registrados</div>
-        <p class="empty-state__hint">Agrega acciones, ETFs, cripto u otros activos.</p>
-      </div>
-    </td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10">${emptyState({
+      icon: '📊',
+      title: 'Sin activos registrados',
+      hint: 'Agrega acciones, ETFs, cripto u otros activos.',
+      actionLabel: '+ Activo',
+      actionId: 'btnEmptyNewAsset',
+    })}</td></tr>`;
+    tbody.querySelector('#btnEmptyNewAsset')?.addEventListener('click', () => {
+      rootEl?.querySelector('#btnNewAsset')?.click();
+    });
     return;
   }
 

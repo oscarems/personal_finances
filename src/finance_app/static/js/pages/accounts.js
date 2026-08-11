@@ -2,18 +2,24 @@ import * as api from '../api/client.js';
 import { fmtCurrency, fmtDate, sanitize, accountTypeLabel, accountTypeIcon } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Cuentas';
 
 let _accounts = [];
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     _accounts = await api.accounts.list();
     render(container, _accounts);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Cuentas',
+      message: err.message,
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -31,8 +37,14 @@ function render(container, accounts) {
       </div>
     </div>
 
-    ${summaryBanner(accounts)}
-    ${Object.entries(grouped).map(([type, list]) => accountGroup(type, list)).join('')}
+    ${accounts.length === 0
+      ? emptyState({
+          icon: '🏦',
+          title: 'Sin cuentas',
+          hint: 'Crea tu primera cuenta con el botón “+ Nueva Cuenta”.',
+        })
+      : `${summaryBanner(accounts)}
+         ${Object.entries(grouped).map(([type, list]) => accountGroup(type, list)).join('')}`}
   `;
 
   container.querySelector('#btnNewAccount')?.addEventListener('click', () => openAccountModal(null, container));

@@ -2,6 +2,7 @@ import * as api from '../api/client.js';
 import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional, progressBar, progressPct } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Presupuesto';
 
@@ -15,7 +16,7 @@ let _loadToken = 0; // ignore stale responses when switching months quickly
 const DEBT_ACCOUNT_TYPES = new Set(['credit_card', 'credit_loan', 'mortgage']);
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   await loadAndRender(container);
 }
 
@@ -38,7 +39,14 @@ async function loadAndRender(container) {
     renderPage(container);
   } catch (err) {
     if (token !== _loadToken) return;
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Presupuesto',
+      message: err.message,
+      onRetry: () => {
+        container.innerHTML = loadingState();
+        loadAndRender(container);
+      },
+    });
   }
 }
 

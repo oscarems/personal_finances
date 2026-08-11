@@ -3,6 +3,7 @@ import { fmtCurrency, fmtDate, sanitize, debounce, todayISO, daysAgoISO } from '
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError, sectionErrorState, bindRetry } from '../components/pageState.js';
 
 export const title = 'Transacciones';
 
@@ -13,13 +14,17 @@ let _sortDir   = null; // null | 'asc' | 'desc'
 let _lastTxList = [];
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     [_accounts, _categories] = await Promise.all([api.accounts.list(), api.categories.list()]);
     renderPage(container);
     await loadTransactions(container);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Transacciones',
+      message: err.message,
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -211,7 +216,8 @@ async function loadTransactions(container) {
     renderTxTable(container);
 
   } catch (err) {
-    wrap.innerHTML = `<div class="alert alert-danger mt-3">${sanitize(err.message)}</div>`;
+    wrap.innerHTML = sectionErrorState({ message: err.message, retryId: 'btnTxRetry' });
+    bindRetry(wrap, () => loadTransactions(container), 'btnTxRetry');
   }
 }
 

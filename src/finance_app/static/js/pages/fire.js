@@ -1,5 +1,6 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, sanitize } from '../utils.js';
+import { fmtCurrency } from '../utils.js';
+import { sectionErrorState, bindRetry } from '../components/pageState.js';
 
 export const title = 'Independencia Financiera (FIRE)';
 
@@ -149,9 +150,15 @@ async function loadFireDashboard(container) {
   } catch (err) {
     renderGaugeFallback(container);
     const badge = container.querySelector('#fireStatusBadge');
-    if (badge) badge.textContent = 'Error al cargar datos';
+    if (badge) {
+      badge.textContent = 'Error';
+      badge.className = 'badge badge-danger';
+    }
     const desc = container.querySelector('#fireStatusDesc');
-    if (desc) desc.textContent = sanitize(err.message);
+    if (desc) {
+      desc.innerHTML = sectionErrorState({ message: err.message || 'Error al cargar FIRE', retryId: 'btnFireRetry' });
+      bindRetry(desc, () => loadFireDashboard(container), 'btnFireRetry');
+    }
     console.error('[FIRE]', err.message);
   }
 }

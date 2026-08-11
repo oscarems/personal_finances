@@ -1,5 +1,6 @@
 import * as api from '../api/client.js';
 import { fmtCurrency, fmtPercent, sanitize, currentMonth, fmtMonthLabel, prevMonth, nextMonth } from '../utils.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Salud Financiera';
 
@@ -7,7 +8,7 @@ let _month = currentMonth();
 let _chart = null;
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   await load(container);
 }
 
@@ -18,13 +19,14 @@ async function load(container) {
     const data = await api.reports.financialHealth({ month: _month });
     render(container, data);
   } catch (err) {
-    container.innerHTML = `
-      <div class="page-header"><div class="page-header-text"><h1>Salud Financiera</h1></div></div>
-      <div class="alert alert-danger">${sanitize(err.message)}</div>
-      <div style="text-align:center;margin-top:16px">
-        <button class="btn btn-ghost btn-sm fh-retry">Reintentar</button>
-      </div>`;
-    container.querySelector('.fh-retry')?.addEventListener('click', () => load(container));
+    showError(container, {
+      title: 'Salud Financiera',
+      message: err.message,
+      onRetry: () => {
+        container.innerHTML = loadingState();
+        load(container);
+      },
+    });
   }
 }
 

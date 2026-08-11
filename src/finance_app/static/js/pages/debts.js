@@ -2,16 +2,22 @@ import * as api from '../api/client.js';
 import { fmtCurrency, fmtDate, fmtNumber, sanitize, progressBar, optional, todayISO } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Deudas';
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     const [debts, summary] = await Promise.all([api.debts.list(), optional(api.debts.summary(), null, 'Resumen de Deudas')]);
     renderPage(container, debts, summary);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Deudas',
+      message: err.message,
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -80,11 +86,13 @@ function renderPage(container, debts, summary) {
     ${debtSection('Hipotecas', mortgs, container)}
     ${debtSection('Otros', other, container)}
 
-    ${debts.length === 0 ? `<div class="empty-state">
-      <div class="empty-state-icon">🎉</div>
-      <h3>Sin deudas registradas</h3>
-      <p>Mantén tus cuentas al día para verlas aquí.</p>
-    </div>` : ''}
+    ${debts.length === 0
+      ? emptyState({
+          icon: '🎉',
+          title: 'Sin deudas registradas',
+          hint: 'Puedes registrar una con el botón “+ Nueva Deuda”.',
+        })
+      : ''}
   `;
 
   container.querySelector('#btnNewDebt')?.addEventListener('click', () => openDebtForm(null, () => mount(container)));

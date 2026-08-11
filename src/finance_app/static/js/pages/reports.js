@@ -1,5 +1,7 @@
 import * as api from '../api/client.js';
 import { fmtCurrency, fmtNumber, sanitize, currentMonth, prevMonth, fmtMonthLabel, optional } from '../utils.js';
+import { emptyState } from '../components/emptyState.js';
+import { sectionErrorState, bindRetry } from '../components/pageState.js';
 
 // Use shared palette when available, fall back to local list
 function chartPalette(n) {
@@ -289,10 +291,13 @@ async function loadData(container) {
             }).join('')}
           </tbody>
         </table>
-      ` : '<div class="empty-state"><p>Sin datos de gasto para este mes</p></div>';
+      ` : emptyState({ icon: '📊', title: 'Sin datos de gasto', hint: 'No hay gastos registrados para este mes.' });
     }
   } catch (err) {
-    if (kpisEl) kpisEl.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1">${sanitize(err.message)}</div>`;
+    if (kpisEl) {
+      kpisEl.innerHTML = `<div style="grid-column:1/-1">${sectionErrorState({ message: err.message, retryId: 'btnRptRetry' })}</div>`;
+      bindRetry(kpisEl, () => loadData(container), 'btnRptRetry');
+    }
   }
 }
 
