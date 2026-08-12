@@ -74,7 +74,7 @@ function renderPage({ accounts, txList, budget, usdRate, cashflow, savingsRate, 
     <div class="page-header">
       <div class="page-header-text">
         <h1>Dashboard</h1>
-        <p>${todayCap}</p>
+        <p>${todayCap} · resumen del mes</p>
       </div>
       <div class="page-header-actions">
         <button class="btn btn-primary btn-sm" id="btnQuickAdd">+ Transacción</button>
@@ -139,9 +139,9 @@ function healthCard(fh) {
 
   const { overall, grade, estado } = fh.scores;
   const ESTADO_META = {
-    bueno:   { badge: 'badge-success', label: 'Buena',   dot: 'var(--fin-success)' },
-    regular: { badge: 'badge-warning', label: 'Regular', dot: 'var(--fin-amber)' },
-    critico: { badge: 'badge-danger',  label: 'Crítica', dot: 'var(--fin-danger)' },
+    bueno:   { badge: 'badge-success', label: 'Buena' },
+    regular: { badge: 'badge-warning', label: 'Regular' },
+    critico: { badge: 'badge-danger',  label: 'Crítica' },
   };
   const meta = ESTADO_META[estado] ?? ESTADO_META.regular;
   const topInsight = (fh.insights ?? []).find(i => i.kind === 'bad') ?? (fh.insights ?? [])[0];
@@ -151,7 +151,7 @@ function healthCard(fh) {
       <div class="card-body">
         <div class="dash-health">
           <div class="dash-health-left">
-            <span class="dash-health-dot" style="background:${meta.dot}"></span>
+            <span class="dash-health-dot dash-health-dot--${estado === 'bueno' ? 'ok' : estado === 'critico' ? 'bad' : 'warn'}"></span>
             <div>
               <div class="dash-health-title">Salud financiera del mes</div>
               <div class="text-soft text-xs">${topInsight ? sanitize(topInsight.message) : 'Sin observaciones destacadas'}</div>

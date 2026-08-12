@@ -74,10 +74,10 @@ function flattenBudgetCats(data) {
 function fmtDual(amount_cop, currency = 'COP', native = null) {
   if (currency === 'USD') {
     const usdVal = native !== null ? native : amount_cop / _rate;
-    return `${fmtCurrency(usdVal, 'USD')}<br><small class="text-soft" style="font-size:0.7rem">≈ ${fmtCurrency(amount_cop, 'COP')}</small>`;
+    return `${fmtCurrency(usdVal, 'USD')}<br><small class="text-soft text-dual-sub">≈ ${fmtCurrency(amount_cop, 'COP')}</small>`;
   }
   const usd = amount_cop / _rate;
-  return `${fmtCurrency(amount_cop, 'COP')}<br><small class="text-soft" style="font-size:0.7rem">≈ ${fmtCurrency(usd, 'USD')}</small>`;
+  return `${fmtCurrency(amount_cop, 'COP')}<br><small class="text-soft text-dual-sub">≈ ${fmtCurrency(usd, 'USD')}</small>`;
 }
 
 // Accounts that count as "money in accounts" for Listo para asignar:
@@ -156,7 +156,10 @@ function renderPage(container) {
   const savCats    = cats.filter(c => c.category_type === 'savings');
   const incomeCats = cats.filter(c => c.category_type === 'income');
 
-  const totalIncome      = incomeCats.reduce((s, c) => s + (c.spent ?? 0), 0);
+  // Prefer API total (sum of income-category activity); fallback to flattened cats.
+  const totalIncome      = Number.isFinite(_data?.totals?.income)
+    ? _data.totals.income
+    : incomeCats.reduce((s, c) => s + (c.spent ?? 0), 0);
   const totalAssigned    = expCats.reduce((s, c) => s + (c.assigned ?? 0), 0);
   const totalSpent       = expCats.reduce((s, c) => s + (c.spent    ?? 0), 0);
   const totalAvailable   = expCats.reduce((s, c) => s + (c.available ?? 0), 0);
@@ -173,6 +176,7 @@ function renderPage(container) {
     <div class="page-header">
       <div class="page-header-text">
         <h1>Presupuesto</h1>
+        <p>Asigna ingresos a categorías del mes · ${fmtMonthLabel(_month)}</p>
       </div>
       <div class="page-header-actions">
         <button class="btn btn-ghost btn-sm" id="btnRecalcSavings" title="Recalcula el disponible acumulado de todas las categorías de ahorro">↻ Recalcular ahorros</button>
@@ -527,9 +531,17 @@ function renderPage(container) {
   });
 }
 
-const GROUP_ACCENTS = ['#316342','#BA1A1A','#735142','#3B5B66','#6B4226','#4C6B3F','#8A5A44','#7A6A53'];
+const GROUP_ACCENTS = window.CHART_PALETTE ?? [
+  '#2563EB', '#059669', '#DC2626', '#D97706', '#7C3AED', '#0891B2', '#64748B', '#DB2777',
+];
 let _isFirstGroup = true;
 let _groupIndex   = 0;
+
+function progressTone(pct) {
+  if (pct >= 100) return 'var(--fin-danger)';
+  if (pct >= 80)  return 'var(--fin-amber)';
+  return 'var(--fin-success)';
+}
 
 function groupRows(group, cats, totalIncomeAll) {
   const grpId       = cats[0]?.group_id ?? '';
@@ -562,7 +574,11 @@ function groupRows(group, cats, totalIncomeAll) {
           ">
             <span style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.09em;color:${accent};${grpId ? 'cursor:pointer' : ''}"
               ${grpId ? `data-edit-group="${grpId}" title="Editar grupo"` : ''}>${grpName}</span>
-            <span style="font-size:0.72rem;font-weight:700;color:var(--fin-ink-3);font-variant-numeric:tabular-nums">${fmtCurrency(totAssigned,'COP')}</span>
+            <span style="font-size:0.72rem;font-weight:700;color:var(--fin-ink-3);font-variant-numeric:tabular-nums" title="Recibido real / planificado">
+              <span class="text-success">${fmtCurrency(totSpent,'COP')}</span>
+              <span style="margin:0 3px;opacity:0.4">/</span>
+              ${fmtCurrency(totAssigned,'COP')}
+            </span>
           </div>
         </td>
       </tr>`;
@@ -571,13 +587,13 @@ function groupRows(group, cats, totalIncomeAll) {
   }
 
   const pct         = progressPct(totSpent, totAssigned);
-  const pctColor    = pct >= 100 ? '#BA1A1A' : pct >= 80 ? '#735142' : '#2F6B4F';
+  const pctColor    = progressTone(pct);
   const pctLabel    = totAssigned > 0 ? `${Math.round(pct)}%` : '—';
   const availSign   = totAvailable >= 0 ? '+' : '';
-  const availColor  = totAvailable >= 0 ? '#2F6B4F' : '#BA1A1A';
+  const availColor  = totAvailable >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)';
 
   const coveredSign  = totCovered >= 0 ? '+' : '';
-  const coveredColor = totCovered > 0 ? '#3B5B66' : totCovered < 0 ? '#735142' : 'var(--fin-ink-3)';
+  const coveredColor = totCovered > 0 ? 'var(--fin-accent)' : totCovered < 0 ? 'var(--fin-amber)' : 'var(--fin-ink-3)';
 
   const spacer = _isFirstGroup ? '' : `<tr><td colspan="8" style="height:20px;padding:0;border:none;background:transparent"></td></tr>`;
   _isFirstGroup = false;
@@ -634,16 +650,21 @@ function incomeCategoryRow(c, groupAccent = 'var(--fin-border)') {
   const assigned        = c.assigned        ?? 0;
   const assigned_native = c.assigned_native ?? null;
   const currency_code   = c.currency_code   ?? 'COP';
+  const received        = c.spent           ?? 0; // abs(activity) — ingresos reales del mes
 
   return `
     <tr draggable="true" data-drag-cat="${c.category_id}" style="cursor:grab">
       <td style="font-size:0.8125rem;font-weight:500;padding-left:28px;border-left:3px solid ${groupAccent}33">
         <span style="opacity:0.35;margin-right:6px;font-size:0.7rem" title="Arrastra para mover de grupo">⠿</span>${sanitize(c.category_name)}
       </td>
-      <td class="td-right td-mono" style="cursor:pointer;font-size:0.8125rem;line-height:1.4" data-edit-assigned="${c.category_id}" data-month="${_month}">
+      <td class="td-right td-mono" style="cursor:pointer;font-size:0.8125rem;line-height:1.4" data-edit-assigned="${c.category_id}" data-month="${_month}" title="Ingreso planificado (asignado)">
         ${fmtDual(assigned, currency_code, assigned_native)}
       </td>
-      <td colspan="5"></td>
+      <td class="td-right td-mono td-soft" style="font-size:0.75rem">—</td>
+      <td class="td-right td-mono text-success" style="font-size:0.8125rem;line-height:1.4" title="Ingresos reales (transacciones) este mes">
+        ${fmtDual(received, currency_code)}
+      </td>
+      <td colspan="3"></td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría (nombre, grupo, tipo)">✎ Editar</button>
       </td>
@@ -670,7 +691,7 @@ function categoryRow(c, groupAccent = 'var(--fin-border)', totalIncomeAll = 0) {
   const availClass = available >= 0 ? 'text-success' : 'text-danger';
 
   const pct      = progressPct(spent, assigned);
-  const pctColor = pct >= 100 ? '#BA1A1A' : pct >= 80 ? '#735142' : '#2F6B4F';
+  const pctColor = progressTone(pct);
   const pctLabel = assigned > 0 ? `${Math.round(pct)}%` : '—';
 
   const usoCel = assigned > 0
@@ -689,7 +710,7 @@ function categoryRow(c, groupAccent = 'var(--fin-border)', totalIncomeAll = 0) {
   const coveredClass = covered > 0 ? '' : covered < 0 ? 'text-warning' : 'td-soft';
   const coveredSign  = covered > 0 ? '+' : '';
   const coveredHtml  = covered !== 0
-    ? `<span style="color:${covered > 0 ? '#3B5B66' : '#735142'};font-weight:600">${coveredSign}${fmtDual(covered)}</span>`
+    ? `<span style="color:${covered > 0 ? 'var(--fin-accent)' : 'var(--fin-amber)'};font-weight:600">${coveredSign}${fmtDual(covered)}</span>`
     : `<span class="td-soft">—</span>`;
 
   return `

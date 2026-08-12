@@ -31,7 +31,10 @@ export async function mount(container) {
 function renderPage(container) {
   container.innerHTML = `
     <div class="page-header">
-      <div class="page-header-text"><h1>Transacciones</h1></div>
+      <div class="page-header-text">
+        <h1>Transacciones</h1>
+        <p>Registro y filtro de movimientos</p>
+      </div>
       <div class="page-header-actions">
         <button class="btn btn-ghost btn-sm" id="btnExport" title="Exportar a CSV">↓ Exportar</button>
         <button class="btn btn-secondary btn-sm" id="btnTransfer">⇄ Transferencia</button>
@@ -85,7 +88,7 @@ function renderPage(container) {
       </div>
     </div>
 
-    <div id="tx-summary" class="flex items-center gap-2 mb-3 text-soft" style="font-size:0.8125rem"></div>
+    <div id="tx-summary" class="tx-summary text-soft"></div>
     <div id="tx-table-wrap" class="table-wrap">
       <div class="page-loading"><div class="spinner"></div></div>
     </div>

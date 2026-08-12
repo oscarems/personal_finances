@@ -26,41 +26,37 @@ register('/income',                  () => import('./pages/income.js'));
 
 // ── Sidebar navigation items ──────────────────────────────
 const NAV_GROUPS = [
-  { label: 'Principal', items: [
+  { label: 'Dinero', items: [
     { path: '/',             label: 'Dashboard',       icon: icoHome },
     { path: '/accounts',     label: 'Cuentas',         icon: icoCreditCard },
-    { path: '/budget',       label: 'Presupuesto',     icon: icoPie },
     { path: '/transactions', label: 'Transacciones',   icon: icoList },
     { path: '/income',       label: 'Ingresos',        icon: icoIncome },
   ]},
-  { label: 'Análisis', items: [
-    { path: '/reports',          label: 'Reportes',        icon: icoBarChart },
-    { path: '/cash-flow',        label: 'Flujo de Caja',   icon: icoWave },
-    { path: '/financial-health', label: 'Salud Financiera',icon: icoHeart },
-    { path: '/patrimonio',       label: 'Patrimonio',      icon: icoTrending },
+  { label: 'Planificar', items: [
+    { path: '/budget',    label: 'Presupuesto', icon: icoPie },
+    { path: '/goals',     label: 'Metas',       icon: icoTarget },
+    { path: '/recurring', label: 'Recurrentes', icon: icoRepeat },
   ]},
-  { label: 'Deudas', items: [
-    { path: '/debts',            label: 'Deudas',              icon: icoBank },
-    { path: '/mortgage',         label: 'Hipoteca',            icon: icoHouseKey },
-    { path: '/simulador-deudas', label: 'Simulador Deudas',    icon: icoTrendingUp },
+  { label: 'Analizar', items: [
+    { path: '/reports',          label: 'Reportes',         icon: icoBarChart },
+    { path: '/cash-flow',        label: 'Flujo de Caja',    icon: icoWave },
+    { path: '/financial-health', label: 'Salud Financiera', icon: icoHeart },
+    { path: '/patrimonio',       label: 'Patrimonio',       icon: icoTrending },
   ]},
-  { label: 'Metas', items: [
-    { path: '/goals',                label: 'Metas',             icon: icoTarget },
-    { path: '/emergency-fund',       label: 'Fondo Emergencia',  icon: icoShield },
-    { path: '/investment-simulator', label: 'Simulador',         icon: icoTrendingUp },
-  ]},
-  { label: 'Automatización', items: [
-    { path: '/recurring',                label: 'Recurrentes',       icon: icoRepeat },
-    { path: '/advanced/gmail',           label: 'Importar Gmail',    icon: icoInbox },
-    { path: '/advanced/merchant-rules',  label: 'Reglas Comercios',  icon: icoStore },
-  ]},
-  { label: 'Inversiones', items: [
-    { path: '/portfolio', label: 'Portafolio',  icon: icoPortfolio },
-    { path: '/fire',      label: 'FIRE',        icon: icoFire },
+  { label: 'Deudas e inversiones', items: [
+    { path: '/debts',            label: 'Deudas',            icon: icoBank },
+    { path: '/mortgage',         label: 'Hipoteca',          icon: icoHouseKey },
+    { path: '/simulador-deudas', label: 'Simulador Deudas',  icon: icoTrendingUp },
+    { path: '/portfolio',        label: 'Portafolio',        icon: icoPortfolio },
+    { path: '/fire',             label: 'FIRE',              icon: icoFire },
   ]},
   { label: 'Herramientas', items: [
-    { path: '/reconciliation', label: 'Reconciliación', icon: icoCheck },
-    { path: '/setup',          label: 'Configuración',  icon: icoSettings },
+    { path: '/emergency-fund',          label: 'Fondo Emergencia',  icon: icoShield },
+    { path: '/investment-simulator',    label: 'Simulador',         icon: icoTrendingUp },
+    { path: '/advanced/gmail',          label: 'Importar Gmail',    icon: icoInbox },
+    { path: '/advanced/merchant-rules', label: 'Reglas Comercios',  icon: icoStore },
+    { path: '/reconciliation',          label: 'Reconciliación',    icon: icoCheck },
+    { path: '/setup',                   label: 'Configuración',     icon: icoSettings },
   ]},
 ];
 

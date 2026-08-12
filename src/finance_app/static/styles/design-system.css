@@ -1,12 +1,11 @@
 /* ===============================================================
-   PERSONAL FINANCES -- Design System  TERRA -- FinancePro Wealth
+   PERSONAL FINANCES -- Design System  DAYTIME FINTECH
    Responsabilidad: tokens CSS (variables), estilos base,
    clases de componentes canonicas, capa de utilidades.
    NO contiene estructura de layout (eso es layout.css).
 
-   Fuente Stitch: proyecto "Gestor de Finanzas Integral",
-   design system Sovereign Finance, variante de pantalla Terra
-   (verde bosque #316342 sobre fondo verde-blanco calido).
+   Look: fintech de dia — fondos slate/blanco, acento azul #2563EB,
+   verde solo para positivo, tipografia Plus Jakarta Sans + JetBrains Mono.
 
    Utilidades rapidas disponibles:
      Texto:    .text-xs/sm/base/lg/xl/2xl
@@ -20,29 +19,29 @@
 
 /* -- Core Tokens ------------------------------------------------ */
 :root {
-  /* - Canonical (Terra -- superficie verde-blanco en 4 capas) - */
-  --fin-bg:           #F4FBF3;
+  /* - Canonical surfaces (slate neutrals + white) - */
+  --fin-bg:           #F8FAFC;
   --fin-surface:      #FFFFFF;
-  --fin-surface-2:    #E9F0E8;
-  --fin-surface-3:    #DDE4DD;
-  /* - Ink (texto sobre superficie clara) - */
-  --fin-ink:          #161D19;
-  --fin-ink-2:        #414942;
-  --fin-ink-3:        #717971;
-  /* - Accent (Verde bosque Terra + semanticos) - */
-  --fin-accent:       #316342;
-  --fin-accent-light: rgba(49, 99, 66, 0.10);
-  --fin-success:      #316342;
-  --fin-danger:       #BA1A1A;
-  --fin-danger-light: rgba(186, 26, 26, 0.10);
-  --fin-amber:        #735142;
-  --fin-amber-light:  rgba(115, 81, 66, 0.10);
+  --fin-surface-2:    #F1F5F9;
+  --fin-surface-3:    #E2E8F0;
+  /* - Ink - */
+  --fin-ink:          #0F172A;
+  --fin-ink-2:        #475569;
+  --fin-ink-3:        #94A3B8;
+  /* - Accent (blue primary) + semantics - */
+  --fin-accent:       #2563EB;
+  --fin-accent-light: rgba(37, 99, 235, 0.10);
+  --fin-success:      #059669;
+  --fin-danger:       #DC2626;
+  --fin-danger-light: rgba(220, 38, 38, 0.10);
+  --fin-amber:        #D97706;
+  --fin-amber-light:  rgba(217, 119, 6, 0.10);
   /* - Borders - */
-  --fin-border:       rgba(22, 29, 25, 0.13);
+  --fin-border:       rgba(15, 23, 42, 0.10);
   --fin-radius:       12px;
-  --fin-font:         'Nunito Sans', system-ui, sans-serif;
+  --fin-font:         'Plus Jakarta Sans', system-ui, sans-serif;
   --fin-mono:         'JetBrains Mono', monospace;
-  --fin-serif:        'Nunito Sans', system-ui, sans-serif;
+  --fin-serif:        'Plus Jakarta Sans', system-ui, sans-serif;
 
   /* - Typography scale - */
   --text-xs:   0.72rem;
@@ -58,59 +57,59 @@
   --font-mono:    var(--fin-mono);
 
   /* - Backgrounds - */
-  --bg-primary:       #F4FBF3;
+  --bg-primary:       #F8FAFC;
   --bg-surface:       #FFFFFF;
-  --bg-surface-muted: #E9F0E8;
-  --bg-surface-alt:   #DDE4DD;
-  --bg-surface-2:     #E9F0E8;
+  --bg-surface-muted: #F1F5F9;
+  --bg-surface-alt:   #E2E8F0;
+  --bg-surface-2:     #F1F5F9;
 
   /* - Text - */
-  --text-primary:   #161D19;
-  --text-secondary: #414942;
-  --text-soft:      #717971;
-  --text-link:      #316342;
+  --text-primary:   #0F172A;
+  --text-secondary: #475569;
+  --text-soft:      #94A3B8;
+  --text-link:      #2563EB;
   --text-inverse:   #FFFFFF;
 
   /* - Borders - */
-  --border-muted:  rgba(22, 29, 25, 0.08);
-  --border-color:  rgba(22, 29, 25, 0.13);
-  --border-strong: rgba(22, 29, 25, 0.20);
-  --border-hover:  rgba(22, 29, 25, 0.30);
-  --border-focus:  rgba(49, 99, 66, 0.45);
+  --border-muted:  rgba(15, 23, 42, 0.06);
+  --border-color:  rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --border-hover:  rgba(15, 23, 42, 0.24);
+  --border-focus:  rgba(37, 99, 235, 0.45);
 
   /* - Semantic colors - */
-  --color-primary:       #316342;
-  --color-primary-hover: #275031;
-  --color-primary-active:#1C3B24;
-  --color-primary-600:   #275031;
-  --color-primary-700:   #1C3B24;
-  --color-primary-50:    rgba(49, 99, 66, 0.07);
-  --color-primary-100:   rgba(49, 99, 66, 0.13);
+  --color-primary:       #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-primary-active:#1E40AF;
+  --color-primary-600:   #1D4ED8;
+  --color-primary-700:   #1E40AF;
+  --color-primary-50:    rgba(37, 99, 235, 0.07);
+  --color-primary-100:   rgba(37, 99, 235, 0.13);
 
-  --color-success:        #316342;
-  --color-success-hover:  #275031;
-  --color-success-active: #1C3B24;
-  --color-success-600:    #275031;
-  --color-success-700:    #1C3B24;
+  --color-success:        #059669;
+  --color-success-hover:  #047857;
+  --color-success-active: #065F46;
+  --color-success-600:    #047857;
+  --color-success-700:    #065F46;
 
-  --color-danger:        #BA1A1A;
-  --color-danger-hover:  #9C1616;
-  --color-danger-active: #7D1212;
-  --color-danger-600:    #9C1616;
-  --color-danger-700:    #7D1212;
+  --color-danger:        #DC2626;
+  --color-danger-hover:  #B91C1C;
+  --color-danger-active: #991B1B;
+  --color-danger-600:    #B91C1C;
+  --color-danger-700:    #991B1B;
 
-  --color-warning:        #735142;
-  --color-warning-hover:  #5F4235;
-  --color-warning-active: #4B342A;
-  --color-warning-600:    #5F4235;
-  --color-warning-700:    #4B342A;
+  --color-warning:        #D97706;
+  --color-warning-hover:  #B45309;
+  --color-warning-active: #92400E;
+  --color-warning-600:    #B45309;
+  --color-warning-700:    #92400E;
 
-  --color-accent:      #735142;
-  --color-accent-600:  #5F4235;
-  --color-accent-700:  #4B342A;
+  --color-accent:      #2563EB;
+  --color-accent-600:  #1D4ED8;
+  --color-accent-700:  #1E40AF;
 
-  --color-info:        #316342;
-  --color-info-600:    #275031;
+  --color-info:        #2563EB;
+  --color-info-600:    #1D4ED8;
 
   /* - Aliases - */
   --color-bg:            var(--bg-primary);
@@ -122,119 +121,119 @@
   --color-border:        var(--border-muted);
   --color-border-strong: var(--border-strong);
 
-  /* - Radii (Terra -- geometria suave y redondeada) - */
+  /* - Radii - */
   --radius-card:   12px;
   --radius-button: 8px;
   --radius-pill:   999px;
   --radius-sm:     8px;
 
-  /* - Shadows (card-shadow / card-hover de Stitch) - */
-  --shadow-soft:   0px 4px 20px rgba(0, 0, 0, 0.03);
-  --shadow-medium: 0px 8px 30px rgba(49, 99, 66, 0.10);
-  --shadow-strong: 0px 16px 40px rgba(22, 29, 25, 0.14), 0px 4px 12px rgba(22, 29, 25, 0.06);
+  /* - Shadows - */
+  --shadow-soft:   0px 1px 2px rgba(15, 23, 42, 0.04), 0px 4px 16px rgba(15, 23, 42, 0.04);
+  --shadow-medium: 0px 4px 24px rgba(15, 23, 42, 0.08);
+  --shadow-strong: 0px 12px 40px rgba(15, 23, 42, 0.12), 0px 4px 12px rgba(15, 23, 42, 0.06);
 
   /* - Transitions - */
   --transition-fast: 0.14s ease;
   --transition-slow: 0.24s ease;
 
   /* - Focus - */
-  --focus-ring: 0 0 0 3px rgba(49, 99, 66, 0.22);
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
 
   /* - Inputs - */
-  --input-bg:           #EEF6EE;
-  --input-border:       rgba(22, 29, 25, 0.20);
-  --input-focus-border: #316342;
-  --input-disabled-bg:  #E9F0E8;
+  --input-bg:           #F8FAFC;
+  --input-border:       rgba(15, 23, 42, 0.14);
+  --input-focus-border: #2563EB;
+  --input-disabled-bg:  #F1F5F9;
 
   /* - Tables - */
-  --table-head-bg:   #E9F0E8;
-  --table-row-alt:   rgba(22, 29, 25, 0.02);
-  --table-row-hover: rgba(49, 99, 66, 0.05);
-  --table-border:    rgba(22, 29, 25, 0.10);
+  --table-head-bg:   #F1F5F9;
+  --table-row-alt:   rgba(15, 23, 42, 0.02);
+  --table-row-hover: rgba(37, 99, 235, 0.04);
+  --table-border:    rgba(15, 23, 42, 0.08);
 
   /* - Badges - */
-  --badge-success-bg:     rgba(49, 99, 66, 0.10);
-  --badge-success-border: rgba(49, 99, 66, 0.28);
-  --badge-success-text:   #275031;
-  --badge-danger-bg:      rgba(186, 26, 26, 0.09);
-  --badge-danger-border:  rgba(186, 26, 26, 0.25);
-  --badge-danger-text:    #9C1616;
-  --badge-warning-bg:     rgba(115, 81, 66, 0.10);
-  --badge-warning-border: rgba(115, 81, 66, 0.28);
-  --badge-warning-text:   #5F4235;
-  --badge-primary-bg:     rgba(49, 99, 66, 0.09);
-  --badge-primary-border: rgba(49, 99, 66, 0.28);
-  --badge-accent-bg:      rgba(115, 81, 66, 0.09);
-  --badge-accent-border:  rgba(115, 81, 66, 0.25);
-  --badge-neutral-bg:     rgba(22, 29, 25, 0.06);
-  --badge-neutral-border: rgba(22, 29, 25, 0.15);
+  --badge-success-bg:     rgba(5, 150, 105, 0.10);
+  --badge-success-border: rgba(5, 150, 105, 0.28);
+  --badge-success-text:   #047857;
+  --badge-danger-bg:      rgba(220, 38, 38, 0.09);
+  --badge-danger-border:  rgba(220, 38, 38, 0.25);
+  --badge-danger-text:    #B91C1C;
+  --badge-warning-bg:     rgba(217, 119, 6, 0.10);
+  --badge-warning-border: rgba(217, 119, 6, 0.28);
+  --badge-warning-text:   #B45309;
+  --badge-primary-bg:     rgba(37, 99, 235, 0.09);
+  --badge-primary-border: rgba(37, 99, 235, 0.28);
+  --badge-accent-bg:      rgba(37, 99, 235, 0.09);
+  --badge-accent-border:  rgba(37, 99, 235, 0.25);
+  --badge-neutral-bg:     rgba(15, 23, 42, 0.06);
+  --badge-neutral-border: rgba(15, 23, 42, 0.14);
 
   /* - Alerts - */
-  --alert-success-bg:   rgba(49, 99, 66, 0.08);
-  --alert-danger-bg:    rgba(186, 26, 26, 0.08);
-  --alert-warning-bg:   rgba(115, 81, 66, 0.08);
-  --alert-info-bg:      rgba(49, 99, 66, 0.07);
-  --alert-success-text: #275031;
-  --alert-danger-text:  #9C1616;
-  --alert-warning-text: #5F4235;
-  --alert-info-text:    #275031;
+  --alert-success-bg:   rgba(5, 150, 105, 0.08);
+  --alert-danger-bg:    rgba(220, 38, 38, 0.08);
+  --alert-warning-bg:   rgba(217, 119, 6, 0.08);
+  --alert-info-bg:      rgba(37, 99, 235, 0.07);
+  --alert-success-text: #047857;
+  --alert-danger-text:  #B91C1C;
+  --alert-warning-text: #B45309;
+  --alert-info-text:    #1D4ED8;
 
-  --alert-critical-border:        rgba(186, 26, 26, 0.32);
-  --alert-critical-bg:            rgba(186, 26, 26, 0.07);
-  --alert-risk-border:            rgba(115, 81, 66, 0.32);
-  --alert-risk-bg:                rgba(115, 81, 66, 0.07);
-  --alert-warning-border:         rgba(115, 81, 66, 0.32);
-  --alert-warning-bg-soft:        rgba(115, 81, 66, 0.07);
-  --alert-critical-border-strong: rgba(186, 26, 26, 0.55);
-  --alert-critical-bg-strong:     rgba(186, 26, 26, 0.06);
-  --alert-risk-border-strong:     rgba(115, 81, 66, 0.55);
-  --alert-risk-bg-strong:         rgba(115, 81, 66, 0.06);
-  --alert-warning-border-strong:  rgba(115, 81, 66, 0.55);
-  --alert-warning-bg-strong:      rgba(115, 81, 66, 0.06);
+  --alert-critical-border:        rgba(220, 38, 38, 0.32);
+  --alert-critical-bg:            rgba(220, 38, 38, 0.07);
+  --alert-risk-border:            rgba(217, 119, 6, 0.32);
+  --alert-risk-bg:                rgba(217, 119, 6, 0.07);
+  --alert-warning-border:         rgba(217, 119, 6, 0.32);
+  --alert-warning-bg-soft:        rgba(217, 119, 6, 0.07);
+  --alert-critical-border-strong: rgba(220, 38, 38, 0.55);
+  --alert-critical-bg-strong:     rgba(220, 38, 38, 0.06);
+  --alert-risk-border-strong:     rgba(217, 119, 6, 0.55);
+  --alert-risk-bg-strong:         rgba(217, 119, 6, 0.06);
+  --alert-warning-border-strong:  rgba(217, 119, 6, 0.55);
+  --alert-warning-bg-strong:      rgba(217, 119, 6, 0.06);
 
   /* - Progress - */
-  --progress-track: rgba(22, 29, 25, 0.08);
+  --progress-track: rgba(15, 23, 42, 0.08);
 
-  /* - Charts (paleta Terra) - */
-  --chart-text:         #414942;
-  --chart-grid:         rgba(22, 29, 25, 0.08);
-  --chart-border:       #E9F0E8;
-  --chart-tooltip-bg:   #161D19;
-  --chart-tooltip-text: #F4FBF3;
-  --chart-color-1: #316342;
-  --chart-color-2: #BA1A1A;
-  --chart-color-3: #735142;
-  --chart-color-4: #3B6D7A;
-  --chart-color-5: #8E6959;
-  --chart-color-6: #57615A;
-  --chart-color-7: #9DD3AA;
-  --chart-color-8: #C9A98F;
+  /* - Charts - */
+  --chart-text:         #475569;
+  --chart-grid:         rgba(15, 23, 42, 0.06);
+  --chart-border:       #E2E8F0;
+  --chart-tooltip-bg:   #0F172A;
+  --chart-tooltip-text: #F8FAFC;
+  --chart-color-1: #2563EB;
+  --chart-color-2: #059669;
+  --chart-color-3: #DC2626;
+  --chart-color-4: #D97706;
+  --chart-color-5: #7C3AED;
+  --chart-color-6: #0891B2;
+  --chart-color-7: #64748B;
+  --chart-color-8: #DB2777;
 
   /* - Scrollbars - */
   --scrollbar-track:       transparent;
-  --scrollbar-thumb:       rgba(22, 29, 25, 0.16);
-  --scrollbar-thumb-hover: rgba(22, 29, 25, 0.28);
+  --scrollbar-thumb:       rgba(15, 23, 42, 0.16);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.28);
 
   /* - Sidebar - */
   --sidebar-bg:        #FFFFFF;
-  --sidebar-border:    rgba(22, 29, 25, 0.10);
-  --nav-text:          #414942;
-  --nav-text-strong:   #161D19;
-  --nav-hover-bg:      rgba(49, 99, 66, 0.07);
-  --nav-active-bg:     rgba(49, 99, 66, 0.12);
-  --nav-accent-strong: #316342;
-  --nav-section-text:  #717971;
+  --sidebar-border:    rgba(15, 23, 42, 0.08);
+  --nav-text:          #475569;
+  --nav-text-strong:   #0F172A;
+  --nav-hover-bg:      rgba(37, 99, 235, 0.06);
+  --nav-active-bg:     rgba(37, 99, 235, 0.10);
+  --nav-accent-strong: #2563EB;
+  --nav-section-text:  #94A3B8;
 
   /* - Misc - */
-  --divider-gradient:      rgba(22, 29, 25, 0.10);
-  --glass-bg:              rgba(255, 255, 255, 0.85);
-  --glass-border:          rgba(22, 29, 25, 0.13);
-  --spinner-track:         rgba(22, 29, 25, 0.12);
-  --section-accent:        rgba(49, 99, 66, 0.28);
-  --section-accent-strong: rgba(49, 99, 66, 0.08);
-  --card-hover-border:     rgba(49, 99, 66, 0.25);
-  --info-bg-soft:          rgba(49, 99, 66, 0.05);
-  --info-bg-strong:        rgba(49, 99, 66, 0.10);
+  --divider-gradient:      rgba(15, 23, 42, 0.10);
+  --glass-bg:              rgba(255, 255, 255, 0.88);
+  --glass-border:          rgba(15, 23, 42, 0.10);
+  --spinner-track:         rgba(15, 23, 42, 0.12);
+  --section-accent:        rgba(37, 99, 235, 0.28);
+  --section-accent-strong: rgba(37, 99, 235, 0.08);
+  --card-hover-border:     rgba(37, 99, 235, 0.22);
+  --info-bg-soft:          rgba(37, 99, 235, 0.05);
+  --info-bg-strong:        rgba(37, 99, 235, 0.10);
 
   /* - Spacing scale (multiplos de 4) - */
   --space-1:  4px;
@@ -555,7 +554,7 @@ select.input-field option { background: var(--fin-surface); color: var(--fin-ink
   background: var(--fin-accent-light);
   color: var(--fin-ink);
   border-radius: var(--fin-radius);
-  border: 0.5px solid rgba(49, 99, 66, 0.18);
+  border: 0.5px solid var(--badge-primary-border);
 }
 
 /* -- Metric Card ----------------------------------------------------- */
@@ -981,7 +980,7 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
 
 /* -- Text selection ---------------------------------------------- */
 ::selection {
-  background: rgba(49, 99, 66, 0.20);
+  background: rgba(37, 99, 235, 0.18);
   color: var(--fin-ink);
 }
 
@@ -1396,7 +1395,7 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
 .text-warning { color: var(--fin-amber); }
 .text-accent  { color: var(--fin-accent); }
 .text-muted   { color: var(--fin-ink-3); }
-.text-soft    { color: var(--fin-ink-2); }
+.text-soft    { color: var(--fin-ink-3); }
 
 .amount {
   font-family: var(--fin-mono);
@@ -1520,3 +1519,6 @@ body, main, .card, .card-hover-lift, .card-glass, .input-field,
 
 /* - Monospace numero - */
 .mono { font-family: var(--fin-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+/* - Dual currency sub-line (presupuesto) - */
+.text-dual-sub { font-size: 0.7rem; }
