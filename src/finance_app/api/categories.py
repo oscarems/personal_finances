@@ -1,6 +1,7 @@
 """
 Categories API endpoints
 """
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -282,6 +283,9 @@ class CategoryCreate(BaseModel):
     category_group_id: int
     rollover_type: str = 'reset'
     is_essential: Optional[bool] = False
+    target_type: Optional[str] = None
+    target_amount: Optional[float] = None
+    target_date: Optional[date] = None
 
 
 class CategoryUpdate(BaseModel):
@@ -292,6 +296,7 @@ class CategoryUpdate(BaseModel):
     notes: Optional[str] = None
     target_type: Optional[str] = None
     target_amount: Optional[float] = None
+    target_date: Optional[date] = None
     initial_amount: Optional[float] = None
     initial_currency_code: Optional[str] = None
     alerts_enabled: Optional[bool] = None
@@ -322,7 +327,10 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
         category_group_id=category.category_group_id,
         rollover_type=category.rollover_type,
         is_essential=bool(category.is_essential),
-        is_hidden=False
+        is_hidden=False,
+        target_type=category.target_type,
+        target_amount=category.target_amount,
+        target_date=category.target_date,
     )
     db.add(new_category)
     db.commit()
@@ -412,16 +420,21 @@ def update_category(category_id: int, category_update: CategoryUpdate, db: Sessi
     if "notes" in category_update.__fields_set__:
         category.notes = category_update.notes or None
 
-    if category_update.target_type is not None:
-        category.target_type = category_update.target_type
+    fields_set = getattr(category_update, "model_fields_set", None) or category_update.__fields_set__
 
-    if category_update.target_amount is not None:
+    if "target_type" in fields_set:
+        category.target_type = category_update.target_type or None
+
+    if "target_amount" in fields_set:
         category.target_amount = category_update.target_amount
+
+    if "target_date" in fields_set:
+        category.target_date = category_update.target_date
 
     if category_update.initial_amount is not None:
         category.initial_amount = category_update.initial_amount
 
-    if "initial_currency_code" in category_update.__fields_set__:
+    if "initial_currency_code" in fields_set:
         if not category_update.initial_currency_code:
             category.initial_currency_id = None
         else:

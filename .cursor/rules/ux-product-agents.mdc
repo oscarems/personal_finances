@@ -1,0 +1,15 @@
+---
+description: Orquestación UX/producto — catálogo UX_PRODUCT_AUDIT y agentes ux-*/feat-*
+alwaysApply: false
+globs: docs/UX_PRODUCT_AUDIT_2026-08.md, .cursor/agents/ux-*.md, .cursor/agents/feat-*.md, .claude/agents/ux-*.md, .claude/agents/feat-*.md
+---
+
+# UX / Product agents
+
+- Catálogo: `docs/UX_PRODUCT_AUDIT_2026-08.md`
+- Agentes: `ux-nav-ia`, `ux-dashboard-action`, `ux-page-states`, `ux-mobile`, `feat-due-calendar`
+- Skill: `.cursor/skills/ux-product-orchestrator/SKILL.md`
+- Ola A: nav \|\| dashboard. Ola B: page-states \|\| mobile. Ola C: calendar (después de A — ambos tocan `app.js`).
+- Dominios de archivo disjuntos dentro de la ola.
+- No commit sin pedir explícito.
+- Tras fix: actualizar estado del ID en el catálogo.

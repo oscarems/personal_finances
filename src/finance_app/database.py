@@ -401,6 +401,13 @@ _MIGRATION_COLUMNS: list[tuple[str, str, str]] = [
     ("merchant_rules", "field", "field VARCHAR(20) NOT NULL DEFAULT 'payee'"),
     ("merchant_rules", "operator", "operator VARCHAR(20) NOT NULL DEFAULT 'contains'"),
     ("merchant_rules", "priority", "priority INTEGER NOT NULL DEFAULT 0"),
+    ("recurring_transactions", "snoozed_until", "snoozed_until DATE"),
+    ("transactions", "locked", "locked BOOLEAN DEFAULT 0"),
+    ("goals", "goal_type", "goal_type VARCHAR(40) DEFAULT 'target_balance_by_date'"),
+    ("goals", "monthly_amount", "monthly_amount FLOAT"),
+    ("categories", "target_date", "target_date DATE"),
+    ("transactions", "kind", "kind VARCHAR(30)"),
+    ("transactions", "related_transaction_id", "related_transaction_id INTEGER"),
 ]
 
 _MIGRATION_INDEXES: list[tuple[str, str]] = [
@@ -408,6 +415,11 @@ _MIGRATION_INDEXES: list[tuple[str, str]] = [
         "uq_transactions_source_source_id",
         "CREATE UNIQUE INDEX IF NOT EXISTS "
         "uq_transactions_source_source_id ON transactions (source, source_id)",
+    ),
+    (
+        "ix_transactions_related_transaction_id",
+        "CREATE INDEX IF NOT EXISTS "
+        "ix_transactions_related_transaction_id ON transactions (related_transaction_id)",
     ),
 ]
 

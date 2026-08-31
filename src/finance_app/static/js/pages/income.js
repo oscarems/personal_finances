@@ -2,6 +2,8 @@ import * as api from '../api/client.js';
 import { sanitize, todayISO, optional } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Ingresos';
 
@@ -37,7 +39,7 @@ export async function mount(container) {
   let month = today.getMonth() + 1;
 
   async function load() {
-    container.innerHTML = skeleton();
+    container.innerHTML = loadingState();
     const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
     try {
@@ -58,7 +60,11 @@ export async function mount(container) {
       renderSavingsRateChart(container, savingsRate);
       bindEvents(container, incomeSources);
     } catch (err) {
-      container.innerHTML = `<div class="alert alert-danger">Error: ${sanitize(err.message)}</div>`;
+      showError(container, {
+        title: 'Ingresos',
+        message: err.message || 'Error al cargar los ingresos',
+        onRetry: () => mount(container),
+      });
     }
   }
 
@@ -74,6 +80,7 @@ export async function mount(container) {
 
     el.querySelector('#btn-add-income')?.addEventListener('click', () => openAddIncomeModal(load));
     el.querySelector('#btn-add-recurring')?.addEventListener('click', () => openRecurringModal(null, load));
+    el.querySelector('#btn-add-recurring-empty')?.addEventListener('click', () => openRecurringModal(null, load));
 
     el.querySelectorAll('[data-rec-edit]').forEach(btn => {
       const rec = incomeSources.find(r => r.id === parseInt(btn.dataset.recEdit));
@@ -173,7 +180,7 @@ function renderPage(incomeData, trendData, incomeSources, year, month, savingsRa
       <div class="card">
         <div class="card-header"><h3 class="card-title">Ingresos del mes por categoría</h3></div>
         ${bySource.length === 0
-          ? `<div class="empty-state"><p>Sin ingresos registrados este mes</p></div>`
+          ? emptyState({ icon: '💰', title: 'Sin ingresos registrados', hint: 'No hay ingresos registrados este mes.' })
           : `<div style="overflow-x:auto"><table class="fin-table">
               <thead><tr><th>Categoría</th><th class="td-right">Monto</th><th class="td-right">%</th></tr></thead>
               <tbody>
@@ -196,7 +203,13 @@ function renderPage(incomeData, trendData, incomeSources, year, month, savingsRa
           <button id="btn-add-recurring" class="btn btn-primary btn-sm">+ Agregar fuente</button>
         </div>
         ${active.length === 0
-          ? `<div class="empty-state"><p>No hay fuentes activas. Agrega nómina, freelance u otras.</p></div>`
+          ? emptyState({
+              icon: '🔁',
+              title: 'Sin fuentes activas',
+              hint: 'Agrega nómina, freelance u otras fuentes recurrentes.',
+              actionLabel: '+ Agregar fuente',
+              actionId: 'btn-add-recurring-empty',
+            })
           : `<div style="overflow-x:auto"><table class="fin-table">
               <thead><tr><th>Fuente</th><th>Frecuencia</th><th class="td-right">Monto</th><th style="width:80px"></th></tr></thead>
               <tbody>${active.map(r => recurringRow(r, true)).join('')}</tbody>
@@ -618,17 +631,4 @@ function loadChart(cb) {
   s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js';
   s.onload = () => cb(window.Chart);
   document.head.appendChild(s);
-}
-
-function skeleton() {
-  return `
-    <div class="page-header"><div class="skeleton" style="height:26px;width:160px"></div></div>
-    <div class="flex gap-2 mb-3">
-      <div class="skeleton" style="height:32px;width:80px"></div>
-    </div>
-    <div class="kpi-grid">
-      ${[0,1,2,3].map(() => `<div class="kpi-card"><div class="skeleton" style="height:60px"></div></div>`).join('')}
-    </div>
-    <div class="card mt-4"><div class="skeleton" style="height:280px;margin:16px"></div></div>
-  `;
 }

@@ -2,11 +2,13 @@ import * as api from '../api/client.js';
 import { sanitize, optional } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { navigate } from '../router.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Configuración';
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     const [rates, currencies] = await Promise.all([
       optional(api.exchangeRates.list(), [], 'Tasas de Cambio'),
@@ -14,7 +16,11 @@ export async function mount(container) {
     ]);
     render(container, rates, currencies);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Configuración',
+      message: err.message || 'Error al cargar la configuración',
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -47,7 +53,7 @@ function render(container, rates, currencies) {
                   </tr>`).join('')}
               </tbody>
             </table>
-          ` : '<div class="empty-state"><p>Sin tasas registradas</p></div>'}
+          ` : emptyState({ icon: '💱', title: 'Sin tasas registradas', hint: 'Sincroniza para obtener las tasas de cambio actuales.' })}
         </div>
       </div>
 

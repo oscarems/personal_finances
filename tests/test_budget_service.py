@@ -13,7 +13,7 @@ from finance_app.services.budget_service import (
     initialize_month,
     recalculate_budget_available,
 )
-from finance_app.services.transaction_service import create_transaction
+from finance_app.services.transaction_service import create_transaction, create_reimbursement
 
 def _make_session():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
@@ -101,6 +101,43 @@ def test_recalculate_available_for_savings_category_includes_prior_rollover():
     # disponible = disponible_mes_anterior + asignado + actividad(-gastado)
     assert curr_budget.activity == -10_000
     assert curr_budget.available == 80_000 + 50_000 - 10_000
+
+
+def test_recalculate_income_category_tracks_activity_but_available_stays_zero():
+    """Income cats: activity = real inflows; available never accumulates."""
+    db = _make_session()
+    cop, _, _, _ = _seed_base(db)
+    income_group = CategoryGroup(name="Ingresos", sort_order=0, is_income=True)
+    salary = Category(name="Salario", category_group=income_group, rollover_type="reset")
+    account = Account(
+        name="Cuenta", type="checking", currency_id=cop.id,
+        balance=5_000_000, created_at=datetime(2020, 1, 1),
+    )
+    db.add_all([income_group, salary, account])
+    db.commit()
+
+    month = date.today().replace(day=1)
+    budget = get_or_create_budget_month(db, salary.id, month, cop.id)
+    budget.assigned = 4_000_000  # planned
+    db.commit()
+
+    create_transaction(db, {
+        "account_id": account.id,
+        "date": date.today(),
+        "category_id": salary.id,
+        "amount": 3_500_000,
+        "currency_id": cop.id,
+    })
+
+    recalculate_budget_available(db, budget)
+    db.commit()
+
+    assert budget.activity == 3_500_000
+    assert budget.available == 0.0
+
+    from finance_app.services.budget_service import get_month_budget
+    data = get_month_budget(db, month, "COP")
+    assert data["totals"]["income"] == 3_500_000
 
 
 # ---------------------------------------------------------------------------
@@ -605,3 +642,62 @@ def test_update_cover_rollback_keeps_original_pair(monkeypatch):
     )
     assert {t.id for t in covers_after} == before_ids
     assert {(t.category_id, t.amount, t.memo) for t in covers_after} == before_amounts
+
+
+def test_reimbursement_does_not_change_assigned_and_restores_available_and_rta():
+    """Devolución on an expense category: assigned stays put; gastado nets; RTA unchanged."""
+    db = _make_session()
+    _, _, expense_cat, _ = _seed_base(db)
+    account = Account(
+        name="Cuenta",
+        type="checking",
+        currency_id=1,
+        balance=1_000_000,
+        is_budget=True,
+        created_at=datetime(2020, 1, 1),
+    )
+    db.add(account)
+    db.commit()
+
+    month = date.today().replace(day=1)
+    budget = get_or_create_budget_month(db, expense_cat.id, month, 1)
+    budget.assigned = 200_000
+    db.commit()
+    recalculate_budget_available(db, budget)
+    db.commit()
+
+    rta_before = calculate_ready_to_assign(db, month, 1)
+
+    expense = create_transaction(db, {
+        "account_id": account.id,
+        "date": date.today(),
+        "category_id": expense_cat.id,
+        "amount": -80_000,
+        "currency_id": 1,
+        "type": "expense",
+        "payee_name": "Hotel",
+    })
+    recalculate_budget_available(db, budget)
+    db.commit()
+    assert budget.assigned == 200_000
+    assert budget.activity == -80_000
+    assert budget.available == 120_000
+
+    rta_after_spend = calculate_ready_to_assign(db, month, 1)
+    assert rta_after_spend == pytest.approx(rta_before, abs=0.01)
+
+    create_reimbursement(db, expense.id, {
+        "date": date.today(),
+        "amount": 30_000,
+        "account_id": account.id,
+        "payee_name": "Camilo",
+    })
+    recalculate_budget_available(db, budget)
+    db.commit()
+
+    assert budget.assigned == 200_000
+    assert budget.activity == -50_000
+    assert budget.available == 150_000
+
+    rta_after_reimburse = calculate_ready_to_assign(db, month, 1)
+    assert rta_after_reimburse == pytest.approx(rta_before, abs=0.01)

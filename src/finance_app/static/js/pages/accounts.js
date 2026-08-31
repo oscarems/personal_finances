@@ -1,5 +1,5 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDate, sanitize, accountTypeLabel, accountTypeIcon } from '../utils.js';
+import { fmtCurrency, fmtDate, sanitize, accountTypeLabel, accountTypeIcon, optional } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 import { emptyState } from '../components/emptyState.js';
@@ -12,8 +12,12 @@ let _accounts = [];
 export async function mount(container) {
   container.innerHTML = loadingState();
   try {
-    _accounts = await api.accounts.list();
-    render(container, _accounts);
+    const [accounts, budget] = await Promise.all([
+      api.accounts.list(),
+      optional(api.budgets.current(), null, 'Presupuesto'),
+    ]);
+    _accounts = accounts;
+    render(container, accounts, budget);
   } catch (err) {
     showError(container, {
       title: 'Cuentas',
@@ -23,7 +27,7 @@ export async function mount(container) {
   }
 }
 
-function render(container, accounts) {
+function render(container, accounts, budget) {
   const grouped = groupByType(accounts);
 
   container.innerHTML = `
@@ -43,7 +47,7 @@ function render(container, accounts) {
           title: 'Sin cuentas',
           hint: 'Crea tu primera cuenta con el botón “+ Nueva Cuenta”.',
         })
-      : `${summaryBanner(accounts)}
+      : `${summaryBanner(accounts, budget)}
          ${Object.entries(grouped).map(([type, list]) => accountGroup(type, list)).join('')}`}
   `;
 
@@ -78,14 +82,18 @@ function groupByType(accounts) {
   return result;
 }
 
-function summaryBanner(accounts) {
+
+function summaryBanner(accounts, budget) {
   const byCurrency = {};
   for (const a of accounts) {
     const cur = a.currency?.code ?? 'COP';
     byCurrency[cur] = (byCurrency[cur] ?? 0) + (a.balance ?? 0);
   }
+
+  const ready = budget?.ready_to_assign;
+
   return `
-    <div class="stat-row">
+    <div class="stat-row mb-4">
       ${Object.entries(byCurrency).map(([cur, total]) => `
         <div class="stat-chip">
           <span class="stat-chip-label">Balance ${cur}</span>
@@ -94,6 +102,13 @@ function summaryBanner(accounts) {
           </span>
         </div>
       `).join('')}
+      ${ready != null ? `
+      <div class="stat-chip stat-chip-highlight">
+        <span class="stat-chip-label">Listo para asignar</span>
+        <span class="stat-chip-value amount ${ready >= 0 ? 'text-success' : 'text-danger'}">
+          ${fmtCurrency(ready, 'COP')}
+        </span>
+      </div>` : ''}
       <div class="stat-chip">
         <span class="stat-chip-label">Cuentas</span>
         <span class="stat-chip-value">${accounts.length}</span>

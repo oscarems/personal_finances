@@ -1,8 +1,11 @@
 """Patrimonio API router: assets + net worth (debts come from Debt model)."""
+import csv
+import io
 from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -165,6 +168,33 @@ def patrimonio_resumen(
         "activos": detalle_activos,
         "deudas": detalle_deudas,
     }
+
+
+@router.get("/export")
+def export_patrimonio_csv(
+    año: int = Query(default=None),
+    mes: int = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    """Export patrimonio summary (assets + debts) as CSV."""
+    data = patrimonio_resumen(año=año, mes=mes, db=db)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Tipo", "Nombre", "Detalle", "Valor"])
+    for a in data.get("activos", []):
+        writer.writerow(["Activo", a.get("nombre", ""), a.get("tipo", ""), a.get("valor_actual", 0)])
+    for d in data.get("deudas", []):
+        writer.writerow(["Deuda", d.get("nombre", ""), d.get("tipo", ""), d.get("saldo_actual", 0)])
+    writer.writerow(["Total", "Activos", "", data.get("total_activos", 0)])
+    writer.writerow(["Total", "Deudas", "", data.get("total_deudas", 0)])
+    writer.writerow(["Total", "Patrimonio neto", "", data.get("patrimonio_neto", 0)])
+    output.seek(0)
+    label = f"{data['año']:04d}-{data['mes']:02d}"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="patrimonio-{label}.csv"'},
+    )
 
 
 @router.get("/timeline")

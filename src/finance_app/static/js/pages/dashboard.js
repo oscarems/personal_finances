@@ -1,37 +1,28 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, fmtDateShort, sanitize, todayISO, optional } from '../utils.js';
+import { fmtCurrency, fmtDateShort, sanitize, todayISO } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { openModal } from '../components/modal.js';
 import { emptyState } from '../components/emptyState.js';
 import { showError } from '../components/pageState.js';
+import {
+  flattenBudgetGroups,
+  getAttentionCategories,
+  statusLabel,
+  statusTone,
+} from '../lib/budgetInsights.js';
 
 export const title = 'Dashboard';
 
 export async function mount(container) {
   container.innerHTML = skeletonHtml();
   try {
-    const [accounts, txResp, budget, fxData, cashflow, savingsRate, financialHealth] = await Promise.all([
-      api.accounts.list(),
-      api.transactions.list({ limit: 10 }),
-      optional(api.budgets.current(), null, 'Presupuesto'),
-      optional(api.exchangeRates.current(), null, 'Tasa de cambio'),
-      optional(api.reports.cashflowSummary(), null, 'Flujo de Caja'),
-      optional(api.reports.savingsRate({ months: 3 }), null, 'Tasa de Ahorro'),
-      optional(api.reports.financialHealth(), null, 'Salud Financiera'),
+    const [txResp, budget] = await Promise.all([
+      api.transactions.list({ limit: 8 }),
+      api.budgets.current(),
     ]);
     const txList = Array.isArray(txResp) ? txResp : (txResp?.transactions ?? txResp?.items ?? []);
-    const usdRate = fxData?.rate ?? fxData?.USD ?? null;
-
-    container.innerHTML = renderPage({
-      accounts,
-      txList,
-      budget,
-      usdRate,
-      cashflow,
-      savingsRate,
-      financialHealth,
-    });
-    bindEvents(container, accounts);
+    container.innerHTML = renderPage({ txList, budget });
+    bindEvents(container);
   } catch (err) {
     showError(container, {
       title: 'Dashboard',
@@ -49,128 +40,139 @@ function skeletonHtml() {
         <div class="skeleton skeleton-subtitle"></div>
       </div>
     </div>
-    <div class="card mb-5">
-      <div class="card-body"><div class="skeleton skeleton-banner"></div></div>
+    <div class="ux-free-hero card mb-4">
+      <div class="card-body"><div class="skeleton skeleton-hero-value"></div></div>
     </div>
-    <div class="dash-hero card mb-5">
-      <div class="card-body">
-        <div class="skeleton skeleton-label"></div>
-        <div class="skeleton skeleton-hero-value"></div>
-      </div>
-    </div>
-    <div class="section-grid cols-2 mb-5">
-      <div class="card"><div class="skeleton skeleton-block"></div></div>
-      <div class="card"><div class="skeleton skeleton-block"></div></div>
-    </div>
+    <div class="card mb-4"><div class="card-body"><div class="skeleton skeleton-banner"></div></div></div>
     <div class="card"><div class="skeleton skeleton-block"></div></div>`;
 }
 
-function renderPage({ accounts, txList, budget, usdRate, cashflow, savingsRate, financialHealth }) {
+function renderPage({ txList, budget }) {
   const today = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   const todayCap = today.charAt(0).toUpperCase() + today.slice(1);
+  const flatCats = flattenBudgetGroups(budget);
+  const attention = getAttentionCategories(flatCats, { limit: 5 });
   const readyToAssign = budget?.ready_to_assign ?? null;
+  const totals = budget?.totals ?? {};
+  const expCats = flatCats.filter(c => c.category_type === 'expense');
+  const savCats = flatCats.filter(c => c.category_type === 'savings');
+  const totalAvailable = expCats.reduce((s, c) => s + (c.available ?? 0), 0);
+  const totalSavings = savCats.reduce((s, c) => s + (c.available ?? 0), 0);
 
   return `
     <div class="page-header">
       <div class="page-header-text">
         <h1>Dashboard</h1>
-        <p>${todayCap} · resumen del mes</p>
+        <p>${todayCap}</p>
       </div>
       <div class="page-header-actions">
         <button class="btn btn-primary btn-sm" id="btnQuickAdd">+ Transacción</button>
       </div>
     </div>
 
-    ${healthCard(financialHealth)}
-    ${readyToAssignHero(readyToAssign, budget)}
-
-    <div class="section-grid cols-2 mb-5">
-      ${cashflowSection(cashflow, usdRate)}
-      ${savingsRateCard(savingsRate)}
-    </div>
-
+    ${freeMoneyHero(readyToAssign)}
+    ${attentionCard(attention)}
+    ${quickStatsRow({ totalAvailable, totalSavings, readyToAssign, inAccounts: totals.in_accounts })}
     ${recentTxCard(txList)}
   `;
 }
 
-function readyToAssignHero(readyToAssign, budget) {
-  if (readyToAssign === null || !budget) {
+function freeMoneyHero(readyToAssign) {
+  if (readyToAssign === null) {
     return `
-      <div class="dash-hero card mb-5">
+      <div class="ux-free-hero card mb-4">
         <div class="card-body">
-          <div class="kpi-label">Listo para asignar</div>
-          <p class="text-soft mt-2 mb-4">Aún no hay presupuesto del mes para calcular este valor.</p>
-          <a class="btn btn-primary btn-sm" data-link="/budget">Ir a presupuesto</a>
+          ${emptyState({ icon: '💰', title: 'Sin presupuesto del mes', hint: 'Inicializa el mes en Presupuesto para ver cuánto te queda libre.' })}
+          <a class="btn btn-primary btn-sm mt-3" data-link="/budget">Ir a presupuesto</a>
         </div>
       </div>`;
   }
 
   const cls = readyToAssign >= 0 ? 'positive' : 'negative';
   const hint = readyToAssign >= 0
-    ? 'Dinero en cuentas que todavía no está asignado a categorías.'
-    : 'Hay más disponible en categorías que saldo en cuentas — revisa el presupuesto.';
+    ? readyToAssign === 0
+      ? 'Cada peso tiene categoría — nada suelto en cuentas.'
+      : 'Dinero en cuentas sin categoría todavía.'
+    : 'Asignaste más de lo que tienes en cuentas — revisa el presupuesto.';
 
   return `
-    <div class="dash-hero card mb-5">
-      <div class="card-body dash-hero-body">
-        <div class="dash-hero-main">
+    <div class="ux-free-hero card mb-4">
+      <div class="card-body ux-free-hero-body">
+        <div class="ux-free-hero-main">
           <div class="kpi-label">Listo para asignar</div>
-          <div class="kpi-value amount ${cls} dash-hero-value">${fmtCurrency(readyToAssign, 'COP')}</div>
+          <div class="kpi-value amount ${cls} ux-free-hero-value">${fmtCurrency(readyToAssign, 'COP')}</div>
           <p class="kpi-sub mt-2">${hint}</p>
         </div>
-        <div class="dash-hero-actions">
-          <a class="btn btn-primary btn-sm" data-link="/budget">Asignar en presupuesto</a>
+        <div class="ux-free-hero-actions">
+          <a class="btn btn-primary btn-sm" data-link="/budget">Ver presupuesto</a>
+          ${readyToAssign > 0 ? '<a class="btn btn-ghost btn-sm" data-link="/budget">Asignar ahora</a>' : ''}
         </div>
       </div>
     </div>`;
 }
 
-function healthCard(fh) {
-  if (!fh || !fh.scores) {
+function attentionCard(attention) {
+  if (!attention.length) {
     return `
-      <div class="card mb-5">
-        <div class="card-header">
-          <span class="card-title">Salud Financiera</span>
-          <a class="btn btn-ghost btn-sm" data-link="/financial-health">Ver detalle</a>
+      <div class="card mb-4 ux-attention-card ux-attention-card--ok">
+        <div class="card-body ux-attention-ok">
+          <span class="ux-attention-ok-icon" aria-hidden="true">✓</span>
+          <div>
+            <div class="ux-attention-ok-title">Presupuesto bajo control</div>
+            <p class="text-soft text-sm mb-0">Ninguna categoría se pasó del 100% este mes.</p>
+          </div>
         </div>
-        <div class="card-body">${emptyState({ icon: '💗', title: 'Sin datos de salud', hint: 'No se pudo calcular la salud financiera este mes.' })}</div>
       </div>`;
   }
 
-  const { overall, grade, estado } = fh.scores;
-  const ESTADO_META = {
-    bueno:   { badge: 'badge-success', label: 'Buena' },
-    regular: { badge: 'badge-warning', label: 'Regular' },
-    critico: { badge: 'badge-danger',  label: 'Crítica' },
-  };
-  const meta = ESTADO_META[estado] ?? ESTADO_META.regular;
-  const topInsight = (fh.insights ?? []).find(i => i.kind === 'bad') ?? (fh.insights ?? [])[0];
+  const rows = attention.map(item => {
+    const tone = statusTone(item.status);
+    return `
+      <a class="ux-attention-row" data-link="/budget" href="/budget">
+        <span class="ux-attention-dot" style="background:${tone}"></span>
+        <span class="ux-attention-name">${sanitize(item.name)}</span>
+        <span class="ux-attention-meta text-soft">${statusLabel(item.status, item.pct_used, { isSavings: item.is_savings })}</span>
+        <span class="amount ${item.available < 0 ? 'negative' : ''} ux-attention-amt">
+          ${fmtCurrency(item.available, 'COP')}
+        </span>
+      </a>`;
+  }).join('');
 
   return `
-    <div class="card mb-5">
-      <div class="card-body">
-        <div class="dash-health">
-          <div class="dash-health-left">
-            <span class="dash-health-dot dash-health-dot--${estado === 'bueno' ? 'ok' : estado === 'critico' ? 'bad' : 'warn'}"></span>
-            <div>
-              <div class="dash-health-title">Salud financiera del mes</div>
-              <div class="text-soft text-xs">${topInsight ? sanitize(topInsight.message) : 'Sin observaciones destacadas'}</div>
-            </div>
-          </div>
-          <div class="dash-health-right">
-            <span class="amount dash-health-score">${overall.toFixed(1)}<span class="text-soft text-sm">/100</span></span>
-            <span class="badge ${meta.badge}">${meta.label} · ${grade}</span>
-            <a class="btn btn-ghost btn-sm" data-link="/financial-health">Ver detalle</a>
-          </div>
-        </div>
+    <div class="card mb-4 ux-attention-card">
+      <div class="card-header">
+        <span class="card-title">Atención este mes</span>
+        <a class="btn btn-ghost btn-sm" data-link="/budget">Presupuesto</a>
       </div>
+      <div class="card-body ux-attention-list">${rows}</div>
+    </div>`;
+}
+
+function quickStatsRow({ totalAvailable, totalSavings, inAccounts }) {
+  return `
+    <div class="stat-row mb-4">
+      <div class="stat-chip">
+        <span class="stat-chip-label">Disponible en gastos</span>
+        <span class="stat-chip-value amount ${totalAvailable >= 0 ? 'text-success' : 'text-danger'}">
+          ${fmtCurrency(totalAvailable, 'COP')}
+        </span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-chip-label">Ahorros acumulados</span>
+        <span class="stat-chip-value amount" style="color:var(--fin-accent)">${fmtCurrency(totalSavings, 'COP')}</span>
+      </div>
+      ${inAccounts != null ? `
+      <div class="stat-chip">
+        <span class="stat-chip-label">En cuentas (presupuesto)</span>
+        <span class="stat-chip-value amount">${fmtCurrency(inAccounts, 'COP')}</span>
+      </div>` : ''}
     </div>`;
 }
 
 function recentTxCard(txList) {
-  const rows = txList.slice(0, 9).map(tx => {
+  const rows = txList.slice(0, 8).map(tx => {
     const isIncome = (tx.amount ?? 0) >= 0;
-    const sign = isIncome ? '+' : '-';
+    const sign = isIncome ? '+' : '−';
     const cls  = isIncome ? 'positive' : 'negative';
     return `
       <div class="list-row flex justify-between items-center">
@@ -198,126 +200,15 @@ function recentTxCard(txList) {
     </div>`;
 }
 
-function cashflowSection(cf, usdRate) {
-  if (!cf) {
-    return `
-      <div class="card">
-        <div class="card-header"><span class="card-title">Flujo del mes</span></div>
-        <div class="card-body">${emptyState({ icon: '📉', title: 'Sin flujo de caja', hint: 'Aún no hay ingresos o gastos para este mes.' })}</div>
-      </div>`;
+async function bindEvents(container) {
+  let accounts = [];
+  try {
+    accounts = await api.accounts.list();
+  } catch {
+    accounts = [];
   }
-
-  const rate = usdRate ?? 0;
-  const inCOP  = cf.income?.cop  ?? 0;
-  const inUSD  = cf.income?.usd  ?? 0;
-  const exNoSavCOP = cf.expenses_no_savings?.cop ?? (cf.expenses?.cop ?? 0);
-  const exNoSavUSD = cf.expenses_no_savings?.usd ?? (cf.expenses?.usd ?? 0);
-  const exCOP  = cf.expenses?.cop ?? 0;
-  const exUSD  = cf.expenses?.usd ?? 0;
-  const savCOP = exCOP - exNoSavCOP;
-  const savUSD = exUSD - exNoSavUSD;
-  const balCOP = inCOP - exCOP;
-  const balUSD = inUSD - exUSD;
-
-  const inTotal  = inCOP  + inUSD  * rate;
-  const exTotal  = exNoSavCOP + exNoSavUSD * rate;
-  const savTotal = savCOP + savUSD * rate;
-  const balTotal = balCOP + balUSD * rate;
-
-  const hasSavings = savCOP > 0 || savUSD > 0;
-  const monthLabel = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-  const balCls = balTotal >= 0 ? 'positive' : 'negative';
-  const rateNote = usdRate != null
-    ? `Total en COP · TRM ${fmtCurrency(usdRate, 'COP')}`
-    : 'Sin TRM — totales en COP omiten USD';
-
-  function row(label, cop, usd, total, cls = '', bold = false) {
-    return `
-      <tr class="${bold ? 'dash-cf-total' : ''}">
-        <td>${label}</td>
-        <td class="amount ${cls}">${fmtCurrency(cop, 'COP')}</td>
-        <td class="amount ${cls}">${fmtCurrency(usd, 'USD')}</td>
-        <td class="amount ${cls}">${fmtCurrency(total, 'COP')}</td>
-      </tr>`;
-  }
-
-  return `
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Flujo del mes · ${monthLabel}</span>
-        <span class="text-soft text-xs">${rateNote}</span>
-      </div>
-      <div class="card-body overflow-x-auto">
-        <table class="fin-table dash-cf-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th class="amount">COP</th>
-              <th class="amount">USD</th>
-              <th class="amount">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${row('Ingresos', inCOP, inUSD, inTotal, 'positive')}
-            ${row('Gastos', exNoSavCOP, exNoSavUSD, exTotal, 'negative')}
-            ${hasSavings ? row('Ahorros', savCOP, savUSD, savTotal) : ''}
-            ${row('Balance', balCOP, balUSD, balTotal, balCls, true)}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-}
-
-function savingsRateCard(sr) {
-  if (!sr || !sr.monthly || sr.monthly.length === 0) {
-    return `
-      <div class="card">
-        <div class="card-header"><span class="card-title">Tasa de ahorro</span></div>
-        <div class="card-body">${emptyState({ icon: '📊', title: 'Sin tasa de ahorro', hint: 'Necesitas ingresos registrados para calcularla.' })}</div>
-      </div>`;
-  }
-
-  const months = sr.monthly.slice(-3);
-  const avg = sr.average_savings_rate ?? 0;
-  const avgCls = avg >= 20 ? 'positive' : avg >= 10 ? '' : 'negative';
-
-  const rows = months.map(m => {
-    const cls = m.savings_rate >= 20 ? 'positive' : m.savings_rate >= 10 ? '' : 'negative';
-    const bar = Math.max(0, Math.min(100, m.savings_rate));
-    const tone = m.savings_rate >= 20 ? 'success' : m.savings_rate >= 10 ? 'amber' : 'danger';
-    return `
-      <div class="dash-sr-row">
-        <div class="flex justify-between mb-1">
-          <span class="text-soft text-sm">${sanitize(m.month_name)}</span>
-          <span class="amount ${cls} text-sm">${m.savings_rate.toFixed(1)}%</span>
-        </div>
-        <div class="dash-sr-track">
-          <div class="dash-sr-fill dash-sr-fill--${tone}" style="width:${bar}%"></div>
-        </div>
-      </div>`;
-  }).join('');
-
-  return `
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Tasa de ahorro</span>
-        <a class="btn btn-ghost btn-sm" data-link="/income">Ver detalle</a>
-      </div>
-      <div class="card-body">
-        <div class="dash-sr-hero">
-          <div class="kpi-label">Promedio trimestre</div>
-          <div class="kpi-value amount ${avgCls} dash-sr-avg">${avg.toFixed(1)}%</div>
-          <div class="text-soft text-xs mt-1">Meta recomendada: ≥ 20%</div>
-        </div>
-        ${rows}
-      </div>
-    </div>`;
-}
-
-function bindEvents(container, accounts) {
-  container.querySelector('#btnQuickAdd')?.addEventListener('click', () => {
-    openQuickAdd(accounts, container);
-  });
+  const openQuick = () => openQuickAdd(accounts, container);
+  container.querySelector('#btnQuickAdd')?.addEventListener('click', openQuick);
 }
 
 function openQuickAdd(accounts, container) {

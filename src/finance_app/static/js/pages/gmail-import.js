@@ -2,6 +2,8 @@ import * as api from '../api/client.js';
 import { fmtCurrency, fmtDate, sanitize, todayISO } from '../utils.js';
 import { toast } from '../components/toast.js';
 import { openModal } from '../components/modal.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Importar Gmail';
 
@@ -159,7 +161,7 @@ const defaultSince = () => {
 
 export async function mount(container) {
   _ensureStyles();
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     [_categories, _accounts] = await Promise.all([
       api.categories.list(),
@@ -174,14 +176,11 @@ export async function mount(container) {
     }
     renderShell(container);
   } catch (err) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">⚠️</div>
-        <h3>Error al cargar</h3>
-        <p>${sanitize(err.message)}</p>
-        <button class="btn btn-primary" id="btnRetry">Reintentar</button>
-      </div>`;
-    container.querySelector('#btnRetry').addEventListener('click', () => mount(container));
+    showError(container, {
+      title: 'Importar desde Gmail',
+      message: err.message || 'Error al cargar la página',
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -233,11 +232,11 @@ function renderShell(container) {
         </div>
 
         <div id="gi-email-list">
-          <div class="empty-state">
-            <div class="empty-state-icon">📧</div>
-            <h3>Sin correos cargados</h3>
-            <p>Presiona Sincronizar para traer correos de Gmail.</p>
-          </div>
+          ${emptyState({
+            icon: '📧',
+            title: 'Sin correos cargados',
+            hint: 'Presiona Sincronizar para traer correos de Gmail.',
+          })}
         </div>
       </div>
 
@@ -264,7 +263,7 @@ async function syncEmails(container) {
   const btn = container.querySelector('#btnSync');
   btn.disabled = true;
   btn.textContent = 'Sincronizando...';
-  listEl.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  listEl.innerHTML = loadingState();
 
   try {
     _emails = await api.gmailImport.emails({ since_date: since, max_emails: max });
@@ -287,12 +286,11 @@ function renderEmailList(container) {
   const listEl = container.querySelector('#gi-email-list');
 
   if (!_emails.length) {
-    listEl.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <h3>Sin correos encontrados</h3>
-        <p>Prueba cambiando la fecha de inicio.</p>
-      </div>`;
+    listEl.innerHTML = emptyState({
+      icon: '📭',
+      title: 'Sin correos encontrados',
+      hint: 'Prueba cambiando la fecha de inicio.',
+    });
     updateBulkToolbar(container);
     return;
   }

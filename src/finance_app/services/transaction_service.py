@@ -63,6 +63,193 @@ def is_budget_cover_adjustment(transaction: Transaction) -> bool:
     return memo.startswith("Cubrir exceso:") or memo.startswith("Cubierto desde:")
 
 
+CC_PAYMENT_MOVE_SOURCE = "cc_payment_move"
+
+
+def _apply_cc_payment_budget_move(db: Session, transaction: Transaction, account: Account | None) -> None:
+    """YNAB-style: after a CC purchase, credit the debt payment category.
+
+    Spending category already lost available via activity. This only adds
+    available to the linked Pago TC category so the future card payment is funded.
+    """
+    if not account or account.type != "credit_card":
+        return
+    if not transaction or (transaction.amount or 0) >= 0:
+        return
+    if transaction.transfer_account_id or transaction.is_adjustment:
+        return
+
+    debt = db.query(Debt).filter_by(account_id=account.id).first()
+    if not debt or not debt.category_id:
+        return
+
+    # Don't move when the spend itself is already on the payment category
+    spending_category_id = transaction.category_id
+    if transaction.splits:
+        # Use first split category for labeling; still move full amount once
+        spending_category_id = transaction.splits[0].category_id
+    if not spending_category_id or spending_category_id == debt.category_id:
+        return
+
+    # Idempotent: remove previous move for this transaction if re-applying
+    _reverse_cc_payment_budget_move(db, transaction)
+
+    spending_cat = db.get(Category, spending_category_id)
+    payment_cat = db.get(Category, debt.category_id)
+    if not spending_cat or not payment_cat:
+        return
+
+    amount = abs(float(transaction.amount or 0))
+    if amount <= 0:
+        return
+
+    # Prefer a budget account in the same currency as the transaction
+    budget_account = db.query(Account).filter(
+        Account.is_budget == True,
+        Account.is_closed == False,
+        Account.currency_id == transaction.currency_id,
+        Account.type.notin_(["credit_card", "credit_loan", "mortgage"]),
+    ).first()
+    if not budget_account:
+        budget_account = db.query(Account).filter(
+            Account.is_budget == True,
+            Account.is_closed == False,
+        ).first()
+    if not budget_account:
+        return
+
+    move_tx = Transaction(
+        date=transaction.date,
+        amount=amount,
+        account_id=budget_account.id,
+        category_id=debt.category_id,
+        currency_id=transaction.currency_id,
+        original_amount=amount,
+        original_currency_id=transaction.currency_id,
+        memo=f"Cubierto desde: Cargo TC — {spending_cat.name}",
+        is_adjustment=True,
+        source=CC_PAYMENT_MOVE_SOURCE,
+        source_id=str(transaction.id),
+        cleared=True,
+        approved=True,
+    )
+    db.add(move_tx)
+    db.flush()
+
+    month_date = date(transaction.date.year, transaction.date.month, 1)
+    from finance_app.services.budget_service import get_or_create_budget_month, recalculate_budget_available
+    budget = get_or_create_budget_month(db, debt.category_id, month_date, transaction.currency_id)
+    recalculate_budget_available(db, budget)
+
+
+def _reverse_cc_payment_budget_move(db: Session, transaction: Transaction) -> None:
+    """Delete the Pago TC coverage adjustment linked to a CC spend."""
+    if not transaction or not transaction.id:
+        return
+    moves = db.query(Transaction).filter(
+        Transaction.source == CC_PAYMENT_MOVE_SOURCE,
+        Transaction.source_id == str(transaction.id),
+    ).all()
+    if not moves:
+        return
+
+    from finance_app.services.budget_service import get_or_create_budget_month, recalculate_budget_available
+
+    cats_months = set()
+    for move in moves:
+        if move.category_id and move.date:
+            cats_months.add((move.category_id, date(move.date.year, move.date.month, 1), move.currency_id))
+        db.delete(move)
+    db.flush()
+    for cat_id, month_date, currency_id in cats_months:
+        budget = get_or_create_budget_month(db, cat_id, month_date, currency_id)
+        recalculate_budget_available(db, budget)
+
+
+CC_PAYMENT_MOVE_SOURCE = "cc_payment_move"
+
+
+def _apply_cc_payment_budget_move(db: Session, transaction: Transaction, account: Account | None) -> None:
+    """YNAB-style: when spending on a credit card, credit the linked Pago TC category.
+
+    Spending category already loses available via activity. This only adds available
+    to the debt payment category so the card can be paid later from budget.
+    """
+    if not account or account.type != "credit_card":
+        return
+    if not transaction or (transaction.amount or 0) >= 0:
+        return
+    if transaction.transfer_account_id or transaction.is_adjustment:
+        return
+
+    debt = db.query(Debt).filter_by(account_id=account.id, is_active=True).first()
+    if not debt or not debt.category_id:
+        return
+
+    # Resolve spending category: header or first split
+    spending_cat_id = transaction.category_id
+    spending_cat_name = transaction.category.name if transaction.category else None
+    amount = abs(float(transaction.amount or 0))
+    if transaction.splits:
+        amount = sum(abs(float(s.amount or 0)) for s in transaction.splits)
+        # Prefer first split category for labeling; still move full total to Pago TC
+        first = transaction.splits[0]
+        spending_cat_id = first.category_id
+        spending_cat_name = first.category.name if first.category else spending_cat_name
+
+    if not spending_cat_id or spending_cat_id == debt.category_id:
+        return
+    if amount <= 0:
+        return
+
+    # Find a budget account in the transaction currency for the virtual adjustment
+    budget_account = db.query(Account).filter(
+        Account.is_budget == True,
+        Account.is_closed == False,
+        Account.currency_id == transaction.currency_id,
+    ).first()
+    if not budget_account:
+        budget_account = db.query(Account).filter(
+            Account.is_budget == True,
+            Account.is_closed == False,
+        ).first()
+    if not budget_account:
+        return
+
+    cat_label = spending_cat_name or f"categoría {spending_cat_id}"
+    move = Transaction(
+        account_id=budget_account.id,
+        date=transaction.date,
+        category_id=debt.category_id,
+        memo=f"Cubierto desde: Cargo TC — {cat_label}",
+        amount=amount,
+        currency_id=transaction.currency_id,
+        original_amount=amount,
+        original_currency_id=transaction.currency_id,
+        cleared=True,
+        approved=True,
+        is_adjustment=True,
+        source=CC_PAYMENT_MOVE_SOURCE,
+        source_id=str(transaction.id),
+    )
+    db.add(move)
+    db.flush()
+
+
+def _reverse_cc_payment_budget_move(db: Session, transaction_id: int) -> None:
+    """Remove virtual Pago TC credits linked to a CC spend."""
+    moves = (
+        db.query(Transaction)
+        .filter(
+            Transaction.source == CC_PAYMENT_MOVE_SOURCE,
+            Transaction.source_id == str(transaction_id),
+        )
+        .all()
+    )
+    for move in moves:
+        db.delete(move)
+
+
 def _assign_transfer_pair_link(from_tx: Transaction, to_tx: Transaction) -> str:
     """Stamp both transfer legs with the same import_id pair key."""
     pair_id = f"{TRANSFER_PAIR_IMPORT_PREFIX}{uuid4().hex}"
@@ -219,11 +406,11 @@ def get_monthly_coverage_net(
 
 def normalize_transaction_amount(
     amount: float,
-    transaction_type: Optional[Literal['expense', 'income']] = None
+    transaction_type: Optional[Literal['expense', 'income', 'loan']] = None
 ) -> float:
     """Normalize amount sign using the app convention: expenses negative, income positive."""
     normalized = abs(float(amount or 0))
-    if transaction_type == 'expense':
+    if transaction_type in ('expense', 'loan'):
         return -normalized
     if transaction_type == 'income':
         return normalized
@@ -505,6 +692,149 @@ def _apply_splits_to_transaction(db: Session, transaction: Transaction, splits_d
         )
 
 
+def original_outflow_abs(transaction: Transaction) -> float:
+    return abs(float(transaction.amount or 0))
+
+
+def reimbursed_total(db: Session, original_id: int, exclude_id: int | None = None) -> float:
+    """Sum of inflows already linked to an original expense/loan."""
+    query = db.query(func.coalesce(func.sum(Transaction.amount), 0.0)).filter(
+        Transaction.related_transaction_id == original_id,
+        Transaction.amount > 0,
+        Transaction.transfer_account_id.is_(None),
+        Transaction.is_adjustment.is_(False),
+    )
+    if exclude_id is not None:
+        query = query.filter(Transaction.id != exclude_id)
+    return float(query.scalar() or 0.0)
+
+
+def reimbursement_remaining(db: Session, original: Transaction, exclude_id: int | None = None) -> float:
+    remaining = original_outflow_abs(original) - reimbursed_total(db, original.id, exclude_id=exclude_id)
+    return round(remaining, 2)
+
+
+def _default_reimbursement_category_id(original: Transaction) -> int | None:
+    if original.category_id:
+        return original.category_id
+    if original.splits:
+        return original.splits[0].category_id
+    return None
+
+
+def _validate_reimbursement_link(
+    db: Session,
+    original_id: int,
+    amount: float,
+    exclude_id: int | None = None,
+) -> Transaction:
+    original = db.get(Transaction, original_id)
+    if not original:
+        raise ValueError("Transacción original no encontrada")
+    if original.transfer_account_id:
+        raise ValueError("No se puede registrar una devolución sobre una transferencia")
+    if original.related_transaction_id:
+        raise ValueError("No se puede vincular una devolución a otra devolución")
+    if float(original.amount or 0) >= 0:
+        raise ValueError("La devolución debe vincularse a un gasto o préstamo")
+    remaining = reimbursement_remaining(db, original, exclude_id=exclude_id)
+    requested = abs(float(amount or 0))
+    if requested <= 0:
+        raise ValueError("El monto de la devolución debe ser mayor a 0")
+    if requested - remaining > 0.01:
+        raise ValueError(
+            f"El monto supera lo pendiente por devolver ({remaining:.2f})"
+        )
+    return original
+
+
+def create_reimbursement(db: Session, original_id: int, data: dict) -> Transaction:
+    """Create an inflow linked to an expense or personal loan.
+
+    Uses the original expense category so it reduces net spending and does
+    not count as income.
+    """
+    original = _validate_reimbursement_link(db, original_id, data.get("amount") or 0)
+    category_id = data.get("category_id") or _default_reimbursement_category_id(original)
+    if not category_id:
+        raise ValueError("El gasto original no tiene categoría; asígnala antes de registrar la devolución")
+
+    kind = "loan_repayment" if original.kind == "loan" else "reimbursement"
+    payee_name = (data.get("payee_name") or "").strip() or None
+    memo = (data.get("memo") or "").strip()
+    if not memo:
+        origin_label = original.payee.name if original.payee else (original.memo or "gasto")
+        origin_date = original.date.isoformat()[:10] if original.date else ""
+        prefix = "Devolución de préstamo" if kind == "loan_repayment" else "Reembolso"
+        memo = f"{prefix}: {origin_label} {origin_date}".strip()
+
+    payload = {
+        "account_id": data.get("account_id") or original.account_id,
+        "date": data.get("date", date.today()),
+        "payee_name": payee_name,
+        "category_id": category_id,
+        "memo": memo,
+        "amount": abs(float(data["amount"])),
+        "currency_id": data.get("currency_id") or original.original_currency_id or original.currency_id,
+        "type": "income",
+        "cleared": data.get("cleared", False),
+        "kind": kind,
+        "related_transaction_id": original.id,
+    }
+    return create_transaction(db, payload)
+
+
+def enrich_transactions_reimbursement(db: Session, rows: list[dict]) -> list[dict]:
+    """Attach reimbursed_total / remaining / related summary to serialized txs."""
+    if not rows:
+        return rows
+    ids = [row["id"] for row in rows if row.get("id")]
+    related_ids = [row["related_transaction_id"] for row in rows if row.get("related_transaction_id")]
+
+    totals: dict[int, float] = {}
+    if ids:
+        grouped = (
+            db.query(Transaction.related_transaction_id, func.coalesce(func.sum(Transaction.amount), 0.0))
+            .filter(
+                Transaction.related_transaction_id.in_(ids),
+                Transaction.amount > 0,
+            )
+            .group_by(Transaction.related_transaction_id)
+            .all()
+        )
+        totals = {int(oid): float(total) for oid, total in grouped if oid is not None}
+
+    originals: dict[int, Transaction] = {}
+    if related_ids:
+        originals = {
+            tx.id: tx
+            for tx in db.query(Transaction).options(joinedload(Transaction.payee)).filter(Transaction.id.in_(related_ids))
+        }
+
+    for row in rows:
+        oid = row.get("id")
+        amount = float(row.get("amount") or 0)
+        reimbursed = round(totals.get(oid, 0.0), 2)
+        if amount < 0:
+            remaining = round(abs(amount) - reimbursed, 2)
+            row["reimbursed_total"] = reimbursed
+            row["reimbursement_remaining"] = remaining
+        else:
+            row["reimbursed_total"] = 0.0
+            row["reimbursement_remaining"] = 0.0
+
+        related = originals.get(row.get("related_transaction_id"))
+        if related:
+            row["related_payee_name"] = related.payee.name if related.payee else None
+            row["related_date"] = related.date.isoformat()[:10] if related.date else None
+            row["related_amount"] = related.amount
+        else:
+            row["related_payee_name"] = None
+            row["related_date"] = None
+            row["related_amount"] = None
+    return rows
+
+
 def create_transaction(db: Session, data):
     """
     Create a new transaction
@@ -519,6 +849,17 @@ def create_transaction(db: Session, data):
     splits = data.pop('splits', None)
     source = data.get('source')
     source_id = data.get('source_id')
+    if transaction_type == 'loan':
+        data['kind'] = data.get('kind') or 'loan'
+        transaction_type = 'expense'
+
+    related_id = data.get('related_transaction_id')
+    if related_id:
+        original = _validate_reimbursement_link(db, related_id, float(data.get('amount') or 0), exclude_id=None)
+        transaction_type = 'income'
+        data['kind'] = data.get('kind') or (
+            'loan_repayment' if original.kind == 'loan' else 'reimbursement'
+        )
 
     transaction_context = db.begin_nested() if db.in_transaction() else db.begin()
     with transaction_context:
@@ -567,7 +908,9 @@ def create_transaction(db: Session, data):
             transfer_account_id=data.get('transfer_account_id'),
             investment_asset_id=data.get('investment_asset_id'),
             source=source,
-            source_id=source_id
+            source_id=source_id,
+            kind=data.get('kind'),
+            related_transaction_id=data.get('related_transaction_id'),
         )
 
         db.add(transaction)
@@ -581,6 +924,7 @@ def create_transaction(db: Session, data):
             account.balance += normalized_amount
 
         _apply_debt_impact(db, transaction, account)
+        _apply_cc_payment_budget_move(db, transaction, account)
 
     # Always persist. When a prior query opened a session transaction (e.g. merchant
     # rule lookup), the block above only commits a SAVEPOINT via begin_nested().
@@ -626,9 +970,24 @@ def get_transactions(db: Session, account_id=None, category_id=None, tag_id=None
     if transaction_type == 'expense':
         query = query.filter(Transaction.amount < 0, Transaction.transfer_account_id.is_(None))
     elif transaction_type == 'income':
-        query = query.filter(Transaction.amount > 0, Transaction.transfer_account_id.is_(None))
+        query = query.filter(
+            Transaction.amount > 0,
+            Transaction.transfer_account_id.is_(None),
+            Transaction.related_transaction_id.is_(None),
+            or_(Transaction.kind.is_(None), ~Transaction.kind.in_(('reimbursement', 'loan_repayment'))),
+        )
     elif transaction_type == 'transfer':
         query = query.filter(Transaction.transfer_account_id.isnot(None))
+    elif transaction_type == 'reimbursement':
+        query = query.filter(
+            Transaction.transfer_account_id.is_(None),
+            or_(
+                Transaction.related_transaction_id.isnot(None),
+                Transaction.kind.in_(('reimbursement', 'loan_repayment')),
+            ),
+        )
+    elif transaction_type == 'loan':
+        query = query.filter(Transaction.kind == 'loan')
 
     query = query.order_by(
         Transaction.date.desc(),
@@ -682,6 +1041,9 @@ def update_transaction(db: Session, transaction_id, data):
     if not transaction:
         return None
 
+    if transaction.locked:
+        raise ValueError("Transacción bloqueada por reconciliación.")
+
     # Store old amount to update balance
     old_amount = transaction.amount
     old_account_id = transaction.account_id
@@ -705,6 +1067,11 @@ def update_transaction(db: Session, transaction_id, data):
 
     tag_ids = data.pop("tag_ids", None)
     splits = data.pop("splits", None)
+
+    related_id = data.get("related_transaction_id", transaction.related_transaction_id)
+    if related_id:
+        candidate_amount = data.get("amount", transaction.original_amount)
+        _validate_reimbursement_link(db, related_id, candidate_amount, exclude_id=transaction.id)
 
     # Memo/tags-only patches must not regenerate DebtPayment / re-estimate interest.
     touches_debt = _update_touches_debt(transaction, data, transaction_type, splits)
@@ -771,6 +1138,10 @@ def update_transaction(db: Session, transaction_id, data):
     if touches_debt and touches_balance:
         _apply_debt_impact(db, transaction, new_account)
 
+    # Refresh CC payment budget move after edits
+    _reverse_cc_payment_budget_move(db, transaction)
+    _apply_cc_payment_budget_move(db, transaction, new_account)
+
     db.commit()
     return transaction
 
@@ -784,6 +1155,8 @@ def delete_transaction(db: Session, transaction_id):
     delete_reason = transaction.delete_block_reason()
     if delete_reason:
         raise ValueError(delete_reason)
+
+    _reverse_cc_payment_budget_move(db, transaction)
 
     # If this is a transfer, also delete the linked transaction
     if transaction.transfer_account_id:
@@ -807,6 +1180,11 @@ def delete_transaction(db: Session, transaction_id):
         account.balance -= transaction.amount
     if not is_budget_cover_adjustment(transaction):
         _reverse_debt_impact(db, transaction, account)
+
+    db.query(Transaction).filter(Transaction.related_transaction_id == transaction_id).update(
+        {Transaction.related_transaction_id: None},
+        synchronize_session=False,
+    )
 
     db.delete(transaction)
     db.commit()

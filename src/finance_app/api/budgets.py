@@ -1,7 +1,10 @@
 """
 Budgets API endpoints - Multi-currency with manual rollover.
 """
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import date
@@ -56,6 +59,44 @@ class UpdateCoverOverspendingRequest(BaseModel):
 def current_budget(currency_code: str = 'COP', db: Session = Depends(get_db)):
     """Get current month budget"""
     return get_budget_overview(db, currency_code)
+
+
+@router.get("/export")
+def export_budget_csv(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    currency_code: str = "COP",
+    db: Session = Depends(get_db),
+):
+    """Export monthly budget as CSV (asignado / gastado / disponible)."""
+    today = date.today()
+    y = year or today.year
+    m = month or today.month
+    month_date = date(y, m, 1)
+    data = get_month_budget(db, month_date, currency_code=currency_code)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Mes", "Grupo", "Categoría", "Asignado", "Actividad", "Disponible", "Moneda"])
+    month_label = f"{y:04d}-{m:02d}"
+    for group in data.get("groups", []):
+        group_name = group.get("name", "")
+        for cat in group.get("categories", []):
+            writer.writerow([
+                month_label,
+                group_name,
+                cat.get("category_name") or cat.get("name", ""),
+                cat.get("assigned", 0),
+                cat.get("activity", 0),
+                cat.get("available", 0),
+                currency_code,
+            ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="presupuesto-{month_label}.csv"'},
+    )
 
 
 @router.get("/assigned-totals")

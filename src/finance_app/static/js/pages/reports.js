@@ -59,6 +59,7 @@ function renderShell(container) {
     <div class="page-header">
       <div class="page-header-text"><h1>Reportes</h1></div>
       <div class="page-header-actions flex items-center gap-3">
+        <button class="btn btn-ghost btn-sm" id="btnExportReports" title="Exportar gastos CSV">↓ Exportar</button>
         <div class="flex items-center gap-1">
           <label class="text-muted" style="font-size:0.8rem">Moneda</label>
           <select id="rptCurrency" class="input-field" style="min-width:72px;padding:4px 8px;height:32px;font-size:0.8125rem">
@@ -92,6 +93,17 @@ function renderShell(container) {
       <div class="card-body" id="rpt-detail"></div>
     </div>
 
+    <div class="section-grid cols-2 mb-4 mt-4">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Top comercios</span></div>
+        <div class="card-body" id="rpt-payees"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Mes vs mes anterior</span></div>
+        <div class="card-body" id="rpt-mom"></div>
+      </div>
+    </div>
+
     <div class="card mt-4">
       <div class="card-header" style="flex-wrap:wrap;gap:12px">
         <span class="card-title">Gasto por Categoría en el Tiempo</span>
@@ -122,6 +134,9 @@ function renderShell(container) {
     _month = prevMonth(_month);
     container.querySelector('#rptMonthLabel').textContent = fmtMonthLabel(_month);
     await loadData(container);
+  });
+  container.querySelector('#btnExportReports')?.addEventListener('click', () => {
+    window.location = api.reports.spendingExportUrl({ month: _month, currency_id: _currencyId });
   });
   container.querySelector('#rptNext').addEventListener('click', async () => {
     const [y, m] = _month.split('-').map(Number);
@@ -177,9 +192,11 @@ async function loadData(container) {
   if (detailEl) detailEl.innerHTML = '<div class="page-loading" style="min-height:100px"><div class="spinner"></div></div>';
 
   try {
-    const [spending, income] = await Promise.all([
+    const [spending, income, payees, mom] = await Promise.all([
       optional(api.reports.spending({ month: _month, currency_id: _currencyId }), null, 'Reporte de Gastos'),
       optional(api.reports.income({ month: _month, currency_id: _currencyId }), null, 'Reporte de Ingresos'),
+      optional(api.reports.spendingByPayee({ month: _month, currency_id: _currencyId, limit: 10 }), null, 'Gasto por Comercio'),
+      optional(api.reports.monthComparison({ month: _month, currency_id: _currencyId }), null, 'Comparativa Mensual'),
     ]);
 
     const cats      = spending?.categories ?? spending?.by_category ?? [];
@@ -293,12 +310,84 @@ async function loadData(container) {
         </table>
       ` : emptyState({ icon: '📊', title: 'Sin datos de gasto', hint: 'No hay gastos registrados para este mes.' });
     }
+
+    renderPayeesTable(container, payees, fmt);
+    renderMonthComparison(container, mom, fmt);
   } catch (err) {
     if (kpisEl) {
       kpisEl.innerHTML = `<div style="grid-column:1/-1">${sectionErrorState({ message: err.message, retryId: 'btnRptRetry' })}</div>`;
       bindRetry(kpisEl, () => loadData(container), 'btnRptRetry');
     }
   }
+}
+
+function renderPayeesTable(container, payeesData, fmt) {
+  const el = container.querySelector('#rpt-payees');
+  if (!el) return;
+  const list = payeesData?.payees ?? [];
+  if (!list.length) {
+    el.innerHTML = emptyState({ icon: '🏪', title: 'Sin comercios', hint: 'No hay gastos con beneficiario este mes.' });
+    return;
+  }
+  el.innerHTML = `
+    <table class="fin-table">
+      <thead>
+        <tr>
+          <th>Comercio</th>
+          <th class="td-right">Gastado</th>
+          <th class="td-right">Tx</th>
+          <th class="td-right">%</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${list.map(p => `
+          <tr>
+            <td style="font-weight:500">${sanitize(p.payee_name)}</td>
+            <td class="td-right amount">${fmt(p.spent)}</td>
+            <td class="td-right text-muted">${p.tx_count}</td>
+            <td class="td-right text-muted">${p.pct}%</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderMonthComparison(container, mom, fmt) {
+  const el = container.querySelector('#rpt-mom');
+  if (!el) return;
+  const cats = (mom?.categories ?? []).slice(0, 12);
+  if (!cats.length) {
+    el.innerHTML = emptyState({ icon: '📉', title: 'Sin comparativa', hint: 'Faltan gastos en este mes o el anterior.' });
+    return;
+  }
+  const prevLabel = mom.previous_month ?? 'Anterior';
+  el.innerHTML = `
+    <table class="fin-table">
+      <thead>
+        <tr>
+          <th>Categoría</th>
+          <th class="td-right">${sanitize(mom.month)}</th>
+          <th class="td-right">${sanitize(prevLabel)}</th>
+          <th class="td-right">Δ%</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${cats.map(c => {
+          const cls = c.delta > 0 ? 'text-danger' : c.delta < 0 ? 'text-success' : 'text-muted';
+          const sign = c.delta_pct > 0 ? '+' : '';
+          return `
+            <tr>
+              <td style="font-weight:500">${sanitize(c.category_name)}</td>
+              <td class="td-right amount">${fmt(c.current)}</td>
+              <td class="td-right amount text-muted">${fmt(c.previous)}</td>
+              <td class="td-right ${cls}">${sign}${c.delta_pct}%</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <p class="text-soft text-sm mt-3">
+      Total: ${fmt(mom.total_current ?? 0)} vs ${fmt(mom.total_previous ?? 0)}
+    </p>`;
 }
 
 // Matches --chart-color-* tokens in design-system.css (Ledger palette)

@@ -12,7 +12,11 @@ from finance_app.models import RecurringTransaction, Payee
 from finance_app.services.recurring_service import (
     generate_due_transactions,
     get_next_scheduled_date,
-    preview_next_occurrences
+    preview_next_occurrences,
+    list_upcoming_occurrences,
+    approve_occurrence,
+    skip_occurrence,
+    snooze_occurrence,
 )
 
 router = APIRouter()
@@ -71,6 +75,42 @@ def list_recurring_transactions(
         data['next_occurrence_date'] = next_date.isoformat() if next_date else None
         response.append(data)
     return response
+
+
+@router.get("/upcoming")
+def upcoming_recurring(days: int = 14, db: Session = Depends(get_db)):
+    """Inbox of upcoming occurrences for approve / skip / snooze."""
+    items = list_upcoming_occurrences(db, days=days)
+    return {"items": items, "count": len(items), "days": days}
+
+
+class OccurrenceAction(BaseModel):
+    occurrence_date: Optional[date] = None
+    days: int = 7  # only for snooze
+
+
+@router.post("/{recurring_id}/approve")
+def approve_recurring(recurring_id: int, body: OccurrenceAction = OccurrenceAction(), db: Session = Depends(get_db)):
+    try:
+        return approve_occurrence(db, recurring_id, body.occurrence_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{recurring_id}/skip")
+def skip_recurring(recurring_id: int, body: OccurrenceAction = OccurrenceAction(), db: Session = Depends(get_db)):
+    try:
+        return skip_occurrence(db, recurring_id, body.occurrence_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{recurring_id}/snooze")
+def snooze_recurring(recurring_id: int, body: OccurrenceAction = OccurrenceAction(), db: Session = Depends(get_db)):
+    try:
+        return snooze_occurrence(db, recurring_id, body.days or 7)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/{recurring_id}")

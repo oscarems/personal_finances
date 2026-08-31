@@ -269,7 +269,9 @@ ACCOUNT_TYPES = {
 # Ollama (LLM chat)
 # ---------------------------------------------------------------------------
 OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+# Local LLMs (esp. cold start / gemma) often need >90s; override with OLLAMA_TIMEOUT.
+OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "300"))
+OLLAMA_RETRIES: int = int(os.getenv("OLLAMA_RETRIES", "1"))
 
 # ---------------------------------------------------------------------------
 # Exchange Rate API

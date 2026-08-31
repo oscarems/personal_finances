@@ -29,12 +29,15 @@ class Transaction(Base):
     base_currency_id = Column(Integer, ForeignKey('currencies.id'))
     cleared = Column(Boolean, default=False)  # Reconciliation
     approved = Column(Boolean, default=True)
+    locked = Column(Boolean, default=False)  # Locked after reconciliation session
     transfer_account_id = Column(Integer, ForeignKey('accounts.id'))  # If transfer
     investment_asset_id = Column(Integer, nullable=True)  # legacy column, FK to wealth_assets removed
     is_adjustment = Column(Boolean, default=False)  # Balance adjustment transaction
     import_id = Column(String(100))  # Deduplication ID used during CSV import
     source = Column(String(50))
     source_id = Column(String(120))
+    kind = Column(String(30))  # loan | reimbursement | loan_repayment
+    related_transaction_id = Column(Integer, ForeignKey('transactions.id', ondelete='SET NULL'), index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -47,11 +50,19 @@ class Transaction(Base):
     # investment_asset relationship removed (WealthAsset model consolidated into Patrimonio)
     tag_links = relationship('TransactionTag', back_populates='transaction', cascade='all, delete-orphan')
     splits = relationship('TransactionSplit', back_populates='transaction', cascade='all, delete-orphan')
+    related_transaction = relationship(
+        'Transaction',
+        remote_side='Transaction.id',
+        foreign_keys='Transaction.related_transaction_id',
+    )
 
     def __repr__(self):
         return f'<Transaction {self.date} {self.amount}>'
 
     def delete_block_reason(self):
+        if self.locked:
+            return "Transacción bloqueada por reconciliación."
+
         if self.is_adjustment:
             memo = (self.memo or "").strip()
             if memo.startswith("Cubrir exceso:") or memo.startswith("Cubierto desde:"):
@@ -95,6 +106,7 @@ class Transaction(Base):
             'base_currency_id': self.base_currency_id,
             'cleared': self.cleared,
             'approved': self.approved,
+            'locked': bool(self.locked),
             'transfer_account_id': self.transfer_account_id,
             'investment_asset_id': self.investment_asset_id,
             'investment_asset_name': None,
@@ -102,6 +114,8 @@ class Transaction(Base):
             'import_id': self.import_id,
             'source': self.source,
             'source_id': self.source_id,
+            'kind': self.kind,
+            'related_transaction_id': self.related_transaction_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'can_delete': delete_reason is None,
             'delete_reason': delete_reason

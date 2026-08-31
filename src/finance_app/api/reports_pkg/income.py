@@ -18,7 +18,7 @@ from finance_app.services.budget_service import (
     build_spent_transactions_query,
 )
 
-from .common import get_exchange_rate, parse_date_range, convert_to_currency
+from .common import get_exchange_rate, parse_date_range, convert_to_currency, net_expense_total
 
 router = APIRouter()
 
@@ -264,13 +264,7 @@ def get_savings_rate(
         month_end = current_date + relativedelta(months=1)
 
         income = get_monthly_income(db, month_start.year, month_start.month, currency_id, exchange_rate)
-        expense_transactions = build_spent_transactions_query(db, month_start, month_end).with_entities(
-            Transaction.amount, Transaction.currency_id
-        ).all()
-        expenses = sum(
-            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
-            for t in expense_transactions
-        )
+        expenses = net_expense_total(db, month_start, month_end, currency_id, exchange_rate)
 
         savings = income - expenses
         savings_rate = (savings / income * 100) if income > 0 else 0
@@ -314,14 +308,7 @@ def get_summary(
     exchange_rate = get_exchange_rate(db)
 
     month_income = get_income_total(db, month_start, month_end, currency_id, exchange_rate)
-
-    expense_transactions = build_spent_transactions_query(db, month_start, month_end).with_entities(
-        Transaction.amount, Transaction.currency_id
-    ).all()
-    month_expenses = sum(
-        convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
-        for t in expense_transactions
-    )
+    month_expenses = net_expense_total(db, month_start, month_end, currency_id, exchange_rate)
 
     accounts = db.query(Account).filter(Account.is_closed == False).all()
     total_balance = sum(
@@ -371,15 +358,8 @@ def get_period_summary(
     exchange_rate = get_exchange_rate(db)
     end_date_exclusive = end_date_obj + relativedelta(days=1)
 
-    expense_transactions = build_spent_transactions_query(db, start_date_obj, end_date_exclusive).with_entities(
-        Transaction.amount, Transaction.currency_id
-    ).all()
-
     total_income = get_income_total(db, start_date_obj, end_date_exclusive, currency_id, exchange_rate)
-    total_expenses = sum(
-        convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
-        for t in expense_transactions
-    )
+    total_expenses = net_expense_total(db, start_date_obj, end_date_exclusive, currency_id, exchange_rate)
 
     months_count = (end_date_obj.year - start_date_obj.year) * 12 + (end_date_obj.month - start_date_obj.month) + 1
     average_monthly_expenses = total_expenses / months_count if months_count > 0 else 0
@@ -396,13 +376,7 @@ def get_period_summary(
     if prev_start >= min_start_date:
         prev_end_exclusive = prev_end + relativedelta(days=1)
         prev_income = get_income_total(db, prev_start, prev_end_exclusive, currency_id, exchange_rate)
-        prev_expense_txs = build_spent_transactions_query(db, prev_start, prev_end_exclusive).with_entities(
-            Transaction.amount, Transaction.currency_id
-        ).all()
-        prev_expenses = sum(
-            convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
-            for t in prev_expense_txs
-        )
+        prev_expenses = net_expense_total(db, prev_start, prev_end_exclusive, currency_id, exchange_rate)
 
     def _trend(current, previous):
         if previous == 0:

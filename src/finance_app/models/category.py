@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from finance_app.database import Base
 
@@ -33,8 +33,9 @@ class Category(Base):
     id = Column(Integer, primary_key=True)
     category_group_id = Column(Integer, ForeignKey('category_groups.id'), nullable=False)
     name = Column(String(100), nullable=False)
-    target_type = Column(String(20))  # 'monthly', 'target_balance', 'debt'
+    target_type = Column(String(20))  # 'monthly', 'target_balance', 'needed_for_spending', 'debt'
     target_amount = Column(Float)  # Meta de ahorro (cuánto quiero ahorrar)
+    target_date = Column(Date)  # Fecha objetivo del sinking fund (opcional)
     initial_amount = Column(Float, default=0.0)  # Monto inicial actual
     initial_currency_id = Column(Integer, ForeignKey('currencies.id'))  # Moneda del monto inicial
     sort_order = Column(Integer, default=0)
@@ -68,6 +69,7 @@ class Category(Base):
             'name': self.name,
             'target_type': self.target_type,
             'target_amount': self.target_amount,
+            'target_date': self.target_date.isoformat() if self.target_date else None,
             'initial_amount': self.initial_amount,
             'sort_order': self.sort_order,
             'is_hidden': self.is_hidden,

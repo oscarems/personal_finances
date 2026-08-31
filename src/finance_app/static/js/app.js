@@ -1,62 +1,72 @@
 import { init as initRouter, register, navigate } from './router.js';
+import { initNotifications } from './components/notifications.js';
+import { initGlobalSearch } from './components/globalSearch.js';
+
+// Bust browser module cache when pages change (ESM is cached aggressively).
+const ASSET_V = '20260830a';
+const page = (path) => () => import(`${path}?v=${ASSET_V}`);
 
 // ── Route definitions ─────────────────────────────────────
-register('/',                    () => import('./pages/dashboard.js'));
-register('/accounts',            () => import('./pages/accounts.js'));
-register('/budget',              () => import('./pages/budget.js'));
-register('/transactions',        () => import('./pages/transactions.js'));
-register('/debts',               () => import('./pages/debts.js'));
-register('/goals',               () => import('./pages/goals.js'));
-register('/reports',             () => import('./pages/reports.js'));
-register('/recurring',           () => import('./pages/recurring.js'));
-register('/financial-health',    () => import('./pages/financial-health.js'));
-register('/mortgage',            () => import('./pages/mortgage.js'));
-register('/investment-simulator',() => import('./pages/investment.js'));
-register('/simulador-deudas',    () => import('./pages/debt-simulator.js'));
-register('/emergency-fund',      () => import('./pages/emergency-fund.js'));
-register('/patrimonio',          () => import('./pages/patrimonio.js'));
-register('/advanced/gmail',          () => import('./pages/gmail-import.js'));
-register('/advanced/merchant-rules', () => import('./pages/merchant-rules.js'));
-register('/setup',                   () => import('./pages/setup.js'));
-register('/portfolio',               () => import('./pages/portfolio.js'));
-register('/fire',                    () => import('./pages/fire.js'));
-register('/cash-flow',               () => import('./pages/cash-flow.js'));
-register('/reconciliation',          () => import('./pages/reconciliation.js'));
-register('/income',                  () => import('./pages/income.js'));
+register('/',                    page('./pages/dashboard.js'));
+register('/accounts',            page('./pages/accounts.js'));
+register('/budget',              page('./pages/budget.js'));
+register('/transactions',        page('./pages/transactions.js'));
+register('/debts',               page('./pages/debts.js'));
+register('/goals',               page('./pages/goals.js'));
+register('/reports',             page('./pages/reports.js'));
+register('/recurring',           page('./pages/recurring.js'));
+register('/financial-health',    page('./pages/financial-health.js'));
+register('/mortgage',            page('./pages/mortgage.js'));
+register('/investment-simulator',page('./pages/investment.js'));
+register('/simulador-deudas',    page('./pages/debt-simulator.js'));
+register('/emergency-fund',      page('./pages/emergency-fund.js'));
+register('/patrimonio',          page('./pages/patrimonio.js'));
+register('/advanced/gmail',          page('./pages/gmail-import.js'));
+register('/advanced/merchant-rules', page('./pages/merchant-rules.js'));
+register('/setup',                   page('./pages/setup.js'));
+register('/portfolio',               page('./pages/portfolio.js'));
+register('/fire',                    page('./pages/fire.js'));
+register('/cash-flow',               page('./pages/cash-flow.js'));
+register('/reconciliation',          page('./pages/reconciliation.js'));
+register('/income',                  page('./pages/income.js'));
+register('/what-if',                 page('./pages/what-if.js'));
+register('/calendar',                page('./pages/calendar.js'));
+register('/email-sender-rules',      page('./pages/email-rules.js'));
+register('/mobile',                  page('./pages/mobile.js'));
 
 // ── Sidebar navigation items ──────────────────────────────
 const NAV_GROUPS = [
-  { label: 'Dinero', items: [
-    { path: '/',             label: 'Dashboard',       icon: icoHome },
-    { path: '/accounts',     label: 'Cuentas',         icon: icoCreditCard },
-    { path: '/transactions', label: 'Transacciones',   icon: icoList },
-    { path: '/income',       label: 'Ingresos',        icon: icoIncome },
+  { label: 'Hoy', items: [
+    { path: '/',                label: 'Dashboard',      icon: icoHome },
+    { path: '/transactions',    label: 'Transacciones',  icon: icoList },
+    { path: '/budget',          label: 'Presupuesto',    icon: icoPie },
+    { path: '/accounts',        label: 'Cuentas',        icon: icoCreditCard },
+    { path: '/mobile',          label: 'Consulta móvil', icon: icoPhone },
+    { path: '/advanced/gmail',  label: 'Importar Gmail', icon: icoInbox },
   ]},
-  { label: 'Planificar', items: [
-    { path: '/budget',    label: 'Presupuesto', icon: icoPie },
-    { path: '/goals',     label: 'Metas',       icon: icoTarget },
-    { path: '/recurring', label: 'Recurrentes', icon: icoRepeat },
+  { label: 'Análisis', items: [
+    { path: '/reports', label: 'Reportes', icon: icoBarChart },
   ]},
-  { label: 'Analizar', items: [
-    { path: '/reports',          label: 'Reportes',         icon: icoBarChart },
-    { path: '/cash-flow',        label: 'Flujo de Caja',    icon: icoWave },
-    { path: '/financial-health', label: 'Salud Financiera', icon: icoHeart },
-    { path: '/patrimonio',       label: 'Patrimonio',       icon: icoTrending },
-  ]},
-  { label: 'Deudas e inversiones', items: [
-    { path: '/debts',            label: 'Deudas',            icon: icoBank },
-    { path: '/mortgage',         label: 'Hipoteca',          icon: icoHouseKey },
-    { path: '/simulador-deudas', label: 'Simulador Deudas',  icon: icoTrendingUp },
-    { path: '/portfolio',        label: 'Portafolio',        icon: icoPortfolio },
-    { path: '/fire',             label: 'FIRE',              icon: icoFire },
-  ]},
-  { label: 'Herramientas', items: [
-    { path: '/emergency-fund',          label: 'Fondo Emergencia',  icon: icoShield },
-    { path: '/investment-simulator',    label: 'Simulador',         icon: icoTrendingUp },
-    { path: '/advanced/gmail',          label: 'Importar Gmail',    icon: icoInbox },
-    { path: '/advanced/merchant-rules', label: 'Reglas Comercios',  icon: icoStore },
-    { path: '/reconciliation',          label: 'Reconciliación',    icon: icoCheck },
-    { path: '/setup',                   label: 'Configuración',     icon: icoSettings },
+  { label: 'Más', items: [
+    { path: '/calendar',                  label: 'Vencimientos',       icon: icoCheck },
+    { path: '/goals',                     label: 'Metas',              icon: icoTarget },
+    { path: '/recurring',                 label: 'Recurrentes',        icon: icoRepeat },
+    { path: '/debts',                     label: 'Deudas',             icon: icoBank },
+    { path: '/income',                    label: 'Ingresos',           icon: icoIncome },
+    { path: '/cash-flow',                 label: 'Flujo de Caja',      icon: icoWave },
+    { path: '/financial-health',          label: 'Salud Financiera',   icon: icoHeart },
+    { path: '/patrimonio',                label: 'Patrimonio',         icon: icoTrending },
+    { path: '/portfolio',               label: 'Portafolio',         icon: icoPortfolio },
+    { path: '/fire',                      label: 'FIRE',               icon: icoFire },
+    { path: '/emergency-fund',            label: 'Fondo Emergencia',   icon: icoShield },
+    { path: '/what-if',                   label: 'Qué pasa si',        icon: icoTrendingUp },
+    { path: '/simulador-deudas',          label: 'Simulador Deudas',   icon: icoBank },
+    { path: '/mortgage',                  label: 'Hipoteca',           icon: icoHouseKey },
+    { path: '/investment-simulator',      label: 'Simulador Inversión',icon: icoPortfolio },
+    { path: '/advanced/merchant-rules',   label: 'Reglas Comercios',   icon: icoStore },
+    { path: '/reconciliation',            label: 'Reconciliación',     icon: icoCheck },
+    { path: '/email-sender-rules',          label: 'Reglas de Email',    icon: icoInbox },
+    { path: '/setup',                       label: 'Configuración',      icon: icoSettings },
   ]},
 ];
 
@@ -111,6 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderSidebar();
   initSidebarCollapse();
   initMobileMenu();
+  initNotifications();
+  initGlobalSearch();
   initRouter();
 });
 
@@ -140,3 +152,4 @@ function icoFire()       { return svg('<path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.
 function icoIncome()     { return svg('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>'); }
 function icoWave()       { return svg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'); }
 function icoCheck()      { return svg('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>'); }
+function icoPhone()      { return svg('<rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/>'); }

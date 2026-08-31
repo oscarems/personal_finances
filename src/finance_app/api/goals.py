@@ -25,6 +25,8 @@ class GoalCreate(BaseModel):
     start_date: date
     start_amount: float = 0.0
     status: str = "active"
+    goal_type: str = "target_balance_by_date"
+    monthly_amount: float | None = None
     notes: str | None = None
 
 
@@ -38,6 +40,8 @@ class GoalUpdate(BaseModel):
     start_date: Optional[date] = None
     start_amount: Optional[float] = None
     status: Optional[str] = None
+    goal_type: Optional[str] = None
+    monthly_amount: Optional[float] = None
     notes: Optional[str] = None
 
 
@@ -62,6 +66,11 @@ def create_goal(payload: GoalCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="target_amount must be > 0")
     if payload.target_date <= payload.start_date:
         raise HTTPException(status_code=400, detail="target_date must be after start_date")
+    valid_types = {"target_balance_by_date", "needed_for_spending", "monthly_builder"}
+    if payload.goal_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"goal_type must be one of {sorted(valid_types)}")
+    if payload.goal_type == "monthly_builder" and (payload.monthly_amount is None or payload.monthly_amount <= 0):
+        raise HTTPException(status_code=400, detail="monthly_builder requires monthly_amount > 0")
 
     goal = Goal(**payload.dict())
     db.add(goal)
@@ -83,7 +92,10 @@ def update_goal(goal_id: int, payload: GoalUpdate, db: Session = Depends(get_db)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
-    _budget_trigger_fields = {"target_amount", "target_date", "start_date", "start_amount", "name", "currency_id"}
+    _budget_trigger_fields = {
+        "target_amount", "target_date", "start_date", "start_amount",
+        "name", "currency_id", "goal_type", "monthly_amount",
+    }
     updates = payload.dict(exclude_unset=True)
     needs_budget_sync = bool(_budget_trigger_fields & updates.keys())
 

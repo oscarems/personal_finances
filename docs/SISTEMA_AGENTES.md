@@ -20,8 +20,26 @@ Este documento describe cómo se organiza el desarrollo del proyecto usando suba
 | `bugfix-debt-fx` | Tasas deuda, amortización, FX silent, migraciones CC | Ola B/D — `BUGS_AUDIT` |
 | `bugfix-budget-calc` | initialize vs get_or_create, multi-moneda, activity totals | Ola B/D — `BUGS_AUDIT` |
 | `bugfix-fe-ux` | Race mes, fechas locales, silent catches, UX tx/dashboard | Ola C — `BUGS_AUDIT` |
+| `ux-nav-ia` | Sidebar Hoy/Plan/Análisis/Más + ruta email-rules | Ola A — `UX_PRODUCT_AUDIT` |
+| `ux-dashboard-action` | Hero “Siguiente acción” en dashboard | Ola A — `UX_PRODUCT_AUDIT` |
+| `ux-page-states` | Unificar loading/error/retry en páginas débiles | Ola B — `UX_PRODUCT_AUDIT` |
+| `ux-mobile` | Overflow tablas + CTA sticky mobile | Ola B — `UX_PRODUCT_AUDIT` |
+| `feat-due-calendar` | Página `/calendar` de vencimientos | Ola C — `UX_PRODUCT_AUDIT` |
 
 **Patrón de trabajo:** cada fase / ola se divide en agentes con dominios de archivos disjuntos (backend puro / tests / páginas FE) para correrlos en paralelo sin conflictos. Al terminar, el orquestador revisa el diff, corre `verifier`, actualiza el catálogo de bugs, y hace un solo commit por ola **si el usuario lo pide**.
+
+## UX / Producto (análisis 2026-08)
+
+Fuente: [`docs/UX_PRODUCT_AUDIT_2026-08.md`](UX_PRODUCT_AUDIT_2026-08.md).  
+Skill: `.cursor/skills/ux-product-orchestrator/SKILL.md`.  
+Rule: `.cursor/rules/ux-product-agents.mdc`.
+
+| Ola | Paralelo | IDs |
+|-----|----------|-----|
+| A | `ux-nav-ia` \|\| `ux-dashboard-action` | UX-001…003 |
+| B | `ux-page-states` \|\| `ux-mobile` | UX-004…005 |
+| C | `feat-due-calendar` (después de A: ambos tocan `app.js`) | UX-006 |
+| D | backlog (AlertRule UI, esencial/discrecional, Fase 4–5) | UX-007…010 |
 
 ## Bugfix (auditoría 2026-08)
 

@@ -124,6 +124,16 @@ def create_reconciliation_session(
         adjustment_transaction_id=adjustment_id
     )
     db.add(session)
+    db.flush()
+
+    # Lock cleared transactions up to statement_date so they can't be edited/deleted
+    db.query(Transaction).filter(
+        Transaction.account_id == account_id,
+        Transaction.cleared == True,
+        Transaction.date <= statement_date,
+        Transaction.locked == False,
+    ).update({Transaction.locked: True}, synchronize_session=False)
+
     db.commit()
     db.refresh(session)
     return session

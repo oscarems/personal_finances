@@ -157,6 +157,33 @@ def build_income_transactions_query(
     return query
 
 
+def build_expense_offset_query(
+    db: Session,
+    start_date: date,
+    end_date: date,
+    category_id: Optional[int] = None
+):
+    """
+    Inflows posted to expense categories (reimbursements / loan repayments).
+
+    These reduce net spending and must not count as income.
+    Date range is exclusive end [start_date, end_date).
+    """
+    query = db.query(Transaction).join(Category).join(CategoryGroup).filter(
+        Transaction.date >= start_date,
+        Transaction.date < end_date,
+        Transaction.amount > 0,
+        Transaction.transfer_account_id.is_(None),
+        Transaction.is_adjustment.is_(False),
+        CategoryGroup.is_income.is_(False)
+    )
+
+    if category_id is not None:
+        query = query.filter(Transaction.category_id == category_id)
+
+    return query
+
+
 def get_assigned_totals_by_currency(db: Session, month_date):
     """
     Get total assigned amounts per currency for a specific month.
@@ -431,18 +458,25 @@ def recalculate_budget_available(db: Session, budget_month, include_all_currenci
     # Get category to check rollover type
     category = db.get(Category, budget_month.category_id)
 
-    # Income categories only track 'assigned' (planned income). They never
-    # accumulate spending/available — actual income is measured from
-    # transactions separately (see build_income_transactions_query).
+    month = budget_month.month.month
+    year = budget_month.month.year
+
+    # Income categories: store real inflows in `activity` (money-tree diagram /
+    # % del ingreso), but never accumulate `available`. Planned income stays in
+    # `assigned`; Ready-to-Assign still comes from account balances vs completo.
     if category and category.category_group and category.category_group.is_income:
-        budget_month.activity = 0.0
+        budget_month.activity = get_monthly_activity(
+            db,
+            budget_month.category_id,
+            month,
+            year,
+            budget_month.currency_id,
+            include_all_currencies=include_all_currencies,
+        )
         budget_month.available = 0.0
         return budget_month
 
     # Get activity from transactions
-    month = budget_month.month.month
-    year = budget_month.month.year
-
     activity = get_monthly_activity(
         db,
         budget_month.category_id,
@@ -538,6 +572,7 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
                     'assigned': 2000000.0,
                     'activity': -1500000.0,
                     'available': 500000.0,
+                    'income': 3500000.0,
                     'in_accounts': 9000000.0
                 },
                 'groups': [
@@ -595,7 +630,7 @@ def get_month_budget(db: Session, month_date, currency_code='COP'):
         'currency': currency.to_dict(),
         'groups': [],
         'ready_to_assign': 0.0,
-        'totals': {'assigned': 0.0, 'activity': 0.0, 'available': 0.0},
+        'totals': {'assigned': 0.0, 'activity': 0.0, 'available': 0.0, 'income': 0.0},
     }
 
     budgets_by_category = _index_budgets_by_category(db, month_date)
@@ -709,7 +744,10 @@ def _build_group_budget(
         )
         group_data['categories'].append(cat_data)
 
-        if not group.is_income:
+        if group.is_income:
+            # Positive inflows only; used by /budget money-tree ("Ingresos de este mes").
+            running_totals['income'] = running_totals.get('income', 0.0) + (cat_data['activity'] or 0.0)
+        else:
             running_totals['assigned'] += cat_data['assigned']
             # Keep signed activity (expenses negative). abs() inflated monthly
             # totals and cancelled out income-like positive activity in expenses.
@@ -821,6 +859,8 @@ def _build_category_budget(
         'available': total_available,
         'initial_amount': total_initial,
         'target_amount': category.target_amount,
+        'target_type': category.target_type,
+        'target_date': category.target_date.isoformat() if getattr(category, "target_date", None) else None,
         'rollover_type': category.rollover_type,
         'is_essential': bool(category.is_essential),
         'notes': category.notes or '',

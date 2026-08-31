@@ -6,7 +6,6 @@ import logging
 import os
 from datetime import datetime, date
 
-import anthropic
 import requests as http_requests
 from fastapi import APIRouter, Depends, Request
 from finance_app.config import OLLAMA_BASE_URL
@@ -25,6 +24,18 @@ from finance_app.services.transaction_service import get_transactions
 logger = logging.getLogger(__name__)
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+
+
+def _get_anthropic():
+    """Import lazy: la app arranca sin el paquete; solo se exige al usar /claude."""
+    try:
+        import anthropic
+    except ImportError as exc:
+        raise RuntimeError(
+            "El paquete 'anthropic' no está instalado. "
+            "Instálalo con: pip install anthropic"
+        ) from exc
+    return anthropic
 
 # ---------------------------------------------------------------------------
 # Claude agent — herramientas: presupuesto y transacciones
@@ -192,6 +203,11 @@ def claude_chat(body: ClaudeRequest, db: Session = Depends(get_db)):
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return ClaudeResponse(reply="Error: ANTHROPIC_API_KEY no configurada en el .env")
+
+    try:
+        anthropic = _get_anthropic()
+    except RuntimeError as exc:
+        return ClaudeResponse(reply=f"Error: {exc}")
 
     client = anthropic.Anthropic(api_key=api_key)
 

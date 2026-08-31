@@ -2,20 +2,26 @@ import * as api from '../api/client.js';
 import { sanitize } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Reglas de Email';
 
 let _accounts = [], _categories = [], _rules = [];
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     [_accounts, _categories, _rules] = await Promise.all([
       api.accounts.list(), api.categories.list(), api.emailSenderRules.list(),
     ]);
     render(container, _rules);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Reglas de Email',
+      message: err.message || 'Error al cargar las reglas',
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -31,13 +37,15 @@ function render(container, rules) {
       </div>
     </div>
 
-    ${rules.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-state-icon">📧</div>
-        <h3>Sin reglas configuradas</h3>
-        <p>Las reglas permiten asignar categorías y cuentas automáticamente a transacciones de email según el remitente.</p>
-        <button class="btn btn-primary" id="btnNewEmpty">+ Nueva Regla</button>
-      </div>` : `
+    ${rules.length === 0
+      ? emptyState({
+          icon: '📧',
+          title: 'Sin reglas configuradas',
+          hint: 'Las reglas permiten asignar categorías y cuentas automáticamente a transacciones de email según el remitente.',
+          actionLabel: '+ Nueva Regla',
+          actionId: 'btnNewEmpty',
+        })
+      : `
       <div class="table-wrap">
         <table>
           <thead>

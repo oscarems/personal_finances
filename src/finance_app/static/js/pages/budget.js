@@ -1,8 +1,21 @@
 import * as api from '../api/client.js';
-import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional, progressBar, progressPct } from '../utils.js';
+import { fmtCurrency, sanitize, currentMonth, prevMonth, nextMonth, fmtMonthLabel, optional } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 import { loadingState, showError } from '../components/pageState.js';
+import {
+  flattenBudgetGroups,
+  getAttentionCategories,
+  sortCategoriesBySeverity,
+  categoryUsageStatus,
+  categoryUsagePct,
+  expenseOverspendAmount,
+  expenseSpentExcludingSavings,
+  usagePercent,
+  statusLabel,
+  statusTone,
+  progressTone,
+} from '../lib/budgetInsights.js';
 
 export const title = 'Presupuesto';
 
@@ -52,21 +65,7 @@ async function loadAndRender(container) {
 
 // Flatten API groups structure into enriched category list
 function flattenBudgetCats(data) {
-  const cats = [];
-  for (const group of (data?.groups ?? [])) {
-    for (const cat of (group.categories ?? [])) {
-      cats.push({
-        ...cat,
-        group: group.name,
-        group_id: group.id,
-        category_type: group.is_income ? 'income' : (cat.rollover_type === 'accumulate' ? 'savings' : 'expense'),
-        spent: Math.abs(cat.activity ?? 0),
-        available: cat.available ?? 0,
-        covered: cat.covered ?? 0,
-      });
-    }
-  }
-  return cats;
+  return flattenBudgetGroups(data);
 }
 
 // Show amount in its native currency with the other below.
@@ -173,16 +172,18 @@ function renderPage(container) {
   _groupIndex   = 0;
 
   container.innerHTML = `
+    <div class="page-with-sticky-cta">
     <div class="page-header">
       <div class="page-header-text">
         <h1>Presupuesto</h1>
         <p>Asigna ingresos a categorías del mes · ${fmtMonthLabel(_month)}</p>
       </div>
       <div class="page-header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnExportBudget" title="Exportar CSV">↓ Exportar</button>
         <button class="btn btn-ghost btn-sm" id="btnRecalcSavings" title="Recalcula el disponible acumulado de todas las categorías de ahorro">↻ Recalcular ahorros</button>
         <button class="btn btn-ghost btn-sm" id="btnAddGroup">+ Grupo</button>
         <button class="btn btn-secondary btn-sm" id="btnAddCategory">+ Categoría</button>
-        <button class="btn btn-primary btn-sm" id="btnInitMonth">Inicializar mes</button>
+        <button class="btn btn-primary btn-sm sticky-page-cta" id="btnInitMonth">Inicializar mes</button>
       </div>
     </div>
 
@@ -193,6 +194,10 @@ function renderPage(container) {
         <button class="btn btn-ghost btn-sm" id="btnNextMonth">Siguiente ›</button>
       </div>
     </div>
+
+    ${budgetCompactHero(readyToAssign)}
+    ${monthIncomeOverspendBanner(totalIncome, expenseSpentExcludingSavings(cats))}
+    ${budgetAttentionBanner(cats)}
 
     <div class="money-tree mb-4">
       <div class="tree-tier">
@@ -420,6 +425,7 @@ function renderPage(container) {
         </tbody>
       </table>
     </div>
+    </div>
   `;
 
   // Month navigation
@@ -444,6 +450,11 @@ function renderPage(container) {
   });
 
   // Recalculate savings rollover
+  container.querySelector('#btnExportBudget')?.addEventListener('click', () => {
+    const [y, m] = _month.split('-').map(Number);
+    window.location = api.budgets.exportUrl({ year: y, month: m, currency_code: 'COP' });
+  });
+
   container.querySelector('#btnRecalcSavings').addEventListener('click', async () => {
     if (!confirm('¿Recalcular el disponible acumulado de todas las categorías de ahorro? Esto corrige datos desincronizados.')) return;
     try {
@@ -482,6 +493,11 @@ function renderPage(container) {
   container.querySelectorAll('[data-cover-cat]').forEach(btn => {
     const cat = cats.find(c => c.category_id === parseInt(btn.dataset.coverCat));
     btn.addEventListener('click', () => openCoverModal(cat, cats, container));
+  });
+
+  container.querySelectorAll('[data-cover-unassigned]').forEach(btn => {
+    const cat = cats.find(c => c.category_id === parseInt(btn.dataset.coverUnassigned));
+    btn.addEventListener('click', () => coverWithUnassigned(cat, container));
   });
 
   // Edit/delete "Cubierto" movements
@@ -537,10 +553,58 @@ const GROUP_ACCENTS = window.CHART_PALETTE ?? [
 let _isFirstGroup = true;
 let _groupIndex   = 0;
 
-function progressTone(pct) {
-  if (pct >= 100) return 'var(--fin-danger)';
-  if (pct >= 80)  return 'var(--fin-amber)';
-  return 'var(--fin-success)';
+function budgetCompactHero(readyToAssign) {
+  const cls = readyToAssign >= 0 ? 'positive' : 'negative';
+  return `
+    <div class="ux-budget-hero card mb-4">
+      <div class="card-body flex justify-between items-center gap-4 flex-wrap">
+        <div>
+          <div class="kpi-label">Listo para asignar</div>
+          <div class="kpi-value amount ${cls}" style="font-size:1.75rem">${fmtCurrency(readyToAssign, 'COP')}</div>
+        </div>
+        <p class="text-soft text-sm mb-0" style="max-width:320px">
+          ${readyToAssign >= 0
+            ? 'Dinero en cuentas que aún no tiene categoría.'
+            : 'Revisa categorías en rojo — asignaste más de lo que tienes.'}
+        </p>
+      </div>
+    </div>`;
+}
+
+function monthIncomeOverspendBanner(totalIncome, spentNoSavings) {
+  if (!(spentNoSavings > totalIncome)) return '';
+  const extra = spentNoSavings - totalIncome;
+  return `
+    <div class="ux-budget-month-alert mb-4" role="alert">
+      <div class="ux-budget-month-alert-title">Ya gastaste más de lo que ingresó este mes</div>
+      <p class="ux-budget-month-alert-body">
+        Sin contar categorías de ahorro: gastos
+        <strong class="amount">${fmtCurrency(spentNoSavings, 'COP')}</strong>
+        vs ingresos
+        <strong class="amount">${fmtCurrency(totalIncome, 'COP')}</strong>
+        · exceso
+        <strong class="amount">${fmtCurrency(extra, 'COP')}</strong>
+      </p>
+    </div>`;
+}
+
+function budgetAttentionBanner(cats) {
+  const attention = getAttentionCategories(cats, { limit: 8 });
+  if (!attention.length) return '';
+
+  const chips = attention.map(item => {
+    const tone = statusTone(item.status);
+    return `
+      <span class="ux-budget-alert-chip" style="--chip-color:${tone}">
+        ${sanitize(item.name)} · ${statusLabel(item.status, item.pct_used, { isSavings: item.is_savings })}
+      </span>`;
+  }).join('');
+
+  return `
+    <div class="ux-budget-attention mb-4">
+      <span class="ux-budget-attention-label">Pasaron el 100%:</span>
+      ${chips}
+    </div>`;
 }
 
 function groupRows(group, cats, totalIncomeAll) {
@@ -586,9 +650,15 @@ function groupRows(group, cats, totalIncomeAll) {
     return header + rows;
   }
 
-  const pct         = progressPct(totSpent, totAssigned);
-  const pctColor    = progressTone(pct);
-  const pctLabel    = totAssigned > 0 ? `${Math.round(pct)}%` : '—';
+  const isSavingsGroup = cats.every(c => c.category_type === 'savings');
+  const totPool     = isSavingsGroup
+    ? cats.reduce((s, c) => s + (c.assigned ?? 0) + (c.initial_amount ?? 0), 0)
+    : totAssigned;
+  const pct         = usagePercent(totSpent, totPool);
+  const pctColor    = isSavingsGroup
+    ? (totAvailable < 0 ? 'var(--fin-danger)' : progressTone(Math.min(pct, 100)))
+    : progressTone(pct);
+  const pctLabel    = totPool > 0 ? `${Math.round(pct)}%` : '—';
   const availSign   = totAvailable >= 0 ? '+' : '';
   const availColor  = totAvailable >= 0 ? 'var(--fin-success)' : 'var(--fin-danger)';
 
@@ -690,11 +760,13 @@ function categoryRow(c, groupAccent = 'var(--fin-border)', totalIncomeAll = 0) {
 
   const availClass = available >= 0 ? 'text-success' : 'text-danger';
 
-  const pct      = progressPct(spent, assigned);
-  const pctColor = progressTone(pct);
-  const pctLabel = assigned > 0 ? `${Math.round(pct)}%` : '—';
+  const pct      = categoryUsagePct(c);
+  const rowStatus = categoryUsageStatus(c);
+  const pctColor = rowStatus === 'danger' ? 'var(--fin-danger)' : progressTone(Math.min(pct, 100));
+  const pctLabel = (isSavings ? (assigned + initial_amount) : assigned) > 0 ? `${Math.round(pct)}%` : '—';
+  const rowClass = rowStatus === 'danger' ? 'budget-row--danger' : '';
 
-  const usoCel = assigned > 0
+  const usoCel = (isSavings ? (assigned + initial_amount) : assigned) > 0
     ? `<div style="display:flex;align-items:center;gap:6px">
          <div style="flex:1;height:6px;background:var(--fin-surface-3);border-radius:999px;overflow:hidden">
            <div style="height:100%;width:${Math.min(pct,100)}%;background:${pctColor};border-radius:999px;transition:width 0.35s ease"></div>
@@ -703,7 +775,14 @@ function categoryRow(c, groupAccent = 'var(--fin-border)', totalIncomeAll = 0) {
        </div>`
     : `<span style="font-size:0.72rem;color:var(--fin-ink-3)">—</span>`;
 
-  const coverBtn = (spent > assigned && assigned > 0) || available < 0
+  const overspend = expenseOverspendAmount(c);
+  const coverUnassignedBtn = overspend > 0
+    ? `<button class="btn btn-xs" data-cover-unassigned="${c.category_id}" title="Cubrir el exceso con dinero sin asignar" style="background:var(--fin-accent);color:#fff;font-size:0.65rem;padding:2px 6px;margin-right:4px">Cubrir con sin asignar</button>`
+    : '';
+  const needsCover = isSavings
+    ? available < 0
+    : (overspend > 0 || available < 0);
+  const coverBtn = needsCover
     ? `<button class="btn btn-xs" data-cover-cat="${c.category_id}" title="Cubrir exceso con otra categoría" style="background:var(--fin-danger);color:#fff;opacity:0.85;font-size:0.65rem;padding:2px 6px;margin-right:4px">Cubrir</button>`
     : '';
 
@@ -713,11 +792,30 @@ function categoryRow(c, groupAccent = 'var(--fin-border)', totalIncomeAll = 0) {
     ? `<span style="color:${covered > 0 ? 'var(--fin-accent)' : 'var(--fin-amber)'};font-weight:600">${coveredSign}${fmtDual(covered)}</span>`
     : `<span class="td-soft">—</span>`;
 
+  const targetAmt  = c.target_amount ?? 0;
+  const targetDate = c.target_date;
+  const hasSinking = targetAmt > 0 && (isSavings || c.target_type === 'needed_for_spending' || c.target_type === 'target_balance');
+  const sinkPct    = hasSinking ? Math.min(100, (Math.max(0, available) / targetAmt) * 100) : 0;
+  const sinkTone   = sinkPct >= 100 ? 'var(--fin-success)' : sinkPct >= 60 ? 'var(--fin-accent)' : 'var(--fin-amber)';
+  const sinkingHtml = hasSinking
+    ? `<div style="margin-top:4px;max-width:160px" title="Sobre / sinking fund: ${fmtCurrency(Math.max(0, available), 'COP')} de ${fmtCurrency(targetAmt, 'COP')}${targetDate ? ` · ${targetDate}` : ''}">
+         <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--fin-ink-3);margin-bottom:2px">
+           <span>Meta</span>
+           <span class="amount">${sinkPct.toFixed(0)}%</span>
+         </div>
+         <div style="height:4px;background:var(--fin-surface-3);border-radius:999px;overflow:hidden">
+           <div style="height:100%;width:${sinkPct}%;background:${sinkTone};border-radius:999px"></div>
+         </div>
+       </div>`
+    : '';
+
   return `
-    <tr draggable="true" data-drag-cat="${c.category_id}" style="cursor:grab">
+    <tr draggable="true" data-drag-cat="${c.category_id}" class="${rowClass}" style="cursor:grab">
       <td style="font-size:0.8125rem;font-weight:500;padding-left:28px;border-left:3px solid ${groupAccent}33">
         <span style="opacity:0.35;margin-right:6px;font-size:0.7rem" title="Arrastra para mover de grupo">⠿</span>${sanitize(c.category_name)}
         ${isSavings ? '<span class="badge badge-accent" style="margin-left:6px;font-size:0.6rem">Ahorro</span>' : ''}
+        ${hasSinking ? '<span class="badge badge-neutral" style="margin-left:4px;font-size:0.6rem">Sobre</span>' : ''}
+        ${sinkingHtml}
       </td>
       <td class="td-right td-mono" style="cursor:pointer;font-size:0.8125rem;line-height:1.4" data-edit-assigned="${c.category_id}" data-month="${_month}">
         ${assignedHtml}
@@ -730,7 +828,7 @@ function categoryRow(c, groupAccent = 'var(--fin-border)', totalIncomeAll = 0) {
       </td>
       <td style="padding-right:12px">${usoCel}</td>
       <td style="white-space:nowrap">
-        ${coverBtn}<button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría (nombre, grupo, tipo)">✎ Editar</button>
+        ${coverUnassignedBtn}${coverBtn}<button class="btn btn-ghost btn-xs" data-edit-cat="${c.category_id}" title="Editar categoría (nombre, grupo, tipo)">✎ Editar</button>
       </td>
     </tr>`;
 }
@@ -740,6 +838,9 @@ function groupByGroup(cats) {
   for (const c of cats) {
     const grp = c.group ?? 'Sin grupo';
     (map[grp] ??= []).push(c);
+  }
+  for (const grp of Object.keys(map)) {
+    map[grp] = sortCategoriesBySeverity(map[grp]);
   }
   return map;
 }
@@ -909,6 +1010,28 @@ function openCategoryModal(cat, container) {
           <span>Gasto esencial <span class="text-soft" style="font-size:0.8125rem">(Necesidades en salud financiera)</span></span>
         </label>
       </div>
+      <div id="cf-sinking-wrap" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--fin-surface-2);${initialType === 'income' ? 'display:none' : ''}">
+        <p class="text-soft" style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Sobre / sinking fund (opcional)</p>
+        <div class="form-row cols-2">
+          <div class="form-group">
+            <label class="form-label">Monto meta</label>
+            <input type="number" id="cf-target-amount" value="${c.target_amount ?? ''}" step="1000" min="0" placeholder="Ej: 2000000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha objetivo</label>
+            <input type="date" id="cf-target-date" value="${c.target_date ?? ''}">
+          </div>
+        </div>
+        <div class="form-group mt-2">
+          <label class="form-label">Tipo de meta</label>
+          <select id="cf-target-type">
+            <option value="" ${!c.target_type ? 'selected' : ''}>Sin meta</option>
+            <option value="target_balance" ${c.target_type === 'target_balance' ? 'selected' : ''}>Saldo objetivo</option>
+            <option value="needed_for_spending" ${c.target_type === 'needed_for_spending' ? 'selected' : ''}>Gasto planeado</option>
+            <option value="monthly" ${c.target_type === 'monthly' ? 'selected' : ''}>Mensual fijo</option>
+          </select>
+        </div>
+      </div>
       ${isEdit ? `
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--fin-surface-2)">
           <button class="btn btn-danger btn-sm w-full" id="cf-delete-btn">Eliminar categoría</button>
@@ -921,8 +1044,21 @@ function openCategoryModal(cat, container) {
       const type = body.querySelector('#cf-type').value;
       const groupId = parseInt(body.querySelector('#cf-group').value);
       const isEssential = body.querySelector('#cf-essential').checked;
+      const targetAmtRaw = body.querySelector('#cf-target-amount')?.value;
+      const targetDate = body.querySelector('#cf-target-date')?.value || null;
+      const targetType = body.querySelector('#cf-target-type')?.value || null;
       if (!name) throw new Error('El nombre es obligatorio');
       if (isNaN(groupId)) throw new Error('Selecciona un grupo (crea uno de tipo ingreso primero si vas a crear una categoría de ingreso)');
+
+      const sinkFields = type === 'income' ? {
+        target_amount: null,
+        target_date: null,
+        target_type: null,
+      } : {
+        target_amount: targetAmtRaw ? parseFloat(targetAmtRaw) : null,
+        target_date: targetDate,
+        target_type: targetType || null,
+      };
 
       if (isEdit) {
         await api.categories.update(c.category_id, {
@@ -930,6 +1066,7 @@ function openCategoryModal(cat, container) {
           rollover_type: type === 'savings' ? 'accumulate' : 'reset',
           category_group_id: groupId,
           is_essential: type === 'income' ? false : isEssential,
+          ...sinkFields,
         });
         toast.success('Categoría actualizada');
       } else {
@@ -938,6 +1075,7 @@ function openCategoryModal(cat, container) {
           category_group_id: groupId,
           rollover_type: type === 'savings' ? 'accumulate' : 'reset',
           is_essential: type === 'income' ? false : isEssential,
+          ...sinkFields,
         });
         toast.success('Categoría creada');
       }
@@ -948,10 +1086,12 @@ function openCategoryModal(cat, container) {
   const typeSelect = modal.body.querySelector('#cf-type');
   const groupSelect = modal.body.querySelector('#cf-group');
   const essentialWrap = modal.body.querySelector('#cf-essential-wrap');
+  const sinkingWrap = modal.body.querySelector('#cf-sinking-wrap');
   typeSelect.addEventListener('change', () => {
     const type = typeSelect.value;
     groupSelect.innerHTML = groupOptionsFor(type);
     essentialWrap.style.display = type === 'income' ? 'none' : '';
+    if (sinkingWrap) sinkingWrap.style.display = type === 'income' ? 'none' : '';
   });
 
   if (isEdit) {
@@ -982,6 +1122,44 @@ function openCategoryModal(cat, container) {
         toast.error(err.message);
       }
     });
+  }
+}
+
+async function coverWithUnassigned(cat, container) {
+  const overspendCop = expenseOverspendAmount(cat);
+  if (overspendCop <= 0) return;
+
+  const currency = cat.currency_code ?? 'COP';
+  const readyToAssign = _data?.ready_to_assign ?? 0;
+  const unassignedIncome = (() => {
+    const cats = flattenBudgetCats(_data);
+    const income = Number.isFinite(_data?.totals?.income)
+      ? _data.totals.income
+      : cats.filter(c => c.category_type === 'income').reduce((s, c) => s + (c.spent ?? 0), 0);
+    const assigned = cats.filter(c => c.category_type !== 'income').reduce((s, c) => s + (c.assigned ?? 0), 0);
+    return income - assigned;
+  })();
+  const pool = Math.max(readyToAssign, unassignedIncome, 0);
+  const overspendLabel = currency === 'USD'
+    ? fmtCurrency(overspendCop / _rate, 'USD')
+    : fmtCurrency(overspendCop, 'COP');
+
+  let msg = `¿Cubrir ${overspendLabel} de "${cat.category_name}" con dinero sin asignar?\n\nSe aumenta el asignado de esta categoría (no toma de otras).`;
+  if (pool < overspendCop) {
+    msg += `\n\nOjo: listo para asignar es ${fmtCurrency(readyToAssign, 'COP')} y sin asignar este mes ${fmtCurrency(unassignedIncome, 'COP')}. Cubrir de todos modos dejará el sin asignar más negativo.`;
+  }
+
+  if (!confirm(msg)) return;
+
+  try {
+    const newAssigned = currency === 'USD'
+      ? (cat.assigned_native ?? (cat.assigned ?? 0) / _rate) + (overspendCop / _rate)
+      : (cat.assigned ?? 0) + overspendCop;
+    await api.budgets.update(_month, cat.category_id, { assigned: newAssigned, currency_code: currency });
+    toast.success(`Cubierto ${overspendLabel} con dinero sin asignar`);
+    await loadAndRender(container);
+  } catch (err) {
+    toast.error(err.message);
   }
 }
 

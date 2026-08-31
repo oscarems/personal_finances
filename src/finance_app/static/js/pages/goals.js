@@ -2,18 +2,24 @@ import * as api from '../api/client.js';
 import { fmtCurrency, fmtDate, sanitize, todayISO, progressBar } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Metas';
 
 let _goals = [];
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     _goals = await api.goals.list();
     render(container, _goals);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Metas de Ahorro',
+      message: err.message || 'Error al cargar las metas',
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -32,13 +38,15 @@ function render(container, goals) {
       </div>
     </div>
 
-    ${active.length === 0 && completed.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-state-icon">🎯</div>
-        <h3>Sin metas todavía</h3>
-        <p>Crea tu primera meta de ahorro para comenzar.</p>
-        <button class="btn btn-primary" id="btnNewGoalEmpty">+ Nueva Meta</button>
-      </div>` : ''}
+    ${active.length === 0 && completed.length === 0
+      ? emptyState({
+          icon: '🎯',
+          title: 'Sin metas todavía',
+          hint: 'Crea tu primera meta de ahorro para comenzar.',
+          actionLabel: '+ Nueva Meta',
+          actionId: 'btnNewGoalEmpty',
+        })
+      : ''}
 
     ${active.length ? `
       <div class="section-grid cols-auto mb-3">
@@ -78,11 +86,13 @@ function goalCard(g) {
   const pct       = target > 0 ? Math.min(100, (current / target) * 100) : 0;
   const remaining = Math.max(0, target - current);
   const isAchieved = g.status === 'achieved';
+  const typeLabel = ({
+    target_balance_by_date: 'Meta por fecha',
+    needed_for_spending: 'Gasto planeado',
+    monthly_builder: 'Ahorro mensual',
+  })[g.goal_type] || 'Meta';
 
-  // On-track indicator
   const onTrackBadge = _onTrackBadge(g);
-
-  // Projection info
   const projDate = g.projected_achievement_date;
   const reqPerMonth = g.required_per_month ?? g.monthly_required ?? 0;
 
@@ -92,7 +102,10 @@ function goalCard(g) {
         <div class="flex justify-between items-center mb-2">
           <div>
             <div style="font-weight:600;font-size:0.9375rem">🎯 ${sanitize(g.name)}</div>
-            ${g.target_date ? `<div class="text-soft" style="font-size:0.72rem">Fecha límite: ${fmtDate(g.target_date)}</div>` : ''}
+            <div class="text-soft" style="font-size:0.72rem">
+              <span class="badge badge-neutral" style="font-size:0.65rem">${typeLabel}</span>
+              ${g.target_date ? ` · Fecha límite: ${fmtDate(g.target_date)}` : ''}
+            </div>
           </div>
           <div class="flex flex-col items-center gap-1">
             ${isAchieved ? '<span class="badge badge-success">✓ Completada</span>' : onTrackBadge}
@@ -164,10 +177,19 @@ function _onTrackBadge(g) {
 function goalFormHtml(g) {
   const goal = g ?? {};
   const today = todayISO();
+  const gtype = goal.goal_type || 'target_balance_by_date';
   return `
     <div class="form-group mb-3">
       <label class="form-label required">Nombre</label>
       <input type="text" id="gf-name" value="${sanitize(goal.name ?? '')}" placeholder="Ej: Fondo de emergencia">
+    </div>
+    <div class="form-group mb-3">
+      <label class="form-label required">Tipo de meta</label>
+      <select id="gf-type">
+        <option value="target_balance_by_date" ${gtype === 'target_balance_by_date' ? 'selected' : ''}>Ahorrar X para una fecha</option>
+        <option value="needed_for_spending" ${gtype === 'needed_for_spending' ? 'selected' : ''}>Gasto planeado (necesito X en fecha)</option>
+        <option value="monthly_builder" ${gtype === 'monthly_builder' ? 'selected' : ''}>Ahorro mensual fijo</option>
+      </select>
     </div>
     <div class="form-row cols-2">
       <div class="form-group">
@@ -178,6 +200,10 @@ function goalFormHtml(g) {
         <label class="form-label">Monto Inicial</label>
         <input type="number" id="gf-start-amount" value="${goal.start_amount ?? '0'}" step="1000" min="0">
       </div>
+    </div>
+    <div class="form-group mb-3" id="gf-monthly-wrap" ${gtype === 'monthly_builder' ? '' : 'hidden'}>
+      <label class="form-label required">Ahorro mensual fijo</label>
+      <input type="number" id="gf-monthly" value="${goal.monthly_amount ?? ''}" step="1000" min="0" placeholder="Ej: 500000">
     </div>
     <div class="form-row cols-2">
       <div class="form-group">
@@ -205,7 +231,7 @@ function goalFormHtml(g) {
 
 function openGoalModal(goal, container) {
   const isEdit = !!goal;
-  openModal({
+  const modal = openModal({
     title: isEdit ? `Editar: ${goal.name}` : 'Nueva Meta',
     size: 'md',
     content: goalFormHtml(goal),
@@ -215,6 +241,8 @@ function openGoalModal(goal, container) {
       const currCode     = body.querySelector('#gf-currency').value;
       const targetDate   = body.querySelector('#gf-target-date').value;
       const startDate    = body.querySelector('#gf-start-date').value;
+      const goalType     = body.querySelector('#gf-type').value;
+      const monthlyRaw   = body.querySelector('#gf-monthly').value;
 
       const data = {
         name:         body.querySelector('#gf-name').value.trim(),
@@ -223,11 +251,16 @@ function openGoalModal(goal, container) {
         currency_id:  currencyIdMap[currCode] ?? 1,
         target_date:  targetDate || null,
         start_date:   startDate || todayISO(),
+        goal_type:    goalType,
+        monthly_amount: monthlyRaw ? parseFloat(monthlyRaw) : null,
         notes:        body.querySelector('#gf-notes').value.trim() || null,
       };
 
       if (!data.name || !data.target_amount) throw new Error('Nombre y monto son obligatorios');
       if (!data.target_date) throw new Error('La fecha límite es obligatoria');
+      if (goalType === 'monthly_builder' && !(data.monthly_amount > 0)) {
+        throw new Error('El ahorro mensual fijo es obligatorio para este tipo');
+      }
 
       if (isEdit) {
         await api.goals.update(goal.id, data);
@@ -239,6 +272,11 @@ function openGoalModal(goal, container) {
       _goals = await api.goals.list();
       render(container, _goals);
     },
+  });
+  const typeSel = modal.body.querySelector('#gf-type');
+  const monthlyWrap = modal.body.querySelector('#gf-monthly-wrap');
+  typeSel?.addEventListener('change', () => {
+    monthlyWrap.hidden = typeSel.value !== 'monthly_builder';
   });
 }
 

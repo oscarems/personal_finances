@@ -10,16 +10,21 @@ from typing import Any
 
 import httpx
 
+from finance_app.config import OLLAMA_BASE_URL, OLLAMA_RETRIES, OLLAMA_TIMEOUT
+
 logger = logging.getLogger(__name__)
-# FUERA de la función, al inicio del archivo (se crea una sola vez)
-_http_client = httpx.Client(timeout=90.0)
 
 IMAP_SERVER = "imap.gmail.com"
 EMAIL_ACCOUNT = os.getenv("GMAIL_EMAIL")
 APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_URL = os.getenv("OLLAMA_URL", OLLAMA_BASE_URL)
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:e4b")
 SCRAPE_MIN_DATE = datetime(2026, 2, 3)
+
+# Shared client; generate calls override read timeout per-request.
+_http_client = httpx.Client(
+    timeout=httpx.Timeout(OLLAMA_TIMEOUT, connect=10.0),
+)
 
 
 def _extract_body(msg) -> str:
@@ -238,21 +243,46 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido. Sin bloques markdown, sin explic
 }}"""
 
     selected_model = model or OLLAMA_MODEL
-    response = _http_client.post(
-        f"{OLLAMA_URL}/api/generate",
-        json={
-            "model": selected_model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",  # Esto obliga a Ollama a usar json-grammars
-            "options": {
-                "temperature": 0.1,
-                "num_ctx": 4096,
-                "num_predict": 256,
-            },
-        },
-        timeout=90.0,
-    )
+    generate_timeout = httpx.Timeout(OLLAMA_TIMEOUT, connect=10.0)
+    max_attempts = 1 + max(0, OLLAMA_RETRIES)
+    response = None
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = _http_client.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={
+                    "model": selected_model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "format": "json",  # Esto obliga a Ollama a usar json-grammars
+                    "options": {
+                        "temperature": 0.1,
+                        "num_ctx": 4096,
+                        "num_predict": 256,
+                    },
+                },
+                timeout=generate_timeout,
+            )
+            break
+        except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.WriteTimeout) as exc:
+            last_exc = exc
+            logger.warning(
+                "Ollama timeout (model=%s, attempt=%s/%s, timeout=%ss): %s",
+                selected_model,
+                attempt,
+                max_attempts,
+                OLLAMA_TIMEOUT,
+                exc,
+            )
+            if attempt >= max_attempts:
+                raise RuntimeError(
+                    f"Ollama no respondió a tiempo ({OLLAMA_TIMEOUT}s, modelo={selected_model}). "
+                    f"Prueba: ollama run {selected_model} (para calentar), "
+                    f"o sube OLLAMA_TIMEOUT / OLLAMA_RETRIES en el entorno."
+                ) from exc
+    if response is None:
+        raise RuntimeError(f"Ollama sin respuesta: {last_exc}")
     response.raise_for_status()
 
     raw = response.json().get("response", "{}").strip()

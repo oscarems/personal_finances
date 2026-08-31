@@ -15,6 +15,9 @@ from finance_app.services.transaction_service import (
     is_budget_cover_adjustment,
     find_linked_transfer,
     TRANSFER_PAIR_IMPORT_PREFIX,
+    create_reimbursement,
+    reimbursement_remaining,
+    get_monthly_activity,
 )
 
 
@@ -668,3 +671,129 @@ def test_bulk_category_update_recalculates_budget_available():
     assert budget_a.available == 200_000
     assert budget_b.activity == -40_000
     assert budget_b.available == 160_000
+
+
+# ---------------------------------------------------------------------------
+# Reembolsos y préstamos personales
+# ---------------------------------------------------------------------------
+
+def test_reimbursement_nets_category_activity_and_is_not_income():
+    db = _make_session()
+    _seed_base(db)
+    account = Account(name="Cuenta", type="checking", currency_id=1, balance=1_000_000, created_at=datetime(2020, 1, 1))
+    db.add(account)
+    db.commit()
+    today = date.today()
+
+    expense = create_transaction(db, {
+        "account_id": account.id,
+        "date": today,
+        "category_id": 1,
+        "amount": 100_000,
+        "currency_id": 1,
+        "type": "expense",
+        "payee_name": "Hotel Cartagena",
+    })
+    rebate = create_reimbursement(db, expense.id, {
+        "date": today,
+        "amount": 40_000,
+        "account_id": account.id,
+        "payee_name": "Camilo",
+    })
+
+    assert rebate.amount == 40_000
+    assert rebate.kind == "reimbursement"
+    assert rebate.related_transaction_id == expense.id
+    assert rebate.category_id == expense.category_id
+    assert reimbursement_remaining(db, expense) == 60_000
+
+    activity = get_monthly_activity(db, 1, today.month, today.year, 1)
+    assert activity == -60_000
+
+    from finance_app.services.budget_service import build_income_transactions_query
+    start = today.replace(day=1)
+    month_end = date(today.year + (1 if today.month == 12 else 0), 1 if today.month == 12 else today.month + 1, 1)
+    income_ids = {t.id for t in build_income_transactions_query(db, start, month_end).all()}
+    assert rebate.id not in income_ids
+
+
+def test_reimbursement_cannot_exceed_remaining():
+    db = _make_session()
+    _seed_base(db)
+    account = Account(name="Cuenta", type="checking", currency_id=1, balance=500_000, created_at=datetime(2020, 1, 1))
+    db.add(account)
+    db.commit()
+    today = date.today()
+
+    expense = create_transaction(db, {
+        "account_id": account.id,
+        "date": today,
+        "category_id": 1,
+        "amount": 50_000,
+        "currency_id": 1,
+        "type": "expense",
+    })
+    create_reimbursement(db, expense.id, {"date": today, "amount": 30_000, "account_id": account.id})
+
+    with pytest.raises(ValueError, match="pendiente"):
+        create_reimbursement(db, expense.id, {"date": today, "amount": 30_000, "account_id": account.id})
+
+
+def test_loan_and_repayment():
+    db = _make_session()
+    _seed_base(db)
+    account = Account(name="Cuenta", type="checking", currency_id=1, balance=500_000, created_at=datetime(2020, 1, 1))
+    db.add(account)
+    db.commit()
+    today = date.today()
+
+    loan = create_transaction(db, {
+        "account_id": account.id,
+        "date": today,
+        "category_id": 1,
+        "amount": 80_000,
+        "currency_id": 1,
+        "type": "loan",
+        "payee_name": "Ana",
+    })
+    assert loan.kind == "loan"
+    assert loan.amount == -80_000
+
+    repayment = create_reimbursement(db, loan.id, {
+        "date": today,
+        "amount": 80_000,
+        "account_id": account.id,
+        "payee_name": "Ana",
+    })
+    assert repayment.kind == "loan_repayment"
+    assert repayment.amount == 80_000
+    assert reimbursement_remaining(db, loan) == 0
+
+    db.refresh(account)
+    assert account.balance == 500_000
+
+
+def test_delete_original_unlinks_reimbursement():
+    db = _make_session()
+    _seed_base(db)
+    account = Account(name="Cuenta", type="checking", currency_id=1, balance=200_000, created_at=datetime(2020, 1, 1))
+    db.add(account)
+    db.commit()
+    today = date.today()
+
+    expense = create_transaction(db, {
+        "account_id": account.id,
+        "date": today,
+        "category_id": 1,
+        "amount": 20_000,
+        "currency_id": 1,
+        "type": "expense",
+    })
+    rebate = create_reimbursement(db, expense.id, {
+        "date": today,
+        "amount": 5_000,
+        "account_id": account.id,
+    })
+    delete_transaction(db, expense.id)
+    db.refresh(rebate)
+    assert rebate.related_transaction_id is None

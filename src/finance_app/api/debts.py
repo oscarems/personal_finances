@@ -3,7 +3,10 @@ Debts API endpoints - Debt management.
 """
 from __future__ import annotations
 
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -242,6 +245,35 @@ def get_debts(
         debt_to_dict_with_calculated_balance(debt, db, amortization_map=amortization_map)
         for debt in debts
     ]
+
+
+@router.get("/export")
+def export_debts_csv(db: Session = Depends(get_db)):
+    """Export active debts as CSV."""
+    debts = get_debts(is_active=True, debt_type=None, db=db)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Nombre", "Tipo", "Moneda", "Saldo", "Cuota mensual",
+        "Tasa interés", "Pago mínimo", "Activa",
+    ])
+    for d in debts:
+        writer.writerow([
+            d.get("name", ""),
+            d.get("debt_type", ""),
+            d.get("currency_code", "COP"),
+            d.get("current_balance", d.get("balance", 0)),
+            d.get("monthly_payment", ""),
+            d.get("interest_rate", d.get("annual_interest_rate", "")),
+            d.get("minimum_payment", ""),
+            d.get("is_active", True),
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="deudas.csv"'},
+    )
 
 
 @router.get("/summary")

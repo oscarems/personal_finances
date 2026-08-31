@@ -22,6 +22,7 @@ from finance_app.services.transaction_service import (
     get_last_manual_transactions_by_account, amounts_in_cop_and_usd,
     is_budget_cover_adjustment, _reverse_debt_impact, _apply_debt_impact,
     _resolve_target_debt,
+    create_reimbursement, enrich_transactions_reimbursement,
 )
 from finance_app.services.budget_service import (
     get_or_create_budget_month,
@@ -46,6 +47,12 @@ class MortgageAllocation(BaseModel):
     notes: Optional[str] = None
 
 
+class SplitLine(BaseModel):
+    category_id: int
+    amount: float
+    note: Optional[str] = None
+
+
 class TransactionCreate(BaseModel):
     account_id: int
     date: date
@@ -56,9 +63,12 @@ class TransactionCreate(BaseModel):
     memo: Optional[str] = None
     amount: float
     currency_id: int
-    type: Optional[Literal['expense', 'income']] = None
+    type: Optional[Literal['expense', 'income', 'loan']] = None
+    kind: Optional[Literal['loan', 'reimbursement', 'loan_repayment']] = None
+    related_transaction_id: Optional[int] = None
     cleared: bool = False
     mortgage_allocation: Optional[MortgageAllocation] = None
+    splits: Optional[List[SplitLine]] = None
 
 
 class TransferCreate(BaseModel):
@@ -89,8 +99,11 @@ class TransactionUpdate(BaseModel):
     memo: Optional[str] = None
     amount: Optional[float] = None
     currency_id: Optional[int] = None
-    type: Optional[Literal['expense', 'income']] = None
+    type: Optional[Literal['expense', 'income', 'loan']] = None
+    kind: Optional[Literal['loan', 'reimbursement', 'loan_repayment']] = None
+    related_transaction_id: Optional[int] = None
     cleared: Optional[bool] = None
+    splits: Optional[List[SplitLine]] = None
 
 
 class BulkUpdateBody(BaseModel):
@@ -102,6 +115,17 @@ class BulkUpdateBody(BaseModel):
 
 class BulkDeleteBody(BaseModel):
     ids: List[int]
+
+
+class ReimbursementCreate(BaseModel):
+    date: date
+    amount: float
+    account_id: Optional[int] = None
+    currency_id: Optional[int] = None
+    category_id: Optional[int] = None
+    payee_name: Optional[str] = None
+    memo: Optional[str] = None
+    cleared: bool = False
 
 
 @router.patch("/bulk")
@@ -230,7 +254,7 @@ def list_transactions(
         serialized["usd_amount"] = usd_amount
         enriched_transactions.append(serialized)
 
-    return enriched_transactions
+    return enrich_transactions_reimbursement(db, enriched_transactions)
 
 
 @router.get("/export")
@@ -301,7 +325,20 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
     transaction = get_transaction_by_id(db, transaction_id)
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return transaction.to_dict()
+    rows = enrich_transactions_reimbursement(db, [transaction.to_dict()])
+    return rows[0]
+
+
+@router.post("/{transaction_id}/reimburse")
+def reimburse_transaction(transaction_id: int, body: ReimbursementCreate, db: Session = Depends(get_db)):
+    """Register a reimbursement or loan repayment linked to an existing outflow."""
+    try:
+        created = create_reimbursement(db, transaction_id, body.dict())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.refresh(created)
+    rows = enrich_transactions_reimbursement(db, [created.to_dict()])
+    return rows[0]
 
 
 @router.post("/")
@@ -311,7 +348,8 @@ def create_new_transaction(transaction: TransactionCreate, db: Session = Depends
 
     # Si el usuario no especificó categoría, intenta sugerirla automáticamente
     # con las reglas de comercio configuradas (no sobreescribe una elección explícita).
-    if not data.get("category_id"):
+    # Con splits, la categoría va en cada línea — no auto-asignar al header.
+    if not data.get("category_id") and not data.get("splits"):
         rules = db.query(MerchantRule).order_by(MerchantRule.id).all()
         matched = find_matching_rule(rules, data.get("payee_name"), data.get("memo"))
         if matched:

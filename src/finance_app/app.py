@@ -43,6 +43,9 @@ from finance_app.api import (
     patrimonio,
     cash_flow,
     setup,
+    search,
+    whatif,
+    mobile,
 )
 from finance_app.api import email_sender_rules
 from finance_app.api import merchant_rules as merchant_rules_module
@@ -74,6 +77,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             sync_all_currency_rates(db)
         except Exception:
             logger.exception("Exchange rate sync failed on startup")
+        try:
+            from finance_app.api.reports_pkg.net_worth import get_net_worth_timeline
+            get_net_worth_timeline(db)
+        except Exception:
+            logger.exception("Net worth snapshot upsert failed on startup")
     finally:
         db.close()
     logger.info("Database initialized")
@@ -94,6 +102,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def no_cache_static(request: Request, call_next):
+    """Force browsers to revalidate JS/CSS so SPA modules don't go stale."""
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/") or path == "/" or not path.startswith("/api/"):
+        if path.startswith("/static/") or path.endswith(".html") or "." not in path.rsplit("/", 1)[-1]:
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
 
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -123,6 +142,9 @@ app.include_router(merchant_ignore_rules_module.router, prefix="/api/merchant-ig
 app.include_router(chat_module.router, prefix="/api/chat", tags=["chat"])
 app.include_router(cash_flow.router, prefix="/api/cash-flow", tags=["cash-flow"])
 app.include_router(setup.router, prefix="/api/setup", tags=["setup"])
+app.include_router(search.router, prefix="/api/search", tags=["search"])
+app.include_router(whatif.router, prefix="/api/what-if", tags=["what-if"])
+app.include_router(mobile.router, prefix="/api/mobile", tags=["mobile"])
 app.include_router(portfolio_module.router, prefix="/api/v1/portfolio", tags=["portfolio"])
 app.include_router(fire_module.router, prefix="/api/v1/fire", tags=["fire"])
 app.include_router(auth_router)
@@ -145,7 +167,10 @@ async def get_currencies(db: Session = Depends(get_db)):
 async def spa_fallback(request: Request, exc: StarletteHTTPException):
     """Serve index.html for 404s on non-API paths (client-side routing)."""
     if exc.status_code == 404 and not request.url.path.startswith("/api/"):
-        return FileResponse(str(INDEX_HTML))
+        return FileResponse(
+            str(INDEX_HTML),
+            headers={"Cache-Control": "no-cache, must-revalidate"},
+        )
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
 

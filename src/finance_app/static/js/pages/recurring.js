@@ -2,20 +2,28 @@ import * as api from '../api/client.js';
 import { fmtCurrency, fmtDate, sanitize, todayISO } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Transacciones Recurrentes';
 
-let _accounts = [], _categories = [], _currencies = [], _list = [];
+let _accounts = [], _categories = [], _currencies = [], _list = [], _upcoming = [];
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
     [_accounts, _categories, _currencies, _list] = await Promise.all([
       api.accounts.list(), api.categories.list(), api.currencies.list(), api.recurring.list(),
     ]);
+    const upcomingResp = await api.recurring.upcoming({ days: 21 }).catch(() => ({ items: [] }));
+    _upcoming = upcomingResp.items ?? [];
     render(container, _list);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Recurrentes',
+      message: err.message || 'Error al cargar las transacciones recurrentes',
+      onRetry: () => mount(container),
+    });
   }
 }
 
@@ -35,12 +43,16 @@ function render(container, list) {
       </div>
     </div>
 
+    ${upcomingSection()}
+
     ${active.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-state-icon">♻️</div>
-        <h3>Sin transacciones recurrentes</h3>
-        <p>Configura pagos automáticos como nómina, servicios, o suscripciones.</p>
-      </div>` : `
+      ${emptyState({
+        icon: '♻️',
+        title: 'Sin transacciones recurrentes',
+        hint: 'Configura pagos automáticos como nómina, servicios o suscripciones.',
+        actionLabel: '+ Nueva',
+        actionId: 'btnNewEmpty',
+      })}` : `
       <div class="table-wrap" style="margin-bottom:24px">
         <table>
           <thead>
@@ -76,10 +88,12 @@ function render(container, list) {
   `;
 
   container.querySelector('#btnNew').addEventListener('click', () => openForm(null, container));
+  container.querySelector('#btnNewEmpty')?.addEventListener('click', () => openForm(null, container));
   container.querySelector('#btnGenerate')?.addEventListener('click', async () => {
     try {
       await api.recurring.generate();
       toast.success('Transacciones pendientes generadas');
+      await mount(container);
     } catch (err) { toast.error(err.message); }
   });
 
@@ -90,6 +104,95 @@ function render(container, list) {
   container.querySelectorAll('[data-delete-rec]').forEach(btn => {
     const id = parseInt(btn.dataset.deleteRec);
     btn.addEventListener('click', () => deleteRec(id, container));
+  });
+
+  bindUpcomingActions(container);
+}
+
+function upcomingSection() {
+  if (!_upcoming.length) {
+    return `
+      <div class="card mb-4">
+        <div class="card-header"><span class="card-title">Próximas a aprobar</span></div>
+        <div class="card-body">${emptyState({ icon: '📅', title: 'Nada pendiente', hint: 'No hay ocurrencias en los próximos 21 días.' })}</div>
+      </div>`;
+  }
+
+  // One row per recurring (next occurrence only) to keep inbox clean
+  const seen = new Set();
+  const rows = [];
+  for (const item of _upcoming) {
+    if (seen.has(item.recurring_id)) continue;
+    seen.add(item.recurring_id);
+    rows.push(item);
+  }
+
+  return `
+    <div class="card mb-4">
+      <div class="card-header"><span class="card-title">Próximas a aprobar (${rows.length})</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="fin-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Descripción</th>
+              <th class="td-right">Monto</th>
+              <th>Estado</th>
+              <th style="width:220px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(item => `
+              <tr>
+                <td class="td-soft">${fmtDate(item.occurrence_date)}</td>
+                <td>
+                  <div style="font-weight:500">${sanitize(item.payee_name || item.description || '—')}</div>
+                  <div class="text-soft text-sm">${sanitize(item.account_name || '')} · ${sanitize(item.category_name || '')}</div>
+                </td>
+                <td class="td-right amount ${item.transaction_type === 'income' ? 'text-success' : 'text-danger'}">
+                  ${item.transaction_type === 'income' ? '+' : '-'}${fmtCurrency(Math.abs(item.amount ?? 0), item.currency?.code ?? 'COP')}
+                </td>
+                <td>${item.snoozed ? `<span class="badge badge-warning">Pospuesta</span>` : `<span class="badge badge-primary">Pendiente</span>`}</td>
+                <td class="td-right">
+                  <button class="btn btn-primary btn-xs" data-approve-rec="${item.recurring_id}" data-occ="${item.occurrence_date}">Aprobar</button>
+                  <button class="btn btn-ghost btn-xs" data-skip-rec="${item.recurring_id}" data-occ="${item.occurrence_date}">Saltar</button>
+                  <button class="btn btn-ghost btn-xs" data-snooze-rec="${item.recurring_id}">Posponer</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function bindUpcomingActions(container) {
+  container.querySelectorAll('[data-approve-rec]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api.recurring.approve(parseInt(btn.dataset.approveRec), { occurrence_date: btn.dataset.occ });
+        toast.success('Ocurrencia aprobada y generada');
+        await mount(container);
+      } catch (err) { toast.error(err.message); }
+    });
+  });
+  container.querySelectorAll('[data-skip-rec]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api.recurring.skip(parseInt(btn.dataset.skipRec), { occurrence_date: btn.dataset.occ });
+        toast.success('Ocurrencia saltada');
+        await mount(container);
+      } catch (err) { toast.error(err.message); }
+    });
+  });
+  container.querySelectorAll('[data-snooze-rec]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api.recurring.snooze(parseInt(btn.dataset.snoozeRec), { days: 7 });
+        toast.success('Pospuesta 7 días');
+        await mount(container);
+      } catch (err) { toast.error(err.message); }
+    });
   });
 }
 

@@ -56,6 +56,7 @@ function renderPage(container, debts, summary) {
     <div class="page-header">
       <div class="page-header-text"><h1>Deudas</h1></div>
       <div class="page-header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnExportDebts" title="Exportar CSV">↓ Exportar</button>
         <button class="btn btn-primary btn-sm" id="btnNewDebt">+ Nueva Deuda</button>
       </div>
     </div>
@@ -95,6 +96,9 @@ function renderPage(container, debts, summary) {
       : ''}
   `;
 
+  container.querySelector('#btnExportDebts')?.addEventListener('click', () => {
+    window.location = api.debts.exportUrl;
+  });
   container.querySelector('#btnNewDebt')?.addEventListener('click', () => openDebtForm(null, () => mount(container)));
 
   container.querySelectorAll('[data-detail-debt]').forEach(btn => {

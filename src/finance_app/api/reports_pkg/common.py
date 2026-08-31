@@ -9,7 +9,10 @@ from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session, joinedload
 
 from finance_app.models import Transaction
-from finance_app.services.budget_service import build_spent_transactions_query
+from finance_app.services.budget_service import (
+    build_spent_transactions_query,
+    build_expense_offset_query,
+)
 from finance_app.services.exchange_rate_service import get_current_exchange_rate
 
 logger = logging.getLogger(__name__)
@@ -80,4 +83,34 @@ def expense_allocations(db: Session, start_date_obj: date, end_date_exclusive: d
                     allocations.append((tx, split.category, abs(split.amount)))
         else:
             allocations.append((tx, tx.category, abs(tx.amount)))
+
+    offsets = build_expense_offset_query(db, start_date_obj, end_date_exclusive).options(
+        joinedload(Transaction.splits),
+        joinedload(Transaction.category),
+    ).all()
+    for tx in offsets:
+        if tx.splits:
+            for split in tx.splits:
+                allocations.append((tx, split.category, -abs(split.amount)))
+        else:
+            allocations.append((tx, tx.category, -abs(tx.amount)))
     return allocations
+
+
+def net_expense_total(db, start_date_obj: date, end_date_exclusive: date, currency_id: int, exchange_rate: float) -> float:
+    """Absolute spending minus reimbursements/loan repayments in the range."""
+    outflows = build_spent_transactions_query(db, start_date_obj, end_date_exclusive).with_entities(
+        Transaction.amount, Transaction.currency_id
+    ).all()
+    inflows = build_expense_offset_query(db, start_date_obj, end_date_exclusive).with_entities(
+        Transaction.amount, Transaction.currency_id
+    ).all()
+    spent = sum(
+        convert_to_currency(abs(t.amount), t.currency_id, currency_id, exchange_rate)
+        for t in outflows
+    )
+    offsets = sum(
+        convert_to_currency(t.amount, t.currency_id, currency_id, exchange_rate)
+        for t in inflows
+    )
+    return spent - offsets

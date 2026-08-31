@@ -85,6 +85,74 @@ def _collect_recurring_events(
     return events
 
 
+def _collect_installment_events(
+    db: Session,
+    today: date,
+    until: date,
+    exchange_rate: float,
+) -> list[dict]:
+    """Upcoming credit-card installment (diferido) payments in the forecast window."""
+    from finance_app.models import DebtInstallment
+
+    events = []
+    installments = (
+        db.query(DebtInstallment)
+        .filter(DebtInstallment.is_active == True)
+        .all()
+    )
+
+    for inst in installments:
+        remaining = inst.installments_remaining
+        if remaining <= 0 or not inst.monthly_amount or inst.monthly_amount <= 0:
+            continue
+        if not inst.start_date:
+            continue
+
+        debt = inst.debt
+        currency = (debt.currency_code if debt else None) or "COP"
+        amount = float(inst.monthly_amount)
+        amount_cop = _to_cop(amount, currency, exchange_rate)
+
+        # Next unpaid installment date = start_date + installments_paid months
+        paid = inst.installments_paid or 0
+        for i in range(remaining):
+            candidate = inst.start_date + relativedelta(months=paid + i)
+            if candidate <= today:
+                continue
+            if candidate > until:
+                break
+            events.append({
+                "date": candidate.isoformat(),
+                "label": f"Cuota: {inst.description}",
+                "type": "installment",
+                "source": "installment",
+                "amount_signed": -amount,
+                "amount_cop": -amount_cop,
+                "currency": currency,
+                "debt_id": inst.debt_id,
+                "installment_id": inst.id,
+            })
+
+    return events
+
+
+def _installment_monthly_by_debt(db: Session) -> dict[int, float]:
+    """Sum of active installment monthly amounts per debt_id (to avoid double-count)."""
+    from finance_app.models import DebtInstallment
+
+    result: dict[int, float] = {}
+    rows = (
+        db.query(DebtInstallment)
+        .filter(DebtInstallment.is_active == True)
+        .all()
+    )
+    for inst in rows:
+        if (inst.installments_remaining or 0) <= 0:
+            continue
+        result[inst.debt_id] = result.get(inst.debt_id, 0.0) + float(inst.monthly_amount or 0)
+    return result
+
+
 def _collect_debt_events(
     db: Session,
     today: date,
@@ -94,9 +162,12 @@ def _collect_debt_events(
     """Generate upcoming debt payment events based on payment_day or next_due_date.
 
     For credit cards, uses minimum_payment as fallback when monthly_payment is not set.
+    If the card has active installments, those amounts are subtracted from the
+    card payment event so the forecast does not double-count diferidos.
     """
     events = []
     debts = db.query(Debt).filter(Debt.is_active == True).all()
+    installment_by_debt = _installment_monthly_by_debt(db)
 
     for debt in debts:
         # Determine the scheduled payment amount.
@@ -109,6 +180,12 @@ def _collect_debt_events(
 
         if not amount_raw or amount_raw <= 0:
             continue
+
+        # Avoid double-counting installments already projected separately
+        if debt.debt_type == "credit_card":
+            amount_raw = max(0.0, float(amount_raw) - installment_by_debt.get(debt.id, 0.0))
+            if amount_raw <= 0:
+                continue
 
         payment_day = debt.payment_day or (debt.next_due_date.day if debt.next_due_date else None)
         if not payment_day:
@@ -184,6 +261,7 @@ def get_cash_flow_forecast(
     events = []
     events.extend(_collect_recurring_events(db, today, until, exchange_rate))
     events.extend(_collect_debt_events(db, today, until, exchange_rate))
+    events.extend(_collect_installment_events(db, today, until, exchange_rate))
 
     # Sort by date
     events.sort(key=lambda e: e["date"])
@@ -248,6 +326,7 @@ def get_upcoming_events(
     events = []
     events.extend(_collect_recurring_events(db, today, until, exchange_rate))
     events.extend(_collect_debt_events(db, today, until, exchange_rate))
+    events.extend(_collect_installment_events(db, today, until, exchange_rate))
     events.sort(key=lambda e: e["date"])
 
     return {"events": events, "today": today.isoformat()}

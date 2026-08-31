@@ -1,11 +1,11 @@
 """
-Spending report endpoints: by category, tag, trends.
+Spending report endpoints: by category, tag, trends, payee, month comparison.
 """
 from typing import Optional
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from finance_app.database import get_db
@@ -17,6 +17,18 @@ from .common import get_exchange_rate, parse_date_range, convert_to_currency, ex
 router = APIRouter()
 
 
+def _month_bounds(month: Optional[str]) -> tuple[date, date, str]:
+    """Return (start, end_exclusive, YYYY-MM) for a month string or current month."""
+    today = date.today()
+    if month:
+        year, mon = int(month.split("-")[0]), int(month.split("-")[1])
+        start = date(year, mon, 1)
+    else:
+        start = today.replace(day=1)
+    end_exclusive = start + relativedelta(months=1)
+    return start, end_exclusive, start.strftime("%Y-%m")
+
+
 @router.get("/spending")
 def get_spending(
     month: Optional[str] = None,
@@ -24,13 +36,7 @@ def get_spending(
     db: Session = Depends(get_db)
 ):
     """Get spending grouped by category for a month (YYYY-MM)."""
-    today = date.today()
-    if month:
-        year, mon = int(month.split('-')[0]), int(month.split('-')[1])
-        start = date(year, mon, 1)
-    else:
-        start = today.replace(day=1)
-    end_exclusive = start + relativedelta(months=1)
+    start, end_exclusive, month_label = _month_bounds(month)
     exchange_rate = get_exchange_rate(db)
 
     allocations = expense_allocations(db, start, end_exclusive)
@@ -46,10 +52,38 @@ def get_spending(
         for name, total in sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
     ]
     return {
-        "month": start.strftime("%Y-%m"),
+        "month": month_label,
         "categories": categories,
         "total": round(sum(c["spent"] for c in categories), 2),
     }
+
+
+@router.get("/spending/export")
+def export_spending_csv(
+    month: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """Export spending-by-category report as CSV."""
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    payload = get_spending(month=month, currency_id=currency_id, db=db)
+    currency = db.get(Currency, currency_id)
+    code = currency.code if currency else "COP"
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Mes", "Categoría", "Gastado", "Moneda"])
+    for row in payload.get("categories", []):
+        writer.writerow([payload["month"], row["category_name"], row["spent"], code])
+    writer.writerow([payload["month"], "TOTAL", payload["total"], code])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="gastos-{payload["month"]}.csv"'},
+    )
 
 
 @router.get("/spending-by-category")
@@ -298,4 +332,104 @@ def get_spending_by_category_over_time(
         'series': series,
         'available_categories': all_cat_names,
         'category_groups': category_groups_map,
+    }
+
+
+@router.get("/spending-by-payee")
+def get_spending_by_payee(
+    month: Optional[str] = None,
+    currency_id: int = 1,
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """Top merchants/payees by spending for a month."""
+    start, end_exclusive, month_label = _month_bounds(month)
+    exchange_rate = get_exchange_rate(db)
+
+    transactions = (
+        build_spent_transactions_query(db, start, end_exclusive)
+        .options(joinedload(Transaction.payee))
+        .all()
+    )
+
+    payee_totals: dict[str, float] = {}
+    payee_counts: dict[str, int] = {}
+    for tx in transactions:
+        name = tx.payee.name if tx.payee else (tx.memo or "Sin comercio")
+        converted = convert_to_currency(abs(tx.amount), tx.currency_id, currency_id, exchange_rate)
+        payee_totals[name] = payee_totals.get(name, 0.0) + converted
+        payee_counts[name] = payee_counts.get(name, 0) + 1
+
+    ranked = sorted(payee_totals.items(), key=lambda x: x[1], reverse=True)[:limit]
+    total = sum(payee_totals.values())
+    payees = [
+        {
+            "payee_name": name,
+            "spent": round(amount, 2),
+            "tx_count": payee_counts[name],
+            "pct": round((amount / total * 100) if total else 0, 1),
+        }
+        for name, amount in ranked
+    ]
+    currency = db.get(Currency, currency_id)
+    return {
+        "month": month_label,
+        "payees": payees,
+        "total": round(total, 2),
+        "currency": currency.to_dict() if currency else None,
+    }
+
+
+@router.get("/month-comparison")
+def get_month_comparison(
+    month: Optional[str] = None,
+    currency_id: int = 1,
+    db: Session = Depends(get_db),
+):
+    """Compare spending by category: selected month vs previous month."""
+    start, end_exclusive, month_label = _month_bounds(month)
+    prev_start = start - relativedelta(months=1)
+    prev_end = start
+    prev_label = prev_start.strftime("%Y-%m")
+    exchange_rate = get_exchange_rate(db)
+
+    def _by_category(range_start: date, range_end: date) -> dict[str, float]:
+        totals: dict[str, float] = {}
+        for tx, category, allocation_amount in expense_allocations(db, range_start, range_end):
+            cat_name = category.name if category else "Sin categoría"
+            converted = convert_to_currency(allocation_amount, tx.currency_id, currency_id, exchange_rate)
+            totals[cat_name] = totals.get(cat_name, 0.0) + converted
+        return totals
+
+    current = _by_category(start, end_exclusive)
+    previous = _by_category(prev_start, prev_end)
+    all_cats = sorted(set(current) | set(previous), key=lambda n: current.get(n, 0), reverse=True)
+
+    categories = []
+    for name in all_cats:
+        cur = round(current.get(name, 0.0), 2)
+        prev = round(previous.get(name, 0.0), 2)
+        delta = round(cur - prev, 2)
+        if prev > 0:
+            delta_pct = round((delta / prev) * 100, 1)
+        elif cur > 0:
+            delta_pct = 100.0
+        else:
+            delta_pct = 0.0
+        categories.append({
+            "category_name": name,
+            "current": cur,
+            "previous": prev,
+            "delta": delta,
+            "delta_pct": delta_pct,
+        })
+
+    currency = db.get(Currency, currency_id)
+    return {
+        "month": month_label,
+        "previous_month": prev_label,
+        "categories": categories,
+        "total_current": round(sum(current.values()), 2),
+        "total_previous": round(sum(previous.values()), 2),
+        "currency": currency.to_dict() if currency else None,
     }

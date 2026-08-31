@@ -62,6 +62,7 @@ export const transactions = {
   update:   (id, d)  => put(`/transactions/${id}`, d),
   delete:   (id, opts) => del(`/transactions/${id}`, opts),
   transfer: (data)   => post('/transactions/transfer', data),
+  reimburse:(id, d)  => post(`/transactions/${id}/reimburse`, d),
 };
 
 export const budgets = {
@@ -75,6 +76,10 @@ export const budgets = {
   assignedTotals:()             => get('/budgets/assigned-totals'),
   readyToAssign: ()             => get('/budgets/ready-to-assign'),
   recalcSavings: ()             => post('/budgets/recalculate-savings'),
+  exportUrl:     (params = {})  => {
+    const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')));
+    return `/api/budgets/export${q.toString() ? '?' + q : ''}`;
+  },
 };
 
 export const categories = {
@@ -108,6 +113,7 @@ export const debts = {
   updateInstallment:  (id, iid, data) => patch(`/debts/${id}/installments/${iid}`, data),
   deleteInstallment:  (id, iid)       => del(`/debts/${id}/installments/${iid}`),
   strategyComparison: (params)        => get('/debts/strategy-comparison', params),
+  exportUrl:          '/api/debts/export',
 };
 
 export const goals = {
@@ -138,6 +144,7 @@ export const reports = {
   spending:           (params) => get('/reports/spending', params),
   balance:            (params) => get('/reports/balance', params),
   income:             (params) => get('/reports/income', params),
+  summary:            (params) => get('/reports/summary', params),
   cashflowSummary:    (params) => get('/reports/cashflow-summary', params),
   financialHealth:    (params) => get('/reports/financial-health', params),
   debt:               (params) => get('/reports/debt', params),
@@ -146,6 +153,12 @@ export const reports = {
   netWorthTimeline:   ()       => get('/reports/net-worth-timeline'),
   spendingByCategory: (params) => get('/reports/spending-by-category', params),
   spendingOverTime:   (params) => get('/reports/spending-by-category-over-time', params),
+  spendingByPayee:    (params) => get('/reports/spending-by-payee', params),
+  monthComparison:    (params) => get('/reports/month-comparison', params),
+  spendingExportUrl:  (params = {}) => {
+    const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')));
+    return `/api/reports/spending/export${q.toString() ? '?' + q : ''}`;
+  },
 };
 
 export const recurring = {
@@ -154,6 +167,14 @@ export const recurring = {
   update:   (id, d)  => put(`/recurring/${id}`, d),
   delete:   (id)     => del(`/recurring/${id}`),
   generate: ()       => post('/recurring/generate'),
+  upcoming: (params) => get('/recurring/upcoming', params),
+  approve:  (id, d)  => post(`/recurring/${id}/approve`, d ?? {}),
+  skip:     (id, d)  => post(`/recurring/${id}/skip`, d ?? {}),
+  snooze:   (id, d)  => post(`/recurring/${id}/snooze`, d ?? {}),
+};
+
+export const search = {
+  query: (q, limit = 8) => get('/search', { q, limit }),
 };
 
 export const emailSenderRules = {
@@ -200,6 +221,7 @@ export const patrimonio = {
   createAsset: (data)   => post('/patrimonio/activos', data),
   updateAsset: (id, d)  => put(`/patrimonio/activos/${id}`, d),
   deleteAsset: (id)     => del(`/patrimonio/activos/${id}`),
+  exportUrl:   '/api/patrimonio/export',
 };
 
 export const exchangeRates = {
@@ -209,8 +231,23 @@ export const exchangeRates = {
 };
 
 export const alerts = {
-  list:    ()   => get('/alerts'),
-  dismiss: (id) => post(`/alerts/${id}/dismiss`),
+  budget:  (params) => get('/alerts/budget', params),
+  smart:   (params) => get('/alerts/smart-notifications', params),
+  count:   (params) => get('/alerts/count', params),
+  rules:   {
+    list:   ()        => get('/alerts/rules'),
+    create: (data)    => post('/alerts/rules', data),
+    update: (id, d)   => patch(`/alerts/rules/${id}`, d),
+    delete: (id)      => del(`/alerts/rules/${id}`),
+  },
+};
+
+export const whatIf = {
+  simulate: (params) => get('/what-if', params),
+};
+
+export const mobile = {
+  snapshot: (params) => get('/mobile/snapshot', params),
 };
 
 export const cashFlow = {

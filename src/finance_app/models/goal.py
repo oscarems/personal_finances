@@ -19,6 +19,10 @@ class Goal(Base):
     start_date = Column(Date, nullable=False)
     start_amount = Column(Float, default=0.0, nullable=False)
     status = Column(String(20), nullable=False, default="active")
+    # target_balance_by_date | needed_for_spending | monthly_builder
+    goal_type = Column(String(40), nullable=False, default="target_balance_by_date")
+    # For monthly_builder: fixed monthly contribution amount
+    monthly_amount = Column(Float, nullable=True)
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -42,6 +46,8 @@ class Goal(Base):
             "start_date": self.start_date.isoformat() if self.start_date else None,
             "start_amount": self.start_amount,
             "status": self.status,
+            "goal_type": self.goal_type or "target_balance_by_date",
+            "monthly_amount": self.monthly_amount,
             "notes": self.notes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

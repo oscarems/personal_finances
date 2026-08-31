@@ -2,32 +2,45 @@ import * as api from '../api/client.js';
 import { fmtCurrency, fmtDate, sanitize } from '../utils.js';
 import { openModal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
+import { emptyState } from '../components/emptyState.js';
+import { loadingState, showError } from '../components/pageState.js';
 
 export const title = 'Patrimonio';
 
 let _chart = null;
+let _timelineChart = null;
 let _assets = [];
 
 export async function mount(container) {
-  container.innerHTML = '<div class="page-loading"><div class="spinner"></div></div>';
+  container.innerHTML = loadingState();
   try {
-    const [summary, assets] = await Promise.all([
+    const [summary, assets, timeline] = await Promise.all([
       api.patrimonio.summary(),
       api.patrimonio.assets(),
+      api.reports.netWorthTimeline().catch(() => []),
     ]);
     _assets = Array.isArray(assets) ? assets : [];
-    render(container, summary, _assets);
+    render(container, summary, _assets, Array.isArray(timeline) ? timeline : []);
   } catch (err) {
-    container.innerHTML = `<div class="alert alert-danger">${sanitize(err.message)}</div>`;
+    showError(container, {
+      title: 'Patrimonio',
+      message: err.message || 'Error al cargar el patrimonio',
+      onRetry: () => mount(container),
+    });
   }
 }
 
-export function cleanup() { _chart?.destroy(); _chart = null; }
+export function cleanup() {
+  _chart?.destroy();
+  _chart = null;
+  _timelineChart?.destroy();
+  _timelineChart = null;
+}
 
 const TIPO_ICON = { inmueble: '🏠', vehiculo: '🚗', inversion: '📈', cuenta: '🏦', efectivo: '💵', otro: '📦' };
 const TIPO_LABEL = { inmueble: 'Inmuebles', vehiculo: 'Vehículos', inversion: 'Inversiones', cuenta: 'Cuentas', efectivo: 'Efectivo', otro: 'Otros' };
 
-function render(container, summary, assets) {
+function render(container, summary, assets, timeline = []) {
   const totalAssets = summary?.total_activos ?? 0;
   const totalDebt   = summary?.total_deudas  ?? 0;
   const netWorth    = summary?.patrimonio_neto ?? (totalAssets - totalDebt);
@@ -48,6 +61,7 @@ function render(container, summary, assets) {
         <p class="text-soft" style="margin:2px 0 0;font-size:0.8125rem">Activos, valorización y composición de tu patrimonio neto</p>
       </div>
       <div class="page-header-actions">
+        <button class="btn btn-ghost btn-sm" id="btnExportPatrimonio" title="Exportar CSV">↓ Exportar</button>
         <button class="btn btn-primary" id="btnAddAsset">+ Activo</button>
       </div>
     </div>
@@ -73,12 +87,27 @@ function render(container, summary, assets) {
       </div>
     </div>
 
+    <div class="card mb-3">
+      <div class="card-header"><span class="card-title">Evolución patrimonio neto</span></div>
+      <div class="card-body" style="height:260px;position:relative">
+        ${timeline.length < 1
+          ? emptyState({ icon: '📈', title: 'Sin historial aún', hint: 'El snapshot del mes se genera al abrir la app o esta página.' })
+          : '<canvas id="netWorthChart"></canvas>'}
+      </div>
+    </div>
+
     <div class="grid-2 mb-3">
       <div class="card">
         <div class="card-header"><span class="card-title">Activos</span></div>
         <div class="card-body">
           ${displayAssets.length === 0
-            ? `<div class="empty-state"><div class="empty-state__icon">🏦</div><div class="empty-state__title">Sin activos registrados</div><p class="empty-state__hint">Agrega inmuebles, vehículos, inversiones u otros bienes para calcular tu patrimonio neto.</p></div>`
+            ? emptyState({
+                icon: '🏦',
+                title: 'Sin activos registrados',
+                hint: 'Agrega inmuebles, vehículos, inversiones u otros bienes para calcular tu patrimonio neto.',
+                actionLabel: '+ Activo',
+                actionId: 'btnAddAssetEmpty',
+              })
             : Object.entries(categories).map(([cat, list]) => categorySection(cat, list)).join('')}
         </div>
       </div>
@@ -86,14 +115,18 @@ function render(container, summary, assets) {
         <div class="card-header"><span class="card-title">Composición</span></div>
         <div class="card-body" style="height:280px;position:relative">
           ${displayAssets.length === 0
-            ? `<div class="empty-state" style="padding-top:2.5rem"><p class="empty-state__hint">Sin datos para graficar</p></div>`
+            ? emptyState({ icon: '📊', title: 'Sin datos para graficar', hint: 'Agrega activos para ver la composición.' })
             : '<canvas id="patriChart"></canvas>'}
         </div>
       </div>
     </div>
   `;
 
+  container.querySelector('#btnExportPatrimonio')?.addEventListener('click', () => {
+    window.location = api.patrimonio.exportUrl;
+  });
   container.querySelector('#btnAddAsset').addEventListener('click', () => openAssetModal(null, container));
+  container.querySelector('#btnAddAssetEmpty')?.addEventListener('click', () => openAssetModal(null, container));
   container.querySelectorAll('[data-edit-asset]').forEach(btn => {
     const asset = assets.find(a => a.id === parseInt(btn.dataset.editAsset));
     btn.addEventListener('click', () => openAssetModal(asset, container));
@@ -102,6 +135,47 @@ function render(container, summary, assets) {
     const id = parseInt(btn.dataset.deleteAsset);
     btn.addEventListener('click', () => deleteAsset(id, container));
   });
+
+  // Net worth timeline
+  const nwCtx = container.querySelector('#netWorthChart');
+  if (nwCtx && timeline.length) {
+    const accent = (window.CHART_PALETTE ?? ['#316342'])[0];
+    _timelineChart?.destroy();
+    _timelineChart = new Chart(nwCtx, {
+      type: 'line',
+      data: {
+        labels: timeline.map(s => s.month),
+        datasets: [{
+          label: 'Patrimonio neto',
+          data: timeline.map(s => s.net_cop),
+          borderColor: accent,
+          backgroundColor: accent + '33',
+          fill: true,
+          tension: 0.25,
+          pointRadius: timeline.length > 18 ? 0 : 3,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${fmtCurrency(ctx.raw, 'COP')}` } },
+        },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8, color: 'var(--fin-ink-3)', font: { size: 10 } }, grid: { display: false } },
+          y: {
+            ticks: {
+              color: 'var(--fin-ink-3)',
+              font: { size: 10 },
+              callback: v => fmtCurrency(v, 'COP'),
+            },
+            grid: { color: 'var(--fin-border)' },
+          },
+        },
+      },
+    });
+  }
 
   // Pie chart
   const ctx = container.querySelector('#patriChart');
@@ -259,9 +333,13 @@ function openAssetModal(asset, container) {
       if (!data.nombre || !data.valor_adquisicion || !data.fecha_adquisicion) throw new Error('Nombre, valor y fecha son obligatorios');
       if (isEdit) { await api.patrimonio.updateAsset(asset.id, data); toast.success('Actualizado'); }
       else        { await api.patrimonio.createAsset(data);           toast.success('Activo creado'); }
-      const [summary, assets] = await Promise.all([api.patrimonio.summary(), api.patrimonio.assets()]);
+      const [summary, assets, timeline] = await Promise.all([
+        api.patrimonio.summary(),
+        api.patrimonio.assets(),
+        api.reports.netWorthTimeline().catch(() => []),
+      ]);
       _assets = Array.isArray(assets) ? assets : [];
-      render(container, summary, _assets);
+      render(container, summary, _assets, Array.isArray(timeline) ? timeline : []);
     },
   });
 }
@@ -271,8 +349,12 @@ async function deleteAsset(id, container) {
   try {
     await api.patrimonio.deleteAsset(id);
     toast.success('Eliminado');
-    const [summary, assets] = await Promise.all([api.patrimonio.summary(), api.patrimonio.assets()]);
+    const [summary, assets, timeline] = await Promise.all([
+      api.patrimonio.summary(),
+      api.patrimonio.assets(),
+      api.reports.netWorthTimeline().catch(() => []),
+    ]);
     _assets = Array.isArray(assets) ? assets : [];
-    render(container, summary, _assets);
+    render(container, summary, _assets, Array.isArray(timeline) ? timeline : []);
   } catch (err) { toast.error(err.message); }
 }

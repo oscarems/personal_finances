@@ -30,6 +30,7 @@ class RecurringTransaction(Base):
     # Status
     is_active = Column(Boolean, default=True)
     last_generated_date = Column(Date)  # Last date a transaction was generated
+    snoozed_until = Column(Date)  # Skip auto-generate until this date (inclusive gate: generate only if today > snoozed_until)
 
     # Relationships
     account = relationship('Account', backref='recurring_transactions')
@@ -61,5 +62,6 @@ class RecurringTransaction(Base):
             'day_of_week': self.day_of_week,
             'day_of_month': self.day_of_month,
             'is_active': self.is_active,
-            'last_generated_date': self.last_generated_date.isoformat() if self.last_generated_date else None
+            'last_generated_date': self.last_generated_date.isoformat() if self.last_generated_date else None,
+            'snoozed_until': self.snoozed_until.isoformat() if self.snoozed_until else None,
         }

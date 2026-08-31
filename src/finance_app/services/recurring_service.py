@@ -110,6 +110,10 @@ def should_generate_transaction(recurring: RecurringTransaction, check_date: dat
     if recurring.last_generated_date and check_date <= recurring.last_generated_date:
         return False
 
+    # Snoozed: skip dates on or before snoozed_until
+    if recurring.snoozed_until and check_date <= recurring.snoozed_until:
+        return False
+
     return True
 
 
@@ -318,3 +322,135 @@ def preview_next_occurrences(recurring: RecurringTransaction, count: int = 5) ->
         current_date = get_next_occurrence_date(recurring, current_date)
 
     return occurrences
+
+
+def list_upcoming_occurrences(db: Session, days: int = 14, as_of: date | None = None) -> list[dict]:
+    """Return upcoming due occurrences across all active recurring rules."""
+    as_of = as_of or date.today()
+    until = as_of + timedelta(days=days)
+    items = []
+
+    active = db.query(RecurringTransaction).filter(RecurringTransaction.is_active == True).all()
+    for recurring in active:
+        next_date = get_next_scheduled_date(recurring)
+        if next_date is None:
+            continue
+        current = next_date
+        iterations = 0
+        while current <= until and iterations < 60:
+            iterations += 1
+            if current >= as_of:
+                snoozed = bool(recurring.snoozed_until and current <= recurring.snoozed_until)
+                items.append({
+                    "recurring_id": recurring.id,
+                    "description": recurring.description,
+                    "payee_name": recurring.payee.name if recurring.payee else None,
+                    "account_id": recurring.account_id,
+                    "account_name": recurring.account.name if recurring.account else None,
+                    "category_id": recurring.category_id,
+                    "category_name": recurring.category.name if recurring.category else None,
+                    "amount": recurring.amount,
+                    "transaction_type": recurring.transaction_type or ("income" if recurring.amount > 0 else "expense"),
+                    "currency": recurring.currency.to_dict() if recurring.currency else None,
+                    "occurrence_date": current.isoformat(),
+                    "snoozed": snoozed,
+                    "snoozed_until": recurring.snoozed_until.isoformat() if recurring.snoozed_until else None,
+                })
+            current = get_next_occurrence_date(recurring, current)
+
+    items.sort(key=lambda x: x["occurrence_date"])
+    return items
+
+
+def _signed_amount_for(recurring: RecurringTransaction) -> float:
+    signed = recurring.amount
+    if recurring.transaction_type:
+        base = abs(recurring.amount)
+        signed = base if recurring.transaction_type == "income" else -base
+    return signed
+
+
+def approve_occurrence(db: Session, recurring_id: int, occurrence_date: date | None = None) -> dict:
+    """Generate a single occurrence now (or for the given date) and advance last_generated_date."""
+    recurring = db.get(RecurringTransaction, recurring_id)
+    if not recurring:
+        raise ValueError("Recurring transaction not found")
+
+    target = occurrence_date or get_next_scheduled_date(recurring)
+    if target is None:
+        raise ValueError("No hay próxima ocurrencia para aprobar")
+
+    signed_amount = _signed_amount_for(recurring)
+    existing = get_existing_auto_transaction_date(db, recurring, target, signed_amount)
+    if existing:
+        recurring.last_generated_date = existing
+        recurring.snoozed_until = None
+        db.commit()
+        return {"generated": False, "skipped_existing": True, "date": existing.isoformat()}
+
+    audit_base_amount, audit_base_currency_id = build_transaction_audit_fields(
+        db, signed_amount, recurring.currency_id, target
+    )
+    transaction = Transaction(
+        account_id=recurring.account_id,
+        date=target,
+        payee_id=recurring.payee_id,
+        category_id=recurring.category_id,
+        memo=f"Auto: {recurring.description}" if recurring.description else "Transacción automática",
+        amount=signed_amount,
+        currency_id=recurring.currency_id,
+        original_amount=signed_amount,
+        original_currency_id=recurring.currency_id,
+        fx_rate=None,
+        base_amount=audit_base_amount,
+        base_currency_id=audit_base_currency_id,
+        cleared=False,
+        approved=True,
+    )
+    db.add(transaction)
+    db.flush()
+
+    account = db.get(Account, recurring.account_id)
+    if account:
+        account.balance += signed_amount
+
+    recurring.last_generated_date = target
+    recurring.snoozed_until = None
+    db.commit()
+    db.refresh(transaction)
+    return {"generated": True, "transaction_id": transaction.id, "date": target.isoformat()}
+
+
+def skip_occurrence(db: Session, recurring_id: int, occurrence_date: date | None = None) -> dict:
+    """Advance past an occurrence without creating a transaction."""
+    recurring = db.get(RecurringTransaction, recurring_id)
+    if not recurring:
+        raise ValueError("Recurring transaction not found")
+
+    target = occurrence_date or get_next_scheduled_date(recurring)
+    if target is None:
+        raise ValueError("No hay próxima ocurrencia para saltar")
+
+    recurring.last_generated_date = target
+    recurring.snoozed_until = None
+    db.commit()
+    next_date = get_next_scheduled_date(recurring)
+    return {
+        "skipped": True,
+        "date": target.isoformat(),
+        "next_occurrence_date": next_date.isoformat() if next_date else None,
+    }
+
+
+def snooze_occurrence(db: Session, recurring_id: int, days: int = 7) -> dict:
+    """Delay auto-generation until as_of + days."""
+    if days < 1:
+        raise ValueError("days must be >= 1")
+    recurring = db.get(RecurringTransaction, recurring_id)
+    if not recurring:
+        raise ValueError("Recurring transaction not found")
+
+    until = date.today() + timedelta(days=days)
+    recurring.snoozed_until = until
+    db.commit()
+    return {"snoozed": True, "snoozed_until": until.isoformat()}
